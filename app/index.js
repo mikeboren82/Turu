@@ -8,14 +8,14 @@ import Header from '../components/Header';
 import LoginRequiredModal from '../components/LoginRequiredModal';
 import AgeQuickPicker, { ageSummary } from '../components/AgeQuickPicker';
 import QuickPicker from '../components/QuickPicker';
-import LocationQuickPicker from '../components/LocationQuickPicker';
+import LocationQuickPicker, { locationSummary } from '../components/LocationQuickPicker';
 import {
   CATEGORY_OPTIONS, DEFAULT_FILTERS, FILTER_SCHEMA,
   PRICE_OPTIONS, PLACE_TYPE_OPTIONS, BOOKING_OPTIONS, DURATION_OPTIONS, AMENITY_COMFORT_OPTIONS,
 } from '../constants/filterSchema';
 import { fetchApprovedActivities } from '../lib/activities';
 import { haversineKm, normalizeFilters } from '../lib/filterActivities';
-import { whenSummary, hebrewJoin } from '../lib/filterSummaries';
+import { whenSummary, hebrewJoin, categorySummary } from '../lib/filterSummaries';
 import { supabase } from '../lib/supabase';
 import { fetchUserPreferences, saveDefaultHomeFilters } from '../lib/preferences';
 import { childrenToDefaultAgeFilter, formatChildAge } from '../lib/children';
@@ -73,7 +73,7 @@ function FilterRow({ f, isLast, onPress }) {
         {f.decorEmoji ? <Text style={styles.decorEmoji}>{f.decorEmoji}</Text> : <f.DecorIcon color={f.color} />}
         <View style={styles.filterTextStack}>
           <Text style={styles.filterLabel}>{f.label}</Text>
-          <Text style={styles.filterValue}>{f.subtitle}</Text>
+          <Text style={[styles.filterValue, f.active && styles.filterValueActive]}>{f.subtitle}</Text>
         </View>
       </View>
       <View style={styles.filterLeftGroup}>
@@ -326,8 +326,18 @@ export default function HomeScreen() {
   };
 
   const PRIMARY_FILTERS = [
-    { key: 'category', label: 'מה בא לנו?', subtitle: 'כל סוגי הפעילויות', Icon: CategoryIcon, decorEmoji: '🌟', tint: '#fdf3d9', color: '#e8bf36', onPress: () => setCategoryQuickOpen(true) },
-    { key: 'where', label: 'באיזור שלי', subtitle: 'איפה שנוח לכם', Icon: LocationIcon, decorEmoji: '🏡', tint: '#e2f5e7', color: '#3fb36d', onPress: () => setWhereQuickOpen(true) },
+    {
+      key: 'category', label: 'מה בא לנו?',
+      subtitle: filters.category.length > 0 ? categorySummary(filters.category) : 'כל סוגי הפעילויות',
+      active: filters.category.length > 0,
+      Icon: CategoryIcon, decorEmoji: '🌟', tint: '#fdf3d9', color: '#e8bf36', onPress: () => setCategoryQuickOpen(true),
+    },
+    {
+      key: 'where', label: 'איפה נח לכם?',
+      subtitle: filters.location?.mode ? locationSummary(filters.location) : 'באיזור שלי',
+      active: !!filters.location?.mode,
+      Icon: LocationIcon, decorEmoji: '🏡', tint: '#e2f5e7', color: '#3fb36d', onPress: () => setWhereQuickOpen(true),
+    },
   ];
 
   const handleGo = async () => {
@@ -573,6 +583,7 @@ const styles = StyleSheet.create({
   filterTextStack: { alignItems: 'flex-end' },
   filterLabel: { fontFamily: fonts.bold, fontSize: 14.5, color: colors.textPrimary },
   filterValue: { fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 1 },
+  filterValueActive: { fontFamily: fonts.bold, color: colors.accent },
   ageAddRow: { alignItems: 'center', marginBottom: 10 },
   extraFiltersWrap: { alignItems: 'center' },
   ageAddText: { fontFamily: fonts.semiBold, fontSize: 12.5, color: colors.textMuted },
