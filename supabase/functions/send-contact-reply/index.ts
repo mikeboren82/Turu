@@ -1,4 +1,4 @@
-// WABBIT - Edge Function שמאפשרת לאדמין (מכלי הניהול, tools/import-tool) לשלוח תשובה בפועל
+// TuRu - Edge Function שמאפשרת לאדמין (מכלי הניהול, tools/import-tool) לשלוח תשובה בפועל
 // למשתמש שכתב ב"צרו קשר", ולסמן את הפנייה כ"נענתה" ב-contact_messages. מעביר הלאה את
 // ה-Authorization header של הקורא (בדיוק כמו extract-activity) כדי ש-RLS על contact_messages
 // (0026: is_admin() או is_trusted_uploader()) יאכוף בעצמו מי מורשה - אין פה בדיקת הרשאה

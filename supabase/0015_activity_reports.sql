@@ -1,4 +1,4 @@
--- WABBIT - מאפשר לדווח גם על פעילויות עצמן (target_type='activity'), ומאפשר לכלי הייבוא
+-- TuRu - מאפשר לדווח גם על פעילויות עצמן (target_type='activity'), ומאפשר לכלי הייבוא
 -- (מסך הניהול, שרץ תחת role='importer' לא 'admin') לראות ולעדכן דיווחים - אותו עיקרון
 -- כמו is_trusted_uploader שכבר בשימוש לתמונות (ראו 0012).
 alter table public.reports drop constraint if exists reports_target_type_check;

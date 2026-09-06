@@ -1,4 +1,4 @@
--- WABBIT/TuRu - הרחבת handle_new_user() כדי שמשתמשי Google/Apple יקבלו כינוי התחלתי סביר.
+-- TuRu - הרחבת handle_new_user() כדי שמשתמשי Google/Apple יקבלו כינוי התחלתי סביר.
 -- הזרימה הקיימת (הרשמה בטלפון, ראו lib/submitActivity.js וכו') תמיד שולחת nickname מפורש
 -- ב-raw_user_meta_data, אז הפונקציה הזו לא משנה עבורם כלום. לספקי OAuth (Google/Apple) אין
 -- מפתח nickname, אבל בדרך כלל יש full_name/name - נופלים אליהם קודם, ורק אם גם אלה חסרים

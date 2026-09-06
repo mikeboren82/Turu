@@ -1,4 +1,4 @@
-// WABBIT - Edge Function לטופס "צור קשר": שולחת מייל בפועל (דרך Resend) במקום לפתוח
+// TuRu - Edge Function לטופס "צור קשר": שולחת מייל בפועל (דרך Resend) במקום לפתוח
 // אפליקציית מייל במכשיר של המשתמש, וגם שומרת את הפנייה ב-contact_messages (0026) כדי שתופיע
 // בפינת הניהול "הודעות ממשתמשים" - לא דורשת התחברות, הטופס פתוח גם לאורחים.
 
@@ -50,10 +50,10 @@ Deno.serve(async (req: Request) => {
       method: 'POST',
       headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        from: 'WABBIT <onboarding@resend.dev>',
+        from: 'TuRu <onboarding@resend.dev>',
         to: [CONTACT_EMAIL],
         reply_to: cleanEmail,
-        subject: 'פנייה חדשה מהאפליקציה - WABBIT',
+        subject: 'פנייה חדשה מהאפליקציה - TuRu',
         html: `<div dir="rtl" style="font-family: Arial, sans-serif; font-size: 15px; line-height: 1.6;">` +
           `<p><b>מאת:</b> ${escapeHtml(cleanEmail)}</p>` +
           `<p><b>הודעה:</b></p>` +

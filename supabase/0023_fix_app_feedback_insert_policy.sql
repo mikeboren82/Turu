@@ -1,4 +1,4 @@
--- WABBIT - תיקון: בדיקה ישירה מול ה-DB הראתה ש-INSERT אנונימי ל-app_feedback עדיין נחסם על
+-- TuRu - תיקון: בדיקה ישירה מול ה-DB הראתה ש-INSERT אנונימי ל-app_feedback עדיין נחסם על
 -- ידי RLS למרות ה-policy ב-0022 (ייתכן שהריצה הקודמת לא השלימה את כל הפקודות). מריצים שוב
 -- בצורה אידמפוטנטית (drop if exists + create) כדי שזה יעבוד בטוח בלי קשר למצב הנוכחי.
 alter table public.app_feedback enable row level security;

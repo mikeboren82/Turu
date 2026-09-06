@@ -1,4 +1,4 @@
--- WABBIT - schema ראשוני
+-- TuRu - schema ראשוני
 -- להריץ פעם אחת ב-Supabase Dashboard -> SQL Editor -> Run
 
 create extension if not exists pgcrypto;

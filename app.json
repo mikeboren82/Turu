@@ -25,7 +25,14 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "permissions": [
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT",
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -36,24 +43,30 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermissionText": "WABBIT משתמשת במיקום שלכם כדי להראות פעילויות קרובות אליכם."
+          "locationWhenInUsePermissionText": "TuRu משתמשת במיקום שלכם כדי להראות פעילויות קרובות אליכם."
         }
       ],
       "expo-secure-store",
       [
         "expo-local-authentication",
         {
-          "faceIDPermission": "WABBIT משתמשת בזיהוי הפנים שלכם כדי לחבר אתכם מהר יותר בפעם הבאה."
+          "faceIDPermission": "TuRu משתמשת בזיהוי הפנים שלכם כדי לחבר אתכם מהר יותר בפעם הבאה."
         }
       ],
       [
         "expo-image-picker",
         {
-          "photosPermission": "WABBIT צריכה גישה לתמונות שלכם כדי שתוכלו להוסיף תמונות מהפעילות.",
-          "cameraPermission": "WABBIT צריכה גישה למצלמה כדי שתוכלו לצלם תמונה מהפעילות."
+          "photosPermission": "TuRu צריכה גישה לתמונות שלכם כדי שתוכלו להוסיף תמונות מהפעילות.",
+          "cameraPermission": "TuRu צריכה גישה למצלמה כדי שתוכלו לצלם תמונה מהפעילות."
         }
       ],
       "expo-web-browser"
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "e47bcbd6-1ffd-4896-91c1-d764aad9b602"
+      }
+    }
   }
 }

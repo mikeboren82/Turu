@@ -1,4 +1,4 @@
--- WABBIT - הוספת שדות מטא-דאטה לפילטרים המתקדמים
+-- TuRu - הוספת שדות מטא-דאטה לפילטרים המתקדמים
 -- אין כפילות עם שדות קיימים (min_age/max_age/price_*/location_id כבר קיימים)
 
 alter table public.activities

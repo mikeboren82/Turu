@@ -88,7 +88,7 @@ export default function ReportScreen() {
         ) : (
           <>
             <Text style={styles.sheetTitle}>{title}</Text>
-            <Text style={styles.sheetSub}>הדיווח יישלח לצוות WABBIT לבדיקה</Text>
+            <Text style={styles.sheetSub}>הדיווח יישלח לצוות TuRu לבדיקה</Text>
             {preview ? (
               <View style={styles.reportedPreview}>
                 <Text style={styles.reportedPreviewText}>{String(preview)}</Text>

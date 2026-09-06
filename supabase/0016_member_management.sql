@@ -1,4 +1,4 @@
--- WABBIT - מאפשר לחסום/להסיר משתמש (הפיך - לא מוחק נתונים, רק חוסם כניסה).
+-- TuRu - מאפשר לחסום/להסיר משתמש (הפיך - לא מוחק נתונים, רק חוסם כניסה).
 -- אכיפת החסימה עצמה נעשית באפליקציה בזמן ההתחברות (client-side check, ראו lib/checkBanned.js).
 alter table public.profiles add column if not exists banned boolean not null default false;
 

@@ -19,7 +19,7 @@ export default function ContactScreen() {
   const [sendStatus, setSendStatus] = useState('');
 
   const openWhatsApp = () => {
-    const text = encodeURIComponent('היי! מגיע/ה מהאפליקציה WABBIT 🦘');
+    const text = encodeURIComponent('היי! מגיע/ה מהאפליקציה TuRu 🦘');
     Linking.openURL(`https://wa.me/${WHATSAPP_PHONE}?text=${text}`);
   };
 

@@ -1,4 +1,4 @@
--- WABBIT - מעקב אחרי אתרים שכבר נסרקו ע"י כלי הגילוי האוטומטי (חיפוש גוגל), כדי לא לחזור עליהם
+-- TuRu - מעקב אחרי אתרים שכבר נסרקו ע"י כלי הגילוי האוטומטי (חיפוש גוגל), כדי לא לחזור עליהם
 create table public.scraped_sources (
   id uuid primary key default gen_random_uuid(),
   url text not null unique,

@@ -1,4 +1,4 @@
--- WABBIT/TuRu - "הטבות והנחות" (benefits/discounts) שכבת מידע נוספת על פעילויות. הטבה לעולם
+-- TuRu - "הטבות והנחות" (benefits/discounts) שכבת מידע נוספת על פעילויות. הטבה לעולם
 -- לא חוסמת הצגת פעילות (זה נאכף באפליקציה, ב-lib/filterActivities.js) - הטבלה כאן רק מאחסנת
 -- את הנתון עצמו. טבלת-בת ל-activities (כמו activity_images/activity_schedules), פעילות יכולה
 -- להחזיק כמה שורות (ישראכרט + MAX + מבצע מקומי וכו').

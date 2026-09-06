@@ -1,4 +1,4 @@
--- WABBIT - תיקון באג: 0016 הרחיבה את profiles_read/profiles_update לכלול is_trusted_uploader(),
+-- TuRu - תיקון באג: 0016 הרחיבה את profiles_read/profiles_update לכלול is_trusted_uploader(),
 -- אבל is_trusted_uploader() עצמה שולפת מ-profiles - וזה יוצר רקורסיה אינסופית (הפונקציה
 -- מפעילה את המדיניות על profiles, שמפעילה שוב את הפונקציה, וכו'), שגורמת לשגיאת
 -- "stack depth limit exceeded" (נתפס כשמסך הדיווחים ב-/manage ניסה לטעון ונכשל).

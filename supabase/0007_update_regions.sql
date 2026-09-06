@@ -1,4 +1,4 @@
--- WABBIT - עדכון רשימת האזורים הגאוגרפיים לפילטר "אזור בארץ" (7 אזורים במקום הרשימה הישנה)
+-- TuRu - עדכון רשימת האזורים הגאוגרפיים לפילטר "אזור בארץ" (7 אזורים במקום הרשימה הישנה)
 alter table public.locations drop constraint if exists locations_region_check;
 alter table public.locations add constraint locations_region_check
   check (region in (

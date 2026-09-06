@@ -134,7 +134,7 @@ function buildExtractionSystemPrompt() {
 החזר תשובה שהיא אך ורק מערך JSON תקני (JSON array) של אובייקטים כאלה, בלי טקסט נוסף לפני או אחרי, ובלי markdown code fences.`;
 }
 
-// WABBIT מציגה רק פעילויות שאפשר להגיע אליהן מתי שרוצים בלי הרשמה/התחייבות מראש.
+// TuRu מציגה רק פעילויות שאפשר להגיע אליהן מתי שרוצים בלי הרשמה/התחייבות מראש.
 // "פעילות" (entity_type) מוגדר בפרומפט החילוץ עצמו כ"חוג/סדנה/פעילות חוזרת שהילדים משתתפים בה באופן פעיל" -
 // זה בדיוק ההגדרה של דבר שדורש הרשמה/התחייבות, לא רק כשה-category הוא ממש "חוג" (הרבה חוגים מתויגים
 // לפי הנושא שלהם - ספורט/בישול/יצירה/ריקוד וכו', לא לפי category="חוג" עצמו).
@@ -342,7 +342,7 @@ async function findOfficialWebsite(name, city) {
 // User-Agent מזהה - lastGeocodeRequestAt/GEOCODE_MIN_INTERVAL_MS דואגים לקצב, וה-User-Agent כולל
 // פרטי קשר כנדרש. אם לא נמצאה תוצאה - פשוט מוותרים בשקט, בדיוק כמו בחיפוש תמונה אוטומטי; המיקום
 // פשוט לא יופיע על המפה עד שיתעדכן ידנית.
-const NOMINATIM_USER_AGENT = 'WABBIT-KidsApp/1.0 (contact: mborenmusic@gmail.com)';
+const NOMINATIM_USER_AGENT = 'TuRu-KidsApp/1.0 (contact: mborenmusic@gmail.com)';
 const GEOCODE_MIN_INTERVAL_MS = 1100;
 let lastGeocodeRequestAt = 0;
 
@@ -2088,5 +2088,5 @@ app.post('/api/manage/member-ban', async (req, res) => {
 
 const PORT = process.env.PORT || 4321;
 app.listen(PORT, () => {
-  console.log(`כלי הייבוא של WABBIT רץ בכתובת http://localhost:${PORT}`);
+  console.log(`כלי הייבוא של TuRu רץ בכתובת http://localhost:${PORT}`);
 });
