@@ -392,7 +392,6 @@ export default function HomeScreen() {
       <LinearGradient colors={[colors.accentTint, colors.accentTintLight, colors.bg]} style={styles.topGradient} />
       <SkyClouds />
       <SunMascot />
-      <GrassFooter />
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Header onMenuPress={() => {}} />
@@ -441,15 +440,17 @@ export default function HomeScreen() {
         ) : null}
         {defaultNotice ? <Text style={styles.defaultNoticeText}>{defaultNotice}</Text> : null}
 
-        <Pressable style={styles.searchBtn} onPress={handleGo} disabled={locatingForSearch}>
-          {locatingForSearch ? (
-            <ActivityIndicator color="#ffffff" size="small" />
-          ) : (
-            <>
-              <Text style={styles.searchBtnText}>יאללה, יוצאים לדרך!</Text>
-              <Text style={styles.searchBtnEmoji}>🚀</Text>
-            </>
-          )}
+        <Pressable style={styles.searchBtnWrap} onPress={handleGo} disabled={locatingForSearch}>
+          <LinearGradient colors={['#1cb0e0', '#00647f']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.searchBtn}>
+            {locatingForSearch ? (
+              <ActivityIndicator color="#ffffff" size="small" />
+            ) : (
+              <>
+                <Text style={styles.searchBtnText}>יאללה, יוצאים לדרך!</Text>
+                <Text style={styles.searchBtnEmoji}>🚀</Text>
+              </>
+            )}
+          </LinearGradient>
         </Pressable>
         {locationNotice ? <Text style={styles.locationNoticeText}>{locationNotice}</Text> : null}
 
@@ -488,6 +489,8 @@ export default function HomeScreen() {
             <Text style={styles.footerVerseMark}>״</Text>
           </Text>
         </View>
+
+        <GrassFooter />
       </ScrollView>
 
       <AgeQuickPicker
@@ -532,7 +535,7 @@ const styles = StyleSheet.create({
     position: 'absolute', top: -12, left: 4,
   },
   grassFooter: {
-    position: 'absolute', bottom: 0, left: 0, right: 0, width: '100%', aspectRatio: 939 / 148,
+    marginTop: 28, marginHorizontal: -spacing.xl, aspectRatio: 939 / 148,
   },
   grassFooterImage: { width: '100%', height: '100%' },
   grassFooterFade: { position: 'absolute', top: 0, left: 0, right: 0, height: '100%' },
@@ -594,11 +597,13 @@ const styles = StyleSheet.create({
   spontaneousEmoji: { fontSize: 15, marginTop: -1 },
   spontaneousBtnText: { fontFamily: fonts.bold, fontSize: 12.5, color: '#ffffff' },
   spontaneousErrorText: { fontFamily: fonts.semiBold, fontSize: 12, color: colors.danger, textAlign: 'center', marginTop: -4, marginBottom: 10 },
+  searchBtnWrap: {
+    width: '100%', borderRadius: radii.pill, overflow: 'hidden', marginBottom: 20,
+    shadowColor: colors.accent, shadowOpacity: 0.3, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 4,
+  },
   searchBtn: {
     flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'center', gap: 8,
-    width: '100%', backgroundColor: colors.accent, borderRadius: radii.pill, paddingVertical: 15,
-    marginBottom: 20,
-    shadowColor: colors.accent, shadowOpacity: 0.3, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 4,
+    paddingVertical: 15,
   },
   searchBtnText: { fontFamily: fonts.bold, fontSize: 16.5, color: '#ffffff' },
   searchBtnEmoji: { fontSize: 16.5 },
