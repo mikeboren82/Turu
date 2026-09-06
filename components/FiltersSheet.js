@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, Pressable, Platform, LayoutAnimation, UIManager
 import * as Location from 'expo-location';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import {
-  FILTER_SCHEMA, REGION_OPTIONS, RADIUS_OPTIONS, WHEN_OPTIONS, HOUR_OPTIONS,
+  FILTER_SCHEMA, REGION_OPTIONS, RADIUS_OPTIONS, WHEN_OPTIONS, HOUR_OPTIONS, DEFAULT_FILTERS,
 } from '../constants/filterSchema';
 import { countForKey } from '../lib/filterActivities';
 import { colors, fonts, radii, spacing } from '../constants/theme';
@@ -241,6 +241,18 @@ export default function FiltersSheet({ filters, onChange, onClearAll, onCoordsRe
     });
   };
 
+  // מנקה שדה בודד בלי לפתוח את הסקשן - 'when' הוא היחיד שכותב לשני מפתחות (when+hour, ראו
+  // countForKey ב-lib/filterActivities.js שסופר את שניהם יחד), אז צריך לאפס את שניהם יחד.
+  const clearSection = (key) => {
+    animate();
+    if (key === 'when') {
+      onChange('when', DEFAULT_FILTERS.when);
+      onChange('hour', DEFAULT_FILTERS.hour);
+      return;
+    }
+    onChange(key, DEFAULT_FILTERS[key]);
+  };
+
   return (
     <View style={styles.panel}>
       <View style={styles.panelHeader}>
@@ -253,18 +265,27 @@ export default function FiltersSheet({ filters, onChange, onClearAll, onCoordsRe
         const count = countForKey(filters, section.key);
         return (
           <View key={section.key} style={styles.section}>
-            <Pressable style={styles.sectionHeader} onPress={() => toggleOpen(section.key)}>
-              <View style={styles.sectionHeaderLeft}>
+            <View style={styles.sectionHeader}>
+              <Pressable style={styles.sectionHeaderLeft} onPress={() => toggleOpen(section.key)}>
                 <Text style={styles.sectionIcon}>{section.icon}</Text>
                 <Text style={styles.sectionTitle}>{section.title}</Text>
                 {count > 0 && (
                   <View style={styles.countBadge}><Text style={styles.countBadgeText}>{count}</Text></View>
                 )}
+              </Pressable>
+              <View style={styles.sectionHeaderRight}>
+                {count > 0 && (
+                  <Pressable onPress={() => clearSection(section.key)} hitSlop={8}>
+                    <Text style={styles.sectionClearText}>נקה</Text>
+                  </Pressable>
+                )}
+                <Pressable onPress={() => toggleOpen(section.key)} hitSlop={8}>
+                  <View style={{ transform: [{ rotate: isOpen ? '180deg' : '0deg' }] }}>
+                    <ChevronDownIcon size={13} />
+                  </View>
+                </Pressable>
               </View>
-              <View style={{ transform: [{ rotate: isOpen ? '180deg' : '0deg' }] }}>
-                <ChevronDownIcon size={13} />
-              </View>
-            </Pressable>
+            </View>
 
             {isOpen && (
               <View style={styles.sectionBody}>
@@ -314,7 +335,9 @@ const styles = StyleSheet.create({
 
   section: { backgroundColor: colors.bg, borderRadius: radii.md, borderWidth: 1, borderColor: colors.borderLight, marginBottom: 8, overflow: 'hidden' },
   sectionHeader: { flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between', padding: 13 },
-  sectionHeaderLeft: { flexDirection: 'row-reverse', alignItems: 'center', gap: 8 },
+  sectionHeaderLeft: { flex: 1, flexDirection: 'row-reverse', alignItems: 'center', gap: 8 },
+  sectionHeaderRight: { flexDirection: 'row-reverse', alignItems: 'center', gap: 14 },
+  sectionClearText: { fontFamily: fonts.bold, fontSize: 12, color: colors.danger },
   sectionIcon: { fontSize: 15 },
   sectionTitle: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.textPrimary },
   countBadge: { backgroundColor: colors.accent, borderRadius: 10, minWidth: 20, height: 20, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 5 },

@@ -10,7 +10,7 @@ import AgeQuickPicker, { ageSummary } from '../components/AgeQuickPicker';
 import QuickPicker from '../components/QuickPicker';
 import LocationQuickPicker, { locationSummary } from '../components/LocationQuickPicker';
 import {
-  CATEGORY_OPTIONS, DEFAULT_FILTERS, FILTER_SCHEMA,
+  CATEGORY_FILTER_OPTIONS, DEFAULT_FILTERS, FILTER_SCHEMA,
   PRICE_OPTIONS, PLACE_TYPE_OPTIONS, BOOKING_OPTIONS, DURATION_OPTIONS, AMENITY_COMFORT_OPTIONS,
 } from '../constants/filterSchema';
 import { fetchApprovedActivities } from '../lib/activities';
@@ -404,11 +404,11 @@ export default function HomeScreen() {
       <SunMascot />
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Header onMenuPress={() => {}} />
+        <Header onMenuPress={() => {}} hideLogo />
 
-        <Text style={styles.headline}>
-          כל הפעילויות, לכל הילדים, במקום אחד
-        </Text>
+        <View style={styles.logoImageWrap}>
+          <Image source={require('../assets/turu-logo.jpeg')} style={styles.logoImage} resizeMode="contain" />
+        </View>
 
         {isPersonalized ? (
           <PersonalPicker kids={children} selectedChildIds={selectedChildIds} onToggleChild={toggleChild} />
@@ -513,7 +513,7 @@ export default function HomeScreen() {
         visible={categoryQuickOpen}
         title="מה בא לנו?"
         subtitle="אפשר לבחור כמה קטגוריות"
-        options={CATEGORY_OPTIONS}
+        options={CATEGORY_FILTER_OPTIONS}
         value={filters.category}
         multiple
         showAll
@@ -542,17 +542,15 @@ const styles = StyleSheet.create({
     position: 'absolute', top: 0, left: 0, right: 0, height: 230,
   },
   sunMascot: {
-    position: 'absolute', top: 4, left: 4,
+    position: 'absolute', top: -14, left: 4,
   },
+  logoImageWrap: { alignItems: 'center', marginTop: 4, marginBottom: 10 },
+  logoImage: { width: 220, height: 220 * (816 / 1304) },
   grassFooter: {
     marginTop: 28, marginHorizontal: -spacing.xl, aspectRatio: 939 / 148,
   },
   grassFooterImage: { width: '100%', height: '100%' },
   grassFooterFade: { position: 'absolute', top: 0, left: 0, right: 0, height: '100%' },
-  headline: {
-    marginTop: 16, marginBottom: 20, textAlign: 'center', fontSize: 19, fontFamily: fonts.extraBold,
-    color: colors.ink, paddingHorizontal: 10, lineHeight: 26,
-  },
   filtersCard: {
     backgroundColor: colors.card, borderRadius: radii.xl, borderWidth: 1, borderColor: colors.borderLight,
     overflow: 'hidden', marginBottom: 18,

@@ -26,6 +26,11 @@ export const CATEGORY_OPTIONS = [
   // אז לא הגיוני להציע אותה כאפשרות סינון - היא לעולם לא תחזיר תוצאות.
 ].map((label) => ({ id: label, label }));
 
+// לשימוש בפילטר "סוג פעילות" (חיפוש/סינון) בלבד - בלי "אחר", שאינה קטגוריית-חיפוש שימושית
+// (קליטה-לכל). app/add-activity.js ממשיך להשתמש ב-CATEGORY_OPTIONS המלא כשמתייגים פעילות
+// חדשה - שם "אחר" עדיין רלוונטי כתיוג, בשונה מסינון.
+export const CATEGORY_FILTER_OPTIONS = CATEGORY_OPTIONS.filter((c) => c.id !== 'אחר');
+
 // חייב להישאר תואם ל-REGION_VALUES ב-tools/import-tool/server.js ולאילוץ ה-CHECK
 // על locations.region ב-DB (supabase/0007_update_regions.sql) - אם משנים כאן, לעדכן גם שם.
 export const REGION_OPTIONS = [
@@ -153,7 +158,7 @@ export const HOUR_OPTIONS = [
 // matchMode (any/all - רלוונטי רק ל-chips), multiple (בחירה מרובה או בודדת בלבד).
 // הסדר כאן הוא סדר התצוגה בפועל בסינון המתקדם - מהחשוב לפחות חשוב.
 export const FILTER_SCHEMA = [
-  { key: 'category', icon: '🎯', title: 'סוג פעילות', type: 'chips', options: CATEGORY_OPTIONS, multiple: true, matchMode: 'any' },
+  { key: 'category', icon: '🎯', title: 'סוג פעילות', type: 'chips', options: CATEGORY_FILTER_OPTIONS, multiple: true, matchMode: 'any' },
   { key: 'location', icon: '📍', title: 'מיקום', type: 'location' },
   { key: 'age', icon: '👶', title: 'גיל', type: 'chips', options: AGE_OPTIONS, multiple: true, matchMode: 'any' },
   // 'when' משלב יום + שעה בסקשן אחד (WhenSection ב-FiltersSheet.js כותבת גם ל-filters.when

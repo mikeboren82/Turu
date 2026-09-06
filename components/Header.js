@@ -29,7 +29,7 @@ function MenuIcon() {
   );
 }
 
-export default function Header({ showBack = false, onMenuPress }) {
+export default function Header({ showBack = false, onMenuPress, hideLogo = false }) {
   const router = useRouter();
   const pathname = usePathname();
   const insets = useSafeAreaInsets();
@@ -149,16 +149,18 @@ export default function Header({ showBack = false, onMenuPress }) {
         <View style={[styles.side, styles.sideLeft]} />
       )}
 
-      <Pressable style={styles.logoWrap} onPress={() => router.push('/')} accessibilityLabel="חזרה למסך הראשי">
-        <View style={styles.logoLockup}>
-          <Text style={styles.logoText}>
-            <Text style={styles.logoLatin}>TuRu</Text>
-            <Text style={styles.logoKangaroo}> 🦘 </Text>
-            <Text style={styles.logoHebrew}>תורו</Text>
-          </Text>
-        </View>
-        <Text style={styles.tagline}>לאן קופצים היום?</Text>
-      </Pressable>
+      {!hideLogo && (
+        <Pressable style={styles.logoWrap} onPress={() => router.push('/')} accessibilityLabel="חזרה למסך הראשי">
+          <View style={styles.logoLockup}>
+            <Text style={styles.logoText}>
+              <Text style={styles.logoLatin}>TuRu</Text>
+              <Text style={styles.logoKangaroo}> 🦘 </Text>
+              <Text style={styles.logoHebrew}>תורו</Text>
+            </Text>
+          </View>
+          <Text style={styles.tagline}>לאן קופצים היום?</Text>
+        </Pressable>
+      )}
 
       <Pressable
         style={[styles.iconBtn, styles.side, styles.sideRight]}

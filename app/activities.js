@@ -16,14 +16,11 @@ import { fetchUserActivityFlags, toggleFavorite, toggleVisited, toggleHidden } f
 import { fetchUserPreferences, saveExcludedCategories, saveExcludedCities } from '../lib/preferences';
 import { supabase } from '../lib/supabase';
 import {
-  DEFAULT_FILTERS, CATEGORY_OPTIONS, CITY_OPTIONS, PRICE_OPTIONS, PLACE_TYPE_OPTIONS, BOOKING_OPTIONS, DURATION_OPTIONS, AMENITY_COMFORT_OPTIONS, HOUR_OPTIONS, BENEFIT_FILTER_OPTIONS,
+  DEFAULT_FILTERS, CATEGORY_FILTER_OPTIONS, CITY_OPTIONS, PRICE_OPTIONS, PLACE_TYPE_OPTIONS, BOOKING_OPTIONS, DURATION_OPTIONS, AMENITY_COMFORT_OPTIONS, HOUR_OPTIONS, BENEFIT_FILTER_OPTIONS,
 } from '../constants/filterSchema';
 import { categorySummary, whenSummary, hebrewJoin } from '../lib/filterSummaries';
 import { rankActivities, countActiveFilters, normalizeFilters } from '../lib/filterActivities';
 import { formatBenefitCardTag } from '../lib/benefits';
-
-// "🚫 הסר פעילויות" - בלי "אחר" (לא רלוונטי כאפשרות הסתרה: קטגוריית "קליטה-לכל" ממילא).
-const HIDE_CATEGORY_OPTIONS = CATEGORY_OPTIONS.filter((c) => c.id !== 'אחר');
 
 function parseJson(value, fallback) {
   if (!value) return fallback;
@@ -102,9 +99,10 @@ export default function ActivitiesScreen() {
   // "יאללה יוצאים לדרך" בעמוד הבית) מבקשים למלא את שני הפילטרים הראשיים לפני שממשיכים.
   // מחושב פעם אחת מה-state ההתחלתי - לא חוזר להופיע אחרי שנסגר, גם אם המשתמש מנקה שוב.
   // לא מוצג כשמגיעים דרך "סינון מתקדם" (openFilters=true) - שם הפאנל המלא כבר פתוח ומכסה
-  // את אותם שני שדות ועוד; שער נוסף לפניו רק חוסם, לא עוזר.
+  // את אותם שני שדות ועוד; שער נוסף לפניו רק חוסם, לא עוזר. גם לא מוצג כשמגיעים מחיפוש חופשי
+  // (filters.q) - חיפוש חופשי הוא כבר כוונה ברורה, לא צריך לעצור אותו בשאלה "מה בא לנו?".
   const [showGate, setShowGate] = useState(() => (
-    openFilters !== 'true' && !filters.category?.length && !filters.location?.mode
+    openFilters !== 'true' && !filters.q?.trim() && !filters.category?.length && !filters.location?.mode
   ));
   const [gateCategoryOpen, setGateCategoryOpen] = useState(false);
   const [gateLocationOpen, setGateLocationOpen] = useState(false);
@@ -252,7 +250,9 @@ export default function ActivitiesScreen() {
 
         <View style={styles.titleBlock}>
           <Text style={styles.pageTitle}>{buildSearchSentence(filters)}</Text>
-          <Text style={styles.pageSubtitle}>{filteredActivities.length} פעילויות נמצאו</Text>
+          <Text style={styles.pageSubtitle}>
+            {filteredActivities.length === 1 ? 'פעילות אחת נמצאה' : `${filteredActivities.length} פעילויות נמצאו`}
+          </Text>
         </View>
 
         {activeChips.length > 0 && (
@@ -341,7 +341,7 @@ export default function ActivitiesScreen() {
         visible={hideCategoriesModalOpen}
         title="🚫 אילו פעילויות לא מעניינות אתכם?"
         subtitle="בחרו דברים שאתם מעדיפים לא לראות בתוצאות."
-        options={HIDE_CATEGORY_OPTIONS}
+        options={CATEGORY_FILTER_OPTIONS}
         value={hideDraft}
         multiple
         onChange={setHideDraft}
@@ -445,7 +445,7 @@ export default function ActivitiesScreen() {
         visible={gateCategoryOpen}
         title="מה בא לנו?"
         subtitle="אפשר לבחור כמה קטגוריות"
-        options={CATEGORY_OPTIONS}
+        options={CATEGORY_FILTER_OPTIONS}
         value={filters.category}
         multiple
         showAll
