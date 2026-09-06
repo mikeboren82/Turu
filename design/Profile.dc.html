@@ -1,0 +1,267 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&family=Assistant:wght@400;500;600;700;800&display=swap">
+  <style>
+    body { margin: 0; }
+    * { box-sizing: border-box; }
+    .screen {
+      width: 390px;
+      min-height: 1260px;
+      background: oklch(0.985 0.004 230);
+      font-family: 'Assistant', 'Segoe UI', Arial, sans-serif;
+      direction: rtl;
+      color: oklch(0.22 0.02 240);
+      padding: 22px 18px 40px;
+    }
+    .header { position: relative; padding: 6px 0 4px; text-align: center; }
+    .menu-btn {
+      position: absolute; top: 0; right: 0;
+      width: 38px; height: 38px; border-radius: 10px;
+      border: 1px solid oklch(0.88 0.01 230); background: oklch(1 0 0);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .logo-lockup { display: flex; align-items: center; justify-content: center; gap: 5px; direction: ltr; }
+    .logo { font-family: 'Fredoka', 'Assistant', sans-serif; font-size: 19px; font-weight: 700; letter-spacing: 0.2px; }
+    .logo .wab { color: oklch(0.3 0.03 235); }
+    .logo .bit { color: oklch(0.52 0.11 225); }
+
+    .profile-block { display: flex; align-items: center; gap: 14px; margin: 26px 0 22px; }
+    .avatar-wrap { position: relative; flex-shrink: 0; }
+    .avatar {
+      width: 58px; height: 58px; border-radius: 50%;
+      background: oklch(0.52 0.11 225); color: white; font-family: 'Fredoka', sans-serif;
+      font-size: 24px; font-weight: 700; display: flex; align-items: center; justify-content: center;
+    }
+    .avatar-edit-btn {
+      position: absolute; bottom: -2px; left: -2px; width: 24px; height: 24px; border-radius: 50%;
+      background: oklch(1 0 0); border: 2px solid oklch(0.985 0.004 230);
+      box-shadow: 0 1px 4px oklch(0.3 0.02 230 / 0.3);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .profile-info { flex: 1; min-width: 0; }
+    .profile-name { font-size: 19px; font-weight: 800; }
+    .profile-edit { font-size: 12.5px; color: oklch(0.52 0.11 225); font-weight: 700; text-decoration: underline; }
+    .add-activity-btn {
+      flex-shrink: 0; display: flex; align-items: center; gap: 6px;
+      border: none; background: oklch(0.52 0.11 225); color: white; font-weight: 700; font-size: 12.5px;
+      border-radius: 999px; padding: 10px 14px; white-space: nowrap;
+    }
+
+    .shelf { margin-bottom: 26px; }
+    .shelf-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 12px; }
+    .shelf-title { font-size: 15.5px; font-weight: 800; }
+    .shelf-more { font-size: 12px; font-weight: 700; color: oklch(0.52 0.11 225); }
+    .shelf-row { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 2px; }
+    .mini-card {
+      width: 130px; flex-shrink: 0; background: oklch(1 0 0);
+      border: 1px solid oklch(0.9 0.01 230); border-radius: 12px; overflow: hidden;
+      box-shadow: 0 2px 8px oklch(0.3 0.02 230 / 0.05);
+    }
+    .mini-image { position: relative; height: 84px; }
+    .mini-body { padding: 8px 9px 10px; }
+    .mini-title { font-size: 12.5px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .mini-sub { font-size: 10.5px; color: oklch(0.55 0.02 235); margin-top: 2px; }
+    .mini-card.removed { opacity: 0.6; }
+    .mini-card.removed .mini-image { filter: grayscale(60%); }
+    .restore-btn {
+      position: absolute; top: 6px; left: 6px; width: 26px; height: 26px; border-radius: 50%;
+      background: oklch(1 0 0 / 0.9); display: flex; align-items: center; justify-content: center; border: none;
+    }
+    .empty-shelf { font-size: 12.5px; color: oklch(0.6 0.01 230); background: oklch(1 0 0); border: 1px dashed oklch(0.88 0.01 230); border-radius: 12px; padding: 16px; text-align: center; }
+
+    .summary-row {
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      background: oklch(1 0 0); border: 1px solid oklch(0.9 0.01 230); border-radius: 12px;
+      padding: 13px 15px; margin-bottom: 22px;
+    }
+    .summary-left { display: flex; align-items: center; gap: 10px; }
+    .summary-icon { width: 30px; height: 30px; border-radius: 9px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .summary-text { font-size: 13.5px; font-weight: 700; }
+    .summary-count { color: oklch(0.55 0.02 235); font-weight: 600; }
+    .summary-link { display: flex; align-items: center; gap: 3px; font-size: 12px; font-weight: 700; color: oklch(0.52 0.11 225); white-space: nowrap; }
+
+    .note-card {
+      background: oklch(1 0 0); border: 1px solid oklch(0.9 0.01 230); border-radius: 12px;
+      padding: 12px 14px; margin-bottom: 10px;
+    }
+    .note-activity { font-size: 12.5px; font-weight: 700; color: oklch(0.52 0.11 225); margin-bottom: 4px; }
+    .note-snippet { font-size: 12.5px; color: oklch(0.4 0.02 235); line-height: 1.5; }
+    .note-date { font-size: 10.5px; color: oklch(0.6 0.01 230); margin-top: 4px; }
+
+    .account-card {
+      background: oklch(1 0 0); border: 1px solid oklch(0.9 0.01 230); border-radius: 14px; overflow: hidden;
+    }
+    .setting-row {
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      padding: 13px 15px; border-bottom: 1px solid oklch(0.93 0.01 230);
+    }
+    .setting-row:last-child { border-bottom: none; }
+    .setting-label { font-size: 13px; color: oklch(0.45 0.02 235); font-weight: 600; }
+    .setting-value { font-size: 13px; font-weight: 700; color: oklch(0.22 0.02 240); display: flex; align-items: center; gap: 6px; }
+    .badge-ok { display: flex; align-items: center; gap: 4px; color: oklch(0.45 0.1 150); font-weight: 700; font-size: 12.5px; }
+    .toggle { width: 38px; height: 22px; border-radius: 999px; background: oklch(0.52 0.11 225); position: relative; flex-shrink: 0; }
+    .toggle-dot { position: absolute; top: 2px; right: 2px; width: 18px; height: 18px; border-radius: 50%; background: white; }
+
+    .logout-link {
+      display: block; text-align: center; font-size: 13.5px; font-weight: 700;
+      color: oklch(0.55 0.16 25); margin-top: 24px;
+    }
+  </style>
+</helmet>
+<div class="screen">
+  <div class="header">
+    <div class="logo-lockup">
+      <svg width="19" height="19" viewBox="0 0 24 24">
+        <ellipse cx="9" cy="7" rx="3" ry="7.5" fill="oklch(0.62 0.16 40)" transform="rotate(-18 9 7)"/>
+        <ellipse cx="15" cy="7" rx="3" ry="7.5" fill="oklch(0.52 0.11 225)" transform="rotate(18 15 7)"/>
+      </svg>
+      <div class="logo"><span class="wab">WAB</span><span class="bit">BIT</span></div>
+    </div>
+    <button class="menu-btn" aria-label="תפריט">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="oklch(0.28 0.03 235)" stroke-width="1.8" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
+    </button>
+  </div>
+
+  <div class="profile-block">
+    <div class="avatar-wrap">
+      <div class="avatar">נ</div>
+      <button class="avatar-edit-btn" aria-label="החלפת תמונת פרופיל">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="oklch(0.52 0.11 225)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h3l2-3h8l2 3h3v11H3z"/><circle cx="12" cy="14" r="3.5"/></svg>
+      </button>
+    </div>
+    <div class="profile-info">
+      <div class="profile-name">נועה</div>
+      <div class="profile-edit">עריכת פרופיל</div>
+    </div>
+    <button class="add-activity-btn">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.6" stroke-linecap="round"><line x1="12" y1="4" x2="12" y2="20"/><line x1="4" y1="12" x2="20" y2="12"/></svg>
+      <span>הוסף פעילות</span>
+    </button>
+  </div>
+
+  <div class="shelf">
+    <div class="shelf-head">
+      <div class="shelf-title">⭐ המועדפים שלי (2)</div>
+      <div class="shelf-more">הצג הכל</div>
+    </div>
+    <div class="shelf-row">
+      <div class="mini-card">
+        <div class="mini-image" style="background: linear-gradient(180deg, oklch(0.9 0.05 225), oklch(0.82 0.07 225));">
+          <svg width="100%" height="100%" viewBox="0 0 130 84" preserveAspectRatio="xMidYMax slice">
+            <circle cx="24" cy="18" r="9" fill="oklch(0.95 0.1 90 / 0.8)"/>
+            <path d="M0 75 Q16 60 32 75 T64 75 T96 75 T128 75 V84 H0 Z" fill="oklch(0.6 0.1 150 / 0.55)"/>
+            <line x1="65" y1="32" x2="65" y2="68" stroke="oklch(0.4 0.05 40)" stroke-width="3" stroke-linecap="round"/>
+            <line x1="50" y1="34" x2="80" y2="34" stroke="oklch(0.4 0.05 40)" stroke-width="3" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="mini-body">
+          <div class="mini-title">גן פינת החמד</div>
+          <div class="mini-sub">גן שעשועים · ת"א</div>
+        </div>
+      </div>
+      <div class="mini-card">
+        <div class="mini-image" style="background: linear-gradient(180deg, oklch(0.92 0.1 80), oklch(0.85 0.12 60));">
+          <svg width="100%" height="100%" viewBox="0 0 130 84" preserveAspectRatio="xMidYMax slice">
+            <rect x="0" y="62" width="130" height="22" fill="oklch(0.55 0.08 145 / 0.5)"/>
+            <path d="M65 18 C50 18 46 34 54 42 C46 44 46 58 60 58 H70 C84 58 84 44 76 42 C84 34 80 18 65 18 Z" fill="oklch(0.5 0.09 145)"/>
+            <circle cx="26" cy="20" r="9" fill="oklch(0.85 0.15 95 / 0.85)"/>
+          </svg>
+        </div>
+        <div class="mini-body">
+          <div class="mini-title">פארק הירקון</div>
+          <div class="mini-sub">פארק · ת"א</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="shelf">
+    <div class="shelf-head">
+      <div class="shelf-title">📝 ההערות הפרטיות שלי</div>
+      <div class="shelf-more">הצג הכל</div>
+    </div>
+    <div class="note-card">
+      <div class="note-activity">פארק הירקון - פינת פיקניק</div>
+      <div class="note-snippet">מקום קבוע ליום שישי בבוקר, להגיע לפני 9 כי מתמלא</div>
+      <div class="note-date">לפני 4 ימים</div>
+    </div>
+    <div class="note-card">
+      <div class="note-activity">מוזיאון הילדים הדיגיטלי</div>
+      <div class="note-snippet">היינו בפברואר, שווה לחזור עם הקטן כשיגדל קצת</div>
+      <div class="note-date">לפני 3 שבועות</div>
+    </div>
+  </div>
+
+  <div class="summary-row">
+    <div class="summary-left">
+      <div class="summary-icon" style="background: oklch(0.92 0.07 150);">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="oklch(0.45 0.1 150)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+      <div class="summary-text">כבר הייתי <span class="summary-count">(1)</span></div>
+    </div>
+    <div class="summary-link">הצג הכל <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="oklch(0.52 0.11 225)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 6 9 12 15 18"/></svg></div>
+  </div>
+
+  <div class="summary-row">
+    <div class="summary-left">
+      <div class="summary-icon" style="background: oklch(0.93 0.02 230);">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="oklch(0.5 0.02 235)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.9 17.9A10.94 10.94 0 0 1 12 20c-7 0-10-8-10-8a18.5 18.5 0 0 1 4.2-5.2M9.5 4.6A9.9 9.9 0 0 1 12 4c7 0 10 8 10 8a18.4 18.4 0 0 1-2.2 3.4"/><path d="M14.1 14.1a3 3 0 1 1-4.2-4.2"/><line x1="2" y1="2" x2="22" y2="22"/></svg>
+      </div>
+      <div class="summary-text">פעילויות שהוסרו <span class="summary-count">(1)</span></div>
+    </div>
+    <div class="summary-link">הצג הכל <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="oklch(0.52 0.11 225)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 6 9 12 15 18"/></svg></div>
+  </div>
+
+  <div class="summary-row">
+    <div class="summary-left">
+      <div class="summary-icon" style="background: oklch(0.93 0.06 300);">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="oklch(0.5 0.14 300)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+      </div>
+      <div class="summary-text">ההערות שלי לקהילה <span class="summary-count">(3)</span></div>
+    </div>
+    <div class="summary-link">הצג הכל <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="oklch(0.52 0.11 225)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 6 9 12 15 18"/></svg></div>
+  </div>
+
+  <div class="shelf">
+    <div class="shelf-head"><div class="shelf-title">⚙️ פרטי חשבון</div></div>
+    <div class="account-card">
+      <div class="setting-row">
+        <div class="setting-label">כינוי</div>
+        <div class="setting-value">נועה</div>
+      </div>
+      <div class="setting-row">
+        <div class="setting-label">טלפון</div>
+        <div class="setting-value" dir="ltr">050-123-4567</div>
+      </div>
+      <div class="setting-row">
+        <div class="setting-label">אימייל</div>
+        <div class="setting-value">לא הוגדר</div>
+      </div>
+      <div class="setting-row">
+        <div class="setting-label">עדכונים על מקומות חדשים</div>
+        <div class="toggle"><div class="toggle-dot"></div></div>
+      </div>
+      <div class="setting-row">
+        <div class="setting-label">כניסה מהירה</div>
+        <div class="setting-value">
+          <span class="badge-ok">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="oklch(0.45 0.1 150)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            מופעלת
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <a class="logout-link">התנתקות</a>
+</div>
+</x-dc>
+</body>
+</html>

@@ -1,0 +1,19 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "wabbit-web",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["expo", "start", "--web"],
+      "port": 8081,
+      "autoPort": true
+    },
+    {
+      "name": "admin-tool",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["start"],
+      "cwd": "tools/import-tool",
+      "port": 4321
+    }
+  ]
+}

@@ -1,0 +1,59 @@
+{
+  "expo": {
+    "name": "TuRu",
+    "slug": "wabbit",
+    "scheme": "wabbit",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "experiments": {
+      "typedRoutes": true
+    },
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "com.turu.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "edgeToEdgeEnabled": true
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "@react-native-community/datetimepicker",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermissionText": "WABBIT משתמשת במיקום שלכם כדי להראות פעילויות קרובות אליכם."
+        }
+      ],
+      "expo-secure-store",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "WABBIT משתמשת בזיהוי הפנים שלכם כדי לחבר אתכם מהר יותר בפעם הבאה."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "WABBIT צריכה גישה לתמונות שלכם כדי שתוכלו להוסיף תמונות מהפעילות.",
+          "cameraPermission": "WABBIT צריכה גישה למצלמה כדי שתוכלו לצלם תמונה מהפעילות."
+        }
+      ],
+      "expo-web-browser"
+    ]
+  }
+}

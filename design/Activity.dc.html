@@ -1,0 +1,323 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&family=Assistant:wght@400;500;600;700;800&display=swap">
+  <style>
+    body { margin: 0; }
+    * { box-sizing: border-box; }
+    .screen {
+      width: 390px;
+      min-height: 1560px;
+      background: oklch(0.985 0.004 230);
+      font-family: 'Assistant', 'Segoe UI', Arial, sans-serif;
+      direction: rtl;
+      color: oklch(0.22 0.02 240);
+      padding-bottom: 40px;
+    }
+    .header {
+      position: relative; padding: 22px 18px 4px; text-align: center;
+    }
+    .menu-btn, .back-btn {
+      position: absolute; top: 22px;
+      width: 38px; height: 38px; border-radius: 10px;
+      border: 1px solid oklch(0.88 0.01 230); background: oklch(1 0 0);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .menu-btn { right: 18px; }
+    .back-btn { left: 18px; }
+    .logo-lockup { display: flex; align-items: center; justify-content: center; gap: 5px; direction: ltr; }
+    .logo { font-family: 'Fredoka', 'Assistant', sans-serif; font-size: 19px; font-weight: 700; letter-spacing: 0.2px; }
+    .logo .wab { color: oklch(0.3 0.03 235); }
+    .logo .bit { color: oklch(0.52 0.11 225); }
+
+    .hero { position: relative; margin-top: 16px; height: 260px; }
+    .hero-action-row {
+      position: absolute; top: 14px; right: 16px; left: 16px;
+      display: flex; align-items: center; justify-content: flex-end; gap: 8px;
+    }
+    .action-btn {
+      width: 36px; height: 36px; border-radius: 50%;
+      background: oklch(1 0 0 / 0.92); box-shadow: 0 1px 5px oklch(0.3 0.02 230 / 0.25);
+      display: flex; align-items: center; justify-content: center; border: none;
+    }
+    .hero-count {
+      position: absolute; bottom: 12px; left: 16px;
+      background: oklch(0.2 0.02 240 / 0.55); color: white; font-size: 11.5px; font-weight: 700;
+      border-radius: 999px; padding: 5px 11px;
+    }
+    .thumb-row { display: flex; gap: 8px; padding: 12px 18px 0; overflow-x: auto; }
+    .thumb { width: 60px; height: 60px; border-radius: 10px; flex-shrink: 0; }
+    .thumb.active { outline: 2.5px solid oklch(0.52 0.11 225); outline-offset: 2px; }
+
+    .content { padding: 20px 18px 0; }
+    .title-row { margin-bottom: 8px; }
+    .title { font-size: 21px; font-weight: 800; margin-bottom: 6px; }
+    .type-badge {
+      display: inline-block; font-size: 12px; font-weight: 700; color: oklch(0.52 0.11 225);
+      background: oklch(0.95 0.02 225); border-radius: 7px; padding: 4px 10px;
+    }
+    .location-row {
+      display: flex; align-items: center; gap: 6px; font-size: 13.5px; color: oklch(0.5 0.02 235);
+      margin: 10px 0 18px;
+    }
+
+    .info-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 24px; }
+    .info-cell {
+      background: oklch(1 0 0); border: 1px solid oklch(0.9 0.01 230); border-radius: 14px;
+      padding: 12px 8px; text-align: center;
+    }
+    .info-icon {
+      width: 30px; height: 30px; border-radius: 9px; margin: 0 auto 6px;
+      display: flex; align-items: center; justify-content: center;
+      background: oklch(0.92 0.05 225);
+    }
+    .info-label { font-size: 11px; color: oklch(0.55 0.02 235); font-weight: 600; margin-bottom: 2px; }
+    .info-value { font-size: 13.5px; font-weight: 800; color: oklch(0.22 0.02 240); }
+
+    .section { margin-bottom: 26px; }
+    .section-title { font-size: 15px; font-weight: 800; margin-bottom: 10px; }
+    .full-desc { font-size: 13.5px; line-height: 1.65; color: oklch(0.4 0.02 235); margin: 0; }
+
+    .map-placeholder {
+      height: 150px; border-radius: 14px; margin-bottom: 10px;
+      background:
+        linear-gradient(oklch(0.94 0.01 230) 1px, transparent 1px) 0 0/22px 22px,
+        linear-gradient(90deg, oklch(0.94 0.01 230) 1px, transparent 1px) 0 0/22px 22px,
+        oklch(0.97 0.005 230);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .address-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .address-text { font-size: 13px; color: oklch(0.4 0.02 235); }
+    .nav-btn {
+      flex-shrink: 0; display: flex; align-items: center; gap: 6px;
+      border: 1.5px solid oklch(0.52 0.11 225); background: oklch(0.97 0.015 225);
+      color: oklch(0.52 0.11 225); font-weight: 700; font-size: 12.5px;
+      border-radius: 999px; padding: 8px 13px;
+    }
+
+    .note { display: flex; gap: 10px; margin-bottom: 14px; }
+    .note-avatar {
+      width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
+      background: oklch(0.9 0.05 225); color: oklch(0.4 0.1 225); font-size: 12px; font-weight: 800;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .note-body { font-size: 13px; line-height: 1.55; }
+    .note-nick { font-weight: 700; color: oklch(0.3 0.02 235); }
+    .note-time { font-size: 11px; color: oklch(0.6 0.01 230); margin-right: 6px; }
+    .note-text { color: oklch(0.45 0.02 235); display: block; margin-top: 2px; }
+    .add-note-row { display: flex; gap: 8px; margin-top: 4px; }
+    .add-note-row input {
+      flex: 1; border: 1px solid oklch(0.88 0.01 230); border-radius: 999px; padding: 11px 15px;
+      font-family: inherit; font-size: 13px; text-align: right;
+    }
+    .add-note-row button {
+      border: none; background: oklch(0.52 0.11 225); color: white; font-weight: 700; font-size: 13px;
+      border-radius: 999px; padding: 11px 18px;
+    }
+    .personal-note {
+      width: 100%; border: 1px solid oklch(0.88 0.01 230); border-radius: 12px; padding: 12px 14px;
+      font-family: inherit; font-size: 13px; color: oklch(0.35 0.02 235); resize: none; min-height: 70px;
+      background: oklch(0.98 0.01 90);
+    }
+  </style>
+</helmet>
+<div class="screen">
+  <div class="header">
+    <div class="back-btn">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="oklch(0.28 0.03 235)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
+    </div>
+    <div class="logo-lockup">
+      <svg width="19" height="19" viewBox="0 0 24 24">
+        <ellipse cx="9" cy="7" rx="3" ry="7.5" fill="oklch(0.62 0.16 40)" transform="rotate(-18 9 7)"/>
+        <ellipse cx="15" cy="7" rx="3" ry="7.5" fill="oklch(0.52 0.11 225)" transform="rotate(18 15 7)"/>
+      </svg>
+      <div class="logo"><span class="wab">WAB</span><span class="bit">BIT</span></div>
+    </div>
+    <button class="menu-btn" aria-label="תפריט">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="oklch(0.28 0.03 235)" stroke-width="1.8" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
+    </button>
+  </div>
+
+  <div class="hero" style="background: {{heroBg}}">
+    <sc-if value="{{isPhoto0}}" hint-placeholder-val="{{true}}">
+    <svg width="100%" height="100%" viewBox="0 0 390 260" preserveAspectRatio="xMidYMax slice">
+      <circle cx="60" cy="46" r="22" fill="oklch(0.95 0.1 90 / 0.8)"/>
+      <path d="M0 220 Q40 185 80 220 T160 220 T240 220 T320 220 T400 220 V260 H0 Z" fill="oklch(0.6 0.1 150 / 0.55)"/>
+      <line x1="195" y1="110" x2="195" y2="205" stroke="oklch(0.4 0.05 40)" stroke-width="7" stroke-linecap="round"/>
+      <line x1="140" y1="116" x2="250" y2="116" stroke="oklch(0.4 0.05 40)" stroke-width="7" stroke-linecap="round"/>
+      <line x1="158" y1="116" x2="145" y2="185" stroke="oklch(0.68 0.17 40)" stroke-width="6" stroke-linecap="round"/>
+      <line x1="158" y1="116" x2="171" y2="185" stroke="oklch(0.68 0.17 40)" stroke-width="6" stroke-linecap="round"/>
+      <rect x="137" y="182" width="42" height="9" rx="4" fill="oklch(0.68 0.17 40)"/>
+      <line x1="232" y1="116" x2="219" y2="185" stroke="oklch(0.52 0.11 225)" stroke-width="6" stroke-linecap="round"/>
+      <line x1="232" y1="116" x2="245" y2="185" stroke="oklch(0.52 0.11 225)" stroke-width="6" stroke-linecap="round"/>
+      <rect x="211" y="182" width="42" height="9" rx="4" fill="oklch(0.52 0.11 225)"/>
+    </svg>
+    </sc-if>
+    <sc-if value="{{isPhoto1}}" hint-placeholder-val="{{false}}">
+    <svg width="100%" height="100%" viewBox="0 0 390 260" preserveAspectRatio="xMidYMax slice">
+      <rect x="0" y="200" width="390" height="60" fill="oklch(0.55 0.08 145 / 0.5)"/>
+      <path d="M195 70 C150 70 138 115 162 140 C138 146 138 182 172 182 H218 C252 182 252 146 228 140 C252 115 240 70 195 70 Z" fill="oklch(0.5 0.09 145)"/>
+      <rect x="186" y="178" width="18" height="28" fill="oklch(0.4 0.07 60)"/>
+      <circle cx="90" cy="60" r="26" fill="oklch(0.85 0.15 95 / 0.85)"/>
+      <circle cx="305" cy="80" r="14" fill="oklch(0.99 0.005 90 / 0.7)"/>
+    </svg>
+    </sc-if>
+    <sc-if value="{{isPhoto2}}" hint-placeholder-val="{{false}}">
+    <svg width="100%" height="100%" viewBox="0 0 390 260" preserveAspectRatio="xMidYMax slice">
+      <path d="M0 220 Q40 185 80 220 T160 220 T240 220 T320 220 T400 220 V260 H0 Z" fill="oklch(0.6 0.1 150 / 0.4)"/>
+      <circle cx="195" cy="95" r="46" fill="oklch(0.85 0.15 90 / 0.9)"/>
+      <line x1="195" y1="30" x2="195" y2="14" stroke="oklch(0.85 0.15 90)" stroke-width="6" stroke-linecap="round"/>
+      <line x1="245" y1="45" x2="257" y2="34" stroke="oklch(0.85 0.15 90)" stroke-width="6" stroke-linecap="round"/>
+      <line x1="145" y1="45" x2="133" y2="34" stroke="oklch(0.85 0.15 90)" stroke-width="6" stroke-linecap="round"/>
+      <circle cx="195" cy="218" r="12" fill="oklch(0.55 0.1 220)"/>
+      <path d="M175 218 Q175 170 195 170 Q215 170 215 218" fill="none" stroke="oklch(0.6 0.15 220 / 0.75)" stroke-width="5" stroke-linecap="round"/>
+      <path d="M162 218 Q162 190 180 185" fill="none" stroke="oklch(0.6 0.15 220 / 0.6)" stroke-width="4" stroke-linecap="round"/>
+      <path d="M228 218 Q228 190 210 185" fill="none" stroke="oklch(0.6 0.15 220 / 0.6)" stroke-width="4" stroke-linecap="round"/>
+    </svg>
+    </sc-if>
+    <sc-if value="{{isPhoto3}}" hint-placeholder-val="{{false}}">
+    <svg width="100%" height="100%" viewBox="0 0 390 260" preserveAspectRatio="xMidYMax slice">
+      <path d="M0 220 Q40 185 80 220 T160 220 T240 220 T320 220 T400 220 V260 H0 Z" fill="oklch(0.55 0.09 150 / 0.6)"/>
+      <circle cx="325" cy="65" r="22" fill="oklch(0.85 0.15 95 / 0.75)"/>
+      <line x1="150" y1="150" x2="150" y2="192" stroke="oklch(0.35 0.05 40)" stroke-width="7" stroke-linecap="round"/>
+      <line x1="240" y1="150" x2="240" y2="192" stroke="oklch(0.35 0.05 40)" stroke-width="7" stroke-linecap="round"/>
+      <rect x="140" y="118" width="110" height="9" rx="4" fill="oklch(0.45 0.06 40)"/>
+      <rect x="140" y="150" width="110" height="10" rx="4" fill="oklch(0.45 0.06 40)"/>
+    </svg>
+    </sc-if>
+    <div class="hero-action-row">
+      <div class="action-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="oklch(0.35 0.02 235)" stroke-width="2"><path d="M12 21s-6.5-4.35-9.5-8.36C.5 9.28 1.8 5 6 5c2.1 0 3.6 1.2 6 3.6C14.4 6.2 15.9 5 18 5c4.2 0 5.5 4.28 3.5 7.64C18.5 16.65 12 21 12 21z"/></svg></div>
+      <div class="action-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="oklch(0.35 0.02 235)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h13l3 3v13H4z"/><path d="M15 4v5H8V4"/></svg></div>
+      <div class="action-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="oklch(0.35 0.02 235)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg></div>
+      <div class="action-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="oklch(0.35 0.02 235)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.9 17.9A10.94 10.94 0 0 1 12 20c-7 0-10-8-10-8a18.5 18.5 0 0 1 4.2-5.2M9.5 4.6A9.9 9.9 0 0 1 12 4c7 0 10 8 10 8a18.4 18.4 0 0 1-2.2 3.4"/><path d="M14.1 14.1a3 3 0 1 1-4.2-4.2"/><line x1="2" y1="2" x2="22" y2="22"/></svg></div>
+      <div class="action-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="oklch(0.35 0.02 235)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+    </div>
+    <div class="hero-count">{{heroCount}}</div>
+  </div>
+  <div class="thumb-row">
+    <div class="thumb {{thumb0Class}}" style="background: oklch(0.88 0.06 225);" onClick="{{selectPhoto0}}"></div>
+    <div class="thumb {{thumb1Class}}" style="background: oklch(0.82 0.08 150);" onClick="{{selectPhoto1}}"></div>
+    <div class="thumb {{thumb2Class}}" style="background: oklch(0.85 0.1 90);" onClick="{{selectPhoto2}}"></div>
+    <div class="thumb {{thumb3Class}}" style="background: oklch(0.8 0.07 40);" onClick="{{selectPhoto3}}"></div>
+  </div>
+
+  <div class="content">
+    <div class="title-row">
+      <div class="title">גן פינת החמד</div>
+      <span class="type-badge">גן שעשועים</span>
+    </div>
+    <div class="location-row">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="oklch(0.5 0.02 235)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.2"/></svg>
+      <span>1.4 ק"מ ממך · תל אביב</span>
+    </div>
+
+    <div class="info-grid">
+      <div class="info-cell">
+        <div class="info-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="oklch(0.5 0.13 150)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="7" x2="20" y2="7"/><circle cx="9" cy="7" r="1.8" fill="oklch(0.5 0.13 150)" stroke="none"/><line x1="4" y1="14" x2="20" y2="14"/><circle cx="16" cy="14" r="1.8" fill="oklch(0.5 0.13 150)" stroke="none"/><line x1="4" y1="21" x2="20" y2="21"/><circle cx="12" cy="21" r="1.8" fill="oklch(0.5 0.13 150)" stroke="none"/></svg>
+        </div>
+        <div class="info-label">גילאים</div>
+        <div class="info-value">2-6</div>
+      </div>
+      <div class="info-cell">
+        <div class="info-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="oklch(0.45 0.1 150)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9 15s1 1.5 3 1.5 3-1.5 3-1.5M9 10h.01M15 10h.01"/></svg>
+        </div>
+        <div class="info-label">מחיר</div>
+        <div class="info-value">חינם</div>
+      </div>
+      <div class="info-cell">
+        <div class="info-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="oklch(0.55 0.13 80)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/></svg>
+        </div>
+        <div class="info-label">שעות</div>
+        <div class="info-value">08:00–20:00</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">על הפעילות</div>
+      <p class="full-desc">גן שעשועים מוצל וירוק עם מתקנים לכל הגילאים, פינת פיקניק ומזרקת מים לקיץ. יש אזור נפרד לפעוטות עם ריפוד רך, ספסלים בכל האזור למבוגרים, ומתקן שתייה ציבורי. מתאים לביקור ספונטני של שעה-שעתיים, ואין צורך בהרשמה מראש.</p>
+    </div>
+
+    <div class="section">
+      <div class="section-title">מיקום</div>
+      <div class="map-placeholder">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="oklch(0.52 0.11 225)" stroke-width="2"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.4"/></svg>
+      </div>
+      <div class="address-row">
+        <div class="address-text">רחוב הפרחים 8, תל אביב</div>
+        <div class="nav-btn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="oklch(0.52 0.11 225)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>
+          <span>ניווט</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">הערות קהילה (2)</div>
+      <div class="note">
+        <div class="note-avatar">מ</div>
+        <div class="note-body">
+          <span class="note-nick">מיכל</span><span class="note-time">לפני 3 ימים</span>
+          <span class="note-text">מקום מצוין לפיקניק, יש צל בשעות הצהריים</span>
+        </div>
+      </div>
+      <div class="note">
+        <div class="note-avatar">ד</div>
+        <div class="note-body">
+          <span class="note-nick">דני</span><span class="note-time">לפני שבוע</span>
+          <span class="note-text">המתקנים חדשים יחסית, הבן שלי (5) נהנה מאוד</span>
+        </div>
+      </div>
+      <div class="add-note-row">
+        <input type="text" placeholder="הוסיפו הערה לקהילה...">
+        <button>שלח</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">ההערה האישית שלי</div>
+      <textarea class="personal-note" placeholder="כתבו כאן הערה פרטית - רק אתם תראו אותה..."></textarea>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    const selected = this.state.selected ?? 0;
+    const select = (i) => () => this.setState({ selected: i });
+    const bgs = [
+      'linear-gradient(180deg, oklch(0.9 0.05 225), oklch(0.82 0.07 225))',
+      'linear-gradient(180deg, oklch(0.92 0.1 80), oklch(0.85 0.12 60))',
+      'linear-gradient(180deg, oklch(0.95 0.08 90), oklch(0.88 0.12 70))',
+      'linear-gradient(180deg, oklch(0.88 0.05 150), oklch(0.8 0.08 140))',
+    ];
+    return {
+      heroBg: bgs[selected],
+      heroCount: (selected + 1) + ' / 4',
+      isPhoto0: selected === 0,
+      isPhoto1: selected === 1,
+      isPhoto2: selected === 2,
+      isPhoto3: selected === 3,
+      thumb0Class: selected === 0 ? 'active' : '',
+      thumb1Class: selected === 1 ? 'active' : '',
+      thumb2Class: selected === 2 ? 'active' : '',
+      thumb3Class: selected === 3 ? 'active' : '',
+      selectPhoto0: select(0),
+      selectPhoto1: select(1),
+      selectPhoto2: select(2),
+      selectPhoto3: select(3),
+    };
+  }
+}
+</script>
+</body>
+</html>

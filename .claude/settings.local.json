@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(powershell -Command \"Get-NetTCPConnection -LocalPort 8081 -State Listen -ErrorAction SilentlyContinue | Select-Object -Property OwningProcess\")",
+      "Bash(node -c server.js)",
+      "Bash(node -c feedback.js)",
+      "Bash(node -c manage.js)",
+      "Bash(node -c members.js)",
+      "Bash(node -c contributors.js)",
+      "Bash(powershell -Command \"Get-NetTCPConnection -LocalPort 4321 -State Listen -ErrorAction SilentlyContinue | Select-Object -Property OwningProcess\")",
+      "Bash(node -e ' *)",
+      "Bash(powershell -Command 'Get-NetTCPConnection -LocalPort 4321 -State Listen -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess | ForEach-Object { Stop-Process -Id $_ -Force }')",
+      "Bash(npm install *)",
+      "Bash(powershell -Command 'Get-NetTCPConnection -LocalPort 8081 -State Listen -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess | ForEach-Object { Stop-Process -Id $_ -Force }')",
+      "Bash(node -c messages.js)",
+      "Bash(npx supabase *)",
+      "Bash(find \"/c/Users/mbore/AppData\" -iname \"*supabase*\" -maxdepth 4 2>/dev/null | grep -vi \"npm-cache\\\\|npx\\\\|_npx\" | head -50)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:4321/messages)",
+      "Bash(npm start *)",
+      "Bash(netstat -ano)",
+      "Bash(taskkill //PID 312 //F)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:4321/)",
+      "Bash(taskkill //PID 16820 //F)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:4321/)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:4321/messages)",
+      "Bash(curl -s http://localhost:4321/api/manage/activities)",
+      "Bash(awk '{print $5, $NF}')"
+    ]
+  }
+}

@@ -1,0 +1,97 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&family=Assistant:wght@400;500;600;700;800&display=swap">
+  <style>
+    body { margin: 0; }
+    * { box-sizing: border-box; }
+    .screen {
+      width: 390px;
+      min-height: 700px;
+      background: oklch(0.985 0.004 230);
+      font-family: 'Assistant', 'Segoe UI', Arial, sans-serif;
+      direction: rtl;
+      color: oklch(0.22 0.02 240);
+      padding: 22px 18px 40px;
+    }
+    .header { position: relative; padding: 6px 0 4px; text-align: center; }
+    .menu-btn, .back-btn {
+      position: absolute; top: 0;
+      width: 38px; height: 38px; border-radius: 10px;
+      border: 1px solid oklch(0.88 0.01 230); background: oklch(1 0 0);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .menu-btn { right: 0; }
+    .back-btn { left: 0; }
+    .logo-lockup { display: flex; align-items: center; justify-content: center; gap: 5px; direction: ltr; }
+    .logo { font-family: 'Fredoka', 'Assistant', sans-serif; font-size: 19px; font-weight: 700; letter-spacing: 0.2px; }
+    .logo .wab { color: oklch(0.3 0.03 235); }
+    .logo .bit { color: oklch(0.52 0.11 225); }
+
+    .headline { font-size: 21px; font-weight: 800; text-align: center; margin: 32px 0 8px; }
+    .subtext { font-size: 13.5px; color: oklch(0.5 0.02 235); text-align: center; margin-bottom: 32px; }
+    .subtext b { color: oklch(0.3 0.03 235); direction: ltr; display: inline-block; }
+
+    .code-row { display: flex; direction: ltr; justify-content: center; gap: 12px; margin-bottom: 22px; }
+    .code-box {
+      width: 56px; height: 64px; border-radius: 14px;
+      border: 1.5px solid oklch(0.88 0.01 230); background: oklch(1 0 0);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 26px; font-weight: 800; color: oklch(0.22 0.02 240);
+    }
+    .code-box.filled { border-color: oklch(0.52 0.11 225); background: oklch(0.97 0.01 225); }
+
+    .resend-row { text-align: center; font-size: 13px; color: oklch(0.6 0.01 230); margin-bottom: 32px; }
+    .resend-row b { color: oklch(0.5 0.02 235); font-weight: 700; }
+
+    .btn-primary {
+      width: 100%; border: none; background: oklch(0.52 0.11 225); color: white;
+      font-weight: 700; font-size: 16px; border-radius: 999px; padding: 15px;
+      box-shadow: 0 8px 18px oklch(0.45 0.11 225 / 0.3);
+    }
+
+    .change-link { display: block; text-align: center; font-size: 13px; color: oklch(0.5 0.02 235); text-decoration: underline; margin-top: 18px; }
+  </style>
+</helmet>
+<div class="screen">
+  <div class="header">
+    <div class="back-btn">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="oklch(0.28 0.03 235)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
+    </div>
+    <div class="logo-lockup">
+      <svg width="19" height="19" viewBox="0 0 24 24">
+        <ellipse cx="9" cy="7" rx="3" ry="7.5" fill="oklch(0.62 0.16 40)" transform="rotate(-18 9 7)"/>
+        <ellipse cx="15" cy="7" rx="3" ry="7.5" fill="oklch(0.52 0.11 225)" transform="rotate(18 15 7)"/>
+      </svg>
+      <div class="logo"><span class="wab">WAB</span><span class="bit">BIT</span></div>
+    </div>
+    <button class="menu-btn" aria-label="תפריט">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="oklch(0.28 0.03 235)" stroke-width="1.8" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
+    </button>
+  </div>
+
+  <div class="headline">בדקו את הסמס 📱</div>
+  <div class="subtext">שלחנו קוד בן 4 ספרות למספר<br><b>050-123-4567</b></div>
+
+  <div class="code-row">
+    <div class="code-box filled">7</div>
+    <div class="code-box filled">2</div>
+    <div class="code-box"></div>
+    <div class="code-box"></div>
+  </div>
+
+  <div class="resend-row">לא קיבלתם? שליחה חוזרת בעוד <b>0:42</b></div>
+
+  <button class="btn-primary">אישור</button>
+
+  <a class="change-link">שינוי מספר טלפון</a>
+</div>
+</x-dc>
+</body>
+</html>

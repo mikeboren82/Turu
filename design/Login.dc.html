@@ -1,0 +1,114 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&family=Assistant:wght@400;500;600;700;800&display=swap">
+  <style>
+    body { margin: 0; }
+    * { box-sizing: border-box; }
+    .screen {
+      width: 390px;
+      min-height: 820px;
+      background: oklch(0.985 0.004 230);
+      font-family: 'Assistant', 'Segoe UI', Arial, sans-serif;
+      direction: rtl;
+      color: oklch(0.22 0.02 240);
+      padding: 22px 18px 40px;
+      display: flex; flex-direction: column;
+    }
+    .header { position: relative; padding: 6px 0 4px; text-align: center; }
+    .menu-btn, .back-btn {
+      position: absolute; top: 0;
+      width: 38px; height: 38px; border-radius: 10px;
+      border: 1px solid oklch(0.88 0.01 230); background: oklch(1 0 0);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .menu-btn { right: 0; }
+    .back-btn { left: 0; }
+    .logo-lockup { display: flex; align-items: center; justify-content: center; gap: 5px; direction: ltr; }
+    .logo { font-family: 'Fredoka', 'Assistant', sans-serif; font-size: 19px; font-weight: 700; letter-spacing: 0.2px; }
+    .logo .wab { color: oklch(0.3 0.03 235); }
+    .logo .bit { color: oklch(0.52 0.11 225); }
+
+    .center { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 0 12px; }
+    .welcome { font-size: 22px; font-weight: 800; margin-bottom: 6px; }
+    .welcome-sub { font-size: 14px; color: oklch(0.5 0.02 235); margin-bottom: 36px; }
+    .welcome-sub b { color: oklch(0.3 0.03 235); }
+
+    .bio-btn {
+      width: 96px; height: 96px; border-radius: 50%;
+      background: oklch(0.95 0.02 225); border: 2px solid oklch(0.52 0.11 225);
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 10px 24px oklch(0.45 0.11 225 / 0.2);
+      margin-bottom: 16px;
+    }
+    .bio-label { font-size: 14.5px; font-weight: 700; color: oklch(0.52 0.11 225); margin-bottom: 24px; }
+
+    .divider-row { display: flex; align-items: center; gap: 10px; width: 100%; margin-bottom: 18px; }
+    .divider-line { flex: 1; height: 1px; background: oklch(0.9 0.01 230); }
+    .divider-text { font-size: 12px; color: oklch(0.6 0.01 230); font-weight: 600; }
+
+    .pin-btn {
+      width: 100%; border: 1.5px solid oklch(0.52 0.11 225); background: oklch(1 0 0);
+      color: oklch(0.52 0.11 225); font-weight: 700; font-size: 14.5px;
+      border-radius: 999px; padding: 13px; margin-bottom: 22px;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+
+    .link-btn { font-size: 13.5px; font-weight: 700; color: oklch(0.4 0.02 235); text-decoration: underline; }
+  </style>
+</helmet>
+<div class="screen">
+  <div class="header">
+    <div class="back-btn">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="oklch(0.28 0.03 235)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
+    </div>
+    <div class="logo-lockup">
+      <svg width="19" height="19" viewBox="0 0 24 24">
+        <ellipse cx="9" cy="7" rx="3" ry="7.5" fill="oklch(0.62 0.16 40)" transform="rotate(-18 9 7)"/>
+        <ellipse cx="15" cy="7" rx="3" ry="7.5" fill="oklch(0.52 0.11 225)" transform="rotate(18 15 7)"/>
+      </svg>
+      <div class="logo"><span class="wab">WAB</span><span class="bit">BIT</span></div>
+    </div>
+    <button class="menu-btn" aria-label="תפריט">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="oklch(0.28 0.03 235)" stroke-width="1.8" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
+    </button>
+  </div>
+
+  <div class="center">
+    <div class="welcome">כיף לראות אתכם שוב! 👋</div>
+    <div class="welcome-sub">להמשיך בתור <b>נועה</b>?</div>
+
+    <div class="bio-btn">
+      <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="oklch(0.52 0.11 225)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 3a6 6 0 0 0-6 6c0 3.5-.5 6-2 8"/>
+        <path d="M12 3a6 6 0 0 1 6 6c0 1.5 0 2.5-.3 3.5"/>
+        <path d="M8 9a4 4 0 0 1 8 0c0 4.5 1 7 2.5 9"/>
+        <path d="M12 9a2.5 2.5 0 0 0-2.5 2.5c0 3-1 5.5-2.8 7.5"/>
+        <path d="M12 9a2.5 2.5 0 0 1 2.5 2.5c0 1.7.3 3 .9 4.3"/>
+      </svg>
+    </div>
+    <div class="bio-label">התחברות עם טביעת אצבע</div>
+
+    <div class="divider-row">
+      <div class="divider-line"></div>
+      <div class="divider-text">או</div>
+      <div class="divider-line"></div>
+    </div>
+
+    <button class="pin-btn">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="oklch(0.52 0.11 225)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/><circle cx="12" cy="15" r="1.3" fill="oklch(0.52 0.11 225)" stroke="none"/></svg>
+      <span>הזינו קוד PIN</span>
+    </button>
+
+    <div class="link-btn">התחברות עם קוד בסמס</div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

@@ -1,0 +1,90 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&family=Assistant:wght@400;500;600;700;800&display=swap">
+  <style>
+    body { margin: 0; }
+    * { box-sizing: border-box; }
+    .screen {
+      width: 390px;
+      min-height: 700px;
+      background: oklch(0.22 0.02 240 / 0.35);
+      font-family: 'Assistant', 'Segoe UI', Arial, sans-serif;
+      direction: rtl;
+      color: oklch(0.22 0.02 240);
+      display: flex; align-items: flex-end;
+    }
+    .sheet {
+      width: 100%; background: oklch(0.99 0.002 230); border-radius: 22px 22px 0 0;
+      padding: 10px 18px 32px; box-shadow: 0 -8px 30px oklch(0.2 0.02 240 / 0.2);
+    }
+    .handle { width: 40px; height: 4px; border-radius: 999px; background: oklch(0.88 0.01 230); margin: 0 auto 18px; }
+
+    .sheet-title { font-size: 17px; font-weight: 800; margin-bottom: 4px; }
+    .sheet-sub { font-size: 12.5px; color: oklch(0.5 0.02 235); margin-bottom: 6px; }
+    .reported-preview {
+      background: oklch(0.96 0.005 230); border-radius: 10px; padding: 9px 12px;
+      font-size: 12.5px; color: oklch(0.45 0.02 235); margin-bottom: 20px;
+    }
+    .reported-preview b { color: oklch(0.3 0.02 235); }
+
+    .reason-option {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 13px 4px; border-bottom: 1px solid oklch(0.93 0.01 230);
+    }
+    .reason-option:last-of-type { border-bottom: none; }
+    .reason-label { font-size: 14px; color: oklch(0.3 0.02 235); }
+    .radio { width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid oklch(0.8 0.01 230); flex-shrink: 0; position: relative; }
+    .radio.checked { border-color: oklch(0.52 0.11 225); }
+    .radio.checked::after {
+      content: ""; position: absolute; inset: 4px; border-radius: 50%; background: oklch(0.52 0.11 225);
+    }
+
+    .btn-primary {
+      width: 100%; border: none; background: oklch(0.55 0.16 25); color: white;
+      font-weight: 700; font-size: 15px; border-radius: 999px; padding: 14px; margin-top: 20px;
+    }
+    .cancel-link { display: block; text-align: center; font-size: 13px; color: oklch(0.55 0.02 235); margin-top: 14px; }
+  </style>
+</helmet>
+<div class="screen">
+  <div class="sheet">
+    <div class="handle"></div>
+    <div class="sheet-title">דיווח על הודעה</div>
+    <div class="sheet-sub">הדיווח יישלח לצוות WABBIT לבדיקה</div>
+    <div class="reported-preview"><b>דני:</b> היי לכולם, מישהו יודע אם השילוב פתוח היום?</div>
+
+    <div class="reason-option">
+      <div class="reason-label">תוכן פוגעני או מטריד</div>
+      <div class="radio checked"></div>
+    </div>
+    <div class="reason-option">
+      <div class="reason-label">ספאם או פרסומת</div>
+      <div class="radio"></div>
+    </div>
+    <div class="reason-option">
+      <div class="reason-label">מידע שגוי או מטעה</div>
+      <div class="radio"></div>
+    </div>
+    <div class="reason-option">
+      <div class="reason-label">תוכן לא הולם לילדים</div>
+      <div class="radio"></div>
+    </div>
+    <div class="reason-option">
+      <div class="reason-label">משהו אחר</div>
+      <div class="radio"></div>
+    </div>
+
+    <button class="btn-primary">שליחת דיווח</button>
+    <a class="cancel-link">ביטול</a>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

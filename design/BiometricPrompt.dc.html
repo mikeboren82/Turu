@@ -1,0 +1,107 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&family=Assistant:wght@400;500;600;700;800&display=swap">
+  <style>
+    body { margin: 0; }
+    * { box-sizing: border-box; }
+    .screen {
+      width: 390px;
+      min-height: 820px;
+      background: oklch(0.985 0.004 230);
+      font-family: 'Assistant', 'Segoe UI', Arial, sans-serif;
+      direction: rtl;
+      color: oklch(0.22 0.02 240);
+      padding: 22px 18px 40px;
+      display: flex; flex-direction: column;
+    }
+    .header { position: relative; padding: 6px 0 4px; text-align: center; }
+    .menu-btn {
+      position: absolute; top: 0; right: 0;
+      width: 38px; height: 38px; border-radius: 10px;
+      border: 1px solid oklch(0.88 0.01 230); background: oklch(1 0 0);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .logo-lockup { display: flex; align-items: center; justify-content: center; gap: 5px; direction: ltr; }
+    .logo { font-family: 'Fredoka', 'Assistant', sans-serif; font-size: 19px; font-weight: 700; letter-spacing: 0.2px; }
+    .logo .wab { color: oklch(0.3 0.03 235); }
+    .logo .bit { color: oklch(0.52 0.11 225); }
+
+    .center { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 0 14px; }
+    .icon-wrap {
+      position: relative; width: 120px; height: 120px; border-radius: 50%;
+      background: oklch(0.95 0.02 225); display: flex; align-items: center; justify-content: center;
+      margin-bottom: 26px;
+    }
+    .icon-ear {
+      position: absolute; top: -10px;
+    }
+    .headline { font-size: 21px; font-weight: 800; margin-bottom: 12px; }
+    .body-text { font-size: 13.5px; line-height: 1.6; color: oklch(0.5 0.02 235); margin-bottom: 36px; max-width: 300px; }
+
+    .btn-primary {
+      width: 100%; border: none; background: oklch(0.52 0.11 225); color: white;
+      font-weight: 700; font-size: 16px; border-radius: 999px; padding: 15px; margin-bottom: 14px;
+      box-shadow: 0 8px 18px oklch(0.45 0.11 225 / 0.3);
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .btn-pin {
+      width: 100%; border: 1.5px solid oklch(0.52 0.11 225); background: oklch(1 0 0);
+      color: oklch(0.52 0.11 225); font-weight: 700; font-size: 14.5px;
+      border-radius: 999px; padding: 13px; margin-bottom: 16px;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .link-btn { font-size: 13.5px; font-weight: 700; color: oklch(0.55 0.02 235); }
+  </style>
+</helmet>
+<div class="screen">
+  <div class="header">
+    <div class="logo-lockup">
+      <svg width="19" height="19" viewBox="0 0 24 24">
+        <ellipse cx="9" cy="7" rx="3" ry="7.5" fill="oklch(0.62 0.16 40)" transform="rotate(-18 9 7)"/>
+        <ellipse cx="15" cy="7" rx="3" ry="7.5" fill="oklch(0.52 0.11 225)" transform="rotate(18 15 7)"/>
+      </svg>
+      <div class="logo"><span class="wab">WAB</span><span class="bit">BIT</span></div>
+    </div>
+    <button class="menu-btn" aria-label="תפריט">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="oklch(0.28 0.03 235)" stroke-width="1.8" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
+    </button>
+  </div>
+
+  <div class="center">
+    <div class="icon-wrap">
+      <svg class="icon-ear" width="34" height="34" viewBox="0 0 24 24">
+        <ellipse cx="9" cy="7" rx="3" ry="7.5" fill="oklch(0.62 0.16 40)" transform="rotate(-18 9 7)"/>
+        <ellipse cx="15" cy="7" rx="3" ry="7.5" fill="oklch(0.52 0.11 225)" transform="rotate(18 15 7)"/>
+      </svg>
+      <svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="oklch(0.52 0.11 225)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 3a6 6 0 0 0-6 6c0 3.5-.5 6-2 8"/>
+        <path d="M12 3a6 6 0 0 1 6 6c0 1.5 0 2.5-.3 3.5"/>
+        <path d="M8 9a4 4 0 0 1 8 0c0 4.5 1 7 2.5 9"/>
+        <path d="M12 9a2.5 2.5 0 0 0-2.5 2.5c0 3-1 5.5-2.8 7.5"/>
+        <path d="M12 9a2.5 2.5 0 0 1 2.5 2.5c0 1.7.3 3 .9 4.3"/>
+      </svg>
+    </div>
+    <div class="headline">כניסה מהירה בפעם הבאה?</div>
+    <div class="body-text">נזהה אתכם עם טביעת אצבע או זיהוי פנים, כדי שלא תצטרכו לחכות לסמס בכל פעם. תמיד אפשר לכבות את זה בהגדרות.</div>
+
+    <button class="btn-primary">
+      <span>כן, בואו נעשה את זה!</span>
+      <span>🐰</span>
+    </button>
+    <button class="btn-pin">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="oklch(0.52 0.11 225)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/><circle cx="12" cy="15" r="1.3" fill="oklch(0.52 0.11 225)" stroke="none"/></svg>
+      <span>הגדירו קוד PIN במקום</span>
+    </button>
+    <div class="link-btn">אולי בפעם אחרת</div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

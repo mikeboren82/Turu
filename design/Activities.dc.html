@@ -1,0 +1,394 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&family=Assistant:wght@400;500;600;700;800&display=swap">
+  <style>
+    body { margin: 0; }
+    * { box-sizing: border-box; }
+    .screen {
+      width: 390px;
+      min-height: 1100px;
+      background: oklch(0.985 0.004 230);
+      font-family: 'Assistant', 'Segoe UI', Arial, sans-serif;
+      direction: rtl;
+      color: oklch(0.22 0.02 240);
+      padding: 22px 18px 40px;
+    }
+    .header { position: relative; padding: 6px 0 4px; text-align: center; }
+    .menu-btn {
+      position: absolute; top: 0; right: 0;
+      width: 38px; height: 38px; border-radius: 10px;
+      border: 1px solid oklch(0.88 0.01 230); background: oklch(1 0 0);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .back-btn {
+      position: absolute; top: 0; left: 0;
+      width: 38px; height: 38px; border-radius: 10px;
+      border: 1px solid oklch(0.88 0.01 230); background: oklch(1 0 0);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .logo-lockup { display: flex; align-items: center; gap: 5px; direction: ltr; }
+    .logo { font-family: 'Fredoka', 'Assistant', sans-serif; font-size: 19px; font-weight: 700; letter-spacing: 0.2px; }
+    .logo .wab { color: oklch(0.3 0.03 235); }
+    .logo .bit { color: oklch(0.52 0.11 225); }
+
+    .page-title-row { margin: 24px 0 14px; }
+    .page-title { font-size: 20px; font-weight: 800; color: oklch(0.22 0.02 240); }
+    .page-subtitle { font-size: 12.5px; font-weight: 500; color: oklch(0.5 0.02 235); margin-top: 2px; }
+
+    .quick-filters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-bottom: 10px; }
+    .quick-chip {
+      display: flex; align-items: center; gap: 8px;
+      background: oklch(1 0 0); border: 1px solid oklch(0.9 0.01 230); border-radius: 12px;
+      padding: 9px 10px;
+    }
+    .quick-icon { width: 26px; height: 26px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .quick-icon.purple { background: oklch(0.93 0.06 300); }
+    .quick-icon.yellow { background: oklch(0.93 0.09 90); }
+    .quick-icon.green { background: oklch(0.92 0.07 150); }
+    .quick-icon.blue { background: oklch(0.92 0.05 225); }
+    .quick-text { display: flex; flex-direction: column; min-width: 0; }
+    .quick-label { font-size: 10.5px; color: oklch(0.55 0.02 235); font-weight: 600; }
+    .quick-value { font-size: 12.5px; font-weight: 700; color: oklch(0.22 0.02 240); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    .advanced-toggle {
+      width: 100%; display: flex; align-items: center; justify-content: center; gap: 6px;
+      border: 1.5px dashed oklch(0.8 0.02 225); background: none;
+      color: oklch(0.52 0.11 225); font-weight: 700; font-size: 13px;
+      border-radius: 10px; padding: 10px; margin-bottom: 4px;
+    }
+    .advanced-toggle svg { transition: transform 0.3s ease; }
+    .advanced-wrapper { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 0.35s ease; }
+    .advanced-wrapper.open { grid-template-rows: 1fr; }
+    .advanced-inner { overflow: hidden; min-height: 0; }
+    .advanced-card {
+      background: oklch(1 0 0); border: 1px solid oklch(0.9 0.01 230); border-radius: 14px;
+      padding: 16px; margin-top: 12px;
+    }
+    .adv-section { margin-bottom: 16px; }
+    .adv-section:last-of-type { margin-bottom: 18px; }
+    .adv-label { font-size: 12px; font-weight: 800; color: oklch(0.4 0.02 235); margin-bottom: 8px; }
+    .chip-row { display: flex; gap: 7px; overflow-x: auto; }
+    .filter-chip {
+      flex-shrink: 0; font-size: 12.5px; font-weight: 700; color: oklch(0.4 0.02 235);
+      background: oklch(0.96 0.005 230); border: 1px solid oklch(0.9 0.01 230);
+      border-radius: 999px; padding: 7px 13px;
+    }
+    .filter-chip.selected { background: oklch(0.95 0.02 225); border-color: oklch(0.52 0.11 225); color: oklch(0.45 0.1 225); }
+    .days-row { display: flex; gap: 6px; }
+    .day-chip {
+      width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 700; color: oklch(0.4 0.02 235);
+      background: oklch(0.96 0.005 230); border: 1px solid oklch(0.9 0.01 230);
+    }
+    .location-input-row {
+      display: flex; align-items: center; gap: 8px;
+      border: 1px solid oklch(0.88 0.01 230); border-radius: 10px; padding: 10px 12px;
+    }
+    .location-input-row input {
+      flex: 1; border: none; outline: none; background: transparent;
+      font-family: inherit; font-size: 13px; text-align: right; color: oklch(0.22 0.02 240);
+    }
+    .location-input-row input::placeholder { color: oklch(0.6 0.01 230); }
+    .apply-btn {
+      width: 100%; border: none; background: oklch(0.52 0.11 225); color: white;
+      font-weight: 700; font-size: 14px; border-radius: 999px; padding: 12px;
+    }
+
+    .sort-row { display: flex; justify-content: flex-end; margin: 18px 0 12px; }
+    .sort-btn {
+      display: flex; align-items: center; gap: 6px;
+      border: 1.5px solid oklch(0.52 0.11 225); background: oklch(0.97 0.015 225);
+      color: oklch(0.52 0.11 225); font-weight: 700; font-size: 13px;
+      border-radius: 999px; padding: 8px 12px;
+    }
+
+    .card {
+      background: oklch(1 0 0);
+      border: 1px solid oklch(0.9 0.01 230);
+      border-radius: 14px;
+      overflow: hidden;
+      margin-bottom: 16px;
+      box-shadow: 0 2px 10px oklch(0.3 0.02 230 / 0.06);
+    }
+    .card.is-favorite { background: oklch(0.965 0.02 225); border-color: oklch(0.8 0.05 225); }
+    .card.is-visited { background: oklch(0.965 0.02 150); border-color: oklch(0.8 0.06 150); }
+
+    .card-image { position: relative; height: 158px; }
+    .badge-visited {
+      position: absolute; bottom: 10px; right: 10px;
+      display: flex; align-items: center; gap: 5px;
+      background: oklch(1 0 0 / 0.92); border-radius: 999px; padding: 5px 10px;
+      font-size: 11.5px; font-weight: 700; color: oklch(0.4 0.09 150);
+    }
+    .action-row {
+      position: absolute; top: 10px; right: 10px; left: 10px;
+      display: flex; align-items: center; justify-content: flex-end; gap: 6px;
+    }
+    .action-btn {
+      width: 32px; height: 32px; border-radius: 50%;
+      background: oklch(1 0 0 / 0.9); box-shadow: 0 1px 4px oklch(0.3 0.02 230 / 0.25);
+      display: flex; align-items: center; justify-content: center; border: none;
+    }
+
+    .card-body { padding: 14px 16px 16px; }
+    .card-title-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+    .card-title { font-size: 16px; font-weight: 800; color: oklch(0.22 0.02 240); }
+    .type-badge {
+      font-size: 11.5px; font-weight: 700; color: oklch(0.52 0.11 225);
+      background: oklch(0.95 0.02 225); border-radius: 7px; padding: 4px 9px; white-space: nowrap;
+    }
+    .meta-row { display: flex; align-items: center; gap: 6px; font-size: 13px; color: oklch(0.5 0.02 235); margin-bottom: 10px; }
+    .stats-row { display: flex; align-items: center; gap: 10px; padding-top: 10px; border-top: 1px solid oklch(0.93 0.01 230); }
+    .stat { display: flex; align-items: center; gap: 5px; font-size: 12.5px; font-weight: 600; color: oklch(0.35 0.02 235); }
+    .stat.price { color: oklch(0.45 0.1 150); }
+    .go-chevron { margin-inline-start: auto; flex-shrink: 0; }
+  </style>
+</helmet>
+<div class="screen">
+  <div class="header">
+    <div class="back-btn">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="oklch(0.28 0.03 235)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
+    </div>
+    <div class="logo-lockup">
+      <svg width="19" height="19" viewBox="0 0 24 24">
+        <ellipse cx="9" cy="7" rx="3" ry="7.5" fill="oklch(0.62 0.16 40)" transform="rotate(-18 9 7)"/>
+        <ellipse cx="15" cy="7" rx="3" ry="7.5" fill="oklch(0.52 0.11 225)" transform="rotate(18 15 7)"/>
+      </svg>
+      <div class="logo"><span class="wab">WAB</span><span class="bit">BIT</span></div>
+    </div>
+    <button class="menu-btn" aria-label="תפריט">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="oklch(0.28 0.03 235)" stroke-width="1.8" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
+    </button>
+  </div>
+
+  <div class="page-title-row">
+    <div class="page-title">פעילויות</div>
+    <div class="page-subtitle">27 פעילויות נמצאו</div>
+  </div>
+
+  <div class="quick-filters">
+    <div class="quick-chip">
+      <div class="quick-icon purple">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="oklch(0.5 0.14 300)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.2"/><rect x="14" y="3" width="7" height="7" rx="1.2"/><rect x="3" y="14" width="7" height="7" rx="1.2"/><circle cx="17.5" cy="17.5" r="3.5"/></svg>
+      </div>
+      <div class="quick-text"><span class="quick-label">מה בא לנו?</span><span class="quick-value">הכל</span></div>
+    </div>
+    <div class="quick-chip">
+      <div class="quick-icon yellow">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="oklch(0.55 0.13 80)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/></svg>
+      </div>
+      <div class="quick-text"><span class="quick-label">מתי?</span><span class="quick-value">עכשיו</span></div>
+    </div>
+    <div class="quick-chip">
+      <div class="quick-icon green">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="oklch(0.5 0.13 150)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="7" x2="20" y2="7"/><circle cx="9" cy="7" r="1.8" fill="oklch(0.5 0.13 150)" stroke="none"/><line x1="4" y1="14" x2="20" y2="14"/><circle cx="16" cy="14" r="1.8" fill="oklch(0.5 0.13 150)" stroke="none"/><line x1="4" y1="21" x2="20" y2="21"/><circle cx="12" cy="21" r="1.8" fill="oklch(0.5 0.13 150)" stroke="none"/></svg>
+      </div>
+      <div class="quick-text"><span class="quick-label">גילאים</span><span class="quick-value">הכל</span></div>
+    </div>
+    <div class="quick-chip">
+      <div class="quick-icon blue">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="oklch(0.5 0.11 225)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.4"/></svg>
+      </div>
+      <div class="quick-text"><span class="quick-label">איפה</span><span class="quick-value">באזור שלי</span></div>
+    </div>
+  </div>
+
+  <button class="advanced-toggle" onClick="{{toggleAdvanced}}">
+    <span>{{advLabel}}</span>
+    <svg width="12" height="12" viewBox="0 0 24 24" style="transform: rotate({{advRot}}deg)" fill="none" stroke="oklch(0.52 0.11 225)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+  </button>
+
+  <div class="advanced-wrapper {{advClass}}">
+    <div class="advanced-inner">
+      <div class="advanced-card">
+        <div class="adv-section">
+          <div class="adv-label">מחיר</div>
+          <div class="chip-row">
+            <div class="filter-chip selected">הכל</div>
+            <div class="filter-chip">חינם</div>
+            <div class="filter-chip">עד ₪50</div>
+            <div class="filter-chip">עד ₪100</div>
+            <div class="filter-chip">מעל ₪100</div>
+          </div>
+        </div>
+        <div class="adv-section">
+          <div class="adv-label">רדיוס מרחק מדויק</div>
+          <div class="chip-row">
+            <div class="filter-chip">עד 1 ק"מ</div>
+            <div class="filter-chip">עד 5 ק"מ</div>
+            <div class="filter-chip">עד 10 ק"מ</div>
+            <div class="filter-chip">עד 20 ק"מ</div>
+            <div class="filter-chip selected">ללא הגבלה</div>
+          </div>
+        </div>
+        <div class="adv-section">
+          <div class="adv-label">ימי השבוע</div>
+          <div class="days-row">
+            <div class="day-chip">א</div>
+            <div class="day-chip">ב</div>
+            <div class="day-chip">ג</div>
+            <div class="day-chip">ד</div>
+            <div class="day-chip">ה</div>
+            <div class="day-chip">ו</div>
+            <div class="day-chip">ש</div>
+          </div>
+        </div>
+        <div class="adv-section">
+          <div class="adv-label">מיקום מדויק</div>
+          <div class="location-input-row">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="oklch(0.5 0.02 235)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.2"/></svg>
+            <input type="text" placeholder="הזינו כתובת, שכונה או עיר...">
+          </div>
+        </div>
+        <button class="apply-btn">החל סינון</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="sort-row">
+    <div class="sort-btn">
+      <span>קרוב אליי</span>
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="oklch(0.52 0.11 225)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+    </div>
+  </div>
+
+  <!-- Card 1: default state -->
+  <div class="card">
+    <div class="card-image" style="background: linear-gradient(180deg, oklch(0.9 0.05 225), oklch(0.82 0.07 225));">
+      <svg width="100%" height="100%" viewBox="0 0 390 158" preserveAspectRatio="xMidYMax slice">
+        <circle cx="60" cy="34" r="16" fill="oklch(0.95 0.1 90 / 0.8)"/>
+        <path d="M0 140 Q40 110 80 140 T160 140 T240 140 T320 140 T400 140 V158 H0 Z" fill="oklch(0.6 0.1 150 / 0.55)"/>
+        <line x1="195" y1="60" x2="195" y2="128" stroke="oklch(0.4 0.05 40)" stroke-width="5" stroke-linecap="round"/>
+        <line x1="150" y1="64" x2="240" y2="64" stroke="oklch(0.4 0.05 40)" stroke-width="5" stroke-linecap="round"/>
+        <line x1="163" y1="64" x2="153" y2="112" stroke="oklch(0.68 0.17 40)" stroke-width="4" stroke-linecap="round"/>
+        <line x1="163" y1="64" x2="173" y2="112" stroke="oklch(0.68 0.17 40)" stroke-width="4" stroke-linecap="round"/>
+        <rect x="147" y="110" width="32" height="7" rx="3" fill="oklch(0.68 0.17 40)"/>
+        <line x1="227" y1="64" x2="217" y2="112" stroke="oklch(0.52 0.11 225)" stroke-width="4" stroke-linecap="round"/>
+        <line x1="227" y1="64" x2="237" y2="112" stroke="oklch(0.52 0.11 225)" stroke-width="4" stroke-linecap="round"/>
+        <rect x="211" y="110" width="32" height="7" rx="3" fill="oklch(0.52 0.11 225)"/>
+      </svg>
+      <div class="action-row">
+        <div class="action-btn"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="oklch(0.35 0.02 235)" stroke-width="2"><path d="M12 21s-6.5-4.35-9.5-8.36C.5 9.28 1.8 5 6 5c2.1 0 3.6 1.2 6 3.6C14.4 6.2 15.9 5 18 5c4.2 0 5.5 4.28 3.5 7.64C18.5 16.65 12 21 12 21z"/></svg></div>
+        <div class="action-btn"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="oklch(0.35 0.02 235)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h13l3 3v13H4z"/><path d="M15 4v5H8V4"/></svg></div>
+        <div class="action-btn"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="oklch(0.35 0.02 235)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg></div>
+        <div class="action-btn"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="oklch(0.35 0.02 235)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.9 17.9A10.94 10.94 0 0 1 12 20c-7 0-10-8-10-8a18.5 18.5 0 0 1 4.2-5.2M9.5 4.6A9.9 9.9 0 0 1 12 4c7 0 10 8 10 8a18.4 18.4 0 0 1-2.2 3.4"/><path d="M14.1 14.1a3 3 0 1 1-4.2-4.2"/><line x1="2" y1="2" x2="22" y2="22"/></svg></div>
+        <div class="action-btn"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="oklch(0.35 0.02 235)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="card-title-row">
+        <div class="card-title">גן פינת החמד</div>
+        <div class="type-badge">גן שעשועים</div>
+      </div>
+      <div class="meta-row">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="oklch(0.5 0.02 235)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.2"/></svg>
+        <span>1.4 ק"מ ממך · תל אביב</span>
+      </div>
+      <div class="stats-row">
+        <div class="stat">גילאים 2-6</div>
+        <div class="stat price">חינם</div>
+        <div class="stat">08:00–20:00</div>
+        <svg class="go-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="oklch(0.6 0.01 230)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 6 9 12 15 18"/></svg>
+      </div>
+    </div>
+  </div>
+
+  <!-- Card 2: favorite state -->
+  <div class="card is-favorite">
+    <div class="card-image" style="background: linear-gradient(180deg, oklch(0.92 0.1 80), oklch(0.85 0.12 60));">
+      <svg width="100%" height="100%" viewBox="0 0 390 158" preserveAspectRatio="xMidYMax slice">
+        <rect x="0" y="118" width="390" height="40" fill="oklch(0.55 0.08 145 / 0.5)"/>
+        <path d="M195 40 C160 40 150 75 170 95 C150 100 150 130 180 130 H210 C240 130 240 100 220 95 C240 75 230 40 195 40 Z" fill="oklch(0.5 0.09 145)"/>
+        <rect x="188" y="128" width="14" height="20" fill="oklch(0.4 0.07 60)"/>
+        <circle cx="90" cy="45" r="18" fill="oklch(0.85 0.15 95 / 0.85)"/>
+        <circle cx="300" cy="60" r="10" fill="oklch(0.99 0.005 90 / 0.7)"/>
+      </svg>
+      <div class="action-row">
+        <div class="action-btn"><svg width="15" height="15" viewBox="0 0 24 24" fill="oklch(0.68 0.17 40)" stroke="oklch(0.68 0.17 40)" stroke-width="2"><path d="M12 21s-6.5-4.35-9.5-8.36C.5 9.28 1.8 5 6 5c2.1 0 3.6 1.2 6 3.6C14.4 6.2 15.9 5 18 5c4.2 0 5.5 4.28 3.5 7.64C18.5 16.65 12 21 12 21z"/></svg></div>
+        <div class="action-btn"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="oklch(0.35 0.02 235)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h13l3 3v13H4z"/><path d="M15 4v5H8V4"/></svg></div>
+        <div class="action-btn"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="oklch(0.35 0.02 235)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg></div>
+        <div class="action-btn"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="oklch(0.35 0.02 235)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.9 17.9A10.94 10.94 0 0 1 12 20c-7 0-10-8-10-8a18.5 18.5 0 0 1 4.2-5.2M9.5 4.6A9.9 9.9 0 0 1 12 4c7 0 10 8 10 8a18.4 18.4 0 0 1-2.2 3.4"/><path d="M14.1 14.1a3 3 0 1 1-4.2-4.2"/><line x1="2" y1="2" x2="22" y2="22"/></svg></div>
+        <div class="action-btn"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="oklch(0.35 0.02 235)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="card-title-row">
+        <div class="card-title">פארק הירקון - פינת פיקניק</div>
+        <div class="type-badge">פארק</div>
+      </div>
+      <div class="meta-row">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="oklch(0.5 0.02 235)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.2"/></svg>
+        <span>2.1 ק"מ ממך · תל אביב</span>
+      </div>
+      <div class="stats-row">
+        <div class="stat">גילאים הכל</div>
+        <div class="stat price">חינם</div>
+        <div class="stat">פתוח 24 שעות</div>
+        <svg class="go-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="oklch(0.6 0.01 230)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 6 9 12 15 18"/></svg>
+      </div>
+    </div>
+  </div>
+
+  <!-- Card 3: already visited state -->
+  <div class="card is-visited">
+    <div class="card-image" style="background: linear-gradient(180deg, oklch(0.9 0.05 300), oklch(0.82 0.08 290));">
+      <svg width="100%" height="100%" viewBox="0 0 390 158" preserveAspectRatio="xMidYMax slice">
+        <rect x="130" y="70" width="50" height="50" rx="6" fill="oklch(0.68 0.17 300 / 0.75)" transform="rotate(-8 155 95)"/>
+        <rect x="190" y="80" width="46" height="46" rx="6" fill="oklch(0.52 0.11 225 / 0.75)" transform="rotate(6 213 103)"/>
+        <rect x="160" y="45" width="40" height="40" rx="6" fill="oklch(0.85 0.15 95 / 0.85)" transform="rotate(-4 180 65)"/>
+        <circle cx="70" cy="40" r="14" fill="oklch(0.99 0.005 90 / 0.6)"/>
+      </svg>
+      <div class="action-row">
+        <div class="action-btn"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="oklch(0.35 0.02 235)" stroke-width="2"><path d="M12 21s-6.5-4.35-9.5-8.36C.5 9.28 1.8 5 6 5c2.1 0 3.6 1.2 6 3.6C14.4 6.2 15.9 5 18 5c4.2 0 5.5 4.28 3.5 7.64C18.5 16.65 12 21 12 21z"/></svg></div>
+        <div class="action-btn"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="oklch(0.35 0.02 235)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h13l3 3v13H4z"/><path d="M15 4v5H8V4"/></svg></div>
+        <div class="action-btn"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="oklch(0.35 0.02 235)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg></div>
+        <div class="action-btn"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="oklch(0.35 0.02 235)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.9 17.9A10.94 10.94 0 0 1 12 20c-7 0-10-8-10-8a18.5 18.5 0 0 1 4.2-5.2M9.5 4.6A9.9 9.9 0 0 1 12 4c7 0 10 8 10 8a18.4 18.4 0 0 1-2.2 3.4"/><path d="M14.1 14.1a3 3 0 1 1-4.2-4.2"/><line x1="2" y1="2" x2="22" y2="22"/></svg></div>
+        <div class="action-btn"><svg width="15" height="15" viewBox="0 0 24 24" fill="oklch(0.45 0.1 150)" stroke="oklch(0.45 0.1 150)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+      </div>
+      <div class="badge-visited">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="oklch(0.4 0.09 150)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        <span>כבר הייתי כאן</span>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="card-title-row">
+        <div class="card-title">מוזיאון הילדים הדיגיטלי</div>
+        <div class="type-badge">מקום סגור</div>
+      </div>
+      <div class="meta-row">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="oklch(0.5 0.02 235)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.2"/></svg>
+        <span>3.6 ק"מ ממך · חולון</span>
+      </div>
+      <div class="stats-row">
+        <div class="stat">גילאים 4-9</div>
+        <div class="stat price">₪49</div>
+        <div class="stat">10:00–17:00</div>
+        <svg class="go-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="oklch(0.6 0.01 230)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 6 9 12 15 18"/></svg>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    const open = this.state.advOpen || false;
+    return {
+      advClass: open ? 'open' : '',
+      advRot: open ? 180 : 0,
+      advLabel: open ? 'הסתירו פילטרים מתקדמים' : 'פילטרים מתקדמים',
+      toggleAdvanced: () => this.setState({ advOpen: !open }),
+    };
+  }
+}
+</script>
+</body>
+</html>
