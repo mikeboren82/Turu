@@ -6,6 +6,7 @@ import Header from '../components/Header';
 import { colors, fonts, radii, spacing } from '../constants/theme';
 import { supabase } from '../lib/supabase';
 import { enforceNotBanned } from '../lib/checkBanned';
+import { recordLegalConsentIfNeeded } from '../lib/legal';
 
 const RESEND_SECONDS = 60;
 
@@ -84,6 +85,8 @@ export default function VerifyCodeScreen() {
       setDigits(Array(digitCount).fill(''));
       return;
     }
+
+    await recordLegalConsentIfNeeded(data?.user?.id);
 
     // עדכון profiles.email רלוונטי רק לזרימת טלפון+אימייל-אופציונלי (register.js) - כשהערוץ
     // הוא כבר אימייל, האימייל הוא הזהות הראשית ו-Supabase כבר שומר אותו על ה-user בעצמו.

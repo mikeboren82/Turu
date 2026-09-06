@@ -215,6 +215,17 @@ export default function Header({ showBack = false, onMenuPress }) {
                 </Pressable>
               </>
             ) : null}
+
+            <View style={styles.dropdownDivider} />
+            <View style={styles.legalRow}>
+              <Pressable onPress={() => { setMenuOpen(false); router.push('/terms'); }}>
+                <Text style={styles.legalLinkText}>⚖️ תנאי שימוש</Text>
+              </Pressable>
+              <Text style={styles.legalDot}>·</Text>
+              <Pressable onPress={() => { setMenuOpen(false); router.push('/privacy'); }}>
+                <Text style={styles.legalLinkText}>🔒 מדיניות פרטיות</Text>
+              </Pressable>
+            </View>
           </View>
         </Pressable>
       </Modal>
@@ -325,6 +336,13 @@ const styles = StyleSheet.create({
   itemTextActive: { color: colors.accent },
 
   logoutItemText: { fontFamily: fonts.semiBold, fontSize: 13.5, color: colors.textSecondary, textAlign: 'right' },
+
+  legalRow: {
+    flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'center', gap: 6,
+    paddingVertical: 10, paddingHorizontal: 16,
+  },
+  legalLinkText: { fontFamily: fonts.regular, fontSize: 11, color: colors.textMuted },
+  legalDot: { fontFamily: fonts.regular, fontSize: 11, color: colors.textMuted },
 
   confirmBackdrop: {
     flex: 1, backgroundColor: 'rgba(20,30,35,0.4)', justifyContent: 'center', alignItems: 'center', padding: spacing.xl,

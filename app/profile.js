@@ -23,6 +23,7 @@ import {
 import { formatChildAge } from '../lib/children';
 import { fetchAllPersonalNotes, savePersonalNote, fetchHiddenActivities, toggleHidden } from '../lib/interactions';
 import { relativeDate } from '../lib/formatDate';
+import { requestAccountDeletion } from '../lib/legal';
 
 // אלו הפילטרים שכבר תמיד מופיעים במסך הראשי (קטגוריה/מיקום כפילטרים ראשיים, גיל כקישור
 // עדין קבוע) - לא הגיוני לתת עליהם toggle נפרד. שאר הרשימה (מתי/מחיר/סוג מקום/הזמנה/משך/
@@ -102,6 +103,10 @@ export default function ProfileScreen() {
   const [nicknameDraft, setNicknameDraft] = useState('');
   const [savingNickname, setSavingNickname] = useState(false);
   const [notice, setNotice] = useState('');
+
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleteRequestSubmitting, setDeleteRequestSubmitting] = useState(false);
+  const [deleteRequestSent, setDeleteRequestSent] = useState(false);
 
   const [children, setChildren] = useState([]);
   const [childModalOpen, setChildModalOpen] = useState(false);
@@ -538,6 +543,26 @@ export default function ProfileScreen() {
     await clearPin();
     await AsyncStorage.removeItem('wabbit_asked_quick_login');
     router.replace('/login');
+  };
+
+  // TODO(backend): אין היום מחיקת-חשבון אוטומטית בשרת (ראו lib/legal.js) - זו בקשה אמיתית
+  // הנשלחת לצוות לטיפול ידני, לא מחיקה בפועל. אסור להציג למשתמש שהחשבון נמחק בפועל כאן.
+  const handleRequestDeletion = async () => {
+    setDeleteRequestSubmitting(true);
+    try {
+      await requestAccountDeletion({
+        userId: session.user.id,
+        contactEmail: email || undefined,
+        nickname,
+        phone: session.user.phone,
+      });
+      setDeleteConfirmOpen(false);
+      setDeleteRequestSent(true);
+    } catch (err) {
+      showNotice(`שגיאה בשליחת הבקשה: ${err.message}`);
+    } finally {
+      setDeleteRequestSubmitting(false);
+    }
   };
 
   if (loading) {
@@ -1055,10 +1080,61 @@ export default function ProfileScreen() {
           )}
         </View>
 
+        {/* ⚖️ משפטי */}
+        <View style={styles.shelf}>
+          <View style={styles.accountCard}>
+            <Pressable style={styles.settingRow} onPress={() => router.push('/terms')}>
+              <Text style={styles.settingLabel}>⚖️ תנאי שימוש</Text>
+              <ChevronLeftIcon size={12} />
+            </Pressable>
+            <Pressable style={styles.settingRow} onPress={() => router.push('/privacy')}>
+              <Text style={styles.settingLabel}>🔒 מדיניות פרטיות</Text>
+              <ChevronLeftIcon size={12} />
+            </Pressable>
+            <Pressable
+              style={[styles.settingRow, styles.settingRowLast]}
+              onPress={() => setDeleteConfirmOpen(true)}
+              disabled={deleteRequestSent}
+            >
+              <Text style={styles.dangerLabel}>🗑️ מחיקת החשבון</Text>
+              {deleteRequestSent ? (
+                <Text style={styles.badgeSetupText}>הבקשה נשלחה</Text>
+              ) : (
+                <ChevronLeftIcon size={12} />
+              )}
+            </Pressable>
+          </View>
+        </View>
+
         <Pressable onPress={handleLogout}>
           <Text style={styles.logoutLink}>התנתקות</Text>
         </Pressable>
       </ScrollView>
+
+      {/* אישור בקשת מחיקת חשבון - שולחת בקשה אמיתית לצוות (אין מנגנון מחיקה אוטומטי כרגע) */}
+      <Modal visible={deleteConfirmOpen} transparent animationType="fade" onRequestClose={() => setDeleteConfirmOpen(false)}>
+        <Pressable style={styles.modalBackdrop} onPress={() => setDeleteConfirmOpen(false)}>
+          <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
+            <Text style={styles.modalTitle}>בקשת מחיקת חשבון</Text>
+            <Text style={styles.deleteExplainText}>
+              נשלח לצוות בקשה למחיקת החשבון והמידע האישי המשויך אליו. הטיפול בבקשה נעשה ידנית
+              ואינו מיידי - נחזור אליכם בהקדם.
+            </Text>
+            <View style={styles.modalActionsRow}>
+              <Pressable
+                style={[styles.modalSaveBtn, styles.modalDangerBtn, deleteRequestSubmitting && styles.modalSaveBtnDisabled]}
+                onPress={handleRequestDeletion}
+                disabled={deleteRequestSubmitting}
+              >
+                {deleteRequestSubmitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.modalSaveBtnText}>שליחת בקשה</Text>}
+              </Pressable>
+              <Pressable style={styles.modalCancelBtn} onPress={() => setDeleteConfirmOpen(false)}>
+                <Text style={styles.modalCancelBtnText}>ביטול</Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       {/* מודל הוספת/עריכת ילד */}
       <Modal visible={childModalOpen} transparent animationType="fade" onRequestClose={() => setChildModalOpen(false)}>
@@ -1121,6 +1197,11 @@ export default function ProfileScreen() {
                 <Text style={[styles.genderChipText, childDraft.gender === 'female' && styles.genderChipTextSelected]}>👧 בת</Text>
               </Pressable>
             </View>
+
+            <Text style={styles.childPrivacyNote}>
+              המידע שתוסיפו משמש להתאמת פעילויות לילדים שלכם.{' '}
+              <Text style={styles.childPrivacyLink} onPress={() => router.push('/privacy')}>למידע נוסף: מדיניות הפרטיות</Text>
+            </Text>
 
             <View style={styles.modalActionsRow}>
               <Pressable
@@ -1511,6 +1592,10 @@ const styles = StyleSheet.create({
   modalCancelBtnText: { fontFamily: fonts.bold, fontSize: 14, color: colors.textSecondary },
   modalSaveBtn: { flex: 1, alignItems: 'center', paddingVertical: 13, borderRadius: radii.pill, backgroundColor: colors.accent },
   modalDangerBtn: { backgroundColor: colors.danger },
+  dangerLabel: { fontFamily: fonts.semiBold, fontSize: 14, color: colors.danger },
+  deleteExplainText: { fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.textSecondary, textAlign: 'right', marginBottom: 20 },
+  childPrivacyNote: { fontFamily: fonts.regular, fontSize: 11.5, color: colors.textMuted, textAlign: 'right', lineHeight: 17, marginBottom: 16 },
+  childPrivacyLink: { fontFamily: fonts.semiBold, color: colors.textSecondary, textDecorationLine: 'underline' },
   modalSaveBtnDisabled: { opacity: 0.5 },
   modalSaveBtnText: { fontFamily: fonts.bold, fontSize: 14, color: '#fff' },
 });

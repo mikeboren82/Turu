@@ -35,6 +35,16 @@ export default function AboutScreen() {
         <Pressable style={styles.contactBtn} onPress={() => router.push('/contact')}>
           <Text style={styles.contactBtnText}>צרו קשר</Text>
         </Pressable>
+
+        <View style={styles.legalFooter}>
+          <Pressable onPress={() => router.push('/terms')}>
+            <Text style={styles.legalFooterLink}>תנאי שימוש</Text>
+          </Pressable>
+          <Text style={styles.legalFooterDot}>·</Text>
+          <Pressable onPress={() => router.push('/privacy')}>
+            <Text style={styles.legalFooterLink}>מדיניות פרטיות</Text>
+          </Pressable>
+        </View>
       </ScrollView>
     </View>
   );
@@ -50,4 +60,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.accent, borderRadius: radii.pill, paddingVertical: 14, alignItems: 'center',
   },
   contactBtnText: { fontFamily: fonts.bold, fontSize: 15, color: '#fff' },
+  legalFooter: { flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 22 },
+  legalFooterLink: { fontFamily: fonts.regular, fontSize: 11.5, color: colors.textMuted, textDecorationLine: 'underline' },
+  legalFooterDot: { fontFamily: fonts.regular, fontSize: 11.5, color: colors.textMuted },
 });

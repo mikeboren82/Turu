@@ -11,6 +11,7 @@ import { colors } from '../constants/theme';
 import FeedbackButton from '../components/FeedbackButton';
 import { completeOAuthRedirect } from '../lib/oauth';
 import { enforceNotBanned } from '../lib/checkBanned';
+import { recordLegalConsentIfNeeded } from '../lib/legal';
 
 // לא כופים RTL ברמת המערכת: על אנדרואיד אמיתי forceRTL הופך אוטומטית flexDirection:'row'
 // ל-row-reverse, מה שהפך את כל הפריסה (שנבנתה ואומתה מול הדפדפן, שם I18nManager הוא stub
@@ -40,6 +41,7 @@ export default function RootLayout() {
           router.replace('/login');
           return;
         }
+        await recordLegalConsentIfNeeded(userId);
         const [asked, pin, bio] = await Promise.all([
           AsyncStorage.getItem('wabbit_asked_quick_login'),
           AsyncStorage.getItem('wabbit_pin_enabled'),

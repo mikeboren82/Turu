@@ -11,6 +11,7 @@ import { colors, fonts, radii, spacing } from '../constants/theme';
 import { supabase } from '../lib/supabase';
 import { enforceNotBanned } from '../lib/checkBanned';
 import { signInWithGoogle, signInWithApple } from '../lib/oauth';
+import { recordLegalConsentIfNeeded } from '../lib/legal';
 
 function isValidEmail(v) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
@@ -125,6 +126,7 @@ export default function LoginScreen() {
       setError('החשבון הזה חסום ולא ניתן להשתמש בו יותר');
       return;
     }
+    await recordLegalConsentIfNeeded(userId);
     const [asked, pin, bio] = await Promise.all([
       AsyncStorage.getItem('wabbit_asked_quick_login'),
       AsyncStorage.getItem('wabbit_pin_enabled'),
@@ -327,6 +329,13 @@ export default function LoginScreen() {
 
             {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
+            <Text style={styles.consentText}>
+              בהרשמה לתורו אתם מאשרים את{' '}
+              <Text style={styles.consentLink} onPress={() => router.push('/terms')}>תנאי השימוש</Text>
+              {' '}ואת{' '}
+              <Text style={styles.consentLink} onPress={() => router.push('/privacy')}>מדיניות הפרטיות</Text>.
+            </Text>
+
             <Pressable onPress={() => router.push('/admin-login')}>
               <Text style={styles.adminLink}>כניסת מנהל</Text>
             </Pressable>
@@ -454,6 +463,8 @@ const styles = StyleSheet.create({
   },
 
   errorText: { fontFamily: fonts.semiBold, fontSize: 12.5, color: colors.danger, textAlign: 'center', marginBottom: 16 },
+  consentText: { fontFamily: fonts.regular, fontSize: 11.5, color: colors.textMuted, textAlign: 'center', marginTop: 4, lineHeight: 17 },
+  consentLink: { fontFamily: fonts.semiBold, color: colors.textSecondary, textDecorationLine: 'underline' },
 
   linkBtn: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.textSecondary, textDecorationLine: 'underline' },
   adminLink: { fontFamily: fonts.regular, fontSize: 11.5, color: colors.textMuted, textAlign: 'center', marginTop: 18 },
