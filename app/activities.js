@@ -22,6 +22,9 @@ import { categorySummary, whenSummary, hebrewJoin } from '../lib/filterSummaries
 import { rankActivities, countActiveFilters, normalizeFilters } from '../lib/filterActivities';
 import { formatBenefitCardTag } from '../lib/benefits';
 
+// "🚫 הסר פעילויות" - בלי "אחר" (לא רלוונטי כאפשרות הסתרה: קטגוריית "קליטה-לכל" ממילא).
+const HIDE_CATEGORY_OPTIONS = CATEGORY_OPTIONS.filter((c) => c.id !== 'אחר');
+
 function parseJson(value, fallback) {
   if (!value) return fallback;
   try { return JSON.parse(String(value)); } catch { return fallback; }
@@ -348,7 +351,7 @@ export default function ActivitiesScreen() {
         visible={hideCategoriesModalOpen}
         title="🚫 אילו פעילויות לא מעניינות אתכם?"
         subtitle="בחרו דברים שאתם מעדיפים לא לראות בתוצאות."
-        options={CATEGORY_OPTIONS}
+        options={HIDE_CATEGORY_OPTIONS}
         value={hideDraft}
         multiple
         onChange={setHideDraft}

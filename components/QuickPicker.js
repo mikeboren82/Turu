@@ -61,17 +61,10 @@ export default function QuickPicker({
               placeholderTextColor={colors.textMuted}
             />
           )}
-          {searchable ? (
-            <ScrollView style={styles.scrollArea}>
-              {gridContent}
-              {footer}
-            </ScrollView>
-          ) : (
-            <>
-              {gridContent}
-              {footer}
-            </>
-          )}
+          <ScrollView style={styles.scrollArea} showsVerticalScrollIndicator={false}>
+            {gridContent}
+            {footer}
+          </ScrollView>
           {multiple && (
             <Pressable style={styles.doneBtn} onPress={onClose}>
               <Text style={styles.doneBtnText}>{doneLabel}</Text>

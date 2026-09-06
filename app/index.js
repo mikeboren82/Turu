@@ -584,7 +584,7 @@ const styles = StyleSheet.create({
   filterLabel: { fontFamily: fonts.bold, fontSize: 14.5, color: colors.textPrimary },
   filterValue: { fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 1 },
   filterValueActive: { fontFamily: fonts.bold, color: colors.accent },
-  ageAddRow: { alignItems: 'center', marginBottom: 10 },
+  ageAddRow: { alignItems: 'center', marginBottom: 18 },
   extraFiltersWrap: { alignItems: 'center' },
   ageAddText: { fontFamily: fonts.semiBold, fontSize: 12.5, color: colors.textMuted },
   ageAddTextActive: { color: colors.accent, fontFamily: fonts.bold },
