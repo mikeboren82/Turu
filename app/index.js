@@ -542,7 +542,7 @@ const styles = StyleSheet.create({
     position: 'absolute', top: 0, left: 0, right: 0, height: 230,
   },
   sunMascot: {
-    position: 'absolute', top: -12, left: 4,
+    position: 'absolute', top: 4, left: 4,
   },
   grassFooter: {
     marginTop: 28, marginHorizontal: -spacing.xl, aspectRatio: 939 / 148,

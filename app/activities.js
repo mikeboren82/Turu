@@ -287,16 +287,6 @@ export default function ActivitiesScreen() {
           </Pressable>
         </View>
 
-        {sheetOpen && (
-          <FiltersSheet
-            filters={filters}
-            onChange={setField}
-            onClearAll={clearAll}
-            onCoordsResolved={setDeviceCoords}
-            openAllByDefault={openFilters === 'true'}
-          />
-        )}
-
         {loading ? (
           <View style={styles.emptyState}>
             <ActivityIndicator color={colors.accent} />
@@ -469,6 +459,30 @@ export default function ActivitiesScreen() {
         onCoordsResolved={setDeviceCoords}
         onClose={() => setGateLocationOpen(false)}
       />
+
+      {/* "סינון מתקדם" - נפתח כחלון צף (bottom sheet) מעל התוכן במקום להתרחב inline ולדחוף
+          את התוצאות למטה. FiltersSheet עצמו (לוגיקה/עיצוב פנימי/כפתורים) לא השתנה בכלל -
+          רק אופן ההצגה שלו (Modal+backdrop סביבו) השתנה. */}
+      <Modal visible={sheetOpen} transparent animationType="slide" onRequestClose={() => setSheetOpen(false)}>
+        <Pressable style={styles.filterSheetBackdrop} onPress={() => setSheetOpen(false)}>
+          <Pressable style={styles.filterSheetContainer} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.filterSheetHandleRow}>
+              <Pressable style={styles.filterSheetCloseBtn} onPress={() => setSheetOpen(false)} hitSlop={8}>
+                <Text style={styles.filterSheetCloseBtnText}>✕</Text>
+              </Pressable>
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <FiltersSheet
+                filters={filters}
+                onChange={setField}
+                onClearAll={clearAll}
+                onCoordsResolved={setDeviceCoords}
+                openAllByDefault={openFilters === 'true'}
+              />
+            </ScrollView>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -496,6 +510,17 @@ const styles = StyleSheet.create({
   },
   advToggleIcon: { fontSize: 14 },
   advToggleText: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.accent },
+  filterSheetBackdrop: { flex: 1, backgroundColor: 'rgba(20,30,35,0.5)', justifyContent: 'flex-end' },
+  filterSheetContainer: {
+    backgroundColor: colors.bg, borderTopLeftRadius: radii.xl, borderTopRightRadius: radii.xl,
+    maxHeight: '85%', paddingHorizontal: spacing.xl, paddingTop: 10, paddingBottom: 30,
+  },
+  filterSheetHandleRow: { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 4 },
+  filterSheetCloseBtn: {
+    width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border,
+  },
+  filterSheetCloseBtnText: { fontFamily: fonts.bold, fontSize: 14, color: colors.textSecondary },
 
   // כפתורי "🚫 הסר פעילויות" / "📍 אזורים שלא להציג" - במכוון שקטים/משניים (טקסט בלבד, בלי
   // מסגרת/רקע), בניגוד ל-advToggle הבולט למעלה - אלה פעולות מתקדמות, לא אמורות להתחרות עם
