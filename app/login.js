@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Pressable, ActivityIndicator, TextInput, Platform, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ActivityIndicator, TextInput, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as LocalAuthentication from 'expo-local-authentication';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -253,16 +253,14 @@ export default function LoginScreen() {
               )}
             </Pressable>
 
-            {Platform.OS === 'ios' && (
-              <Pressable style={styles.appleBtn} onPress={handleAppleLogin} disabled={appleLoading}>
-                {appleLoading ? <ActivityIndicator color="#fff" /> : (
-                  <>
-                    <AppleIcon />
-                    <Text style={styles.appleBtnText}>המשך עם Apple</Text>
-                  </>
-                )}
-              </Pressable>
-            )}
+            <Pressable style={styles.appleBtn} onPress={handleAppleLogin} disabled={appleLoading}>
+              {appleLoading ? <ActivityIndicator color="#fff" /> : (
+                <>
+                  <AppleIcon />
+                  <Text style={styles.appleBtnText}>המשך עם Apple</Text>
+                </>
+              )}
+            </Pressable>
 
             {!showEmailField ? (
               <Pressable style={styles.emailToggleBtn} onPress={() => setShowEmailField(true)}>
