@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, ActivityIndicator, Modal, Image } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -6,18 +6,18 @@ import Svg, { Path, Circle, Line } from 'react-native-svg';
 import Header from '../components/Header';
 import QuickPicker from '../components/QuickPicker';
 import LocationQuickPicker, { locationSummary } from '../components/LocationQuickPicker';
-import FiltersSheet from '../components/FiltersSheet';
 import { StarIcon, ChatIcon, CheckIcon, ChevronLeftIcon, ChevronDownIcon, CalendarIcon } from '../components/icons';
 import { colors, fonts, radii, spacing } from '../constants/theme';
 import {
-  CATEGORY_OPTIONS, CITY_OPTIONS, PRICE_OPTIONS, PLACE_TYPE_OPTIONS, WHEN_OPTIONS, FILTER_SCHEMA, DEFAULT_FILTERS, BENEFIT_PROVIDER_OPTIONS,
+  CATEGORY_OPTIONS, CITY_OPTIONS, PRICE_OPTIONS, PLACE_TYPE_OPTIONS, WHEN_OPTIONS, FILTER_SCHEMA,
+  BOOKING_OPTIONS, DURATION_OPTIONS, AMENITY_COMFORT_OPTIONS, BENEFIT_PROVIDER_OPTIONS,
 } from '../constants/filterSchema';
-import { categorySummary } from '../lib/filterSummaries';
+import { categorySummary, hebrewJoin } from '../lib/filterSummaries';
 import { supabase } from '../lib/supabase';
 import { clearPin } from '../lib/pin';
 import { normalizeFilters } from '../lib/filterActivities';
 import {
-  fetchUserPreferences, saveExcludedCategories, saveExcludedCities, saveChildren, saveNotificationPrefs,
+  fetchUserPreferences, saveExcludedCategories, saveExcludedCities, saveChildren,
   saveVisibleHomeFilters, saveDefaultHomeFilters, saveBenefitClubs,
 } from '../lib/preferences';
 import { formatChildAge } from '../lib/children';
@@ -29,9 +29,6 @@ import { requestAccountDeletion } from '../lib/legal';
 // עדין קבוע) - לא הגיוני לתת עליהם toggle נפרד. שאר הרשימה (מתי/מחיר/סוג מקום/הזמנה/משך/
 // נגישות) היא מה שמשתמש יכול לבחור להוסיף כקישורים קטנים נוספים במסך הראשי שלו.
 const TOGGLABLE_HOME_FILTERS = FILTER_SCHEMA.filter((f) => !['category', 'location', 'age'].includes(f.key));
-
-// "עוד העדפות" (המתקפל) מציג רק את מה שלא קיבל שורה ייעודית למעלה - booking/duration/amenities.
-const ADVANCED_PREFERENCE_KEYS = ['booking', 'duration', 'amenities'];
 
 const NOTIFICATION_ITEMS = [
   { key: 'new_nearby', label: 'פעילויות חדשות באזור שלי' },
@@ -84,6 +81,9 @@ function summaryForPreference(key, filters) {
   if (key === 'when') return filters.when?.options?.length ? WHEN_QUICK_OPTIONS.find((o) => o.id === filters.when.options[0])?.label : null;
   if (key === 'price') return filters.price?.length ? PRICE_OPTIONS.find((o) => o.id === filters.price[0])?.label : null;
   if (key === 'placeType') return filters.placeType?.length ? PLACE_TYPE_OPTIONS.find((o) => o.id === filters.placeType[0])?.label : null;
+  if (key === 'booking') return filters.booking?.length ? BOOKING_OPTIONS.find((o) => o.id === filters.booking[0])?.label : null;
+  if (key === 'duration') return filters.duration?.length ? hebrewJoin(filters.duration.map((id) => DURATION_OPTIONS.find((o) => o.id === id)?.label).filter(Boolean)) : null;
+  if (key === 'amenities') return filters.amenities?.length ? hebrewJoin(filters.amenities.map((id) => AMENITY_COMFORT_OPTIONS.find((o) => o.id === id)?.label).filter(Boolean)) : null;
   return null;
 }
 
@@ -123,7 +123,9 @@ export default function ProfileScreen() {
   const [excludedCitiesPickerOpen, setExcludedCitiesPickerOpen] = useState(false);
   const [savingExcludedCities, setSavingExcludedCities] = useState(false);
   const [benefitClubs, setBenefitClubs] = useState([]);
+  const [benefitClubsOther, setBenefitClubsOther] = useState('');
   const [benefitClubsDraft, setBenefitClubsDraft] = useState([]);
+  const [benefitClubsOtherDraft, setBenefitClubsOtherDraft] = useState('');
   const [benefitClubsPickerOpen, setBenefitClubsPickerOpen] = useState(false);
   const [savingBenefitClubs, setSavingBenefitClubs] = useState(false);
   const [hiddenActivities, setHiddenActivities] = useState([]);
@@ -132,19 +134,22 @@ export default function ProfileScreen() {
   const [unhidingId, setUnhidingId] = useState(null);
   const [visibleHomeFilters, setVisibleHomeFilters] = useState([]);
   const [savingVisibleFilters, setSavingVisibleFilters] = useState(false);
-  const [moreSettingsOpen, setMoreSettingsOpen] = useState(false);
+  // "פילטרים נוספים במסך הראשי" - שורה מתקפלת בתוך "⚙️ הגדרות" (הועברה מ"עוד הגדרות" שהוסר).
+  const [visibleFiltersOpen, setVisibleFiltersOpen] = useState(false);
 
   const [homeDefaultsDraft, setHomeDefaultsDraft] = useState(null);
   const [savingHomeDefaults, setSavingHomeDefaults] = useState(false);
+  const [searchPrefsOpen, setSearchPrefsOpen] = useState(false);
   const [prefLocationOpen, setPrefLocationOpen] = useState(false);
   const [prefCategoryOpen, setPrefCategoryOpen] = useState(false);
   const [prefWhenOpen, setPrefWhenOpen] = useState(false);
   const [prefPriceOpen, setPrefPriceOpen] = useState(false);
   const [prefPlaceTypeOpen, setPrefPlaceTypeOpen] = useState(false);
-  const [advancedPrefsOpen, setAdvancedPrefsOpen] = useState(false);
+  const [prefBookingOpen, setPrefBookingOpen] = useState(false);
+  const [prefDurationOpen, setPrefDurationOpen] = useState(false);
+  const [prefAmenitiesOpen, setPrefAmenitiesOpen] = useState(false);
 
   const [notificationPrefs, setNotificationPrefs] = useState({});
-  const [savingNotifications, setSavingNotifications] = useState(false);
 
   const [activeTab, setActiveTab] = useState('favorites');
   const [tabItems, setTabItems] = useState([]);
@@ -152,22 +157,18 @@ export default function ProfileScreen() {
 
   const [notes, setNotes] = useState([]);
   const [notesLoading, setNotesLoading] = useState(false);
-  const [noteSearch, setNoteSearch] = useState('');
-  const [noteSort, setNoteSort] = useState('new');
   const [noteModalOpen, setNoteModalOpen] = useState(false);
   const [noteModalDraft, setNoteModalDraft] = useState('');
   const [noteModalTarget, setNoteModalTarget] = useState(null);
   const [savingNoteModal, setSavingNoteModal] = useState(false);
-  const [noteDeleteTarget, setNoteDeleteTarget] = useState(null);
-  const [deletingNote, setDeletingNote] = useState(false);
 
   const load = useCallback(async () => {
     const { data: { session: currentSession } } = await supabase.auth.getSession();
     setSession(currentSession);
 
     const [pinFlag, bioFlag] = await Promise.all([
-      AsyncStorage.getItem('wabbit_pin_enabled'),
-      AsyncStorage.getItem('wabbit_biometric_enabled'),
+      AsyncStorage.getItem('turu_pin_enabled'),
+      AsyncStorage.getItem('turu_biometric_enabled'),
     ]);
     setQuickLoginEnabled(pinFlag === 'true' || bioFlag === 'true');
 
@@ -201,6 +202,7 @@ export default function ProfileScreen() {
       setExcludedCategories(prefs.excludedCategories);
       setExcludedCities(prefs.excludedCities);
       setBenefitClubs(prefs.benefitClubs);
+      setBenefitClubsOther(prefs.benefitClubsOther);
       setChildren(prefs.children);
       setVisibleHomeFilters(prefs.visibleHomeFilters);
       setHomeDefaultsDraft(normalizeFilters(prefs.defaultHomeFilters || {}));
@@ -241,28 +243,13 @@ export default function ProfileScreen() {
   useEffect(() => { if (session?.user?.id) loadTab(activeTab); }, [session?.user?.id, activeTab, loadTab]);
 
   // ---- הערות אישיות ----
-  const filteredSortedNotes = useMemo(() => {
-    const q = noteSearch.trim().toLowerCase();
-    const list = q
-      ? notes.filter((n) => {
-        const activityName = n.activity?.name || '';
-        const cityLabel = n.activity?.location?.city || n.activity?.location?.name || '';
-        return (
-          n.note.toLowerCase().includes(q)
-          || activityName.toLowerCase().includes(q)
-          || cityLabel.toLowerCase().includes(q)
-        );
-      })
-      : notes;
-    return [...list].sort((a, b) => {
-      const diff = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-      return noteSort === 'new' ? -diff : diff;
-    });
-  }, [notes, noteSearch, noteSort]);
-
-  const openEditNote = (note) => {
-    setNoteModalTarget(note);
-    setNoteModalDraft(note.note);
+  // פתיחת מודל ההערה מתוך "❤️ הפעילויות שלי" (לא רק מתוך "📝 ההערות האישיות שלי") - הפעילות
+  // הזו לא בהכרח כבר קיימת ב-notes (ייתכן שאין לה הערה עדיין), אז מחפשים אותה שם ונופלים חזרה
+  // לאובייקט-פעילות מינימלי (שם בלבד, מספיק לכותרת המודל) אם היא לא נמצאה.
+  const openNoteForActivity = (activityId, activityName) => {
+    const existing = notes.find((n) => n.activity_id === activityId);
+    setNoteModalTarget(existing || { activity_id: activityId, activity: { name: activityName } });
+    setNoteModalDraft(existing ? existing.note : '');
     setNoteModalOpen(true);
   };
 
@@ -272,32 +259,23 @@ export default function ProfileScreen() {
     try {
       await savePersonalNote(session.user.id, noteModalTarget.activity_id, noteModalDraft);
       const trimmed = noteModalDraft.trim();
-      setNotes((prev) => (
-        trimmed
-          ? prev.map((n) => (n.activity_id === noteModalTarget.activity_id ? { ...n, note: trimmed, updated_at: new Date().toISOString() } : n))
-          : prev.filter((n) => n.activity_id !== noteModalTarget.activity_id)
-      ));
+      setNotes((prev) => {
+        if (!trimmed) return prev.filter((n) => n.activity_id !== noteModalTarget.activity_id);
+        const exists = prev.some((n) => n.activity_id === noteModalTarget.activity_id);
+        if (exists) {
+          return prev.map((n) => (n.activity_id === noteModalTarget.activity_id ? { ...n, note: trimmed, updated_at: new Date().toISOString() } : n));
+        }
+        // הערה חדשה שנוצרה מ"הפעילויות שלי" (לא הייתה קיימת קודם ב-notes) - מוסיפים שורה
+        // מלאה כדי שהיא תופיע מיד גם ב"📝 ההערות האישיות שלי" בלי לטעון מחדש מה-DB.
+        const now = new Date().toISOString();
+        return [{ activity_id: noteModalTarget.activity_id, note: trimmed, created_at: now, updated_at: now, activity: noteModalTarget.activity }, ...prev];
+      });
       setNoteModalOpen(false);
       showNotice('ההערה נשמרה');
     } catch (err) {
       showNotice(`שגיאה בשמירת ההערה: ${err.message}`);
     } finally {
       setSavingNoteModal(false);
-    }
-  };
-
-  const confirmDeleteNote = async () => {
-    if (!noteDeleteTarget || !session?.user?.id) return;
-    setDeletingNote(true);
-    try {
-      await savePersonalNote(session.user.id, noteDeleteTarget.activity_id, '');
-      setNotes((prev) => prev.filter((n) => n.activity_id !== noteDeleteTarget.activity_id));
-      setNoteDeleteTarget(null);
-      showNotice('ההערה נמחקה');
-    } catch (err) {
-      showNotice(`שגיאה במחיקת ההערה: ${err.message}`);
-    } finally {
-      setDeletingNote(false);
     }
   };
 
@@ -321,17 +299,6 @@ export default function ProfileScreen() {
       setEditingNickname(false);
     } else {
       showNotice(`שגיאה בשמירת הכינוי: ${error.message}`);
-    }
-  };
-
-  const toggleNotify = async () => {
-    if (!emailColumnsAvailable || !email) return;
-    const next = !notifyByEmail;
-    setNotifyByEmail(next);
-    const { error } = await supabase.from('profiles').update({ notify_by_email: next }).eq('id', session.user.id);
-    if (error) {
-      setNotifyByEmail(!next);
-      showNotice(`שגיאה בעדכון: ${error.message}`);
     }
   };
 
@@ -464,16 +431,23 @@ export default function ProfileScreen() {
   // לאיך זה משפיע על ניסוח התג/סינון/דירוג) - אותו דפוס בדיוק כמו openExcludedPicker למעלה.
   const openBenefitClubsPicker = () => {
     setBenefitClubsDraft(benefitClubs);
+    setBenefitClubsOtherDraft(benefitClubsOther);
     setBenefitClubsPickerOpen(true);
   };
 
   const closeBenefitClubsPicker = async () => {
     setBenefitClubsPickerOpen(false);
-    if (JSON.stringify(benefitClubsDraft) === JSON.stringify(benefitClubs)) return;
+    // "אחר" לא נבחר יותר - הטקסט החופשי כבר לא רלוונטי, לא שומרים אותו (גם אם הוקלד קודם).
+    const otherToSave = benefitClubsDraft.includes('אחר') ? benefitClubsOtherDraft.trim() : '';
+    if (
+      JSON.stringify(benefitClubsDraft) === JSON.stringify(benefitClubs)
+      && otherToSave === (benefitClubsOther || '')
+    ) return;
     setSavingBenefitClubs(true);
     try {
-      await saveBenefitClubs(session.user.id, benefitClubsDraft);
+      await saveBenefitClubs(session.user.id, benefitClubsDraft, otherToSave);
       setBenefitClubs(benefitClubsDraft);
+      setBenefitClubsOther(otherToSave);
     } catch (err) {
       showNotice(`שגיאה בשמירת ההטבות: ${err.message}`);
     } finally {
@@ -524,24 +498,10 @@ export default function ProfileScreen() {
     }
   };
 
-  const toggleNotification = async (key) => {
-    const next = { ...notificationPrefs, [key]: !notificationPrefs[key] };
-    setNotificationPrefs(next);
-    setSavingNotifications(true);
-    try {
-      await saveNotificationPrefs(session.user.id, next);
-    } catch (err) {
-      setNotificationPrefs(notificationPrefs);
-      showNotice(`שגיאה בשמירה: ${err.message}`);
-    } finally {
-      setSavingNotifications(false);
-    }
-  };
-
   const handleLogout = async () => {
     await supabase.auth.signOut();
     await clearPin();
-    await AsyncStorage.removeItem('wabbit_asked_quick_login');
+    await AsyncStorage.removeItem('turu_asked_quick_login');
     router.replace('/login');
   };
 
@@ -652,6 +612,7 @@ export default function ProfileScreen() {
           </Pressable>
         </View>
 
+        {/* 👋 בואו נכיר - הכרטיס הראשון בעמוד (לפני "העדפות חיפוש"), לפי בקשת המשתמש. */}
         {showOnboarding && (
           <View style={styles.onboardingCard}>
             <Text style={styles.onboardingTitle}>👋 בואו נכיר</Text>
@@ -660,7 +621,6 @@ export default function ProfileScreen() {
               <Text style={styles.onboardingStep}>1. 👶 בני כמה הילדים?</Text>
               <Text style={styles.onboardingStep}>2. 📍 איפה אתם מחפשים?</Text>
               <Text style={styles.onboardingStep}>3. 🎯 מה אתם אוהבים לעשות?</Text>
-              <Text style={styles.onboardingStep}>4. 💰 מה התקציב שלכם?</Text>
             </View>
             <Pressable style={styles.onboardingGoBtn} onPress={openAddChild}>
               <Text style={styles.onboardingGoBtnText}>יאללה, מתחילים 🚀</Text>
@@ -670,6 +630,112 @@ export default function ProfileScreen() {
             </Pressable>
           </View>
         )}
+
+        {/* ⭐ העדפות החיפוש שלי - accordion יחיד: שורה אחת גלויה תמיד ("העדפות חיפוש"), כל
+            התוכן מתחתיה מתקפל/נפתח בלחיצה על השורה עצמה בלבד - הועבר גם למיקום גבוה יותר בעמוד
+            (מיד אחרי כרטיס הפרופיל, לפני הילדים), לפי בקשת המשתמש. "עוד העדפות" (הזמנה/משך/
+            נגישות דרך FiltersSheet) הוסר - שלושתם עכשיו שורות ייעודיות רגילות כמו כל השאר, בלי
+            הפרדה. "קטגוריות שלעולם לא יוצגו לי"/"אזורים שלא להציג" עברו לכאן מ"עוד הגדרות" שהוסר. */}
+        <View style={styles.shelf}>
+          <Pressable style={styles.shelfHeadToggle} onPress={() => setSearchPrefsOpen((v) => !v)}>
+            <Text style={styles.shelfTitle}>⭐ העדפות חיפוש</Text>
+            <View style={{ transform: [{ rotate: searchPrefsOpen ? '180deg' : '0deg' }] }}>
+              <ChevronDownIcon size={14} />
+            </View>
+          </Pressable>
+          {searchPrefsOpen && (
+            <>
+              <Text style={styles.sectionHint}>נשתמש בזה כדי להציג לכם קודם פעילויות שמתאימות בדיוק לכם - עדיין תוכלו לשנות כל פילטר בכל חיפוש.</Text>
+
+              <View style={styles.accountCard}>
+                <Pressable style={styles.settingRow} onPress={() => setPrefLocationOpen(true)}>
+                  <Text style={styles.settingLabel}>📍 מיקום ברירת מחדל</Text>
+                  <View style={styles.badgeSetup}>
+                    <Text style={styles.badgeSetupText}>{summaryForPreference('location', homeDefaultsDraft) || 'בחירה'}</Text>
+                    <ChevronLeftIcon size={12} />
+                  </View>
+                </Pressable>
+                <Pressable style={styles.settingRow} onPress={() => setPrefCategoryOpen(true)}>
+                  <Text style={styles.settingLabel}>🎯 סוגי פעילויות מועדפים</Text>
+                  <View style={styles.badgeSetup}>
+                    <Text style={styles.badgeSetupText}>{summaryForPreference('category', homeDefaultsDraft) || 'בחירה'}</Text>
+                    <ChevronLeftIcon size={12} />
+                  </View>
+                </Pressable>
+                <Pressable style={styles.settingRow} onPress={() => setPrefWhenOpen(true)}>
+                  <Text style={styles.settingLabel}>📅 מתי בדרך כלל מחפשים?</Text>
+                  <View style={styles.badgeSetup}>
+                    <Text style={styles.badgeSetupText}>{summaryForPreference('when', homeDefaultsDraft) || 'כל הזמן'}</Text>
+                    <ChevronLeftIcon size={12} />
+                  </View>
+                </Pressable>
+                <Pressable style={styles.settingRow} onPress={() => setPrefPriceOpen(true)}>
+                  <Text style={styles.settingLabel}>💰 העדפת מחיר</Text>
+                  <View style={styles.badgeSetup}>
+                    <Text style={styles.badgeSetupText}>{summaryForPreference('price', homeDefaultsDraft) || 'כל המחירים'}</Text>
+                    <ChevronLeftIcon size={12} />
+                  </View>
+                </Pressable>
+                <Pressable style={styles.settingRow} onPress={() => setPrefPlaceTypeOpen(true)}>
+                  <Text style={styles.settingLabel}>🏠 סוג מקום מועדף</Text>
+                  <View style={styles.badgeSetup}>
+                    <Text style={styles.badgeSetupText}>{summaryForPreference('placeType', homeDefaultsDraft) || 'לא משנה'}</Text>
+                    <ChevronLeftIcon size={12} />
+                  </View>
+                </Pressable>
+                <Pressable style={styles.settingRow} onPress={() => setPrefBookingOpen(true)}>
+                  <Text style={styles.settingLabel}>🎟️ הזמנה</Text>
+                  <View style={styles.badgeSetup}>
+                    <Text style={styles.badgeSetupText}>{summaryForPreference('booking', homeDefaultsDraft) || 'לא משנה'}</Text>
+                    <ChevronLeftIcon size={12} />
+                  </View>
+                </Pressable>
+                <Pressable style={styles.settingRow} onPress={() => setPrefDurationOpen(true)}>
+                  <Text style={styles.settingLabel}>⏱️ משך פעילות</Text>
+                  <View style={styles.badgeSetup}>
+                    <Text style={styles.badgeSetupText} numberOfLines={1}>{summaryForPreference('duration', homeDefaultsDraft) || 'לא משנה'}</Text>
+                    <ChevronLeftIcon size={12} />
+                  </View>
+                </Pressable>
+                <Pressable style={styles.settingRow} onPress={() => setPrefAmenitiesOpen(true)}>
+                  <Text style={styles.settingLabel}>♿ נגישות ונוחות</Text>
+                  <View style={styles.badgeSetup}>
+                    <Text style={styles.badgeSetupText} numberOfLines={1}>{summaryForPreference('amenities', homeDefaultsDraft) || 'לא משנה'}</Text>
+                    <ChevronLeftIcon size={12} />
+                  </View>
+                </Pressable>
+                <Pressable style={styles.settingRow} onPress={openExcludedPicker} disabled={savingExcluded}>
+                  <Text style={styles.settingLabel}>🚫 קטגוריות שלעולם לא יוצגו לי</Text>
+                  <View style={styles.badgeSetup}>
+                    <Text style={styles.badgeSetupText} numberOfLines={1}>
+                      {savingExcluded ? 'שומר...' : excludedCategories.length > 0 ? excludedCategories.join(' · ') : 'בחירה'}
+                    </Text>
+                    <ChevronLeftIcon size={12} />
+                  </View>
+                </Pressable>
+                <Pressable style={[styles.settingRow, styles.settingRowLast]} onPress={openExcludedCitiesPicker} disabled={savingExcludedCities}>
+                  <Text style={styles.settingLabel}>📍 אזורים שלא להציג</Text>
+                  <View style={styles.badgeSetup}>
+                    <Text style={styles.badgeSetupText} numberOfLines={1}>
+                      {savingExcludedCities ? 'שומר...' : excludedCities.length > 0 ? excludedCities.join(' · ') : 'בחירה'}
+                    </Text>
+                    <ChevronLeftIcon size={12} />
+                  </View>
+                </Pressable>
+              </View>
+
+              {(excludedCategories.length > 0 || excludedCities.length > 0) && (
+                <Pressable style={styles.resetAllPrefsBtn} onPress={resetAllSearchPreferences}>
+                  <Text style={styles.resetAllPrefsBtnText}>איפוס כל העדפות החיפוש</Text>
+                </Pressable>
+              )}
+
+              <Pressable style={styles.saveDefaultsBtn} onPress={handleSaveHomeDefaults} disabled={savingHomeDefaults}>
+                <Text style={styles.saveDefaultsBtnText}>{savingHomeDefaults ? 'שומר...' : '💾 שמירת ההעדפות'}</Text>
+              </Pressable>
+            </>
+          )}
+        </View>
 
         {/* 👶 הילדים שלי */}
         <View style={styles.shelf}>
@@ -727,73 +793,6 @@ export default function ProfileScreen() {
           )}
         </View>
 
-        {/* ⭐ העדפות החיפוש שלי */}
-        <View style={styles.shelf}>
-          <View style={styles.shelfHead}><Text style={styles.shelfTitle}>⭐ העדפות החיפוש שלי</Text></View>
-          <Text style={styles.sectionHint}>נשתמש בזה כדי להציג לכם קודם פעילויות שמתאימות בדיוק לכם - עדיין תוכלו לשנות כל פילטר בכל חיפוש.</Text>
-
-          <View style={styles.accountCard}>
-            <Pressable style={styles.settingRow} onPress={() => setPrefLocationOpen(true)}>
-              <Text style={styles.settingLabel}>📍 מיקום ברירת מחדל</Text>
-              <View style={styles.badgeSetup}>
-                <Text style={styles.badgeSetupText}>{summaryForPreference('location', homeDefaultsDraft) || 'בחירה'}</Text>
-                <ChevronLeftIcon size={12} />
-              </View>
-            </Pressable>
-            <Pressable style={styles.settingRow} onPress={() => setPrefCategoryOpen(true)}>
-              <Text style={styles.settingLabel}>🎯 סוגי פעילויות מועדפים</Text>
-              <View style={styles.badgeSetup}>
-                <Text style={styles.badgeSetupText}>{summaryForPreference('category', homeDefaultsDraft) || 'בחירה'}</Text>
-                <ChevronLeftIcon size={12} />
-              </View>
-            </Pressable>
-            <Pressable style={styles.settingRow} onPress={() => setPrefWhenOpen(true)}>
-              <Text style={styles.settingLabel}>📅 מתי בדרך כלל מחפשים?</Text>
-              <View style={styles.badgeSetup}>
-                <Text style={styles.badgeSetupText}>{summaryForPreference('when', homeDefaultsDraft) || 'כל הזמן'}</Text>
-                <ChevronLeftIcon size={12} />
-              </View>
-            </Pressable>
-            <Pressable style={styles.settingRow} onPress={() => setPrefPriceOpen(true)}>
-              <Text style={styles.settingLabel}>💰 העדפת מחיר</Text>
-              <View style={styles.badgeSetup}>
-                <Text style={styles.badgeSetupText}>{summaryForPreference('price', homeDefaultsDraft) || 'כל המחירים'}</Text>
-                <ChevronLeftIcon size={12} />
-              </View>
-            </Pressable>
-            <Pressable style={[styles.settingRow, styles.settingRowLast]} onPress={() => setPrefPlaceTypeOpen(true)}>
-              <Text style={styles.settingLabel}>🏠 סוג מקום מועדף</Text>
-              <View style={styles.badgeSetup}>
-                <Text style={styles.badgeSetupText}>{summaryForPreference('placeType', homeDefaultsDraft) || 'לא משנה'}</Text>
-                <ChevronLeftIcon size={12} />
-              </View>
-            </Pressable>
-          </View>
-
-          <Pressable style={styles.moreToggleRow} onPress={() => setAdvancedPrefsOpen((v) => !v)}>
-            <Text style={styles.moreToggleText}>עוד העדפות</Text>
-            <View style={{ transform: [{ rotate: advancedPrefsOpen ? '180deg' : '0deg' }] }}>
-              <ChevronDownIcon size={12} />
-            </View>
-          </Pressable>
-          {advancedPrefsOpen && homeDefaultsDraft && (
-            <FiltersSheet
-              filters={homeDefaultsDraft}
-              onChange={setPref}
-              onClearAll={() => setHomeDefaultsDraft((prev) => ({
-                ...prev,
-                ...Object.fromEntries(ADVANCED_PREFERENCE_KEYS.map((k) => [k, DEFAULT_FILTERS[k]])),
-              }))}
-              onCoordsResolved={() => {}}
-              only={ADVANCED_PREFERENCE_KEYS}
-            />
-          )}
-
-          <Pressable style={styles.saveDefaultsBtn} onPress={handleSaveHomeDefaults} disabled={savingHomeDefaults}>
-            <Text style={styles.saveDefaultsBtnText}>{savingHomeDefaults ? 'שומר...' : '💾 שמירת ההעדפות'}</Text>
-          </Pressable>
-        </View>
-
         {/* מה תורו יודע */}
         {summaryBits.length > 0 && (
           <View style={styles.knowCard}>
@@ -825,31 +824,39 @@ export default function ProfileScreen() {
               <Text style={styles.emptyShelfText}>עדיין אין כלום כאן</Text>
             </View>
           ) : (
-            tabItems.slice(0, 3).map((item) => (
-              <Pressable key={item.activity_id} style={styles.tabItemRow} onPress={() => router.push(`/activity/${item.activity_id}`)}>
-                <Text style={styles.tabItemTitle} numberOfLines={1}>{item.activity.name}</Text>
-                <Text style={styles.tabItemSub} numberOfLines={1}>
-                  {[item.activity.category, item.activity.location?.city || item.activity.location?.name].filter(Boolean).join(' · ')}
-                </Text>
-              </Pressable>
-            ))
+            tabItems.slice(0, 3).map((item) => {
+              const hasNote = notes.some((n) => n.activity_id === item.activity_id);
+              return (
+                <View key={item.activity_id} style={styles.tabItemRow}>
+                  <Pressable style={styles.tabItemMain} onPress={() => router.push(`/activity/${item.activity_id}`)}>
+                    <Text style={styles.tabItemTitle} numberOfLines={1}>{item.activity.name}</Text>
+                    <Text style={styles.tabItemSub} numberOfLines={1}>
+                      {[item.activity.category, item.activity.location?.city || item.activity.location?.name].filter(Boolean).join(' · ')}
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    style={styles.tabItemNoteBtn}
+                    onPress={() => openNoteForActivity(item.activity_id, item.activity.name)}
+                    hitSlop={6}
+                  >
+                    <Text style={styles.tabItemNoteBtnText}>{hasNote ? '📝 הערה' : '📝 הוסף הערה'}</Text>
+                  </Pressable>
+                </View>
+              );
+            })
           )}
-          <Pressable style={styles.allDestinationsBtn} onPress={() => router.push('/destinations')}>
+          <Pressable style={styles.allDestinationsBtn} onPress={() => router.push('/my-things')}>
             <Text style={styles.allDestinationsBtnText}>📍 לכל היעדים שלי ←</Text>
           </Pressable>
         </View>
 
-        {/* 📝 ההערות האישיות שלי */}
+        {/* 📝 ההערות האישיות שלי - Preview קצר בלבד (רק ההערה האחרונה, notes כבר ממוין
+            newest-first ע"י fetchAllPersonalNotes) - הרשימה המלאה עם מיון/חיפוש עברה ל-
+            /my-things?tab=notes ("📝 הערות שלי", טאב ייעודי בעמוד "❤️ הדברים שלי" המאוחד). */}
         <View style={styles.shelf}>
           <View style={styles.shelfHead}>
-            <View style={styles.shelfHeadRow}>
-              <Text style={styles.shelfTitle}>📝 ההערות האישיות שלי</Text>
-              {notes.length > 0 && (
-                <Text style={styles.noteCountBadge}>{notes.length === 1 ? 'הערה אחת' : `${notes.length} הערות`}</Text>
-              )}
-            </View>
+            <Text style={styles.shelfTitle}>📝 ההערות האישיות שלי</Text>
             <Text style={styles.sectionHint}>המקום הפרטי שלכם לזכור דברים חשובים על הפעילויות</Text>
-            <Text style={styles.notePrivacyHint}>🔒 רק אתם יכולים לראות את ההערות האלה</Text>
           </View>
 
           {notesLoading ? (
@@ -857,70 +864,36 @@ export default function ProfileScreen() {
           ) : notes.length === 0 ? (
             <View style={styles.emptyShelf}>
               <Text style={styles.emptyShelfText}>עדיין אין לכם הערות אישיות.</Text>
-              <Text style={[styles.emptyShelfText, { marginTop: 4 }]}>כשתכתבו הערה על פעילות, היא תופיע כאן.</Text>
+              <Text style={[styles.emptyShelfText, { marginTop: 4 }]}>הוסיפו הערה מתוך עמוד פעילות כדי לזכור דברים חשובים לפעם הבאה.</Text>
             </View>
-          ) : (
-            <>
-              {notes.length > 4 && (
-                <>
-                  <TextInput
-                    style={styles.textInput}
-                    value={noteSearch}
-                    onChangeText={setNoteSearch}
-                    placeholder="🔍 חיפוש בהערות..."
-                    placeholderTextColor={colors.textMuted}
-                  />
-                  <View style={styles.tabsRow}>
-                    <Pressable style={[styles.tabBtn, noteSort === 'new' && styles.tabBtnActive]} onPress={() => setNoteSort('new')}>
-                      <Text style={[styles.tabBtnText, noteSort === 'new' && styles.tabBtnTextActive]}>הכי חדשות</Text>
+          ) : (() => {
+            const note = notes[0];
+            const thumb = note.activity.activity_images?.[0]?.url;
+            const cityLabel = note.activity.location?.city || note.activity.location?.name || '';
+            return (
+              <View style={styles.noteCard}>
+                <View style={styles.noteCardTop}>
+                  {thumb ? (
+                    <Image source={{ uri: thumb }} style={styles.noteThumb} />
+                  ) : (
+                    <View style={styles.noteThumbPlaceholder}><Text style={styles.noteThumbPlaceholderText}>🖼️</Text></View>
+                  )}
+                  <View style={styles.noteCardInfo}>
+                    <Pressable onPress={() => router.push(`/activity/${note.activity_id}`)}>
+                      <Text style={styles.noteActivityName} numberOfLines={1}>{note.activity.name}</Text>
                     </Pressable>
-                    <Pressable style={[styles.tabBtn, noteSort === 'old' && styles.tabBtnActive]} onPress={() => setNoteSort('old')}>
-                      <Text style={[styles.tabBtnText, noteSort === 'old' && styles.tabBtnTextActive]}>הכי ישנות</Text>
-                    </Pressable>
+                    {!!cityLabel && <Text style={styles.noteActivityLocation}>📍 {cityLabel}</Text>}
                   </View>
-                </>
-              )}
-
-              {filteredSortedNotes.length === 0 ? (
-                <View style={styles.emptyShelf}>
-                  <Text style={styles.emptyShelfText}>לא נמצאו הערות מתאימות לחיפוש.</Text>
                 </View>
-              ) : (
-                filteredSortedNotes.map((note) => {
-                  const thumb = note.activity.activity_images?.[0]?.url;
-                  const cityLabel = note.activity.location?.city || note.activity.location?.name || '';
-                  const edited = new Date(note.updated_at).getTime() - new Date(note.created_at).getTime() > 2000;
-                  return (
-                    <View key={note.activity_id} style={styles.noteCard}>
-                      <View style={styles.noteCardTop}>
-                        {thumb ? (
-                          <Image source={{ uri: thumb }} style={styles.noteThumb} />
-                        ) : (
-                          <View style={styles.noteThumbPlaceholder}><Text style={styles.noteThumbPlaceholderText}>🖼️</Text></View>
-                        )}
-                        <View style={styles.noteCardInfo}>
-                          <Pressable onPress={() => router.push(`/activity/${note.activity_id}`)}>
-                            <Text style={styles.noteActivityName} numberOfLines={1}>{note.activity.name}</Text>
-                          </Pressable>
-                          {!!cityLabel && <Text style={styles.noteActivityLocation}>📍 {cityLabel}</Text>}
-                        </View>
-                      </View>
-                      <Text style={styles.noteCardText} numberOfLines={3}>{note.note}</Text>
-                      <View style={styles.noteCardFooter}>
-                        <Text style={styles.noteCardMeta}>
-                          נכתב {relativeDate(note.created_at)}{edited ? ` · נערך ${relativeDate(note.updated_at)}` : ''}
-                        </Text>
-                        <View style={styles.noteCardActions}>
-                          <Pressable onPress={() => openEditNote(note)}><Text style={styles.noteActionText}>✏️ עריכה</Text></Pressable>
-                          <Pressable onPress={() => setNoteDeleteTarget(note)}><Text style={[styles.noteActionText, styles.noteActionDanger]}>🗑️ מחיקה</Text></Pressable>
-                        </View>
-                      </View>
-                    </View>
-                  );
-                })
-              )}
-            </>
-          )}
+                <Text style={styles.noteCardText} numberOfLines={3}>{note.note}</Text>
+                <Text style={styles.noteCardMeta}>נכתב {relativeDate(note.created_at)}</Text>
+              </View>
+            );
+          })()}
+
+          <Pressable style={styles.allDestinationsBtn} onPress={() => router.push('/my-things?tab=notes')}>
+            <Text style={styles.allDestinationsBtnText}>📝 לכל ההערות שלי ←</Text>
+          </Pressable>
         </View>
 
         {/* 🎟️ ההטבות שלי */}
@@ -943,34 +916,78 @@ export default function ProfileScreen() {
               </View>
             </Pressable>
           </View>
+          {benefitClubs.includes('אחר') && !!benefitClubsOther && (
+            <Text style={[styles.sectionHint, { marginTop: 8 }]}>אחר: {benefitClubsOther}</Text>
+          )}
           <Text style={[styles.sectionHint, { marginTop: 8 }]}>
             לא רוצים להגדיר? אין בעיה. תוכלו לראות את כל הפעילויות כרגיל.
           </Text>
         </View>
 
-        {/* 🔔 ההתראות שלי */}
+        {/* 🎚️ פילטרים נוספים במסך הראשי - שורה מתקפלת (הועברה מ"⚙️ הגדרות", אחרי "🎟️ ההטבות
+            שלי"), אותו דפוס accordion בדיוק כמו "⭐ העדפות חיפוש" למעלה - כולל אייקון ליד הכותרת
+            כמו כל שאר הסקשנים בעמוד הזה. */}
+        <View style={styles.shelf}>
+          <Pressable style={styles.shelfHeadToggle} onPress={() => setVisibleFiltersOpen((v) => !v)}>
+            <Text style={styles.shelfTitle}>🎚️ פילטרים נוספים במסך הראשי</Text>
+            <View style={{ transform: [{ rotate: visibleFiltersOpen ? '180deg' : '0deg' }] }}>
+              <ChevronDownIcon size={14} />
+            </View>
+          </Pressable>
+          {visibleFiltersOpen && (
+            <View style={styles.accountCard}>
+              {TOGGLABLE_HOME_FILTERS.map((f, i) => {
+                const isVisible = visibleHomeFilters.includes(f.key);
+                return (
+                  <Pressable
+                    key={f.key}
+                    style={[styles.settingRow, i === TOGGLABLE_HOME_FILTERS.length - 1 && styles.settingRowLast]}
+                    onPress={() => toggleVisibleFilter(f.key)}
+                    disabled={savingVisibleFilters}
+                  >
+                    <Text style={styles.settingLabel}>{f.icon} {f.title}</Text>
+                    <View style={[styles.toggle, isVisible ? styles.toggleOn : styles.toggleOff]}>
+                      <View style={[styles.toggleDot, !isVisible && styles.toggleDotOff]} />
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </View>
+          )}
+        </View>
+
+        {/* 🔔 ההתראות שלי - עדיין אין תשתית שליחה בפועל (לא push ולא מייל), אז כל האזור מוצג
+            באפור מדוהה ולא לחיץ - נראה, אבל ברור שהוא לא זמין כרגע, כדי לא ליצור רושם שגוי
+            שההעדפות האלה כבר פעילות. "עדכונים על מקומות חדשים במייל" (שכן כותב ל-DB בפועל, רק
+            שאין job שבאמת שולח מייל על סמך זה) עבר לכאן מ"⚙️ הגדרות" - שייך תמטית לכאן, ולא
+            רלוונטי יותר להיות לחיץ לבד באזור נפרד מהתראות אחרות שכולן "בקרוב". */}
         <View style={styles.shelf}>
           <View style={styles.shelfHead}>
             <View style={styles.shelfHeadRow}>
               <Text style={styles.shelfTitle}>🔔 ההתראות שלי</Text>
               <View style={styles.comingSoonBadge}><Text style={styles.comingSoonText}>בקרוב</Text></View>
             </View>
+            <Text style={styles.sectionHint}>ההתראות עוד לא פעילות באפליקציה - נשמח להפעיל אותן בקרוב.</Text>
           </View>
-          <View style={styles.accountCard}>
+          <View style={[styles.accountCard, styles.disabledCard]}>
+            <View style={styles.settingRow}>
+              <Text style={styles.settingLabel}>עדכונים על מקומות חדשים במייל</Text>
+              <View style={[styles.toggle, notifyByEmail && emailColumnsAvailable ? styles.toggleOn : styles.toggleOff]}>
+                <View style={[styles.toggleDot, !(notifyByEmail && emailColumnsAvailable) && styles.toggleDotOff]} />
+              </View>
+            </View>
             {NOTIFICATION_ITEMS.map((item, i) => {
               const isOn = !!notificationPrefs[item.key];
               return (
-                <Pressable
+                <View
                   key={item.key}
                   style={[styles.settingRow, i === NOTIFICATION_ITEMS.length - 1 && styles.settingRowLast]}
-                  onPress={() => toggleNotification(item.key)}
-                  disabled={savingNotifications}
                 >
                   <Text style={styles.settingLabel}>{item.label}</Text>
                   <View style={[styles.toggle, isOn ? styles.toggleOn : styles.toggleOff]}>
                     <View style={[styles.toggleDot, !isOn && styles.toggleDotOff]} />
                   </View>
-                </Pressable>
+                </View>
               );
             })}
           </View>
@@ -992,13 +1009,7 @@ export default function ProfileScreen() {
               <Text style={styles.settingLabel}>אימייל</Text>
               <Text style={styles.settingValue}>{emailColumnsAvailable ? (email || 'לא הוגדר') : 'לא זמין עדיין'}</Text>
             </View>
-            <Pressable style={styles.settingRow} onPress={toggleNotify} disabled={!emailColumnsAvailable || !email}>
-              <Text style={styles.settingLabel}>עדכונים על מקומות חדשים במייל</Text>
-              <View style={[styles.toggle, notifyByEmail && emailColumnsAvailable ? styles.toggleOn : styles.toggleOff]}>
-                <View style={[styles.toggleDot, !(notifyByEmail && emailColumnsAvailable) && styles.toggleDotOff]} />
-              </View>
-            </Pressable>
-            <Pressable style={[styles.settingRow, styles.settingRowLast]} onPress={() => !quickLoginEnabled && router.push('/biometric-prompt')}>
+            <Pressable style={styles.settingRow} onPress={() => !quickLoginEnabled && router.push('/biometric-prompt')}>
               <Text style={styles.settingLabel}>כניסה מהירה</Text>
               {quickLoginEnabled ? (
                 <View style={styles.badgeOk}>
@@ -1012,72 +1023,14 @@ export default function ProfileScreen() {
                 </View>
               )}
             </Pressable>
+            <Pressable style={[styles.settingRow, styles.settingRowLast]} onPress={openHiddenModal}>
+              <Text style={styles.settingLabel}>🙈 פעילויות חסומות</Text>
+              <View style={styles.badgeSetup}>
+                <Text style={styles.badgeSetupText}>עריכה</Text>
+                <ChevronLeftIcon size={12} />
+              </View>
+            </Pressable>
           </View>
-
-          <Pressable style={styles.moreToggleRow} onPress={() => setMoreSettingsOpen((v) => !v)}>
-            <Text style={styles.moreToggleText}>עוד הגדרות</Text>
-            <View style={{ transform: [{ rotate: moreSettingsOpen ? '180deg' : '0deg' }] }}>
-              <ChevronDownIcon size={12} />
-            </View>
-          </Pressable>
-
-          {moreSettingsOpen && (
-            <>
-              <Text style={styles.subSectionTitle}>⚙️ העדפות חיפוש</Text>
-              <View style={styles.accountCard}>
-                <Pressable style={styles.settingRow} onPress={openExcludedPicker} disabled={savingExcluded}>
-                  <Text style={styles.settingLabel}>🚫 קטגוריות שלעולם לא יוצגו לי</Text>
-                  <View style={styles.badgeSetup}>
-                    <Text style={styles.badgeSetupText} numberOfLines={1}>
-                      {savingExcluded ? 'שומר...' : excludedCategories.length > 0 ? excludedCategories.join(' · ') : 'בחירה'}
-                    </Text>
-                    <ChevronLeftIcon size={12} />
-                  </View>
-                </Pressable>
-                <Pressable style={styles.settingRow} onPress={openExcludedCitiesPicker} disabled={savingExcludedCities}>
-                  <Text style={styles.settingLabel}>📍 אזורים שלא להציג</Text>
-                  <View style={styles.badgeSetup}>
-                    <Text style={styles.badgeSetupText} numberOfLines={1}>
-                      {savingExcludedCities ? 'שומר...' : excludedCities.length > 0 ? excludedCities.join(' · ') : 'בחירה'}
-                    </Text>
-                    <ChevronLeftIcon size={12} />
-                  </View>
-                </Pressable>
-                <Pressable style={[styles.settingRow, styles.settingRowLast]} onPress={openHiddenModal}>
-                  <Text style={styles.settingLabel}>🙈 פעילויות חסומות</Text>
-                  <View style={styles.badgeSetup}>
-                    <Text style={styles.badgeSetupText}>עריכה</Text>
-                    <ChevronLeftIcon size={12} />
-                  </View>
-                </Pressable>
-              </View>
-              {(excludedCategories.length > 0 || excludedCities.length > 0) && (
-                <Pressable style={styles.resetAllPrefsBtn} onPress={resetAllSearchPreferences}>
-                  <Text style={styles.resetAllPrefsBtnText}>איפוס כל העדפות החיפוש</Text>
-                </Pressable>
-              )}
-
-              <Text style={styles.subSectionTitle}>פילטרים נוספים במסך הראשי</Text>
-              <View style={styles.accountCard}>
-                {TOGGLABLE_HOME_FILTERS.map((f, i) => {
-                  const isVisible = visibleHomeFilters.includes(f.key);
-                  return (
-                    <Pressable
-                      key={f.key}
-                      style={[styles.settingRow, i === TOGGLABLE_HOME_FILTERS.length - 1 && styles.settingRowLast]}
-                      onPress={() => toggleVisibleFilter(f.key)}
-                      disabled={savingVisibleFilters}
-                    >
-                      <Text style={styles.settingLabel}>{f.icon} {f.title}</Text>
-                      <View style={[styles.toggle, isVisible ? styles.toggleOn : styles.toggleOff]}>
-                        <View style={[styles.toggleDot, !isVisible && styles.toggleDotOff]} />
-                      </View>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </>
-          )}
         </View>
 
         {/* ⚖️ משפטי */}
@@ -1248,27 +1201,6 @@ export default function ProfileScreen() {
         </Pressable>
       </Modal>
 
-      <Modal visible={!!noteDeleteTarget} transparent animationType="fade" onRequestClose={() => setNoteDeleteTarget(null)}>
-        <Pressable style={styles.modalBackdrop} onPress={() => setNoteDeleteTarget(null)}>
-          <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
-            <Text style={styles.modalTitle}>מחיקת ההערה?</Text>
-            <Text style={styles.noteDeleteWarning}>לא ניתן לשחזר הערה שנמחקת.</Text>
-            <View style={styles.modalActionsRow}>
-              <Pressable
-                style={[styles.modalSaveBtn, styles.modalDangerBtn, deletingNote && styles.modalSaveBtnDisabled]}
-                onPress={confirmDeleteNote}
-                disabled={deletingNote}
-              >
-                <Text style={styles.modalSaveBtnText}>{deletingNote ? 'מוחק...' : 'מחיקה'}</Text>
-              </Pressable>
-              <Pressable style={styles.modalCancelBtn} onPress={() => setNoteDeleteTarget(null)}>
-                <Text style={styles.modalCancelBtnText}>ביטול</Text>
-              </Pressable>
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
-
       <Modal visible={hiddenModalOpen} transparent animationType="fade" onRequestClose={() => setHiddenModalOpen(false)}>
         <Pressable style={styles.modalBackdrop} onPress={() => setHiddenModalOpen(false)}>
           <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
@@ -1337,6 +1269,18 @@ export default function ProfileScreen() {
         multiple
         onChange={setBenefitClubsDraft}
         onClose={closeBenefitClubsPicker}
+        footer={benefitClubsDraft.includes('אחר') && (
+          <View style={{ marginTop: 14 }}>
+            <Text style={styles.fieldLabel}>מה יש לכם?</Text>
+            <TextInput
+              style={styles.textInput}
+              value={benefitClubsOtherDraft}
+              onChangeText={setBenefitClubsOtherDraft}
+              placeholder="למשל: כרטיס חבר של הפועל תל אביב"
+              placeholderTextColor={colors.textMuted}
+            />
+          </View>
+        )}
       />
 
       {homeDefaultsDraft && (
@@ -1391,6 +1335,39 @@ export default function ProfileScreen() {
             allLabel="לא משנה"
             onChange={(v) => setPref('placeType', v)}
             onClose={() => setPrefPlaceTypeOpen(false)}
+          />
+          <QuickPicker
+            visible={prefBookingOpen}
+            title="הזמנה"
+            options={BOOKING_OPTIONS}
+            value={homeDefaultsDraft.booking}
+            multiple={false}
+            showAll
+            allLabel="לא משנה"
+            onChange={(v) => setPref('booking', v)}
+            onClose={() => setPrefBookingOpen(false)}
+          />
+          <QuickPicker
+            visible={prefDurationOpen}
+            title="משך פעילות"
+            options={DURATION_OPTIONS}
+            value={homeDefaultsDraft.duration}
+            multiple
+            showAll
+            allLabel="לא משנה"
+            onChange={(v) => setPref('duration', v)}
+            onClose={() => setPrefDurationOpen(false)}
+          />
+          <QuickPicker
+            visible={prefAmenitiesOpen}
+            title="נגישות ונוחות"
+            options={AMENITY_COMFORT_OPTIONS}
+            value={homeDefaultsDraft.amenities}
+            multiple
+            showAll
+            allLabel="לא משנה"
+            onChange={(v) => setPref('amenities', v)}
+            onClose={() => setPrefAmenitiesOpen(false)}
           />
         </>
       )}
@@ -1451,6 +1428,9 @@ const styles = StyleSheet.create({
   shelf: { marginBottom: 26 },
   shelfHead: { marginBottom: 10 },
   shelfHeadRow: { flexDirection: 'row-reverse', alignItems: 'center', gap: 8 },
+  // שורת accordion יחידה (למשל "⭐ העדפות חיפוש") - הכותרת+חץ תמיד גלויים, לחיצה מטגלת את שאר
+  // התוכן שמתחת (בניגוד ל-shelfHead/shelfHeadRow הרגילים שהם רק כותרת סטטית, לא לחיצות).
+  shelfHeadToggle: { flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 4, marginBottom: 10 },
   shelfTitle: { fontFamily: fonts.extraBold, fontSize: 15.5, color: colors.textPrimary, textAlign: 'right' },
   sectionHint: { fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, textAlign: 'right', lineHeight: 17, marginBottom: 12 },
   comingSoonBadge: { backgroundColor: colors.yellowTint, borderRadius: radii.pill, paddingVertical: 2, paddingHorizontal: 8 },
@@ -1490,6 +1470,7 @@ const styles = StyleSheet.create({
   childrenFooterHint: { fontFamily: fonts.regular, fontSize: 11.5, color: colors.textMuted, textAlign: 'right', marginTop: 10, lineHeight: 16 },
 
   accountCard: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: radii.lg, overflow: 'hidden' },
+  disabledCard: { opacity: 0.5 },
   settingRow: {
     flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between',
     paddingVertical: 13, paddingHorizontal: 15, borderBottomWidth: 1, borderBottomColor: colors.borderLight,
@@ -1525,11 +1506,15 @@ const styles = StyleSheet.create({
   tabBtnActive: { borderColor: colors.accent, backgroundColor: colors.accentTintLight },
   tabBtnText: { fontFamily: fonts.bold, fontSize: 12, color: colors.textSecondary },
   tabBtnTextActive: { color: colors.accent },
-  tabItemRow: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: radii.md, padding: 12, marginBottom: 8 },
+  tabItemRow: {
+    flexDirection: 'row-reverse', alignItems: 'center', gap: 8,
+    backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: radii.md, padding: 12, marginBottom: 8,
+  },
+  tabItemMain: { flex: 1, minWidth: 0 },
+  tabItemNoteBtn: { borderWidth: 1, borderColor: colors.accent, borderRadius: radii.pill, paddingVertical: 6, paddingHorizontal: 10 },
+  tabItemNoteBtnText: { fontFamily: fonts.bold, fontSize: 11, color: colors.accent },
   tabItemTitle: { fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary, textAlign: 'right' },
 
-  noteCountBadge: { fontFamily: fonts.bold, fontSize: 12, color: colors.accent, backgroundColor: colors.accentTintLight, borderRadius: radii.pill, paddingVertical: 2, paddingHorizontal: 9 },
-  notePrivacyHint: { fontFamily: fonts.regular, fontSize: 11, color: colors.textMuted, textAlign: 'right', marginTop: 2 },
   noteCard: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: radii.md, padding: 12, marginBottom: 10 },
   noteCardTop: { flexDirection: 'row-reverse', alignItems: 'center', gap: 10, marginBottom: 8 },
   noteThumb: { width: 52, height: 52, borderRadius: radii.md, backgroundColor: colors.borderLight },
@@ -1539,13 +1524,9 @@ const styles = StyleSheet.create({
   noteActivityName: { fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary, textAlign: 'right' },
   noteActivityLocation: { fontFamily: fonts.regular, fontSize: 11.5, color: colors.textSecondary, textAlign: 'right', marginTop: 2 },
   noteCardText: { fontFamily: fonts.regular, fontSize: 13, color: colors.textPrimary, textAlign: 'right', lineHeight: 18, marginBottom: 8 },
-  noteCardFooter: { flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6 },
   noteCardMeta: { fontFamily: fonts.regular, fontSize: 10.5, color: colors.textMuted },
-  noteCardActions: { flexDirection: 'row-reverse', gap: 14 },
   noteActionText: { fontFamily: fonts.bold, fontSize: 12, color: colors.accent },
-  noteActionDanger: { color: colors.danger },
   noteModalTextarea: { minHeight: 90, textAlignVertical: 'top' },
-  noteDeleteWarning: { fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, textAlign: 'center', marginBottom: 18 },
   tabItemSub: { fontFamily: fonts.regular, fontSize: 11.5, color: colors.textSecondary, textAlign: 'right', marginTop: 2 },
   allDestinationsBtn: { alignSelf: 'center', paddingVertical: 10 },
   allDestinationsBtnText: { fontFamily: fonts.bold, fontSize: 13, color: colors.accent },
