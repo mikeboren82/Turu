@@ -9,6 +9,8 @@ const { renderContributorsPage } = require('./contributors');
 const { renderFeedbackPage } = require('./feedback');
 const { renderMessagesPage } = require('./messages');
 const { renderDashboardPage } = require('./dashboard');
+const { renderSourcesPage } = require('./sources');
+const { renderIncomingPage } = require('./incoming');
 const { getClient } = require('./supabase');
 
 const app = express();
@@ -22,15 +24,12 @@ app.use(express.static(require('path').join(__dirname, 'public')));
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-// חייב להישאר תואם ל-CATEGORY_OPTIONS / WEATHER_OPTIONS / AMENITIES_OPTIONS / FAMILY_FIT_OPTIONS
-// ב-constants/filterSchema.js של האפליקציה - אם משנים שם, לעדכן גם כאן
-const CATEGORY_VALUES = [
-  'גן שעשועים', "ג'ימבורי", 'משחקייה', 'סדנה', 'חוג', 'הצגה', 'מוזיאון לילדים',
-  'פארק', 'חווה', 'פינת חי', 'אטרקציה', 'בריכה', 'ספורט', 'יצירה',
-  'מוזיקה', 'ריקוד', 'בישול', 'מדע', 'טבע', 'בעלי חיים', 'פעילות מים',
-  'טרמפולינות', 'פארק שעשועים', 'קולנוע לילדים', 'ספרייה', 'שעת סיפור',
-  'פעילות קהילתית', 'פעילות עירונית', 'אחר',
-];
+// מקור-אמת-יחיד לקטגוריות/אזורים - ../../constants/categoryValues.json, נקרא גם ע"י
+// constants/filterSchema.js של האפליקציה וגם ע"י ה-Edge Functions (supabase/functions/_shared) -
+// אם משנים ערכים, לעדכן רק שם, לא כאן. CATEGORY_VALUES כולל "חוג" (לזיהוי-וארכוב, ראו
+// ARCHIVE_CATEGORIES למטה) - זה שונה במכוון מ-CATEGORY_OPTIONS באפליקציה שמחריג אותו.
+const categoryValues = require('../../constants/categoryValues.json');
+const CATEGORY_VALUES = categoryValues.categories;
 const WEATHER_VALUES = ['מתאים ליום חם', 'מתאים ליום גשום', 'ממוזג', 'מוצל', 'מקורה', 'פעילות בחוץ בלבד'];
 const AMENITIES_VALUES = [
   'חניה', 'שירותים', 'חניה נגישה', 'שירותים נגישים', 'נגיש לכיסא גלגלים',
@@ -41,12 +40,7 @@ const FAMILY_FIT_VALUES = [
   'מתאים לילד ולהורה', 'פעילות לילדים בלבד', 'הורה חייב להישאר', 'אפשר להשאיר את הילד',
   'מתאים לאחים בגילאים שונים', 'מתאים לקבוצות', 'מתאים ליום הולדת',
 ];
-// חייב להישאר תואם ל-REGION_OPTIONS ב-constants/filterSchema.js ולאילוץ ה-CHECK על
-// locations.region ב-DB (supabase/0007_update_regions.sql) - אם משנים כאן, לעדכן גם שם.
-const REGION_VALUES = [
-  'גוש דן והמרכז', 'השרון', 'ירושלים והסביבה', 'חיפה והקריות',
-  'הצפון והעמק', 'השפלה והדרום', 'יו"ש והבנימין',
-];
+const REGION_VALUES = categoryValues.regions;
 const ENTITY_TYPE_VALUES = ['מקום_קבוע', 'פעילות', 'אירוע_קבוע', 'אירוע'];
 const PRICE_TYPE_VALUES = ['free', 'fixed', 'range'];
 const INDOOR_OUTDOOR_VALUES = ['indoor', 'outdoor', 'both'];
@@ -140,7 +134,7 @@ function buildExtractionSystemPrompt() {
 // לפי הנושא שלהם - ספורט/בישול/יצירה/ריקוד וכו', לא לפי category="חוג" עצמו).
 // "קייטנה" מדגם נפרד שנשאר entity_type="מקום_קבוע" אבל תמיד דורש הרשמה למחזור/שבוע.
 const ARCHIVE_ENTITY_TYPES = new Set(['פעילות']);
-const ARCHIVE_CATEGORIES = new Set(['חוג', 'קייטנה']);
+const ARCHIVE_CATEGORIES = new Set(categoryValues.archiveCategories);
 
 function shouldArchiveForCommitment(activity) {
   return ARCHIVE_ENTITY_TYPES.has(activity.entity_type) || ARCHIVE_CATEGORIES.has(activity.category);
@@ -471,13 +465,26 @@ async function serpApiWebSearch(query) {
   return results;
 }
 
+const PAGE_FETCH_TIMEOUT_MS = 15000;
+
 async function scrapeAndExtract(urlString) {
   const parsedUrl = new URL(urlString);
   if (!['http:', 'https:'].includes(parsedUrl.protocol)) throw new Error('הקישור לא תקין');
 
-  const pageRes = await fetch(parsedUrl.toString(), {
-    headers: { 'User-Agent': 'Mozilla/5.0 (compatible; WabbitImportBot/1.0)' },
-  });
+  let pageRes;
+  try {
+    pageRes = await fetch(parsedUrl.toString(), {
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; WabbitImportBot/1.0)' },
+      signal: AbortSignal.timeout(PAGE_FETCH_TIMEOUT_MS),
+    });
+  } catch (fetchErr) {
+    // בלי timeout כאן, אתר אחד תקוע/לא-מגיב היה חוסם לנצח לולאה סדרתית שלמה (למשל
+    // /api/discover/scrape שסורק עשרות URL-ים בזה אחר זה, בלי concurrency) - ראו LINK_CHECK_TIMEOUT_MS
+    // למעלה, אותו דפוס בדיוק, רק שכאן זה היה חסר.
+    const err = new Error(fetchErr.name === 'TimeoutError' || fetchErr.name === 'AbortError' ? 'הדף לא הגיב בזמן (timeout)' : `שגיאת רשת: ${fetchErr.message}`);
+    err.status = 504;
+    throw err;
+  }
   if (!pageRes.ok) {
     const err = new Error(`לא הצלחתי לטעון את הדף (סטטוס ${pageRes.status})`);
     err.status = 502;
@@ -804,45 +811,75 @@ app.post('/api/discover/scrape', async (req, res) => {
   }
 });
 
-app.post('/api/save', async (req, res) => {
-  const { sourceUrl, activity } = req.body || {};
-  if (!activity || !activity.name || !activity.entity_type) {
-    return res.status(400).json({ error: 'חסרים שדות חובה (שם, סוג)' });
+// גוף /api/save לשעבר, מחולץ לפונקציה פנימית כדי ש-/api/incoming/:id/approve (אישור פעילות
+// match_type='new' מ"מקורות מידע") יוכל להשתמש באותה זרימה בדיוק - בלי נתיב-שמירה מקביל שני.
+// מחזירה { activityId, archived } (לא res.json - הקוראים אחראים על התגובה שלהם).
+// שער-חובה: פעילות לעולם לא נכנסת למאגר בלי כתובת מאומתת (בקשת המשתמש, מפורשת ומוחלטת -
+// "לעולם לא נכנסת פעילות למאגר אם אין כתובת"). "כתובת מאומתת" כאן = geocoding הצליח למצוא
+// קואורדינטות אמיתיות למקום (לא רק שיש city/location_name כטקסט חופשי).
+//
+// סדר-פעולות במכוון (geocode *לפני* יצירת location, לא אחרי): מחיקת locations מוגבלת בכוונה
+// ל-is_admin() בלבד (0008_locations_update_authenticated.sql - "מחיקת מיקום נשארת מוגבלת
+// למנהלים בלבד", החלטה מכוונת כי locations הוא טבלה משותפת בין כמה פעילויות, לא רק "שלי" -
+// למחוק אותה בטעות עלול לייתם רשומות אחרות. בוט-הייבוא (role='importer') לכן *לא יכול* למחוק
+// location, ולא ראוי לעקוף את זה - ראו הממצא בפועל בסבב הזה: rollback-אחרי-כישלון נכשל בשקט
+// (0 שורות נמחקו, בלי שגיאה). הפתרון הנכון הוא לא לנסות rollback בכלל: מוודאים geocoding
+// *לפני* שיוצרים שורת location חדשה, כך שאף פעם לא נוצרת שורה שצריך למחוק. location *קיים*
+// עם קואורדינטות-חסרות (אולי פעילות אחרת כבר מצביעה עליו) נשאר כמו שהוא בלי נגיעה - רק מנסים
+// להשלים לו קואורדינטות אם ניתן, לא מוחקים.
+async function requireVerifiedLocation(client, activity) {
+  if (!activity.location_name) {
+    throw new Error('לא נמצאה כתובת למקום - הפעילות לא נשמרה (חובה מיקום עם כתובת מאומתת)');
   }
-  try {
-    const { client, userId } = await getClient();
-    const archived = shouldArchiveForCommitment(activity);
+  const { data: existing, error: findErr } = await client
+    .from('locations')
+    .select('id, city, region, lat, lng')
+    .ilike('name', activity.location_name)
+    .limit(1)
+    .maybeSingle();
+  if (findErr) throw findErr;
 
-    let locationId = null;
-    if (activity.location_name) {
-      const { data: existing, error: findErr } = await client
-        .from('locations')
-        .select('id, city, region')
-        .ilike('name', activity.location_name)
-        .limit(1)
-        .maybeSingle();
-      if (findErr) throw findErr;
-      if (existing) {
-        locationId = existing.id;
-        // אם למיקום הקיים כבר אין עיר/אזור, וההפעלה הזו מספקת אותם - נשלים (לא דורסים ערך קיים)
-        const fillIn = {};
-        if (!existing.city && activity.city) fillIn.city = activity.city;
-        if (!existing.region && activity.region) fillIn.region = activity.region;
-        if (Object.keys(fillIn).length > 0) {
-          const { error: updErr } = await client.from('locations').update(fillIn).eq('id', locationId);
-          if (updErr) throw updErr;
-        }
-      } else {
-        const { data: created, error: locErr } = await client
-          .from('locations')
-          .insert({ name: activity.location_name, city: activity.city || null, region: activity.region || null })
-          .select('id')
-          .single();
-        if (locErr) throw locErr;
-        locationId = created.id;
-      }
-      await geocodeAndFillLocation(client, locationId);
+  if (existing) {
+    const fillIn = {};
+    if (!existing.city && activity.city) fillIn.city = activity.city;
+    if (!existing.region && activity.region) fillIn.region = activity.region;
+    if (Object.keys(fillIn).length > 0) {
+      const { error: updErr } = await client.from('locations').update(fillIn).eq('id', existing.id);
+      if (updErr) throw updErr;
     }
+    const coords = existing.lat != null && existing.lng != null
+      ? { lat: existing.lat, lng: existing.lng }
+      : await geocodeLocation({ address: null, name: activity.location_name, city: activity.city || existing.city });
+    if (!coords) {
+      throw new Error('לא נמצאה כתובת מאומתת למקום "' + activity.location_name + '" - הפעילות לא נשמרה');
+    }
+    if (existing.lat == null) {
+      await client.from('locations').update({ lat: coords.lat, lng: coords.lng }).eq('id', existing.id);
+    }
+    return existing.id;
+  }
+
+  // מקום חדש - geocode *לפני* יצירה, כדי שלעולם לא תיווצר שורה בלי קואורדינטות שצריך לנקות אחריה.
+  const coords = await geocodeLocation({ address: null, name: activity.location_name, city: activity.city || null });
+  if (!coords) {
+    throw new Error('לא נמצאה כתובת מאומתת למקום "' + activity.location_name + '" - הפעילות לא נשמרה');
+  }
+  const { data: created, error: locErr } = await client
+    .from('locations')
+    .insert({
+      name: activity.location_name, city: activity.city || null, region: activity.region || null,
+      lat: coords.lat, lng: coords.lng,
+    })
+    .select('id')
+    .single();
+  if (locErr) throw locErr;
+  return created.id;
+}
+
+async function saveNewActivity(client, userId, sourceUrl, activity) {
+  {
+    const archived = shouldArchiveForCommitment(activity);
+    const locationId = await requireVerifiedLocation(client, activity);
 
     const { data: savedActivity, error: actErr } = await client
       .from('activities')
@@ -904,8 +941,24 @@ app.post('/api/save', async (req, res) => {
       if (schedErr) throw schedErr;
     }
 
+    // תמונות: activity.images (מובנה, עם פרובננס - מגיע מ-scan-source, ראו 0047) קודם אם קיים;
+    // אחרת activity.image_urls (מערך מחרוזות שטוח, מגיע מ-/api/import הידני) - זרימה קיימת בלי שינוי.
     let imageAdded = false;
-    if (Array.isArray(activity.image_urls) && activity.image_urls.length) {
+    if (Array.isArray(activity.images) && activity.images.length) {
+      const imageRows = activity.images
+        .filter((img) => img && typeof img.url === 'string' && img.url.trim())
+        .slice(0, 3)
+        .map((img) => ({
+          activity_id: savedActivity.id, url: img.url, uploaded_by: userId,
+          image_source_url: img.url, image_source_type: img.source_type || 'UNKNOWN',
+          needs_rights_review: !!img.needs_rights_review,
+        }));
+      if (imageRows.length) {
+        const { error: imgErr } = await client.from('activity_images').insert(imageRows);
+        if (imgErr) throw imgErr;
+        imageAdded = true;
+      }
+    } else if (Array.isArray(activity.image_urls) && activity.image_urls.length) {
       const imageRows = activity.image_urls
         .filter((url) => typeof url === 'string' && url.trim())
         .slice(0, 3)
@@ -942,7 +995,19 @@ app.post('/api/save', async (req, res) => {
       }
     }
 
-    res.json({ ok: true, activityId: savedActivity.id, archived });
+    return { activityId: savedActivity.id, archived };
+  }
+}
+
+app.post('/api/save', async (req, res) => {
+  const { sourceUrl, activity } = req.body || {};
+  if (!activity || !activity.name || !activity.entity_type) {
+    return res.status(400).json({ error: 'חסרים שדות חובה (שם, סוג)' });
+  }
+  try {
+    const { client, userId } = await getClient();
+    const { activityId, archived } = await saveNewActivity(client, userId, sourceUrl, activity);
+    res.json({ ok: true, activityId, archived });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message || 'שגיאה בשמירה' });
@@ -998,6 +1063,45 @@ app.post('/api/suggest-merge', async (req, res) => {
   }
 });
 
+// גוף /api/merge לשעבר, מחולץ לפונקציה פנימית כדי שזרימת "אשר עדכון" (match_type='update' ב-
+// "מקורות מידע") תוכל להשתמש באותה זרימה בדיוק. לא מחזירה/זורקת res - הקוראים אחראים על התגובה.
+async function applyMergedFields(client, userId, { existingActivityId, mergedFields, imageUrlsToAdd, deleteActivityId }) {
+  const safeFields = {};
+  for (const [key, value] of Object.entries(mergedFields || {})) {
+    if (MERGE_ALLOWED_FIELDS.has(key)) safeFields[key] = value;
+  }
+  if (Object.keys(safeFields).length > 0) {
+    const { error: updErr } = await client.from('activities').update(safeFields).eq('id', existingActivityId);
+    if (updErr) throw updErr;
+  }
+
+  if (Array.isArray(imageUrlsToAdd) && imageUrlsToAdd.length > 0) {
+    const { data: existingImages, error: imgSelErr } = await client
+      .from('activity_images')
+      .select('url')
+      .eq('activity_id', existingActivityId);
+    if (imgSelErr) throw imgSelErr;
+    const existingUrls = new Set((existingImages || []).map((i) => i.url));
+    const rows = imageUrlsToAdd
+      .filter((u) => typeof u === 'string' && u.trim() && !existingUrls.has(u))
+      .slice(0, 3)
+      .map((u) => ({ activity_id: existingActivityId, url: u, uploaded_by: userId }));
+    if (rows.length) {
+      const { error: imgInsErr } = await client.from('activity_images').insert(rows);
+      if (imgInsErr) throw imgInsErr;
+    }
+  }
+
+  // כשמיזוג נעשה מעמוד הכפילויות (לא בזמן scraping) - שתי הרשומות כבר קיימות ב-DB, אז אחרי
+  // שקיפלנו את השדות של הנפטרת (loser) לתוך הזוכה (keeper) צריך גם למחוק את הנפטרת בפועל,
+  // אחרת שתיהן ימשיכו להתקיים. בזרימת ה-scraping הרגילה אין deleteActivityId (אין רשומה שנייה
+  // למחוק - המועמד עוד לא נשמר).
+  if (deleteActivityId) {
+    const { error: delErr } = await client.from('activities').delete().eq('id', deleteActivityId);
+    if (delErr) throw delErr;
+  }
+}
+
 app.post('/api/merge', async (req, res) => {
   const { existingActivityId, mergedFields, imageUrlsToAdd, deleteActivityId } = req.body || {};
   if (!existingActivityId) {
@@ -1005,48 +1109,85 @@ app.post('/api/merge', async (req, res) => {
   }
   try {
     const { client, userId } = await getClient();
-
-    const safeFields = {};
-    for (const [key, value] of Object.entries(mergedFields || {})) {
-      if (MERGE_ALLOWED_FIELDS.has(key)) safeFields[key] = value;
-    }
-    if (Object.keys(safeFields).length > 0) {
-      const { error: updErr } = await client.from('activities').update(safeFields).eq('id', existingActivityId);
-      if (updErr) throw updErr;
-    }
-
-    if (Array.isArray(imageUrlsToAdd) && imageUrlsToAdd.length > 0) {
-      const { data: existingImages, error: imgSelErr } = await client
-        .from('activity_images')
-        .select('url')
-        .eq('activity_id', existingActivityId);
-      if (imgSelErr) throw imgSelErr;
-      const existingUrls = new Set((existingImages || []).map((i) => i.url));
-      const rows = imageUrlsToAdd
-        .filter((u) => typeof u === 'string' && u.trim() && !existingUrls.has(u))
-        .slice(0, 3)
-        .map((u) => ({ activity_id: existingActivityId, url: u, uploaded_by: userId }));
-      if (rows.length) {
-        const { error: imgInsErr } = await client.from('activity_images').insert(rows);
-        if (imgInsErr) throw imgInsErr;
-      }
-    }
-
-    // כשמיזוג נעשה מעמוד הכפילויות (לא בזמן scraping) - שתי הרשומות כבר קיימות ב-DB, אז אחרי
-    // שקיפלנו את השדות של הנפטרת (loser) לתוך הזוכה (keeper) צריך גם למחוק את הנפטרת בפועל,
-    // אחרת שתיהן ימשיכו להתקיים. בזרימת ה-scraping הרגילה אין deleteActivityId (אין רשומה שנייה
-    // למחוק - המועמד עוד לא נשמר).
-    if (deleteActivityId) {
-      const { error: delErr } = await client.from('activities').delete().eq('id', deleteActivityId);
-      if (delErr) throw delErr;
-    }
-
+    await applyMergedFields(client, userId, { existingActivityId, mergedFields, imageUrlsToAdd, deleteActivityId });
     res.json({ ok: true });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message || 'שגיאה בשילוב' });
   }
 });
+
+// "אשר עדכון" ב"מקורות מידע" (incoming_activities.match_type='update'): מחיל רק את השדות
+// שבאמת השתנו (diff, ראו supabase/functions/_shared/matching.ts computeFieldDiff) על הפעילות
+// הקיימת. שונה במכוון מ-applyMergedFields (MERGE_ALLOWED_FIELDS) - diff יכול לכלול שדות מיקום/
+// לוח-זמנים שלא קיימים ב-activities עצמה, אז אלה מטופלים כאן בנפרד (באותו דפוס בדיוק כמו
+// /api/manage/update - location דרך locations, שעות/תאריך דרך activity_schedules).
+const INCOMING_UPDATE_SCALAR_KEYS = new Set(['price_amount', 'price_type', 'min_age', 'max_age', 'booking_requirement', 'description']);
+
+async function applyIncomingUpdate(client, userId, existingActivityId, diff, candidate) {
+  const scalarFields = {};
+  for (const [key, entry] of Object.entries(diff || {})) {
+    if (INCOMING_UPDATE_SCALAR_KEYS.has(key)) scalarFields[key] = entry.after;
+  }
+  if (Object.keys(scalarFields).length > 0) {
+    const { error } = await client.from('activities').update(scalarFields).eq('id', existingActivityId);
+    if (error) throw error;
+  }
+
+  if (diff?.location_name || diff?.city) {
+    const { data: current, error: curErr } = await client
+      .from('activities').select('location_id').eq('id', existingActivityId).maybeSingle();
+    if (curErr) throw curErr;
+    if (current?.location_id) {
+      const locFields = {};
+      if (diff.location_name) locFields.name = diff.location_name.after;
+      if (diff.city) locFields.city = diff.city.after;
+      const { error: locErr } = await client.from('locations').update(locFields).eq('id', current.location_id);
+      if (locErr) throw locErr;
+      if (diff.city) await geocodeAndFillLocation(client, current.location_id, { force: true });
+    }
+  }
+
+  if (diff?.one_time_date || diff?.start_time || diff?.end_time) {
+    const { data: schedules, error: schedErr } = await client
+      .from('activity_schedules').select('id').eq('activity_id', existingActivityId).limit(1);
+    if (schedErr) throw schedErr;
+    if (schedules && schedules[0]) {
+      const schedFields = {};
+      if (diff.one_time_date) schedFields.one_time_date = diff.one_time_date.after;
+      if (diff.start_time) schedFields.start_time = diff.start_time.after;
+      if (diff.end_time) schedFields.end_time = diff.end_time.after;
+      const { error } = await client.from('activity_schedules').update(schedFields).eq('id', schedules[0].id);
+      if (error) throw error;
+    }
+  }
+
+  // תמונה חדשה שנמצאה בעדכון (has_image ב-diff) - מוסיפים רק אם יש תמונות מובנות במועמד
+  // (candidate.images, מ-scan-source) שעדיין לא קיימות בפעילות הקיימת.
+  if (diff?.has_image && Array.isArray(candidate?.images) && candidate.images.length) {
+    const { data: existingImages, error: imgSelErr } = await client
+      .from('activity_images').select('url').eq('activity_id', existingActivityId);
+    if (imgSelErr) throw imgSelErr;
+    const existingUrls = new Set((existingImages || []).map((i) => i.url));
+    const rows = candidate.images
+      .filter((img) => img && typeof img.url === 'string' && !existingUrls.has(img.url))
+      .slice(0, 3)
+      .map((img) => ({
+        activity_id: existingActivityId, url: img.url, uploaded_by: userId,
+        image_source_url: img.url, image_source_type: img.source_type || 'UNKNOWN',
+        needs_rights_review: !!img.needs_rights_review,
+      }));
+    if (rows.length) {
+      const { error: imgInsErr } = await client.from('activity_images').insert(rows);
+      if (imgInsErr) throw imgInsErr;
+    }
+  }
+
+  // אישור-מנהל = אימות, כמו /api/manage/update.
+  const { error: verifyErr } = await client
+    .from('activities').update({ last_verified_at: new Date().toISOString() }).eq('id', existingActivityId);
+  if (verifyErr) throw verifyErr;
+}
 
 // שני מעברי זיהוי: (1) exact - כמו קודם, אותו שם+שם מיקום מדויק (case-insensitive). (2) proximity -
 // שתי פעילויות בקואורדינטות קרובות (≤150 מטר) עם דמיון-שם חלקי (word overlap ≥0.4, סף נמוך יותר
@@ -1433,11 +1574,23 @@ app.post('/api/manage/photo-status', async (req, res) => {
 app.get('/api/manage/activities', async (req, res) => {
   try {
     const { client } = await getClient();
-    const { data, error } = await client
-      .from('activities')
-      .select(MANAGE_SELECT)
-      .order('created_at', { ascending: false });
-    if (error) throw error;
+    // Supabase מגביל תגובת select ל-1000 שורות כברירת מחדל בשקט (בלי שגיאה!) - בדיוק הבאג
+    // שכבר תועד/נתקל בו ב-import-playgrounds-osm.js. בלי pagination מפורש כאן, הדשבורד/עמוד
+    // הפעילויות "רואים" רק 1000 מתוך (נכון לעכשיו) 6000+ פעילויות אמיתיות - מספרים שגויים
+    // בכל מקום שמסתמך על ה-endpoint הזה (כרטיסי הדשבורד, ספירת "עם בעיות" וכו').
+    let data = [];
+    let from = 0;
+    while (true) {
+      const { data: page, error } = await client
+        .from('activities')
+        .select(MANAGE_SELECT)
+        .order('created_at', { ascending: false })
+        .range(from, from + 999);
+      if (error) throw error;
+      data = data.concat(page);
+      if (page.length < 1000) break;
+      from += 1000;
+    }
     res.json({ activities: data });
   } catch (err) {
     console.error(err);
@@ -2083,6 +2236,368 @@ app.post('/api/manage/member-ban', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message || 'שגיאה בעדכון המשתמש' });
+  }
+});
+
+// ============================================================================
+// 🌐 מקורות מידע - גילוי/סריקה/עדכון אוטומטי של פעילויות (ראו supabase/0041-0050,
+// supabase/functions/scan-source). כלי הניהול כאן הוא רק שכבת-שליטה של מנהל מעל הטבלאות -
+// הסריקה עצמה תמיד רצה ב-Edge Function עם service-role key, לא כאן.
+// ============================================================================
+
+app.get('/sources', (req, res) => {
+  res.type('html').send(renderSourcesPage());
+});
+
+app.get('/incoming', (req, res) => {
+  res.type('html').send(renderIncomingPage());
+});
+
+const SOURCE_FIELDS = new Set([
+  'name', 'seed_url', 'type', 'region', 'categories', 'scan_frequency_hours',
+  'is_active', 'source_trust_score', 'is_trusted',
+]);
+function pickSourceFields(body) {
+  const safe = {};
+  for (const key of SOURCE_FIELDS) {
+    if (key in (body || {})) safe[key] = body[key];
+  }
+  return safe;
+}
+
+app.get('/api/sources', async (req, res) => {
+  try {
+    const { client } = await getClient();
+    const { data, error } = await client.from('sources').select('*').order('created_at', { ascending: false });
+    if (error) throw error;
+    res.json({ sources: data });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || 'שגיאה בטעינת המקורות' });
+  }
+});
+
+app.post('/api/sources', async (req, res) => {
+  const fields = pickSourceFields(req.body);
+  if (!fields.name || !fields.seed_url) {
+    return res.status(400).json({ error: 'חסרים שדות חובה (שם, כתובת)' });
+  }
+  try {
+    new URL(fields.seed_url);
+  } catch {
+    return res.status(400).json({ error: 'כתובת המקור לא תקינה' });
+  }
+  try {
+    const { client, userId } = await getClient();
+    const { data, error } = await client.from('sources').insert({ ...fields, created_by: userId }).select('*').single();
+    if (error) throw error;
+    res.json({ ok: true, source: data });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || 'שגיאה ביצירת המקור' });
+  }
+});
+
+app.put('/api/sources/:id', async (req, res) => {
+  const { id } = req.params;
+  const fields = pickSourceFields(req.body);
+  if (fields.seed_url) {
+    try {
+      new URL(fields.seed_url);
+    } catch {
+      return res.status(400).json({ error: 'כתובת המקור לא תקינה' });
+    }
+  }
+  if (Object.keys(fields).length === 0) {
+    return res.status(400).json({ error: 'אין שדות לעדכון' });
+  }
+  try {
+    const { client } = await getClient();
+    const { data, error } = await client.from('sources').update(fields).eq('id', id).select('*');
+    if (error) throw error;
+    if (!data || data.length === 0) return res.status(404).json({ error: 'המקור לא נמצא' });
+    res.json({ ok: true, source: data[0] });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || 'שגיאה בעדכון המקור' });
+  }
+});
+
+app.delete('/api/sources/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const { client } = await getClient();
+    const { error } = await client.from('sources').delete().eq('id', id);
+    if (error) throw error;
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || 'שגיאה במחיקת המקור' });
+  }
+});
+
+// "סרוק עכשיו" - קורא ל-RPC ציבורי (scan_source_now, supabase/0049) שמאמת הרשאה ומדפח קריאת
+// HTTP ל-scan-source (pg_net) - הסריקה עצמה רצה אסינכרונית ב-Edge Function, לא כאן וכאן לא
+// מחכים לתוצאה (זו יכולה לקחת שניות ארוכות לכמה עמודים+AI). המנהל יראה את התוצאה ב"היסטוריית
+// סריקות" (source-logs) אחרי כמה שניות - עמוד sources.js עושה פולינג קצר.
+app.post('/api/sources/:id/scan-now', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const { client } = await getClient();
+    const { error } = await client.rpc('scan_source_now', { p_source_id: id });
+    if (error) throw error;
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || 'שגיאה בהפעלת הסריקה - ודאו ששלב ההגדרה הידני (Vault secret + app.settings) בוצע' });
+  }
+});
+
+app.get('/api/sources/:id/logs', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const { client } = await getClient();
+    const { data, error } = await client
+      .from('source_scan_logs').select('*').eq('source_id', id)
+      .order('started_at', { ascending: false }).limit(20);
+    if (error) throw error;
+    res.json({ logs: data });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || 'שגיאה בטעינת היסטוריית הסריקות' });
+  }
+});
+
+// כרטיסי-התראה לדשבורד (dashboard.js) - מספרים בלבד, כדי שהדשבורד לא יצטרך לטעון את כל
+// incoming_activities/sources רק כדי לדעת אם יש משהו שדורש תשומת לב.
+app.get('/api/sources/alerts-summary', async (req, res) => {
+  try {
+    const { client } = await getClient();
+    const [failedSources, newIncoming, updatedIncoming, missingFlagged] = await Promise.all([
+      client.from('sources').select('id', { count: 'exact', head: true }).eq('last_scan_status', 'error'),
+      client.from('incoming_activities').select('id', { count: 'exact', head: true }).eq('match_type', 'new').in('status', ['new', 'needs_review']),
+      client.from('incoming_activities').select('id', { count: 'exact', head: true }).eq('match_type', 'update').in('status', ['new', 'needs_review']),
+      client.from('incoming_activities').select('id', { count: 'exact', head: true }).eq('status', 'missing_flagged'),
+    ]);
+    if (failedSources.error) throw failedSources.error;
+    if (newIncoming.error) throw newIncoming.error;
+    if (updatedIncoming.error) throw updatedIncoming.error;
+    if (missingFlagged.error) throw missingFlagged.error;
+    res.json({
+      failedSources: failedSources.count || 0,
+      newIncoming: newIncoming.count || 0,
+      updatedIncoming: updatedIncoming.count || 0,
+      missingFlagged: missingFlagged.count || 0,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || 'שגיאה בטעינת סיכום ההתראות' });
+  }
+});
+
+// תיבת-הכניסה - כל הפריטים (הלקוח מסנן/ממיין client-side, כמו contributors.js). מצרפים שם-מקור
+// ופרטי-פעילות-קיימת/שנוצרה ב-JS (לא embed) כי יש שתי FK-ים נפרדים מ-incoming_activities
+// ל-activities (existing_activity_id/created_activity_id) - הרכבת embed מפורש-FK לא נבדקה,
+// שתי שליפות נפרדות+מיזוג הן הדפוס הקיים כבר בקובץ הזה (ראו /api/manage/contributors למעלה).
+app.get('/api/incoming', async (req, res) => {
+  try {
+    const { client } = await getClient();
+    const { data, error } = await client
+      .from('incoming_activities').select('*')
+      .order('found_at', { ascending: false }).limit(300);
+    if (error) throw error;
+
+    const sourceIds = [...new Set(data.map((r) => r.source_id).filter(Boolean))];
+    const activityIds = [...new Set(data.flatMap((r) => [r.existing_activity_id, r.created_activity_id]).filter(Boolean))];
+
+    let sourcesById = new Map();
+    if (sourceIds.length > 0) {
+      const { data: sources, error: srcErr } = await client.from('sources').select('id, name').in('id', sourceIds);
+      if (srcErr) throw srcErr;
+      sourcesById = new Map((sources || []).map((s) => [s.id, s]));
+    }
+    let activitiesById = new Map();
+    if (activityIds.length > 0) {
+      const { data: activities, error: actErr } = await client.from('activities').select('id, name, status').in('id', activityIds);
+      if (actErr) throw actErr;
+      activitiesById = new Map((activities || []).map((a) => [a.id, a]));
+    }
+
+    res.json({
+      items: data.map((r) => ({
+        ...r,
+        sourceName: r.source_id ? (sourcesById.get(r.source_id)?.name || null) : null,
+        existingActivity: r.existing_activity_id ? (activitiesById.get(r.existing_activity_id) || null) : null,
+        createdActivity: r.created_activity_id ? (activitiesById.get(r.created_activity_id) || null) : null,
+      })),
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || 'שגיאה בטעינת פעילויות שנמצאו' });
+  }
+});
+
+// "אשר" - מסלול שונה לפי match_type: new יוצר פעילות חדשה (saveNewActivity, אותה זרימה בדיוק
+// כמו הוספת-תוכן ידנית); update מחיל את ה-diff על הפעילות הקיימת (applyIncomingUpdate).
+// duplicate/missing/expired לא "מאשרים" (אין מה ליצור/לעדכן) - יש להם פעולות ייעודיות משלהם.
+app.post('/api/incoming/:id/approve', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const { client, userId } = await getClient();
+    const { data: item, error: findErr } = await client.from('incoming_activities').select('*').eq('id', id).maybeSingle();
+    if (findErr) throw findErr;
+    if (!item) return res.status(404).json({ error: 'הפריט לא נמצא' });
+    if (!['new', 'needs_review'].includes(item.status)) {
+      return res.status(400).json({ error: 'לא ניתן לאשר פריט במצב "' + item.status + '"' });
+    }
+
+    if (item.match_type === 'new') {
+      const { activityId, archived } = await saveNewActivity(client, userId, item.page_url, item.extracted_data);
+      const { error: updErr } = await client.from('incoming_activities').update({
+        status: 'approved', created_activity_id: activityId, reviewed_by: userId, reviewed_at: new Date().toISOString(),
+      }).eq('id', id);
+      if (updErr) throw updErr;
+      if (item.source_id) {
+        const { data: src } = await client.from('sources').select('activities_approved_total').eq('id', item.source_id).maybeSingle();
+        if (src) {
+          await client.from('sources')
+            .update({ activities_approved_total: (src.activities_approved_total || 0) + 1 })
+            .eq('id', item.source_id);
+        }
+      }
+      return res.json({ ok: true, activityId, archived });
+    }
+
+    if (item.match_type === 'update') {
+      if (!item.existing_activity_id) return res.status(400).json({ error: 'אין פעילות קיימת מקושרת לעדכון הזה' });
+      await applyIncomingUpdate(client, userId, item.existing_activity_id, item.diff, item.extracted_data);
+      const { error: updErr } = await client.from('incoming_activities').update({
+        status: 'updated', reviewed_by: userId, reviewed_at: new Date().toISOString(),
+      }).eq('id', id);
+      if (updErr) throw updErr;
+      return res.json({ ok: true, activityId: item.existing_activity_id });
+    }
+
+    return res.status(400).json({ error: 'אי אפשר "לאשר" פריט מסוג ' + item.match_type + ' - השתמשו בדחייה' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || 'שגיאה באישור' });
+  }
+});
+
+app.post('/api/incoming/:id/reject', async (req, res) => {
+  const { id } = req.params;
+  const { reason } = req.body || {};
+  try {
+    const { client, userId } = await getClient();
+    const { data, error } = await client.from('incoming_activities').update({
+      status: 'rejected', reject_reason: reason || null, reviewed_by: userId, reviewed_at: new Date().toISOString(),
+    }).eq('id', id).select('id');
+    if (error) throw error;
+    if (!data || data.length === 0) return res.status(404).json({ error: 'הפריט לא נמצא' });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || 'שגיאה בדחייה' });
+  }
+});
+
+// "סיווג מחדש" - למקרה שהזיהוי האוטומטי טעה (למשל "new" שבפועל כן קיימת). לא "פותר" את השורה,
+// רק מתקן את match_type ומחזיר ל-needs_review כדי שהמנהל יבחר את הפעולה הנכונה בעצמו אחר-כך.
+const RECLASSIFY_TYPES = new Set(['new', 'update', 'duplicate']);
+app.post('/api/incoming/:id/reclassify', async (req, res) => {
+  const { id } = req.params;
+  const { matchType } = req.body || {};
+  if (!RECLASSIFY_TYPES.has(matchType)) return res.status(400).json({ error: 'סוג לא תקין' });
+  try {
+    const { client } = await getClient();
+    const { data, error } = await client.from('incoming_activities')
+      .update({ match_type: matchType, status: 'needs_review' }).eq('id', id).select('id');
+    if (error) throw error;
+    if (!data || data.length === 0) return res.status(404).json({ error: 'הפריט לא נמצא' });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || 'שגיאה בסיווג מחדש' });
+  }
+});
+
+// פעילות ש"נעלמה מהמקור" (match_type='missing', ראו 0046/scan-source) - 'keep' נותן לה עוד
+// הזדמנות (מאפס consecutive_missing_scans, הפעילות נשארת פעילה כרגיל); 'archive' מארכב אותה
+// בפועל (לא מוחק - שום מקום במערכת הזו מוחק פעילויות, ראו עקרון "לא מוחקים אף פעם" בתכנית).
+app.post('/api/incoming/:id/resolve-missing', async (req, res) => {
+  const { id } = req.params;
+  const { action } = req.body || {};
+  if (!['keep', 'archive'].includes(action)) return res.status(400).json({ error: 'פעולה לא תקינה' });
+  try {
+    const { client, userId } = await getClient();
+    const { data: item, error: findErr } = await client
+      .from('incoming_activities').select('id, existing_activity_id, match_type').eq('id', id).maybeSingle();
+    if (findErr) throw findErr;
+    if (!item || item.match_type !== 'missing') return res.status(404).json({ error: 'פריט "נעלם מהמקור" לא נמצא' });
+
+    if (item.existing_activity_id) {
+      if (action === 'archive') {
+        const { error } = await client.from('activities').update({ status: 'archived' }).eq('id', item.existing_activity_id);
+        if (error) throw error;
+      } else {
+        const { error } = await client.from('activities')
+          .update({ consecutive_missing_scans: 0, last_seen_at: new Date().toISOString() })
+          .eq('id', item.existing_activity_id);
+        if (error) throw error;
+      }
+    }
+
+    const { error: updErr } = await client.from('incoming_activities').update({
+      status: action === 'archive' ? 'archived_expired' : 'rejected',
+      reviewed_by: userId, reviewed_at: new Date().toISOString(),
+    }).eq('id', id);
+    if (updErr) throw updErr;
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || 'שגיאה בטיפול בפעילות שנעלמה' });
+  }
+});
+
+const AUTOMATION_SETTINGS_KEYS = new Set([
+  'scanning_enabled', 'max_discovered_pages_per_source', 'max_activities_per_scan',
+  'max_ai_requests_per_scan', 'fetch_timeout_ms', 'page_retry_count', 'missing_scan_threshold',
+  'duplicate_confidence_threshold', 'needs_review_confidence_threshold', 'proximity_km',
+]);
+
+app.get('/api/automation-settings', async (req, res) => {
+  try {
+    const { client } = await getClient();
+    const { data, error } = await client.from('automation_settings').select('key, value, updated_at');
+    if (error) throw error;
+    const settings = {};
+    for (const row of data || []) settings[row.key] = row.value;
+    res.json({ settings });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || 'שגיאה בטעינת ההגדרות' });
+  }
+});
+
+app.put('/api/automation-settings', async (req, res) => {
+  const { updates } = req.body || {};
+  if (!updates || typeof updates !== 'object') return res.status(400).json({ error: 'חסרים עדכונים' });
+  const rows = [];
+  for (const [key, value] of Object.entries(updates)) {
+    if (AUTOMATION_SETTINGS_KEYS.has(key)) rows.push({ key, value });
+  }
+  if (rows.length === 0) return res.status(400).json({ error: 'אין הגדרות תקינות לעדכון' });
+  try {
+    const { client, userId } = await getClient();
+    const now = new Date().toISOString();
+    const { error } = await client.from('automation_settings')
+      .upsert(rows.map((r) => ({ ...r, updated_at: now, updated_by: userId })), { onConflict: 'key' });
+    if (error) throw error;
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || 'שגיאה בעדכון ההגדרות' });
   }
 });
 

@@ -205,11 +205,32 @@ function renderManagePage() {
     padding: 16px; margin-bottom: 22px; box-shadow: 0 4px 16px oklch(0.3 0.02 230 / 0.06);
   }
   .photos-title { font-size: 14.5px; font-weight: 800; margin-bottom: 12px; }
+  .photos-title-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 4px; }
+  .photos-bulk-actions { display: flex; align-items: center; gap: 8px; }
+  .photos-select-all-btn {
+    font-size: 12px; font-weight: 700; color: oklch(0.45 0.1 230); background: white;
+    border: 1px solid oklch(0.85 0.03 230); border-radius: 999px; padding: 6px 12px; cursor: pointer;
+  }
+  .photos-bulk-approve-btn {
+    font-size: 12px; font-weight: 700; color: white; background: oklch(0.45 0.12 150);
+    border: none; border-radius: 999px; padding: 6px 14px; cursor: pointer;
+  }
+  .photos-bulk-approve-btn:disabled { opacity: 0.45; cursor: default; }
   .photo-card {
-    display: flex; align-items: center; gap: 12px; padding: 10px 0;
+    display: flex; flex-direction: column; padding: 10px 0;
     border-top: 1px solid oklch(0.95 0.01 230);
   }
   .photo-card:first-of-type { border-top: none; }
+  .photo-card-row { display: flex; align-items: center; gap: 12px; }
+  .photo-select-cb { width: 16px; height: 16px; flex-shrink: 0; cursor: pointer; }
+  .photo-info-clickable { cursor: pointer; }
+  .photo-info-clickable:hover { text-decoration: underline; }
+  .photo-toggle-arrow { color: oklch(0.6 0.02 235); font-size: 11px; margin-inline-start: 4px; }
+  .photo-details {
+    margin-top: 10px; margin-inline-start: 84px; padding: 10px 12px; font-size: 12.5px;
+    background: oklch(0.97 0.005 230); border-radius: 10px; color: oklch(0.35 0.02 235); line-height: 1.6;
+  }
+  .photo-details b { color: oklch(0.2 0.02 235); }
   .photo-candidate {
     display: flex; align-items: center; gap: 10px; margin-top: 10px; padding-top: 10px;
     border-top: 1px dashed oklch(0.85 0.06 80);
@@ -328,7 +349,13 @@ function renderManagePage() {
   ${renderNav('activities')}
 
   <div id="photosSection" class="photos-section" style="display: none;">
-    <div class="photos-title">תמונות ממתינות לאישור</div>
+    <div class="photos-title-row">
+      <div class="photos-title">תמונות ממתינות לאישור</div>
+      <div class="photos-bulk-actions">
+        <button id="photosSelectAllBtn" class="photos-select-all-btn" type="button">☑️ סמן הכל</button>
+        <button id="photosBulkApproveBtn" class="photos-bulk-approve-btn" type="button" disabled>אשר את הנבחרים</button>
+      </div>
+    </div>
     <div id="photosList"></div>
   </div>
 
@@ -441,6 +468,8 @@ function renderManagePage() {
   const $regions = document.getElementById('regions');
   const $photosSection = document.getElementById('photosSection');
   const $photosList = document.getElementById('photosList');
+  const $photosSelectAllBtn = document.getElementById('photosSelectAllBtn');
+  const $photosBulkApproveBtn = document.getElementById('photosBulkApproveBtn');
   const $reportsSection = document.getElementById('reportsSection');
   const $reportsList = document.getElementById('reportsList');
   const $missingPhotosSummary = document.getElementById('missingPhotosSummary');
@@ -492,7 +521,9 @@ function renderManagePage() {
   let manualPhotoTargetId = null;
 
   // "דורש טיפול" (מוזג מעמוד "איכות נתונים" לשעבר) - state ולוגיקה
-  const ISSUE_ORDER = ['missing_age', 'missing_price', 'missing_address', 'missing_coords', 'missing_hours', 'broken_link', 'no_photo'];
+  // "בעייתית" = רק כתובת חסרה (בקשת המשתמש) - שאר קודי-הבעיה הישנים (גיל/מחיר/קואורדינטות/
+  // שעות/קישור שבור) הוסרו מ-computeIssues לגמרי, לא רק מוסתרים כאן.
+  const ISSUE_ORDER = ['missing_address'];
   const SEARCHABLE_ISSUE_CODES = new Set(['missing_age', 'missing_price', 'missing_address', 'missing_hours']);
   const issueSelectedIds = new Map(ISSUE_ORDER.map((c) => [c, new Set()]));
   const dismissedIssueIds = new Map();
@@ -531,7 +562,7 @@ function renderManagePage() {
     if ($categoryFilter.value && a.category !== $categoryFilter.value) return false;
     if (activeQuickFilter === 'issues' && computeIssues(a).length === 0) return false;
     if (activeQuickFilter === 'stale' && !isStale(a)) return false;
-    if (activeQuickFilter === 'no_photo' && !computeIssues(a).some((i) => i.code === 'no_photo')) return false;
+    if (activeQuickFilter === 'no_photo' && !isMissingPhoto(a)) return false;
     return true;
   }
 
@@ -1369,6 +1400,34 @@ function renderManagePage() {
   }
 
   let pendingPhotos = [];
+  const selectedPhotoIds = new Set();
+  const expandedPhotoIds = new Set();
+
+  // סיכום קצר-לעיון של הפעילות (לא טופס עריכה מלא - זה כבר קיים בטאב "פעילויות") - נשען על
+  // allActivities שכבר נטען בכל מקרה (כמו renderMissingPhotos למעלה), בלי קריאת רשת נוספת.
+  function renderPhotoDetailsHtml(activityId) {
+    const a = allActivities.find((x) => x.id === activityId);
+    if (!a) return '<i>הפעילות לא נמצאה (יתכן ונמחקה).</i>';
+    const city = a.location && a.location.city ? a.location.city : null;
+    const address = a.location && a.location.address ? a.location.address : null;
+    const price = a.price_type === 'free' ? 'חינם' : a.price_type === 'fixed' && a.price_amount != null ? a.price_amount + ' ש"ח' : a.price_type || '—';
+    return (
+      '<div><b>קטגוריה:</b> ' + escapeHtml(a.category || '—') + '</div>' +
+      '<div><b>מיקום:</b> ' + escapeHtml([city, address].filter(Boolean).join(', ') || '—') + '</div>' +
+      '<div><b>מחיר:</b> ' + escapeHtml(String(price)) + '</div>' +
+      '<div><b>סטטוס:</b> ' + escapeHtml(a.status || '—') + '</div>' +
+      (a.description ? '<div><b>תיאור:</b> ' + escapeHtml(a.description) + '</div>' : '')
+    );
+  }
+
+  function updatePhotosBulkBar() {
+    const validIds = new Set(pendingPhotos.map((p) => p.id));
+    Array.from(selectedPhotoIds).forEach((id) => { if (!validIds.has(id)) selectedPhotoIds.delete(id); });
+    const allSelected = pendingPhotos.length > 0 && pendingPhotos.every((p) => selectedPhotoIds.has(p.id));
+    $photosSelectAllBtn.textContent = allSelected ? '⬜ בטל סימון הכל' : '☑️ סמן הכל';
+    $photosBulkApproveBtn.disabled = selectedPhotoIds.size === 0;
+    $photosBulkApproveBtn.textContent = selectedPhotoIds.size > 0 ? 'אשר את הנבחרים (' + selectedPhotoIds.size + ')' : 'אשר את הנבחרים';
+  }
 
   function renderPhotosList() {
     if (pendingPhotos.length === 0) {
@@ -1377,17 +1436,71 @@ function renderManagePage() {
     }
     $photosSection.style.display = 'block';
     document.querySelector('.photos-title').textContent = 'תמונות ממתינות לאישור (' + pendingPhotos.length + ')';
-    $photosList.innerHTML = pendingPhotos.map((p) => (
-      '<div class="photo-card" data-photo-id="' + p.id + '">' +
-        '<img class="photo-thumb" src="' + escapeHtml(p.url) + '" loading="lazy">' +
-        '<div class="photo-info">מתוך: <b>' + escapeHtml(p.activity ? p.activity.name : 'פעילות לא ידועה') + '</b></div>' +
-        '<div class="photo-actions">' +
-          '<button class="photo-approve-btn" data-id="' + p.id + '" data-status="approved">אשר</button>' +
-          '<button class="photo-reject-btn" data-id="' + p.id + '" data-status="rejected">דחה</button>' +
-        '</div>' +
-      '</div>'
-    )).join('');
+    $photosList.innerHTML = pendingPhotos.map((p) => {
+      const activityId = p.activity ? p.activity.id : null;
+      const expanded = activityId && expandedPhotoIds.has(activityId);
+      return (
+        '<div class="photo-card" data-photo-id="' + p.id + '">' +
+          '<div class="photo-card-row">' +
+            '<input type="checkbox" class="photo-select-cb" data-id="' + p.id + '"' + (selectedPhotoIds.has(p.id) ? ' checked' : '') + '>' +
+            '<img class="photo-thumb" src="' + escapeHtml(p.url) + '" loading="lazy">' +
+            '<div class="photo-info' + (activityId ? ' photo-info-clickable' : '') + '"' + (activityId ? ' data-activity-id="' + activityId + '"' : '') + '>' +
+              'מתוך: <b>' + escapeHtml(p.activity ? p.activity.name : 'פעילות לא ידועה') + '</b>' +
+              (activityId ? '<span class="photo-toggle-arrow">' + (expanded ? '▴ סגירה' : '▾ עיון בפעילות') + '</span>' : '') +
+            '</div>' +
+            '<div class="photo-actions">' +
+              '<button class="photo-approve-btn" data-id="' + p.id + '" data-status="approved">אשר</button>' +
+              '<button class="photo-reject-btn" data-id="' + p.id + '" data-status="rejected">דחה</button>' +
+            '</div>' +
+          '</div>' +
+          (expanded ? '<div class="photo-details">' + renderPhotoDetailsHtml(activityId) + '</div>' : '') +
+        '</div>'
+      );
+    }).join('');
+    updatePhotosBulkBar();
   }
+
+  $photosSelectAllBtn.addEventListener('click', () => {
+    const allSelected = pendingPhotos.length > 0 && pendingPhotos.every((p) => selectedPhotoIds.has(p.id));
+    if (allSelected) selectedPhotoIds.clear();
+    else pendingPhotos.forEach((p) => selectedPhotoIds.add(p.id));
+    renderPhotosList();
+  });
+
+  $photosBulkApproveBtn.addEventListener('click', async () => {
+    const ids = Array.from(selectedPhotoIds);
+    if (ids.length === 0) return;
+    $photosBulkApproveBtn.disabled = true;
+    $photosBulkApproveBtn.textContent = 'מאשר...';
+    let failCount = 0;
+    for (const id of ids) {
+      try {
+        const res = await fetch('/api/manage/photo-status', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id, status: 'approved' }),
+        });
+        if (!res.ok) throw new Error();
+        const approvedPhoto = pendingPhotos.find((p) => p.id === id);
+        if (approvedPhoto && approvedPhoto.activity) {
+          const activity = allActivities.find((a) => a.id === approvedPhoto.activity.id);
+          const img = activity && (activity.activity_images || []).find((i) => i.id === id);
+          if (img) img.status = 'approved';
+        }
+      } catch {
+        failCount++;
+      }
+    }
+    pendingPhotos = pendingPhotos.filter((p) => !ids.includes(p.id) || failCount);
+    selectedPhotoIds.clear();
+    if (failCount > 0) {
+      // אישור-חלקי - טוענים מחדש מהשרת כדי לדעת בדיוק אילו נכשלו, לא מנחשים.
+      await loadPendingPhotos();
+      alert('אושרו בהצלחה, חוץ מ-' + failCount + ' תמונות שנכשלו.');
+    } else {
+      renderPhotosList();
+    }
+    renderMissingPhotos();
+  });
 
   async function loadPendingPhotos() {
     try {
@@ -1468,7 +1581,23 @@ function renderManagePage() {
     }
   });
 
+  $photosList.addEventListener('change', (e) => {
+    const cb = e.target.closest('.photo-select-cb');
+    if (!cb) return;
+    if (cb.checked) selectedPhotoIds.add(cb.dataset.id);
+    else selectedPhotoIds.delete(cb.dataset.id);
+    updatePhotosBulkBar();
+  });
+
   $photosList.addEventListener('click', async (e) => {
+    const infoEl = e.target.closest('.photo-info-clickable');
+    if (infoEl) {
+      const activityId = infoEl.dataset.activityId;
+      if (expandedPhotoIds.has(activityId)) expandedPhotoIds.delete(activityId);
+      else expandedPhotoIds.add(activityId);
+      renderPhotosList();
+      return;
+    }
     const btn = e.target.closest('.photo-approve-btn') || e.target.closest('.photo-reject-btn');
     if (!btn) return;
     const id = btn.dataset.id;

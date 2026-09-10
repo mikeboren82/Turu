@@ -64,6 +64,10 @@ function renderDashboardPage() {
     text-decoration: none; border-radius: 999px; padding: 7px 14px; white-space: nowrap;
   }
   .empty-note { font-size: 13px; color: oklch(0.5 0.02 235); padding: 14px 2px; }
+  .stat-card.tint-alert { border-inline-start: 4px solid oklch(0.55 0.18 25); }
+  .stat-card.tint-source-new { border-inline-start: 4px solid oklch(0.55 0.14 150); }
+  .stat-card.tint-source-update { border-inline-start: 4px solid oklch(0.65 0.15 60); }
+  .stat-card.tint-source-missing { border-inline-start: 4px solid oklch(0.55 0.18 25); }
 </style>
 </head>
 <body>
@@ -82,6 +86,8 @@ function renderDashboardPage() {
 
   <div id="status" class="status">טוען...</div>
   <div id="cardsRow" class="cards-row"></div>
+
+  <div id="sourcesAlertsRow" class="cards-row"></div>
 
   <div class="section-title">פעילויות שדורשות טיפול</div>
   <div id="feedList" class="feed-list"></div>
@@ -102,7 +108,7 @@ function renderDashboardPage() {
     const pending = activities.filter((a) => a.status === 'pending').length;
     const withIssues = activities.filter((a) => computeIssues(a).length > 0).length;
     const stale = activities.filter((a) => isStale(a)).length;
-    const noPhoto = activities.filter((a) => computeIssues(a).some((i) => i.code === 'no_photo')).length;
+    const noPhoto = activities.filter((a) => isMissingPhoto(a)).length;
 
     const cards = [
       { key: '', tint: 'total', icon: '📋', value: total, label: 'סך כל הפעילויות' },
@@ -145,6 +151,24 @@ function renderDashboardPage() {
     }).join('');
   }
 
+  const $sourcesAlertsRow = document.getElementById('sourcesAlertsRow');
+
+  function renderSourcesAlerts(summary) {
+    const cards = [
+      { tint: 'alert', href: '/sources', icon: '⚠️', value: summary.failedSources, label: 'מקורות שנכשלו בסריקה' },
+      { tint: 'source-new', href: '/incoming', icon: '🆕', value: summary.newIncoming, label: 'פעילויות חדשות ממתינות' },
+      { tint: 'source-update', href: '/incoming', icon: '🔄', value: summary.updatedIncoming, label: 'עדכונים ממתינים' },
+      { tint: 'source-missing', href: '/incoming', icon: '👻', value: summary.missingFlagged, label: 'נעלמו מהמקור' },
+    ].filter((c) => c.value > 0);
+    $sourcesAlertsRow.innerHTML = cards.map((c) => (
+      '<a class="stat-card tint-' + c.tint + '" href="' + c.href + '">' +
+        '<div class="stat-card-icon">' + c.icon + '</div>' +
+        '<div class="stat-card-value">' + c.value + '</div>' +
+        '<div class="stat-card-label">' + c.label + '</div>' +
+      '</a>'
+    )).join('');
+  }
+
   async function load() {
     try {
       const res = await fetch('/api/manage/activities');
@@ -157,6 +181,11 @@ function renderDashboardPage() {
       $status.textContent = 'שגיאה בטעינה: ' + err.message;
       $status.className = 'status error';
     }
+    try {
+      const res = await fetch('/api/sources/alerts-summary');
+      const summary = await res.json();
+      if (res.ok) renderSourcesAlerts(summary);
+    } catch { /* לא קריטי - הדשבורד הראשי כבר נטען */ }
   }
 
   load();

@@ -33,6 +33,8 @@ const PRIMARY_ITEMS = [
   { key: 'dashboard', href: '/', label: '📊 דשבורד' },
   { key: 'activities', href: '/activities', label: '🎪 פעילויות' },
   { key: 'import', href: '/import', label: '➕ הוספת תוכן' },
+  { key: 'sources', href: '/sources', label: '🌐 מקורות' },
+  { key: 'incoming', href: '/incoming', label: '🆕 פעילויות שנמצאו' },
 ];
 
 const USER_ITEMS = [
