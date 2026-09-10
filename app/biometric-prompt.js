@@ -7,8 +7,8 @@ import Header from '../components/Header';
 import { FingerprintIcon, PinIcon } from '../components/icons';
 import { colors, fonts, radii, spacing } from '../constants/theme';
 
-const ASKED_KEY = 'wabbit_asked_quick_login';
-const BIOMETRIC_ENABLED_KEY = 'wabbit_biometric_enabled';
+const ASKED_KEY = 'turu_asked_quick_login';
+const BIOMETRIC_ENABLED_KEY = 'turu_biometric_enabled';
 
 export default function BiometricPromptScreen() {
   const router = useRouter();

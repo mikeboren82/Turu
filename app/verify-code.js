@@ -101,9 +101,9 @@ export default function VerifyCodeScreen() {
     }
 
     const [asked, pinEnabled, biometricEnabled] = await Promise.all([
-      AsyncStorage.getItem('wabbit_asked_quick_login'),
-      AsyncStorage.getItem('wabbit_pin_enabled'),
-      AsyncStorage.getItem('wabbit_biometric_enabled'),
+      AsyncStorage.getItem('turu_asked_quick_login'),
+      AsyncStorage.getItem('turu_pin_enabled'),
+      AsyncStorage.getItem('turu_biometric_enabled'),
     ]);
     const alreadySetUp = pinEnabled === 'true' || biometricEnabled === 'true';
     router.replace(asked === 'true' || alreadySetUp ? '/' : '/biometric-prompt');

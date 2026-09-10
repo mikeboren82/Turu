@@ -58,8 +58,8 @@ export default function LoginScreen() {
     (async () => {
       const [{ data: { session: currentSession } }, pinFlag, bioFlag] = await Promise.all([
         supabase.auth.getSession(),
-        AsyncStorage.getItem('wabbit_pin_enabled'),
-        AsyncStorage.getItem('wabbit_biometric_enabled'),
+        AsyncStorage.getItem('turu_pin_enabled'),
+        AsyncStorage.getItem('turu_biometric_enabled'),
       ]);
       if (cancelled) return;
       setSession(currentSession);
@@ -128,9 +128,9 @@ export default function LoginScreen() {
     }
     await recordLegalConsentIfNeeded(userId);
     const [asked, pin, bio] = await Promise.all([
-      AsyncStorage.getItem('wabbit_asked_quick_login'),
-      AsyncStorage.getItem('wabbit_pin_enabled'),
-      AsyncStorage.getItem('wabbit_biometric_enabled'),
+      AsyncStorage.getItem('turu_asked_quick_login'),
+      AsyncStorage.getItem('turu_pin_enabled'),
+      AsyncStorage.getItem('turu_biometric_enabled'),
     ]);
     const alreadySetUp = pin === 'true' || bio === 'true';
     router.replace(asked === 'true' || alreadySetUp ? '/' : '/biometric-prompt');
@@ -254,9 +254,9 @@ export default function LoginScreen() {
             </Pressable>
 
             <Pressable style={styles.appleBtn} onPress={handleAppleLogin} disabled={appleLoading}>
-              {appleLoading ? <ActivityIndicator color="#fff" /> : (
+              {appleLoading ? <ActivityIndicator color={colors.textPrimary} /> : (
                 <>
-                  <AppleIcon />
+                  <AppleIcon color={colors.textPrimary} />
                   <Text style={styles.appleBtnText}>המשך עם Apple</Text>
                 </>
               )}
@@ -334,9 +334,6 @@ export default function LoginScreen() {
               <Text style={styles.consentLink} onPress={() => router.push('/privacy')}>מדיניות הפרטיות</Text>.
             </Text>
 
-            <Pressable onPress={() => router.push('/admin-login')}>
-              <Text style={styles.adminLink}>כניסת מנהל</Text>
-            </Pressable>
           </View>
         </ScrollView>
       </View>
@@ -387,9 +384,6 @@ export default function LoginScreen() {
             ) : (
               <Text style={styles.linkBtn}>התחברות עם קוד בסמס</Text>
             )}
-          </Pressable>
-          <Pressable onPress={() => router.push('/admin-login')}>
-            <Text style={styles.adminLink}>כניסת מנהל</Text>
           </Pressable>
         </View>
       </View>
@@ -443,10 +437,11 @@ const styles = StyleSheet.create({
   },
   googleBtnText: { fontFamily: fonts.bold, fontSize: 14.5, color: colors.textPrimary },
   appleBtn: {
-    width: '100%', backgroundColor: '#000', borderRadius: radii.pill, paddingVertical: 13, marginBottom: 12,
+    width: '100%', borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.card,
+    borderRadius: radii.pill, paddingVertical: 13, marginBottom: 12,
     flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'center', gap: 10,
   },
-  appleBtnText: { fontFamily: fonts.bold, fontSize: 14.5, color: '#fff' },
+  appleBtnText: { fontFamily: fonts.bold, fontSize: 14.5, color: colors.textPrimary },
   emailToggleBtn: {
     width: '100%', borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.card,
     borderRadius: radii.pill, paddingVertical: 13, marginBottom: 8,
@@ -465,5 +460,4 @@ const styles = StyleSheet.create({
   consentLink: { fontFamily: fonts.semiBold, color: colors.textSecondary, textDecorationLine: 'underline' },
 
   linkBtn: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.textSecondary, textDecorationLine: 'underline' },
-  adminLink: { fontFamily: fonts.regular, fontSize: 11.5, color: colors.textMuted, textAlign: 'center', marginTop: 18 },
 });
