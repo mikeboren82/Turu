@@ -34,6 +34,10 @@ yarn-error.*
 .env
 .env*.local
 
+# local session/runtime state - not project content, changes every run
+.claude/scheduled_tasks.lock
+supabase/.temp/
+
 # typescript
 *.tsbuildinfo
 
