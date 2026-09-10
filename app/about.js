@@ -30,6 +30,14 @@ export default function AboutScreen() {
           <Text key={i} style={styles.paragraph}>{p}</Text>
         ))}
 
+        <View style={styles.verseCard}>
+          <Text style={styles.verse}>
+            <Text style={styles.verseMark}>״</Text>
+            {'שְׁלַח־לְךָ֣ יְלָדִים֮ וְיָתֻר֖וּ אֶת־הָאָ֗רֶץ\n(אֹ֥ו לְפָחֹ֖ות אֶת־הַמִּשְׂחֲקִיָּה֮ הַקְּרוֹבָה֒)'}
+            <Text style={styles.verseMark}>״</Text>
+          </Text>
+        </View>
+
         <Text style={styles.signature}>אבישי ונאיה</Text>
 
         <Pressable style={styles.contactBtn} onPress={() => router.push('/contact')}>
@@ -55,6 +63,15 @@ const styles = StyleSheet.create({
   content: { padding: spacing.xl, paddingBottom: 50 },
   pageTitle: { fontFamily: fonts.extraBold, fontSize: 22, color: colors.textPrimary, textAlign: 'right', marginTop: 24, marginBottom: 18 },
   paragraph: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 23, color: colors.textSecondary, textAlign: 'right', marginBottom: 14 },
+  verseCard: {
+    marginTop: 6, marginBottom: 22, paddingVertical: 12, paddingHorizontal: 18,
+    backgroundColor: colors.accentTintLight, borderRadius: radii.lg,
+  },
+  verse: {
+    fontFamily: fonts.verseBold, fontSize: 14, color: colors.ink, textAlign: 'center',
+    letterSpacing: 0.2, lineHeight: 21,
+  },
+  verseMark: { fontFamily: fonts.verseBold, fontSize: 14, color: colors.accent },
   signature: { fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary, textAlign: 'right', marginTop: 6, marginBottom: 22 },
   contactBtn: {
     backgroundColor: colors.accent, borderRadius: radii.pill, paddingVertical: 14, alignItems: 'center',

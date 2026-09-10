@@ -62,7 +62,7 @@ export default function FeedbackButton() {
   return (
     <>
       <Pressable
-        style={[styles.trigger, { bottom: insets.bottom + 8 + grassHeight }]}
+        style={[styles.trigger, { bottom: insets.bottom + 8 + grassHeight * 0.25 }]}
         onPress={openModal}
         hitSlop={8}
       >

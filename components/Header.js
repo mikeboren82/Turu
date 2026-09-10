@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { View, Text, Pressable, Modal, StyleSheet } from 'react-native';
+import { View, Text, Pressable, Modal, StyleSheet, Image } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Svg, { Line } from 'react-native-svg';
@@ -7,7 +7,7 @@ import { useRouter, usePathname } from 'expo-router';
 import { colors, fonts, radii, spacing } from '../constants/theme';
 import { supabase } from '../lib/supabase';
 import { clearPin } from '../lib/pin';
-import { HomeIcon, HeartIcon, UserIcon, ChatIcon, InfoIcon, MailIcon, LogOutIcon } from './icons';
+import { HomeIcon, HeartIcon, UserIcon, ChatIcon, InfoIcon, MailIcon, LogOutIcon, NoteIcon } from './icons';
 import LoginRequiredModal from './LoginRequiredModal';
 
 function BackIcon() {
@@ -29,7 +29,7 @@ function MenuIcon() {
   );
 }
 
-export default function Header({ showBack = false, onMenuPress, hideLogo = false }) {
+export default function Header({ showBack = false, onMenuPress, hideLogo = false, onHeaderLayout }) {
   const router = useRouter();
   const pathname = usePathname();
   const insets = useSafeAreaInsets();
@@ -39,6 +39,7 @@ export default function Header({ showBack = false, onMenuPress, hideLogo = false
   const [stars, setStars] = useState(0);
   const [children, setChildren] = useState([]);
   const [showDestinationsPrompt, setShowDestinationsPrompt] = useState(false);
+  const [authPromptMessage, setAuthPromptMessage] = useState('');
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   useEffect(() => {
@@ -87,15 +88,24 @@ export default function Header({ showBack = false, onMenuPress, hideLogo = false
     setShowLogoutConfirm(false);
     await supabase.auth.signOut();
     await clearPin();
-    await AsyncStorage.removeItem('wabbit_asked_quick_login');
+    await AsyncStorage.removeItem('turu_asked_quick_login');
     router.replace('/login');
   };
 
   const isActive = (path) => pathname === path;
 
+  // "היעדים שלי" ו"ההערות שלי" מובילים שניהם ל-app/my-things.js (עמוד "❤️ הדברים שלי" המאוחד),
+  // רק עם טאב פתוח שונה (?tab=notes) - לא שני routes נפרדים.
   const primaryItems = [
     { key: 'activities', label: 'פעילויות', path: '/activities', Icon: HomeIcon },
-    { key: 'destinations', label: 'היעדים שלי', path: '/destinations', Icon: HeartIcon, requiresAuth: true },
+    {
+      key: 'destinations', label: 'היעדים שלי', path: '/my-things', Icon: HeartIcon, requiresAuth: true,
+      authMessage: 'שמרו מקומות שאתם רוצים לבקר בהם וחזרו אליהם מתי שתרצו.',
+    },
+    {
+      key: 'notes', label: 'ההערות שלי', path: '/my-things?tab=notes', Icon: NoteIcon, requiresAuth: true,
+      authMessage: 'כתבו לעצמכם הערות אישיות על פעילויות, ותמצאו אותן כאן בכל פעם שתחזרו.',
+    },
     ...(session ? [{ key: 'profile', label: 'הפרופיל שלי', path: '/profile', Icon: UserIcon }] : []),
   ];
 
@@ -105,11 +115,12 @@ export default function Header({ showBack = false, onMenuPress, hideLogo = false
     { key: 'contact', label: 'צור קשר', path: '/contact', Icon: MailIcon },
   ];
 
-  // "היעדים שלי" בלי session - במקום ניווט לעמוד ריק, פותחים LoginRequiredModal עם הסבר
-  // מותאם-הקשר (ראו components/LoginRequiredModal.js, message prop).
+  // בלי session - במקום ניווט לעמוד ריק, פותחים LoginRequiredModal עם הסבר מותאם-הקשר לפריט
+  // שנלחץ (authMessage לכל פריט requiresAuth למעלה).
   const handleItemPress = (item) => {
     setMenuOpen(false);
     if (item.requiresAuth && !session) {
+      setAuthPromptMessage(item.authMessage || 'צריך להתחבר כדי לבצע פעולה זו');
       setShowDestinationsPrompt(true);
       return;
     }
@@ -136,7 +147,10 @@ export default function Header({ showBack = false, onMenuPress, hideLogo = false
   };
 
   return (
-    <View style={styles.header}>
+    <View
+      style={styles.header}
+      onLayout={onHeaderLayout ? (e) => onHeaderLayout(e.nativeEvent.layout) : undefined}
+    >
       {showBack ? (
         <Pressable
           style={[styles.iconBtn, styles.side, styles.sideLeft]}
@@ -151,14 +165,7 @@ export default function Header({ showBack = false, onMenuPress, hideLogo = false
 
       {!hideLogo && (
         <Pressable style={styles.logoWrap} onPress={() => router.push('/')} accessibilityLabel="חזרה למסך הראשי">
-          <View style={styles.logoLockup}>
-            <Text style={styles.logoText}>
-              <Text style={styles.logoLatin}>TuRu</Text>
-              <Text style={styles.logoKangaroo}> 🦘 </Text>
-              <Text style={styles.logoHebrew}>תורו</Text>
-            </Text>
-          </View>
-          <Text style={styles.tagline}>לאן קופצים היום?</Text>
+          <Image source={require('../assets/turu-logo.png')} style={styles.logoImage} resizeMode="contain" />
         </Pressable>
       )}
 
@@ -235,7 +242,7 @@ export default function Header({ showBack = false, onMenuPress, hideLogo = false
       <LoginRequiredModal
         visible={showDestinationsPrompt}
         onClose={() => setShowDestinationsPrompt(false)}
-        message="שמרו מקומות שאתם רוצים לבקר בהם וחזרו אליהם מתי שתרצו."
+        message={authPromptMessage}
       />
 
       <Modal visible={showLogoutConfirm} transparent animationType="fade" onRequestClose={() => setShowLogoutConfirm(false)}>
@@ -276,23 +283,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   logoWrap: { alignItems: 'center' },
-  logoLockup: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    gap: 5,
-  },
-  logoText: {
-    fontSize: 26,
-  },
-  // צבע רך תואם לכפתור הראשי (colors.accent) במקום השחור הקשה שהיה כאן - ראו גם logoHebrew
-  // שכבר היה באותו צבע, כדי שכל הלוגו יהיה בגוון אחיד.
-  logoLatin: { fontFamily: fonts.logo, color: colors.accent },
-  logoKangaroo: { fontSize: 19 },
-  logoHebrew: { fontFamily: fonts.extraBold, color: colors.accent, fontSize: 24 },
-  tagline: {
-    fontFamily: fonts.semiBold, fontSize: 11, color: colors.coralStrong,
-    marginTop: -2, transform: [{ rotate: '-3deg' }],
-  },
+  logoImage: { width: 132, height: 92 },
 
   backdrop: { flex: 1, alignItems: 'flex-end' },
   dropdown: {

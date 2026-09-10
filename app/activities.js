@@ -1,6 +1,8 @@
 import { useState, useMemo, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Modal } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Modal, TextInput } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import * as Location from 'expo-location';
+import { LinearGradient } from 'expo-linear-gradient';
 import Header from '../components/Header';
 import LoginRequiredModal from '../components/LoginRequiredModal';
 import ActivityCard from '../components/ActivityCard';
@@ -8,19 +10,44 @@ import ActivitiesMap from '../components/ActivitiesMap';
 import FiltersSheet from '../components/FiltersSheet';
 import QuickPicker from '../components/QuickPicker';
 import LocationQuickPicker, { locationSummary } from '../components/LocationQuickPicker';
+import CityAutocomplete from '../components/CityAutocomplete';
 import { ageSummary } from '../components/AgeQuickPicker';
 import { ChevronDownIcon } from '../components/icons';
 import { colors, fonts, radii, spacing } from '../constants/theme';
 import { fetchApprovedActivities, formatDistance } from '../lib/activities';
-import { fetchUserActivityFlags, toggleFavorite, toggleVisited, toggleHidden } from '../lib/interactions';
+import { fetchUserActivityFlags, toggleFavorite, toggleVisited, toggleHidden, savePersonalNote, fetchAllPersonalNotes } from '../lib/interactions';
 import { fetchUserPreferences, saveExcludedCategories, saveExcludedCities } from '../lib/preferences';
 import { supabase } from '../lib/supabase';
 import {
   DEFAULT_FILTERS, CATEGORY_FILTER_OPTIONS, CITY_OPTIONS, PRICE_OPTIONS, PLACE_TYPE_OPTIONS, BOOKING_OPTIONS, DURATION_OPTIONS, AMENITY_COMFORT_OPTIONS, HOUR_OPTIONS, BENEFIT_FILTER_OPTIONS,
 } from '../constants/filterSchema';
 import { categorySummary, whenSummary, hebrewJoin } from '../lib/filterSummaries';
-import { rankActivities, countActiveFilters, normalizeFilters } from '../lib/filterActivities';
+import { rankActivities, countActiveFilters, normalizeFilters, getOpenNowInfo, haversineKm } from '../lib/filterActivities';
 import { formatBenefitCardTag } from '../lib/benefits';
+import { parseSmartSearchQuery, intentToFilters } from '../lib/smartSearch';
+
+const BOOKING_REQUIRED_VALUES = ['registration_required', 'advance_booking'];
+const SPONTANEOUS_TOP_COUNT = 5;
+
+// 🪄 ספונטני - "למה הפעילות הזו מופיעה עכשיו" (סעיף 11 בבקשת שדרוג הספונטני): רק מידע שהמערכת
+// יודעת בפועל (openHours/availableDays/booking_requirement קיימים) - null כשאין נתון, לעולם
+// לא מנחש שעה/זמינות. פורמט מרחק בק"מ (לא "דקות נסיעה") בכוונה - אין ל-TuRu מנוע ניווט/ETA,
+// "X דקות" היה בגדר המצאת-נתון (סעיף 11/24 באותה בקשה: "אל תמציא מרחק, שעות או זמינות").
+function buildSpontaneousBadge(activity) {
+  const openInfo = getOpenNowInfo(activity);
+  const parts = [];
+  if (openInfo.isOpen) {
+    parts.push('🟢 פתוח עכשיו');
+  } else if (openInfo.minutesUntilOpenToday != null) {
+    parts.push(`🕐 נפתח בעוד ${openInfo.minutesUntilOpenToday} דק'`);
+  } else if (!openInfo.hasScheduleData) {
+    return null;
+  }
+  if (BOOKING_REQUIRED_VALUES.includes(activity.booking_requirement)) {
+    parts.push('🎟️ דורש הזמנה');
+  }
+  return parts.length > 0 ? parts.join(' · ') : null;
+}
 
 function parseJson(value, fallback) {
   if (!value) return fallback;
@@ -79,6 +106,10 @@ export default function ActivitiesScreen() {
   const [favoriteIds, setFavoriteIds] = useState(new Set());
   const [visitedIds, setVisitedIds] = useState(new Set());
   const [hiddenIds, setHiddenIds] = useState(new Set());
+  const [notes, setNotes] = useState([]); // מ-fetchAllPersonalNotes - לכפתור "📝 הערה" בכרטיס הפעילות
+  const [noteModalTarget, setNoteModalTarget] = useState(null); // { activity_id, activity: { name } }
+  const [noteModalDraft, setNoteModalDraft] = useState('');
+  const [savingNote, setSavingNote] = useState(false);
   const [excludedCategories, setExcludedCategories] = useState([]);
   const [excludedCities, setExcludedCities] = useState([]);
   const [benefitClubs, setBenefitClubs] = useState([]);
@@ -95,17 +126,30 @@ export default function ActivitiesScreen() {
   const [hideCityDraft, setHideCityDraft] = useState([]);
   const [saveCityAsDefault, setSaveCityAsDefault] = useState(false);
   const [showRegisterPromptForHideCities, setShowRegisterPromptForHideCities] = useState(false);
-  // "שער" כניסה - כשמגיעים לעמוד בלי קטגוריה/מיקום שנבחרו (למשל ישירות מהתפריט, לא דרך
-  // "יאללה יוצאים לדרך" בעמוד הבית) מבקשים למלא את שני הפילטרים הראשיים לפני שממשיכים.
-  // מחושב פעם אחת מה-state ההתחלתי - לא חוזר להופיע אחרי שנסגר, גם אם המשתמש מנקה שוב.
-  // לא מוצג כשמגיעים דרך "סינון מתקדם" (openFilters=true) - שם הפאנל המלא כבר פתוח ומכסה
-  // את אותם שני שדות ועוד; שער נוסף לפניו רק חוסם, לא עוזר. גם לא מוצג כשמגיעים מחיפוש חופשי
-  // (filters.q) - חיפוש חופשי הוא כבר כוונה ברורה, לא צריך לעצור אותו בשאלה "מה בא לנו?".
-  const [showGate, setShowGate] = useState(() => (
-    openFilters !== 'true' && !filters.q?.trim() && !filters.category?.length && !filters.location?.mode
-  ));
+  // "שער" כניסה - הקוד/ה-Modal נשארים (ראו שימוש למטה, gateCategoryOpen/gateLocationOpen עדיין
+  // מגיבים אם משהו יפתח אותם), אבל לא נפתח אוטומטית יותר בכניסה. בעבר showGate נפתח לבד כשאין
+  // קטגוריה/מיקום שנבחרו - זה בדיוק ה"מסך ריק שחוסם" ששדרוג העמוד (סעיפים 1/3/10/19/21/25 בבקשה)
+  // ביקש להחליף ב-Discovery Mode: כניסה בלי פילטרים מציגה מיד את כל הפעילויות מדורגות-חכם, לא
+  // שואלת שאלה לפני שמראה משהו. מסומן כ"נשאר לניקוי עתידי" בדוח הסיכום.
+  const [showGate, setShowGate] = useState(false);
   const [gateCategoryOpen, setGateCategoryOpen] = useState(false);
   const [gateLocationOpen, setGateLocationOpen] = useState(false);
+  const [spontaneousLoading, setSpontaneousLoading] = useState(false);
+  const [spontaneousError, setSpontaneousError] = useState('');
+  // 🪄 ספונטני - היה פעולה חד-פעמית (בחירת פעילות אקראית + ניווט לעמוד שלה); שודרג ל"מצב" מתמשך:
+  // לא מנווט לשום מקום, רק מוסיף בונוס-קרבה-למיקום-חי לדירוג הקיים (ראו spontaneousProximityScore
+  // ב-lib/filterActivities.js) מעל הפילטרים הפעילים בדיוק כפי שהם - "לחיצה נוספת" מכבה בחזרה.
+  const [spontaneousActive, setSpontaneousActive] = useState(false);
+  const [spontaneousCoords, setSpontaneousCoords] = useState(null);
+  // 🔎 חיפוש חופשי קומפקטי - collapsed כברירת מחדל, פותח שדה טקסט קטן שמפעיל את אותו Smart
+  // Search Engine בדיוק כמו עמוד הבית (lib/smartSearch.js, parseSmartSearchQuery/intentToFilters) -
+  // בלי לנווט/לטעון מסך חדש, רק כותב ל-filters הקיים של העמוד הזה (setFilters).
+  const [freeSearchOpen, setFreeSearchOpen] = useState(false);
+  const [freeSearchText, setFreeSearchText] = useState('');
+  const [freeSearchLoading, setFreeSearchLoading] = useState(false);
+  const [freeSearchError, setFreeSearchError] = useState('');
+  const [freeSearchClarify, setFreeSearchClarify] = useState(null); // { message, pendingIntent, mode }
+  const [freeSearchClarifyCity, setFreeSearchClarifyCity] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -116,9 +160,10 @@ export default function ActivitiesScreen() {
         setActivities(data);
         if (session?.user?.id) {
           setUserId(session.user.id);
-          const [flags, prefs] = await Promise.all([
+          const [flags, prefs, userNotes] = await Promise.all([
             fetchUserActivityFlags(session.user.id),
             fetchUserPreferences(session.user.id),
+            fetchAllPersonalNotes(session.user.id),
           ]);
           if (!cancelled) {
             setFavoriteIds(flags.favoriteIds);
@@ -127,6 +172,15 @@ export default function ActivitiesScreen() {
             setExcludedCategories(prefs.excludedCategories);
             setExcludedCities(prefs.excludedCities);
             setBenefitClubs(prefs.benefitClubs);
+            setNotes(userNotes);
+            // אם הגענו בלי homeFilters (למשל דרך "🎪 פעילויות" בתפריט, לא דרך עמוד הבית) -
+            // מחילים את העדפות-ברירת-המחדל השמורות של המשתמש אוטומטית, בדיוק כמו שעמוד הבית
+            // כבר עושה (app/index.js). בלי זה, משתמש ששמר העדפות בפרופיל היה רואה אותן "נעלמות"
+            // בכל כניסה שלא דרך עמוד הבית - הפילטרים לא אמורים להישאל מחדש בכל פעם.
+            if (!homeFilters && prefs.defaultHomeFilters) {
+              setFilters(normalizeFilters(prefs.defaultHomeFilters));
+              setShowGate(false);
+            }
           }
         }
       } catch (err) {
@@ -191,6 +245,97 @@ export default function ActivitiesScreen() {
     }
   };
 
+  const toggleSpontaneous = async () => {
+    if (spontaneousActive) {
+      setSpontaneousActive(false);
+      setSpontaneousError('');
+      setShowAllSpontaneous(false);
+      return;
+    }
+    setSpontaneousError('');
+    setSpontaneousLoading(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        setSpontaneousError('צריך לאשר גישה למיקום כדי להשתמש בכפתור הזה');
+        return;
+      }
+      const pos = await Location.getCurrentPositionAsync({});
+      setSpontaneousCoords({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
+      setSpontaneousActive(true);
+    } catch {
+      setSpontaneousError('משהו השתבש, נסו שוב');
+    } finally {
+      setSpontaneousLoading(false);
+    }
+  };
+
+  // 🔎 חיפוש חופשי קומפקטי - אותו זרימת-הבהרה בדיוק כמו app/index.js (handleSmartSearch/
+  // handleClarifyCity), רק שבמקום לנווט ל-/activities עם homeFilters (אנחנו כבר כאן), כותבים
+  // ישירות ל-filters הקיים דרך applyFreeSearchIntent - "מעדכן את עמוד הפעילויות" כמו שהתבקש,
+  // לא פותח מסך נפרד.
+  const applyFreeSearchIntent = (intent) => {
+    const built = intentToFilters(intent, { fallbackLocation: filters.location?.mode ? filters.location : null });
+    setFilters(normalizeFilters(built));
+    if (built.location.mode === 'address' && built.location.coords) {
+      setDeviceCoords({ latitude: built.location.coords.lat, longitude: built.location.coords.lng });
+    }
+    setFreeSearchText('');
+    setFreeSearchClarify(null);
+    setFreeSearchOpen(false);
+  };
+
+  const handleFreeSearch = async (overrideText) => {
+    const text = (overrideText ?? freeSearchText).trim();
+    if (!text) return;
+    setFreeSearchError('');
+    setFreeSearchClarify(null);
+    setFreeSearchLoading(true);
+    try {
+      const data = await parseSmartSearchQuery(text);
+      if (data.needsClarification) {
+        setFreeSearchClarify({ message: data.needsClarification.message, pendingIntent: data.intent, mode: 'street' });
+        return;
+      }
+      const loc = data.intent.location;
+      const hasAnyLocation = !!(loc.city || loc.region || loc.street || loc.coords);
+      if (!hasAnyLocation && !filters.location?.mode) {
+        setFreeSearchClarify({ message: '📍 באיזה אזור לחפש?', pendingIntent: data.intent, mode: 'plain' });
+        return;
+      }
+      applyFreeSearchIntent(data.intent);
+    } catch (err) {
+      setFreeSearchError(err.message || 'לא הצלחנו להבין את החיפוש, נסו לנסח אחרת');
+    } finally {
+      setFreeSearchLoading(false);
+    }
+  };
+
+  const handleFreeSearchClarifyCity = async () => {
+    if (!freeSearchClarify || !freeSearchClarifyCity.trim()) return;
+    const city = freeSearchClarifyCity.trim();
+    if (freeSearchClarify.mode === 'plain') {
+      setFreeSearchClarifyCity('');
+      applyFreeSearchIntent({ ...freeSearchClarify.pendingIntent, location: { ...freeSearchClarify.pendingIntent.location, city } });
+      return;
+    }
+    setFreeSearchError('');
+    setFreeSearchLoading(true);
+    try {
+      const data = await parseSmartSearchQuery(freeSearchText, { cityOverride: city, pendingIntent: freeSearchClarify.pendingIntent });
+      if (data.needsClarification) {
+        setFreeSearchError('לא הצלחנו לזהות את המיקום, נסו לנסח אחרת');
+        return;
+      }
+      setFreeSearchClarifyCity('');
+      applyFreeSearchIntent(data.intent);
+    } catch (err) {
+      setFreeSearchError(err.message || 'לא הצלחנו להבין את החיפוש');
+    } finally {
+      setFreeSearchLoading(false);
+    }
+  };
+
   const handleToggleFavorite = async (activityId) => {
     if (!userId) return requireLogin();
     const next = !favoriteIds.has(activityId);
@@ -223,22 +368,93 @@ export default function ActivitiesScreen() {
     }
   };
 
+  // 📝 הערה אישית ישירות מכרטיס הפעילות - אותו דפוס בדיוק כמו openNoteModal/saveNoteModal
+  // ב-app/my-things.js, רק על notes/notesByActivity המקומיים של העמוד הזה.
+  const openNoteModal = (activityId, activityName) => {
+    if (!userId) return requireLogin();
+    const existing = notes.find((n) => n.activity_id === activityId);
+    setNoteModalTarget(existing || { activity_id: activityId, activity: { name: activityName } });
+    setNoteModalDraft(existing ? existing.note : '');
+  };
+
+  const saveNoteModal = async () => {
+    if (!noteModalTarget || !userId) return;
+    setSavingNote(true);
+    try {
+      await savePersonalNote(userId, noteModalTarget.activity_id, noteModalDraft);
+      const trimmed = noteModalDraft.trim();
+      setNotes((prev) => {
+        if (!trimmed) return prev.filter((n) => n.activity_id !== noteModalTarget.activity_id);
+        const exists = prev.some((n) => n.activity_id === noteModalTarget.activity_id);
+        if (exists) {
+          return prev.map((n) => (n.activity_id === noteModalTarget.activity_id ? { ...n, note: trimmed } : n));
+        }
+        return [...prev, { activity_id: noteModalTarget.activity_id, note: trimmed, activity: noteModalTarget.activity }];
+      });
+      setNoteModalTarget(null);
+    } catch (err) {
+      console.error('שגיאה בשמירת ההערה:', err);
+    } finally {
+      setSavingNote(false);
+    }
+  };
+
+  const notesByActivity = useMemo(() => new Map(notes.map((n) => [n.activity_id, n.note])), [notes]);
+
+  const [showAllSpontaneous, setShowAllSpontaneous] = useState(false);
+
   const filteredActivities = useMemo(
-    () => rankActivities(activities, filters, deviceCoords, excludedCategories, benefitClubs, excludedCities)
+    () => rankActivities(
+      activities, filters, deviceCoords, excludedCategories, benefitClubs, excludedCities,
+      spontaneousActive ? spontaneousCoords : null
+    )
       .filter((a) => !hiddenIds.has(a.id))
-      .map((a) => ({
-        ...a,
-        distance: formatDistance(a, deviceCoords),
-        favorite: favoriteIds.has(a.id),
-        visited: visitedIds.has(a.id),
-        benefitTag: formatBenefitCardTag(a.benefits, benefitClubs),
-      })),
-    [activities, filters, deviceCoords, hiddenIds, favoriteIds, visitedIds, excludedCategories, benefitClubs, excludedCities]
+      .map((a) => {
+        // ספונטני פעיל: מרחק אמיתי (ק"מ) מהמיקום החי, לא שם-העיר הכללי (סעיף 11 בבקשה) - רק
+        // כשיש בפועל קואורדינטות לשני הצדדים, אחרת נופל לאותה formatDistance הרגילה כמו היום.
+        const spontaneousKm = spontaneousActive && spontaneousCoords && a.lat != null && a.lng != null
+          ? haversineKm(spontaneousCoords.latitude, spontaneousCoords.longitude, a.lat, a.lng)
+          : null;
+        return {
+          ...a,
+          distance: spontaneousKm != null
+            ? `${spontaneousKm < 10 ? spontaneousKm.toFixed(1) : Math.round(spontaneousKm)} ק"מ ממך`
+            : formatDistance(a, deviceCoords),
+          favorite: favoriteIds.has(a.id),
+          visited: visitedIds.has(a.id),
+          hasNote: notesByActivity.has(a.id),
+          benefitTag: formatBenefitCardTag(a.benefits, benefitClubs),
+          spontaneousBadge: spontaneousActive ? buildSpontaneousBadge(a) : null,
+        };
+      }),
+    [activities, filters, deviceCoords, hiddenIds, favoriteIds, visitedIds, notesByActivity, excludedCategories, benefitClubs, excludedCities, spontaneousActive, spontaneousCoords]
   );
   const activeCount = countActiveFilters(filters);
   const activeChips = useMemo(() => buildActiveChips(filters), [filters]);
   const hiddenCategoryCount = new Set([...excludedCategories, ...(filters.excludeCategory || [])]).size;
   const hiddenCityCount = new Set([...excludedCities, ...(filters.excludeCity || [])]).size;
+  // Discovery Mode (סעיפים 1/3/10/19 בבקשה): אין פילטרים פעילים, אין חיפוש-חופשי, אין ספונטני -
+  // כותרת-המשנה מרגישה כמו הזמנה-לגלות, לא כמו ספירת-שורות של מסד-נתונים.
+  const isDiscoveryMode = activeCount === 0 && !filters.q?.trim() && !spontaneousActive;
+
+  // 🪄 ספונטני - "אין משהו פתוח עכשיו" (סעיף 13 בבקשת השדרוג): openNowCount נגזר מ-scoreActivity
+  // עצמו (getOpenNowInfo, לא סינון נפרד) - אם 0, מציגים הודעה + "נפתח בקרוב" אם יש מידע אמיתי,
+  // בלי להמציא. הרשימה הרגילה (filteredActivities) נשארת ממוינת לפי הניקוד המשולב תמיד - אין
+  // כאן חלוקה בינארית ל-2 מערכים לצורך התצוגה הרגילה, רק לצורך ה-fallback הזה בלבד.
+  const spontaneousOpenCount = useMemo(
+    () => (spontaneousActive ? filteredActivities.filter((a) => getOpenNowInfo(a).isOpen).length : 0),
+    [spontaneousActive, filteredActivities]
+  );
+  const spontaneousOpensSoon = useMemo(() => {
+    if (!spontaneousActive || spontaneousOpenCount > 0) return [];
+    return filteredActivities
+      .filter((a) => getOpenNowInfo(a).minutesUntilOpenToday != null)
+      .sort((a, b) => getOpenNowInfo(a).minutesUntilOpenToday - getOpenNowInfo(b).minutesUntilOpenToday)
+      .slice(0, 5);
+  }, [spontaneousActive, spontaneousOpenCount, filteredActivities]);
+  const spontaneousVisibleActivities = spontaneousActive && !showAllSpontaneous
+    ? filteredActivities.slice(0, SPONTANEOUS_TOP_COUNT)
+    : filteredActivities;
 
   const setField = (key, value) => setFilters((prev) => ({ ...prev, [key]: value }));
   const clearAll = () => setFilters(DEFAULT_FILTERS);
@@ -251,7 +467,9 @@ export default function ActivitiesScreen() {
         <View style={styles.titleBlock}>
           <Text style={styles.pageTitle}>{buildSearchSentence(filters)}</Text>
           <Text style={styles.pageSubtitle}>
-            {filteredActivities.length === 1 ? 'פעילות אחת נמצאה' : `${filteredActivities.length} פעילויות נמצאו`}
+            {isDiscoveryMode
+              ? 'פעילויות שכדאי לגלות ✨'
+              : (filteredActivities.length === 1 ? 'פעילות אחת נמצאה' : `${filteredActivities.length} פעילויות נמצאו`)}
           </Text>
         </View>
 
@@ -266,13 +484,91 @@ export default function ActivitiesScreen() {
           </View>
         )}
 
+        {/* 🔎 חיפוש חופשי - קומפקטי, collapsed כברירת מחדל (סעיפים 2/17 בבקשה): לא תיבת-החיפוש
+            הגדולה של עמוד הבית, גישה מהירה בלבד לאותו Smart Search Engine. פותח/סוגר inline,
+            בלי ניווט למסך חדש - ראו handleFreeSearch/applyFreeSearchIntent למעלה. */}
+        <Pressable style={styles.freeSearchToggle} onPress={() => setFreeSearchOpen((v) => !v)}>
+          <Text style={styles.freeSearchToggleIcon}>🔎</Text>
+          <Text style={styles.freeSearchToggleText}>חיפוש חופשי</Text>
+          <View style={{ transform: [{ rotate: freeSearchOpen ? '180deg' : '0deg' }] }}>
+            <ChevronDownIcon size={11} />
+          </View>
+        </Pressable>
+        {freeSearchOpen && (
+          <View style={styles.freeSearchBox}>
+            {freeSearchClarify ? (
+              <View>
+                <Text style={styles.freeSearchClarifyText}>{freeSearchClarify.message}</Text>
+                <CityAutocomplete
+                  inputStyle={styles.freeSearchInput}
+                  placeholder="הזינו שם עיר..."
+                  value={freeSearchClarifyCity}
+                  onChangeText={setFreeSearchClarifyCity}
+                  onSubmitEditing={handleFreeSearchClarifyCity}
+                />
+                <Pressable
+                  style={[styles.freeSearchBtn, (!freeSearchClarifyCity.trim() || freeSearchLoading) && styles.freeSearchBtnDisabled]}
+                  onPress={handleFreeSearchClarifyCity}
+                  disabled={!freeSearchClarifyCity.trim() || freeSearchLoading}
+                >
+                  <Text style={styles.freeSearchBtnText}>{freeSearchLoading ? '...' : 'המשך'}</Text>
+                </Pressable>
+              </View>
+            ) : (
+              <View style={styles.freeSearchInputRow}>
+                <TextInput
+                  style={styles.freeSearchInput}
+                  placeholder='למשל: "משחקייה ליד הרצל בתל אביב מחר בבוקר"'
+                  placeholderTextColor={colors.textMuted}
+                  value={freeSearchText}
+                  onChangeText={setFreeSearchText}
+                  onSubmitEditing={() => handleFreeSearch()}
+                  returnKeyType="search"
+                  editable={!freeSearchLoading}
+                />
+                <Pressable
+                  style={[styles.freeSearchBtn, (freeSearchLoading || !freeSearchText.trim()) && styles.freeSearchBtnDisabled]}
+                  onPress={() => handleFreeSearch()}
+                  disabled={freeSearchLoading || !freeSearchText.trim()}
+                >
+                  {freeSearchLoading ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.freeSearchBtnText}>חיפוש</Text>}
+                </Pressable>
+              </View>
+            )}
+            {freeSearchError ? <Text style={styles.freeSearchErrorText}>{freeSearchError}</Text> : null}
+          </View>
+        )}
+
         <Pressable style={styles.advToggle} onPress={() => setSheetOpen((v) => !v)}>
           <Text style={styles.advToggleIcon}>🎯</Text>
-          <Text style={styles.advToggleText}>סינון מתקדם{activeCount > 0 ? ` · ${activeCount}` : ''}</Text>
+          <Text style={styles.advToggleText}>סינון{activeCount > 0 ? ` · ${activeCount}` : ''}</Text>
           <View style={{ transform: [{ rotate: sheetOpen ? '180deg' : '0deg' }] }}>
             <ChevronDownIcon size={12} />
           </View>
         </Pressable>
+
+        {/* 🪄 ספונטני - "מצב" מתמשך (Active State), לא פעולה חד-פעמית: לא מנווט, לא בוחר פעילות
+            אקראית, רק מוסיף בונוס-קרבה-למיקום-חי לדירוג הקיים מעל הפילטרים הפעילים כפי שהם
+            (ראו toggleSpontaneous/spontaneousProximityScore). עיצוב שונה במכוון (גרדיאנט כתום,
+            לא המסגרת/רקע התכולים של "סינון") כדי שיורגש כפעולה מיוחדת - ומצב-פעיל ברור (מסגרת
+            לבנה + ✓) כשהוא דלוק. */}
+        <Pressable
+          style={[styles.spontaneousBtnWrap, spontaneousActive && styles.spontaneousBtnWrapActive]}
+          onPress={toggleSpontaneous}
+          disabled={spontaneousLoading}
+        >
+          <LinearGradient colors={['#ffbb4d', '#ff8a3d']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.spontaneousBtn}>
+            {spontaneousLoading ? (
+              <ActivityIndicator color="#ffffff" size="small" />
+            ) : (
+              <>
+                <Text style={styles.spontaneousEmoji}>🪄</Text>
+                <Text style={styles.spontaneousBtnText}>ספונטני - מה אפשר לעשות עכשיו?{spontaneousActive ? ' ✓' : ''}</Text>
+              </>
+            )}
+          </LinearGradient>
+        </Pressable>
+        {spontaneousError ? <Text style={styles.spontaneousErrorText}>{spontaneousError}</Text> : null}
 
         <View style={styles.hideBtnsRow}>
           <Pressable style={styles.hideCategoriesBtn} onPress={openHideCategoriesModal}>
@@ -297,7 +593,29 @@ export default function ActivitiesScreen() {
           </View>
         ) : filteredActivities.length === 0 ? (
           <View style={styles.emptyState}>
-            <Text style={styles.emptyTitle}>לא מצאנו פעילויות שמתאימות לכל הפילטרים שבחרת.</Text>
+            <Text style={styles.emptyTitle}>😕 לא מצאנו פעילות שמתאימה בדיוק לחיפוש שלכם.</Text>
+            <View style={styles.emptyWidenRow}>
+              {filters.location?.mode && (
+                <Pressable style={styles.emptyWidenChip} onPress={() => setField('location', DEFAULT_FILTERS.location)}>
+                  <Text style={styles.emptyWidenChipText}>📍 הרחבת אזור</Text>
+                </Pressable>
+              )}
+              {(filters.hour?.option || filters.hour?.custom) && (
+                <Pressable style={styles.emptyWidenChip} onPress={() => setField('hour', DEFAULT_FILTERS.hour)}>
+                  <Text style={styles.emptyWidenChipText}>🕐 הרחבת שעות</Text>
+                </Pressable>
+              )}
+              {filters.category?.length > 0 && (
+                <Pressable style={styles.emptyWidenChip} onPress={() => setField('category', DEFAULT_FILTERS.category)}>
+                  <Text style={styles.emptyWidenChipText}>🎯 הצגת כל הסוגים</Text>
+                </Pressable>
+              )}
+              {filters.when?.options?.length > 0 && (
+                <Pressable style={styles.emptyWidenChip} onPress={() => setField('when', DEFAULT_FILTERS.when)}>
+                  <Text style={styles.emptyWidenChipText}>📅 בדיקת כל יום</Text>
+                </Pressable>
+              )}
+            </View>
             <Pressable style={styles.emptyBtn} onPress={clearAll}>
               <Text style={styles.emptyBtnText}>נקה את כל הפילטרים</Text>
             </Pressable>
@@ -321,21 +639,85 @@ export default function ActivitiesScreen() {
 
             {viewMode === 'map' ? (
               <ActivitiesMap activities={filteredActivities} deviceCoords={deviceCoords} />
+            ) : spontaneousActive && spontaneousOpenCount === 0 ? (
+              // 🪄 ספונטני, אבל שום דבר לא פתוח ברגע זה (סעיף 13 בבקשה) - לא מסך ריק: הודעה
+              // ידידותית, ואם יש מידע אמיתי על "נפתח בקרוב" (spontaneousOpensSoon, לא ניחוש) -
+              // מציגים אותו; אחרת מציעים להרחיב פילטרים, בלי להמציא פעילויות.
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyTitle}>🪄 לא מצאנו משהו שמתאים בדיוק לעכשיו</Text>
+                {spontaneousOpensSoon.length > 0 ? (
+                  <>
+                    <Text style={styles.spontaneousSoonTitle}>🕐 נפתחות בקרוב</Text>
+                    {spontaneousOpensSoon.map((a) => (
+                      <ActivityCard
+                        key={a.id}
+                        {...a}
+                        onToggleFavorite={() => handleToggleFavorite(a.id)}
+                        onToggleVisited={() => handleToggleVisited(a.id)}
+                        onOpenNote={() => openNoteModal(a.id, a.title)}
+                        onHide={() => handleHide(a.id)}
+                      />
+                    ))}
+                  </>
+                ) : (
+                  <Text style={styles.emptyWidenChipText}>נסו להרחיב את המיקום או לשנות את הפילטרים.</Text>
+                )}
+              </View>
             ) : (
-              filteredActivities.map((a) => (
-                <ActivityCard
-                  key={a.id}
-                  {...a}
-                  onToggleFavorite={() => handleToggleFavorite(a.id)}
-                  onToggleVisited={() => handleToggleVisited(a.id)}
-                  onHide={() => handleHide(a.id)}
-                />
-              ))
+              <>
+                {spontaneousActive && (
+                  <Text style={styles.spontaneousTopTitle}>🪄 הכי מתאים עכשיו</Text>
+                )}
+                {(spontaneousActive ? spontaneousVisibleActivities : filteredActivities).map((a) => (
+                  <ActivityCard
+                    key={a.id}
+                    {...a}
+                    onToggleFavorite={() => handleToggleFavorite(a.id)}
+                    onToggleVisited={() => handleToggleVisited(a.id)}
+                    onOpenNote={() => openNoteModal(a.id, a.title)}
+                    onHide={() => handleHide(a.id)}
+                  />
+                ))}
+                {spontaneousActive && !showAllSpontaneous && filteredActivities.length > SPONTANEOUS_TOP_COUNT && (
+                  <Pressable style={styles.showMoreBtn} onPress={() => setShowAllSpontaneous(true)}>
+                    <Text style={styles.showMoreBtnText}>הצג עוד פעילויות ({filteredActivities.length - SPONTANEOUS_TOP_COUNT})</Text>
+                  </Pressable>
+                )}
+              </>
             )}
           </>
         )}
       </ScrollView>
       <LoginRequiredModal visible={showLoginPrompt} onClose={() => setShowLoginPrompt(false)} />
+
+      <Modal visible={!!noteModalTarget} transparent animationType="fade" onRequestClose={() => setNoteModalTarget(null)}>
+        <Pressable style={styles.gateBackdrop} onPress={() => setNoteModalTarget(null)}>
+          <Pressable style={styles.gateCard} onPress={(e) => e.stopPropagation()}>
+            <Text style={styles.noteModalTitle}>הערה אישית</Text>
+            <Text style={styles.noteModalActivityName}>{noteModalTarget?.activity?.name}</Text>
+            <TextInput
+              style={styles.noteModalInput}
+              value={noteModalDraft}
+              onChangeText={setNoteModalDraft}
+              multiline
+              placeholder="כתבו כאן הערה פרטית..."
+              placeholderTextColor={colors.textMuted}
+            />
+            <View style={styles.noteModalActionsRow}>
+              <Pressable
+                style={[styles.noteModalSaveBtn, savingNote && styles.noteModalBtnDisabled]}
+                onPress={saveNoteModal}
+                disabled={savingNote}
+              >
+                <Text style={styles.noteModalSaveBtnText}>{savingNote ? 'שומר...' : 'שמירת הערה'}</Text>
+              </Pressable>
+              <Pressable style={styles.noteModalCancelBtn} onPress={() => setNoteModalTarget(null)}>
+                <Text style={styles.noteModalCancelBtnText}>ביטול</Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       <QuickPicker
         visible={hideCategoriesModalOpen}
@@ -477,9 +859,16 @@ export default function ActivitiesScreen() {
                 onChange={setField}
                 onClearAll={clearAll}
                 onCoordsResolved={setDeviceCoords}
-                openAllByDefault={openFilters === 'true'}
               />
             </ScrollView>
+            {/* התוצאות כבר מתעדכנות בזמן-אמת מתחת (filteredActivities תלוי ב-filters), אז
+                "חפש" רק סוגר את הפאנל וחושף אותן - לא מפעיל חיפוש נפרד. מוצג קבוע מתחת ל-
+                ScrollView (לא בתוכו) כדי שיישאר גלוי גם כשגוללים בין סקשני הפילטרים. */}
+            <Pressable style={styles.filterSheetSearchBtn} onPress={() => setSheetOpen(false)}>
+              <Text style={styles.filterSheetSearchBtnText}>
+                🔍 חפש{filteredActivities.length > 0 ? ` (${filteredActivities.length})` : ''}
+              </Text>
+            </Pressable>
           </Pressable>
         </Pressable>
       </Modal>
@@ -503,6 +892,35 @@ const styles = StyleSheet.create({
   activeChipText: { fontFamily: fonts.bold, fontSize: 12, color: colors.accent, maxWidth: 160 },
   activeChipRemove: { fontFamily: fonts.bold, fontSize: 11, color: colors.accent },
 
+  // 🔎 חיפוש חופשי - כלי משני-אך-נגיש (סעיף 25 בבקשה: "כמו כלי ניווט, לא אזור עצמאי") - גוון
+  // ניטרלי (card/border/textSecondary) בכוונה, לא accent-כחול כמו "🎯 סינון" ממש מתחתיו, כדי
+  // שההיררכיה הוויזואלית תבדיל בין "כלי חיפוש נוסף" (עדין) ל"כלי הסינון המרכזי" (בולט יותר).
+  freeSearchToggle: {
+    flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'center', gap: 6,
+    borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card,
+    borderRadius: radii.pill, paddingVertical: 10, marginBottom: 10,
+  },
+  freeSearchToggleIcon: { fontSize: 13 },
+  freeSearchToggleText: { fontFamily: fonts.semiBold, fontSize: 13, color: colors.textSecondary },
+  freeSearchBox: {
+    backgroundColor: colors.card, borderWidth: 1, borderColor: colors.borderLight,
+    borderRadius: radii.lg, padding: 12, marginBottom: 14,
+  },
+  freeSearchInputRow: { flexDirection: 'row-reverse', gap: 8 },
+  freeSearchInput: {
+    flex: 1, backgroundColor: colors.bg, borderWidth: 1, borderColor: colors.border,
+    borderRadius: radii.pill, paddingVertical: 10, paddingHorizontal: 14,
+    fontFamily: fonts.regular, fontSize: 13.5, color: colors.textPrimary, textAlign: 'right', writingDirection: 'rtl',
+  },
+  freeSearchBtn: {
+    backgroundColor: colors.accent, borderRadius: radii.pill, paddingHorizontal: 18,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  freeSearchBtnDisabled: { opacity: 0.5 },
+  freeSearchBtnText: { fontFamily: fonts.bold, fontSize: 13, color: '#ffffff' },
+  freeSearchClarifyText: { fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary, textAlign: 'right', marginBottom: 8 },
+  freeSearchErrorText: { fontFamily: fonts.semiBold, fontSize: 11.5, color: colors.danger, textAlign: 'center', marginTop: 8 },
+
   advToggle: {
     flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'center', gap: 6,
     borderWidth: 1.5, borderColor: colors.accent, backgroundColor: colors.accentTintLight,
@@ -510,6 +928,25 @@ const styles = StyleSheet.create({
   },
   advToggleIcon: { fontSize: 14 },
   advToggleText: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.accent },
+  // 🪄 ספונטני - אותם ערכי-צבע בדיוק כמו שהיו בעמוד הבית (app/index.js, לפני ההסרה) - "בלי
+  // צבע חדש" כמו שהתבקש. גודל/paddingVertical תואם ל-advToggle ממש מעליו (11), לא גדול יותר.
+  spontaneousBtnWrap: {
+    borderRadius: radii.pill, overflow: 'hidden', marginBottom: 8,
+    shadowColor: '#ff8a3d', shadowOpacity: 0.3, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 2,
+  },
+  // מצב פעיל - טבעת בצבע ה-accent הקיים (לא לבן - על רקע colors.bg הבהיר-כמעט-לבן זה לא היה
+  // נראה) סביב הכפתור, בנוסף ל-✓ בטקסט - ניגוד ברור גם מול הרקע וגם מול הגרדיאנט הכתום.
+  spontaneousBtnWrapActive: { borderWidth: 2, borderColor: colors.accent },
+  spontaneousBtn: {
+    flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 11,
+  },
+  spontaneousEmoji: { fontSize: 15, marginTop: -1 },
+  spontaneousBtnText: { fontFamily: fonts.bold, fontSize: 13.5, color: '#ffffff' },
+  spontaneousErrorText: { fontFamily: fonts.semiBold, fontSize: 12, color: colors.danger, textAlign: 'center', marginBottom: 10 },
+  spontaneousTopTitle: { fontFamily: fonts.extraBold, fontSize: 15, color: colors.textPrimary, textAlign: 'right', marginBottom: 10 },
+  spontaneousSoonTitle: { fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary, textAlign: 'center', marginTop: 4, marginBottom: 14 },
+  showMoreBtn: { alignItems: 'center', paddingVertical: 12, marginTop: 4 },
+  showMoreBtnText: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.accent },
   filterSheetBackdrop: { flex: 1, backgroundColor: 'rgba(20,30,35,0.5)', justifyContent: 'flex-end' },
   filterSheetContainer: {
     backgroundColor: colors.bg, borderTopLeftRadius: radii.xl, borderTopRightRadius: radii.xl,
@@ -521,6 +958,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border,
   },
   filterSheetCloseBtnText: { fontFamily: fonts.bold, fontSize: 14, color: colors.textSecondary },
+  filterSheetSearchBtn: {
+    backgroundColor: colors.accent, borderRadius: radii.pill, paddingVertical: 14,
+    alignItems: 'center', marginTop: 12,
+  },
+  filterSheetSearchBtnText: { fontFamily: fonts.bold, fontSize: 15, color: '#fff' },
 
   // כפתורי "🚫 הסר פעילויות" / "📍 אזורים שלא להציג" - במכוון שקטים/משניים (טקסט בלבד, בלי
   // מסגרת/רקע), בניגוד ל-advToggle הבולט למעלה - אלה פעולות מתקדמות, לא אמורות להתחרות עם
@@ -549,11 +991,28 @@ const styles = StyleSheet.create({
 
   emptyState: { alignItems: 'center', paddingVertical: 30, paddingHorizontal: 10 },
   emptyTitle: { fontFamily: fonts.semiBold, fontSize: 14, color: colors.textSecondary, textAlign: 'center', marginBottom: 14 },
+  emptyWidenRow: { flexDirection: 'row-reverse', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginBottom: 14 },
+  emptyWidenChip: { borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, borderRadius: radii.pill, paddingVertical: 8, paddingHorizontal: 14 },
+  emptyWidenChipText: { fontFamily: fonts.semiBold, fontSize: 12.5, color: colors.textSecondary },
   emptyBtn: { borderWidth: 1.5, borderColor: colors.accent, borderRadius: radii.pill, paddingVertical: 11, paddingHorizontal: 18 },
   emptyBtnText: { fontFamily: fonts.bold, fontSize: 13, color: colors.accent },
 
   gateBackdrop: { flex: 1, backgroundColor: 'rgba(20,30,35,0.5)', justifyContent: 'center', padding: spacing.xl },
   gateCard: { backgroundColor: colors.card, borderRadius: radii.xl, padding: spacing.xl },
+
+  noteModalTitle: { fontFamily: fonts.extraBold, fontSize: 17, color: colors.textPrimary, textAlign: 'center', marginBottom: 4 },
+  noteModalActivityName: { fontFamily: fonts.semiBold, fontSize: 13, color: colors.textSecondary, textAlign: 'center', marginBottom: 14 },
+  noteModalInput: {
+    borderWidth: 1, borderColor: colors.border, borderRadius: radii.md, padding: 12, marginBottom: 14,
+    fontFamily: fonts.regular, fontSize: 14, color: colors.textPrimary, backgroundColor: colors.bg,
+    textAlign: 'right', writingDirection: 'rtl', minHeight: 90, textAlignVertical: 'top',
+  },
+  noteModalActionsRow: { flexDirection: 'row-reverse', gap: 10 },
+  noteModalCancelBtn: { flex: 1, alignItems: 'center', paddingVertical: 13, borderRadius: radii.pill, borderWidth: 1, borderColor: colors.border },
+  noteModalCancelBtnText: { fontFamily: fonts.bold, fontSize: 14, color: colors.textSecondary },
+  noteModalSaveBtn: { flex: 1, alignItems: 'center', paddingVertical: 13, borderRadius: radii.pill, backgroundColor: colors.accent },
+  noteModalBtnDisabled: { opacity: 0.5 },
+  noteModalSaveBtnText: { fontFamily: fonts.bold, fontSize: 14, color: '#fff' },
   gateTitle: { fontFamily: fonts.extraBold, fontSize: 18, color: colors.textPrimary, textAlign: 'center' },
   gateSubtitle: { fontFamily: fonts.regular, fontSize: 12.5, color: colors.textSecondary, textAlign: 'center', marginTop: 4, marginBottom: 18 },
   gateRow: {

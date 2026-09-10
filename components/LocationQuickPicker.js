@@ -9,6 +9,10 @@ export function locationSummary(location) {
   if (!location) return 'באזור שלי';
   if (location.mode === 'current') return 'המיקום שלי';
   if (location.mode === 'city' && location.city) return location.city;
+  // 'address' - כתובת מגואוקדדת מ"חיפוש חכם" (lib/smartSearch.js) - addressLabel כבר מוכן
+  // לתצוגה ("הרצל, תל אביב"), עדיין נופל בחזרה לעיר/"באזור שלי" אם חסר משהו.
+  if (location.mode === 'address') return location.addressLabel || location.city || 'באזור שלי';
+  if (location.mode === 'region' && location.region?.length) return location.region.join(', ');
   return 'באזור שלי';
 }
 

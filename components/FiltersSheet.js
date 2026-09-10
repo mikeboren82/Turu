@@ -66,6 +66,21 @@ function LocationSection({ value, onChange, onCoordsResolved }) {
 
   return (
     <View>
+      {/* מצב 'address' (רחוב מגואוקדד, מגיע רק מ"חיפוש חכם" - lib/smartSearch.js) לא היה מיוצג
+          כאן בכלל (רק בצ'יפ הנשלף בעמוד התוצאות) - נמצא בבדיקה שהמשתמש לא יכול לראות/לתקן אותו
+          דרך "סינון מתקדם" כמו שסעיף 15 בבקשה דורש. בחירת current/city/region למטה כבר מחליפה
+          את ה-mode כרגיל - זו דרך התיקון, בלי UI כפול חדש. */}
+      {value.mode === 'address' && (
+        <View style={styles.addressBanner}>
+          <LocationPinIcon size={13} color={colors.accent} />
+          <Text style={styles.addressBannerText} numberOfLines={1}>
+            {value.addressLabel} (ברדיוס {value.radiusKm} ק"מ)
+          </Text>
+          <Pressable onPress={() => { animate(); onChange({ ...value, mode: null }); }} hitSlop={8}>
+            <Text style={styles.addressBannerClear}>✕</Text>
+          </Pressable>
+        </View>
+      )}
       <View style={styles.modeRow}>
         <Pressable
           style={[styles.modeBtn, value.mode === 'current' && styles.modeBtnActive]}
@@ -227,10 +242,12 @@ function WhenSection({ value, hourValue, onChangeWhen, onChangeHour }) {
 // `only` (אופציונלי) - מגביל אילו סקשנים מתוך FILTER_SCHEMA מוצגים (למשל בעמוד "המשפחה שלי",
 // שם category/location/age כבר מקבלים שורות ייעודיות משלהם למעלה - אין טעם לשכפל אותם כאן).
 // בלי `only`, מתנהג בדיוק כמו קודם ומציג את כל FILTER_SCHEMA.
-export default function FiltersSheet({ filters, onChange, onClearAll, onCoordsResolved, only, openAllByDefault }) {
+export default function FiltersSheet({ filters, onChange, onClearAll, onCoordsResolved, only }) {
   const sections = only ? FILTER_SCHEMA.filter((s) => only.includes(s.key)) : FILTER_SCHEMA;
-  // כשמגיעים דרך "סינון מתקדם" מהעמוד הראשי - כל הסקשנים פתוחים מיד, לא רק הפאנל עצמו גלוי.
-  const [openKeys, setOpenKeys] = useState(() => (openAllByDefault ? new Set(sections.map((s) => s.key)) : new Set()));
+  // כל הסקשנים תמיד מתחילים סגורים - accordion טהור, כל שורה נפתחת/נסגרת רק בלחיצה עליה
+  // עצמה (toggleOpen). בעבר סקשן שנפתח דרך "סינון מתקדם" מעמוד הבית פתח את כולם בבת אחת;
+  // המשתמש ביקש במפורש שזה תמיד יהיה סגור כברירת מחדל, גם בכניסה הראשונה.
+  const [openKeys, setOpenKeys] = useState(() => new Set());
 
   const toggleOpen = (key) => {
     animate();
@@ -350,6 +367,12 @@ const styles = StyleSheet.create({
   chipText: { fontFamily: fonts.semiBold, fontSize: 12.5, color: colors.textSecondary },
   chipTextSelected: { color: colors.accent, fontFamily: fonts.bold },
 
+  addressBanner: {
+    flexDirection: 'row-reverse', alignItems: 'center', gap: 8,
+    backgroundColor: colors.accentTintLight, borderRadius: radii.md, padding: 10, marginBottom: 10,
+  },
+  addressBannerText: { flex: 1, fontFamily: fonts.semiBold, fontSize: 12.5, color: colors.accent, textAlign: 'right' },
+  addressBannerClear: { fontFamily: fonts.bold, fontSize: 13, color: colors.accent },
   subSection: { marginTop: 14 },
   subLabel: { fontFamily: fonts.bold, fontSize: 12, color: colors.textSecondary, marginBottom: 8 },
   modeRow: { marginTop: 4 },

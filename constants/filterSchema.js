@@ -4,6 +4,7 @@
 //            'all' = מתאים רק אם הפעילות עומדת בכל האפשרויות שנבחרו (חיתוך - "חייב לכלול")
 
 import { ISRAELI_CITIES } from './israeliCities';
+import categoryValues from './categoryValues.json';
 
 export const AGE_OPTIONS = [
   { id: '0-1', label: '0–1', min: 0, max: 1 },
@@ -14,29 +15,23 @@ export const AGE_OPTIONS = [
   { id: '13+', label: '13+', min: 13, max: 120 },
 ];
 
-export const CATEGORY_OPTIONS = [
-  'גן שעשועים', 'ג\'ימבורי', 'משחקייה', 'סדנה', 'הצגה', 'מוזיאון לילדים',
-  'פארק', 'חווה', 'פינת חי', 'אטרקציה', 'בריכה', 'ספורט', 'יצירה',
-  'מוזיקה', 'ריקוד', 'בישול', 'מדע', 'טבע', 'בעלי חיים', 'פעילות מים',
-  'טרמפולינות', 'פארק שעשועים', 'קולנוע לילדים', 'ספרייה', 'שעת סיפור',
-  'פעילות קהילתית', 'פעילות עירונית', 'אחר',
-  // "חוג" ו"קייטנה" הוסרו בכוונה - דורשות הרשמה/התחייבות מראש, לא רלוונטיות ל-TuRu
-  // (אפליקציה שמראה רק פעילויות שאפשר להגיע אליהן ספונטנית). כל פעילות עם category="חוג"
-  // מסוננת ממילא אוטומטית (ARCHIVE_CATEGORIES ב-tools/import-tool/server.js ו-lib/submitActivity.js),
-  // אז לא הגיוני להציע אותה כאפשרות סינון - היא לעולם לא תחזיר תוצאות.
-].map((label) => ({ id: label, label }));
+// מקור-אמת-יחיד לערכי הקטגוריה הוא constants/categoryValues.json - קובץ JSON טהור שגם
+// tools/import-tool/server.js (Node) וגם ה-Edge Functions (Deno) קוראים ממנו, כדי שלא יהיו
+// 3 עותקים ידניים שסוטים זה מזה. ה-JSON כולל גם "חוג"/"קייטנה" (archiveCategories) - ערכים
+// שקיימים לצורך זיהוי-וארכוב אוטומטי בצינור החילוץ בלבד (tools/import-tool, Edge Functions),
+// ואף פעם לא היו אמורים להיות נגישים באפליקציה עצמה (לא לסינון ולא לתיוג ע"י משתמש-קצה) -
+// CATEGORY_OPTIONS כאן ממשיך להחריג אותם, בדיוק כמו לפני המעבר ל-JSON, כדי לשמר את ההתנהגות
+// הקיימת בכל מקום שכבר צורך את הקבוע הזה (כולל app/add-activity.js).
+export const CATEGORY_OPTIONS = categoryValues.categories
+  .filter((label) => !categoryValues.archiveCategories.includes(label))
+  .map((label) => ({ id: label, label }));
 
-// לשימוש בפילטר "סוג פעילות" (חיפוש/סינון) בלבד - בלי "אחר", שאינה קטגוריית-חיפוש שימושית
-// (קליטה-לכל). app/add-activity.js ממשיך להשתמש ב-CATEGORY_OPTIONS המלא כשמתייגים פעילות
-// חדשה - שם "אחר" עדיין רלוונטי כתיוג, בשונה מסינון.
+// לשימוש בפילטר "סוג פעילות" (חיפוש/סינון) בלבד - בלי "אחר" (קליטה-לכל, לא קטגוריית-חיפוש
+// שימושית). app/add-activity.js ממשיך להשתמש ב-CATEGORY_OPTIONS המלא (כולל "אחר") לתיוג.
 export const CATEGORY_FILTER_OPTIONS = CATEGORY_OPTIONS.filter((c) => c.id !== 'אחר');
 
-// חייב להישאר תואם ל-REGION_VALUES ב-tools/import-tool/server.js ולאילוץ ה-CHECK
-// על locations.region ב-DB (supabase/0007_update_regions.sql) - אם משנים כאן, לעדכן גם שם.
-export const REGION_OPTIONS = [
-  'גוש דן והמרכז', 'השרון', 'ירושלים והסביבה', 'חיפה והקריות',
-  'הצפון והעמק', 'השפלה והדרום', 'יו"ש והבנימין',
-].map((label) => ({ id: label, label }));
+// חייב להישאר תואם לאילוץ ה-CHECK על locations.region ב-DB (supabase/0007_update_regions.sql).
+export const REGION_OPTIONS = categoryValues.regions.map((label) => ({ id: label, label }));
 
 // לשימוש ב"📍 אזורים שלא להציג" (app/activities.js, app/profile.js) - שם העיר עצמו הוא ה-ID,
 // אותו מוסכם בדיוק כמו CATEGORY_OPTIONS (אין טבלת-ערים/FK אמיתי, locations.city הוא טקסט חופשי).

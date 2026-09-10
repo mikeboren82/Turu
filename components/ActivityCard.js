@@ -2,7 +2,7 @@ import { View, Text, StyleSheet, Pressable, ImageBackground } from 'react-native
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { colors, fonts, radii } from '../constants/theme';
-import { StarIcon, HideIcon, CheckIcon, LocationPinIcon, ChevronLeftIcon } from './icons';
+import { StarIcon, HideIcon, CheckIcon, NoteIcon, LocationPinIcon, ChevronLeftIcon } from './icons';
 
 function ActionButton({ children, onPress }) {
   return (
@@ -23,10 +23,13 @@ export default function ActivityCard({
   recommendedBy,
   requiresTicket = false,
   benefitTag = null,
+  spontaneousBadge = null,
   favorite = false,
   visited = false,
+  hasNote = false,
   onToggleFavorite,
   onToggleVisited,
+  onOpenNote,
   onHide,
 }) {
   const router = useRouter();
@@ -41,19 +44,15 @@ export default function ActivityCard({
       <View style={styles.topLeft}>
         <ActionButton onPress={stop(onHide)}><HideIcon size={14} /></ActionButton>
       </View>
-      <View style={styles.topRight}>
+      {/* עמודה אנכית אחת בצד ימין: מועדפים למעלה, "כבר הייתי כאן" באמצע, הערה למטה - סדר
+          שהמשתמש ביקש במפורש. "כבר הייתי כאן" עבר מתג-טקסט רחב לכפתור עגול תמציתי כמו שני
+          האחרים (filled ירוק כשמסומן, כמו ש-StarIcon כבר עושה ל-favorite) כדי שהעמודה תישאר
+          קומפקטית ואחידה. */}
+      <View style={styles.rightStack}>
         <ActionButton onPress={stop(onToggleFavorite)}><StarIcon size={14} filled={favorite} /></ActionButton>
+        <ActionButton onPress={stop(onToggleVisited)}><CheckIcon size={14} filled={visited} /></ActionButton>
+        <ActionButton onPress={stop(onOpenNote)}><NoteIcon size={14} color={hasNote ? colors.accent : colors.textPrimary} /></ActionButton>
       </View>
-      {visited ? (
-        <Pressable style={styles.visitedBadge} onPress={stop(onToggleVisited)} hitSlop={6}>
-          <CheckIcon size={11} filled />
-          <Text style={styles.visitedBadgeText}>כבר הייתי כאן</Text>
-        </Pressable>
-      ) : (
-        <View style={styles.bottomRight}>
-          <ActionButton onPress={stop(onToggleVisited)}><CheckIcon size={14} /></ActionButton>
-        </View>
-      )}
     </>
   );
 
@@ -100,6 +99,13 @@ export default function ActivityCard({
           </View>
           <ChevronLeftIcon />
         </View>
+        {/* 🪄 ספונטני פעיל בלבד (App/activities.js מעביר null אחרת) - "למה זה מופיע עכשיו":
+            פתוח-עכשיו/נפתח-בקרוב + דורש-הזמנה אם רלוונטי, רק מידע ידוע בפועל. */}
+        {spontaneousBadge ? (
+          <View style={styles.spontaneousBadgeRow}>
+            <Text style={styles.spontaneousBadgeText}>{spontaneousBadge}</Text>
+          </View>
+        ) : null}
       </View>
     </Pressable>
   );
@@ -114,20 +120,12 @@ const styles = StyleSheet.create({
   },
   image: { height: 158, position: 'relative' },
   topLeft: { position: 'absolute', top: 10, left: 10 },
-  topRight: { position: 'absolute', top: 10, right: 10 },
-  bottomRight: { position: 'absolute', bottom: 10, right: 10 },
+  rightStack: { position: 'absolute', top: 10, right: 10, gap: 8 },
   actionBtn: {
     width: 32, height: 32, borderRadius: 16,
     backgroundColor: 'rgba(255,255,255,0.9)',
     alignItems: 'center', justifyContent: 'center',
   },
-  visitedBadge: {
-    position: 'absolute', bottom: 10, right: 10,
-    flexDirection: 'row-reverse', alignItems: 'center', gap: 5,
-    backgroundColor: 'rgba(255,255,255,0.92)', borderRadius: radii.pill,
-    paddingVertical: 5, paddingHorizontal: 10,
-  },
-  visitedBadgeText: { fontFamily: fonts.bold, fontSize: 11.5, color: colors.greenStrong },
   body: { padding: 14 },
   titleRow: { flexDirection: 'row-reverse', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 8 },
   title: { flex: 1, fontFamily: fonts.extraBold, fontSize: 16, color: colors.textPrimary, textAlign: 'right' },
@@ -155,4 +153,8 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bold, fontSize: 10.5, color: colors.accent, backgroundColor: colors.accentTintLight,
     borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2, flexShrink: 1,
   },
+  spontaneousBadgeRow: {
+    marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: colors.borderLight,
+  },
+  spontaneousBadgeText: { fontFamily: fonts.semiBold, fontSize: 11.5, color: colors.accent, textAlign: 'right' },
 });

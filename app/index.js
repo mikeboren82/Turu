@@ -1,25 +1,51 @@
-import { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, ActivityIndicator, Image } from 'react-native';
+import { useState, useCallback, useEffect, createElement } from 'react';
+import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, ActivityIndicator, Image, Platform, useWindowDimensions } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Location from 'expo-location';
 import Svg, { Circle, Rect, Polygon, Polyline, Line, Path, G } from 'react-native-svg';
 import Header from '../components/Header';
 import LoginRequiredModal from '../components/LoginRequiredModal';
-import AgeQuickPicker, { ageSummary } from '../components/AgeQuickPicker';
 import QuickPicker from '../components/QuickPicker';
 import LocationQuickPicker, { locationSummary } from '../components/LocationQuickPicker';
+import CityAutocomplete from '../components/CityAutocomplete';
 import {
   CATEGORY_FILTER_OPTIONS, DEFAULT_FILTERS, FILTER_SCHEMA,
   PRICE_OPTIONS, PLACE_TYPE_OPTIONS, BOOKING_OPTIONS, DURATION_OPTIONS, AMENITY_COMFORT_OPTIONS,
 } from '../constants/filterSchema';
-import { fetchApprovedActivities } from '../lib/activities';
-import { haversineKm, normalizeFilters } from '../lib/filterActivities';
+import { normalizeFilters } from '../lib/filterActivities';
 import { whenSummary, hebrewJoin, categorySummary } from '../lib/filterSummaries';
 import { supabase } from '../lib/supabase';
 import { fetchUserPreferences, saveDefaultHomeFilters } from '../lib/preferences';
 import { childrenToDefaultAgeFilter, formatChildAge } from '../lib/children';
+import { parseSmartSearchQuery, intentToFilters, buildSmartSearchSummary } from '../lib/smartSearch';
 import { colors, fonts, radii, spacing } from '../constants/theme';
+
+// "🕐 חיפושים אחרונים" - מוחלף מ"💡 רעיונות לחיפוש" הקבוע (בקשת המשתמש): נשמר מקומית במכשיר
+// בלבד (AsyncStorage - שקול ל-localStorage בעברית שלה, אבל עובד גם ב-native, לא רק web), לא
+// ב-DB ולא קשור לחשבון המשתמש.
+const RECENT_SEARCHES_KEY = 'turu_recent_searches';
+const RECENT_SEARCHES_MAX = 5;
+
+// יחס הרוחב/גובה של איור הדשא (assets/grass-footer.png) - אותו ערך בדיוק כמו
+// components/FeedbackButton.js (שם מוזכר גם הקשר: כפתור הדיווח צריך לשבת מעל הדשא הזה).
+const GRASS_ASPECT_RATIO = 939 / 148;
+
+// אובייקט-style גולמי (לא דרך StyleSheet.create) ל-<span> אמיתי בווב בלבד - ראו ההערה במקום
+// השימוש (app/index.js, JSX) להסבר המלא למה זה חייב להיות span+CSS ולא RN Text/SVG.
+const TAGLINE_GRADIENT_SPAN_STYLE = {
+  display: 'block', textAlign: 'center', fontFamily: 'Assistant_800ExtraBold', fontSize: 19,
+  fontWeight: '800', marginTop: -2, marginBottom: 16,
+  backgroundImage: 'linear-gradient(90deg, #1cb0e0, #00647f)',
+  backgroundClip: 'text', color: 'transparent',
+  // בלי זה, לסימני-פיסוק ניטרליים בסוף הטקסט (כמו "?") אין הקשר-בסיס RTL להיצמד אליו, אז הם
+  // נופלים לפי כיוון ברירת המחדל (LTR) ומוצגים בטעות בקצה הימני (תחילת המשפט) במקום השמאלי
+  // (סוף המשפט) - נמדד ישירות ב-DOM (getBoundingClientRect לכל תו) לפני התיקון: "?" הופיע ב-
+  // x=242, ימני יותר אפילו מהאות הראשונה ("ל" ב-x=232). זו תכונת CSS (direction), לא ה-attribute
+  // "dir" ש-RN Web מוסיף אוטומטית ל-<Text> ושכבר תועד ששובר את הגרדיאנט - שני מנגנונים שונים.
+  direction: 'rtl',
+};
 
 // לכל מפתח פילטר "ניתן-להוספה" (מה שהמשתמש הפעיל בעמוד האישי, ראו app/profile.js) - איך
 // לתקצר את הערך הנוכחי שלו לטקסט קצר בקישור העדין במסך הראשי.
@@ -36,8 +62,6 @@ function summaryForHomeFilterKey(key, filters) {
   const labels = selected.map((id) => options.find((o) => o.id === id)?.label || id);
   return hebrewJoin(labels);
 }
-
-const SPONTANEOUS_RADIUS_KM = 4;
 
 function ChevronDown() {
   return (
@@ -114,15 +138,6 @@ function PersonalPicker({ kids, selectedChildIds, onToggleChild }) {
   );
 }
 
-function SearchIcon() {
-  return (
-    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={colors.textMuted} strokeWidth={2} strokeLinecap="round">
-      <Circle cx="11" cy="11" r="7" />
-      <Line x1="21" y1="21" x2="16.2" y2="16.2" />
-    </Svg>
-  );
-}
-
 function Cloud({ x, y, scale = 1, opacity = 0.6 }) {
   return (
     <G transform={`translate(${x}, ${y}) scale(${scale})`} opacity={opacity}>
@@ -134,9 +149,13 @@ function Cloud({ x, y, scale = 1, opacity = 0.6 }) {
   );
 }
 
-function SunMascot() {
+// גובה+רוחב הכוכב/שמש נגזרים ממדידה אמיתית של שורת ה-Header (onHeaderLayout, ראו HomeScreen)
+// במקום ערך top קבוע - ערך קבוע התאים בדיוק לדפדפן (שם אין status bar/insets) אבל לא תאם
+// למכשיר אמיתי (הכפתור והשמש יצאו בגבהים שונים). fallback ל-46 עד שהמדידה הראשונה מגיעה.
+function SunMascot({ headerLayout }) {
+  const top = headerLayout ? headerLayout.y + headerLayout.height / 2 - 28 : 46;
   return (
-    <Svg width={86} height={86} viewBox="0 0 120 120" style={styles.sunMascot} pointerEvents="none">
+    <Svg width={56} height={56} viewBox="0 0 120 120" style={[styles.sunMascot, { top }]} pointerEvents="none">
       <G>
         {[...Array(10)].map((_, i) => {
           const angle = (i * 36 * Math.PI) / 180;
@@ -171,18 +190,23 @@ function SkyClouds() {
   );
 }
 
-function GrassFooter() {
+// רוחב/גובה מחושבים במספרים מוחלטים (לא aspectRatio על ה-View + '100%' על ה-Image) - השילוב
+// הזה ידוע כבעייתי ב-Yoga על אנדרואיד (נצפה בפועל: התמונה נחתכה/הוצגה רק בחלק מהרוחב על מכשיר
+// אמיתי, למרות שברשת זה עבד מושלם) - width/height מפורשים בפיקסלים על שני האלמנטים עוקפים את
+// זה לגמרי, בלי תלות בחישוב פנימי של aspectRatio+percent.
+function GrassFooter({ width }) {
+  const height = width / GRASS_ASPECT_RATIO;
   return (
-    <View style={styles.grassFooter} pointerEvents="none">
+    <View style={[styles.grassFooter, { width, height }]} pointerEvents="none">
       <Image
         source={require('../assets/grass-footer.png')}
-        style={styles.grassFooterImage}
+        style={{ width, height }}
         resizeMode="stretch"
       />
       <LinearGradient
         colors={[colors.bg, colors.bg, 'transparent']}
         locations={[0, 0.05, 0.42]}
-        style={styles.grassFooterFade}
+        style={[styles.grassFooterFade, { width, height }]}
       />
     </View>
   );
@@ -190,25 +214,55 @@ function GrassFooter() {
 
 export default function HomeScreen() {
   const router = useRouter();
+  // מובייל (כולל האפליקציה הנטיבית - תמיד צרה) מקבל כפתור חיפוש רחב-מלא מתחת לשדה, לא בתוך
+  // השורה - קל יותר ללחיצה ביד אחת. דסקטופ/רוחב-רחב (רק ווב) שומר על השורה המשולבת הקיימת.
+  // 480px: breakpoint פשוט, לא קשור לתוכן קיים - כמעט כל טלפון (כולל טאבלטים קטנים) נופל מתחתיו.
+  const { width: windowWidth } = useWindowDimensions();
+  const isNarrowScreen = windowWidth < 480;
+  // מדידה אמיתית (onLayout) של שורת ה-Header, כדי ש-SunMascot (position:absolute, מחוץ ל-
+  // ScrollView) יתיישר איתה בכל פלטפורמה/מכשיר - ראו הערה מלאה ליד SunMascot למעלה.
+  const [headerLayout, setHeaderLayout] = useState(null);
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
   const [deviceCoords, setDeviceCoords] = useState(null);
-  const [ageQuickOpen, setAgeQuickOpen] = useState(false);
   const [categoryQuickOpen, setCategoryQuickOpen] = useState(false);
   const [whereQuickOpen, setWhereQuickOpen] = useState(false);
-  const [spontaneousLoading, setSpontaneousLoading] = useState(false);
-  const [spontaneousError, setSpontaneousError] = useState('');
   const [userId, setUserId] = useState(null);
-  const [excludedCategories, setExcludedCategories] = useState([]);
   const [hasSavedDefault, setHasSavedDefault] = useState(false);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [savingDefault, setSavingDefault] = useState(false);
   const [defaultNotice, setDefaultNotice] = useState('');
-  const [freeSearchText, setFreeSearchText] = useState('');
-  const [locationNotice, setLocationNotice] = useState('');
   const [locatingForSearch, setLocatingForSearch] = useState(false);
   const [visibleHomeFilters, setVisibleHomeFilters] = useState([]);
   const [children, setChildren] = useState([]);
   const [selectedChildIds, setSelectedChildIds] = useState(new Set());
+  const [smartSearchText, setSmartSearchText] = useState('');
+  const [smartSearchLoading, setSmartSearchLoading] = useState(false);
+  const [smartSearchError, setSmartSearchError] = useState('');
+  const [smartSearchClarify, setSmartSearchClarify] = useState(null); // { message, pendingIntent }
+  const [smartSearchClarifyCity, setSmartSearchClarifyCity] = useState('');
+  const [smartSearchSummary, setSmartSearchSummary] = useState(null); // { intent, chips } - "🔎 הבנתי..."
+  const [recentSearches, setRecentSearches] = useState([]);
+  const [recentSearchesOpen, setRecentSearchesOpen] = useState(false);
+
+  useEffect(() => {
+    AsyncStorage.getItem(RECENT_SEARCHES_KEY).then((raw) => {
+      if (!raw) return;
+      try { setRecentSearches(JSON.parse(raw)); } catch { /* ערך פגום - מתעלמים, לא קורסים */ }
+    });
+  }, []);
+
+  const recordRecentSearch = (text) => {
+    setRecentSearches((prev) => {
+      const next = [text, ...prev.filter((q) => q !== text)].slice(0, RECENT_SEARCHES_MAX);
+      AsyncStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(next));
+      return next;
+    });
+  };
+
+  const clearRecentSearches = () => {
+    setRecentSearches([]);
+    AsyncStorage.removeItem(RECENT_SEARCHES_KEY);
+  };
 
   // useFocusEffect (לא useEffect רגיל) - בדיוק כמו app/profile.js - כדי שכל המעברים בין מצבים
   // (התחברות/התנתקות/הוספת-הסרת ילד ב-/profile) ישתקפו נכון בכניסה הבאה למסך הבית, לא רק
@@ -230,7 +284,6 @@ export default function HomeScreen() {
         try {
           const prefs = await fetchUserPreferences(session.user.id);
           if (cancelled) return;
-          setExcludedCategories(prefs.excludedCategories);
           setVisibleHomeFilters(prefs.visibleHomeFilters);
           if (prefs.defaultHomeFilters) {
             setFilters(normalizeFilters(prefs.defaultHomeFilters));
@@ -296,35 +349,6 @@ export default function HomeScreen() {
     }
   };
 
-  const handleSpontaneous = async () => {
-    setSpontaneousError('');
-    setSpontaneousLoading(true);
-    try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        setSpontaneousError('צריך לאשר גישה למיקום כדי להשתמש בכפתור הזה');
-        return;
-      }
-      const pos = await Location.getCurrentPositionAsync({});
-      const activities = await fetchApprovedActivities();
-      const nearby = activities.filter((a) => (
-        !excludedCategories.includes(a.category)
-        && a.lat != null && a.lng != null
-        && haversineKm(pos.coords.latitude, pos.coords.longitude, a.lat, a.lng) <= SPONTANEOUS_RADIUS_KM
-      ));
-      if (nearby.length === 0) {
-        setSpontaneousError(`לא מצאנו פעילויות במרחק ${SPONTANEOUS_RADIUS_KM} ק"מ מכם הפעם`);
-        return;
-      }
-      const pick = nearby[Math.floor(Math.random() * nearby.length)];
-      router.push(`/activity/${pick.id}`);
-    } catch {
-      setSpontaneousError('משהו השתבש, נסו שוב');
-    } finally {
-      setSpontaneousLoading(false);
-    }
-  };
-
   const PRIMARY_FILTERS = [
     {
       key: 'category', label: 'מה בא לנו?',
@@ -341,7 +365,6 @@ export default function HomeScreen() {
   ];
 
   const handleGo = async () => {
-    setLocationNotice('');
     let goFilters = filters;
     let goCoords = deviceCoords;
 
@@ -350,7 +373,10 @@ export default function HomeScreen() {
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();
         if (status !== 'granted') {
-          setLocationNotice('לא אישרתם גישה למיקום - בחרו איזור באופן ידני ב"באיזור שלי" 📍');
+          // במקום הודעת-טקסט ("לא אישרתם גישה...") - פותחים ישר את פיקר המיקום (LocationQuickPicker
+          // כולל שם "המיקום הנוכחי שלי" - מבקש הרשאה שוב - וגם בחירה ידנית של עיר) כדי שהמשתמש
+          // ישלים את הבחירה במקום אחד, בלי לחזור ולנחש מה "באיזור שלי" למעלה אומר.
+          setWhereQuickOpen(true);
           return;
         }
         const pos = await Location.getCurrentPositionAsync({});
@@ -359,7 +385,7 @@ export default function HomeScreen() {
         setDeviceCoords(goCoords);
         setFilters(goFilters);
       } catch {
-        setLocationNotice('לא הצלחנו לאתר את המיקום - בחרו איזור באופן ידני ב"באיזור שלי" 📍');
+        setWhereQuickOpen(true);
         return;
       } finally {
         setLocatingForSearch(false);
@@ -386,28 +412,234 @@ export default function HomeScreen() {
     });
   };
 
-  const handleFreeSearch = () => {
-    if (!freeSearchText.trim()) return;
-    router.push({
-      pathname: '/activities',
-      params: {
-        homeFilters: JSON.stringify({ ...filters, q: freeSearchText.trim() }),
-        homeCoords: deviceCoords ? JSON.stringify(deviceCoords) : '',
-      },
+  // 🔎 חיפוש חכם - טקסט חופשי → Edge Function (ניתוח-שפה) → intentToFilters (טהור, קליינט,
+  // lib/smartSearch.js) → אותו filters שכל שאר המסך כבר משתמש בו. שום דבר כאן לא מדלג על
+  // rankActivities/applyFilters הקיימים ב-app/activities.js.
+  const goToSmartSearchResults = (intent) => {
+    const builtFilters = intentToFilters(intent, {
+      children, fallbackLocation: filters.location?.mode ? filters.location : null,
     });
+    const params = { homeFilters: JSON.stringify(builtFilters) };
+    if (builtFilters.location.mode === 'address' && builtFilters.location.coords) {
+      params.homeCoords = JSON.stringify({
+        latitude: builtFilters.location.coords.lat, longitude: builtFilters.location.coords.lng,
+      });
+    }
+    setSmartSearchText('');
+    setSmartSearchClarify(null);
+    setSmartSearchSummary(null);
+    router.push({ pathname: '/activities', params });
+  };
+
+  // "🔎 הבנתי שאתם מחפשים:" - מוצג לפני שמריצים את החיפוש בפועל, לא רק אחרי (המשתמש יכול
+  // לתקן לפני שמנווטים, ולא רק דרך "סינון מתקדם" בעמוד התוצאות עצמו).
+  const showSmartSearchSummary = (intent) => {
+    setSmartSearchClarify(null);
+    setSmartSearchSummary({ intent, chips: buildSmartSearchSummary(intent) });
+  };
+
+  const changeSmartSearch = () => {
+    setSmartSearchSummary(null);
+  };
+
+  const handleSmartSearch = async (overrideText) => {
+    const text = (overrideText ?? smartSearchText).trim();
+    if (!text) return;
+    if (!userId) {
+      setShowLoginPrompt(true);
+      return;
+    }
+    recordRecentSearch(text);
+    setSmartSearchError('');
+    setSmartSearchClarify(null);
+    setSmartSearchSummary(null);
+    setSmartSearchLoading(true);
+    try {
+      const data = await parseSmartSearchQuery(text);
+      if (data.needsClarification) {
+        setSmartSearchClarify({ message: data.needsClarification.message, pendingIntent: data.intent, mode: 'street' });
+        return;
+      }
+      // אין מיקום בכלל בחיפוש עצמו, ואין גם מיקום-ברירת-מחדל שמור - לא מנחשים (שלב 7/17
+      // בבקשה: "אם אין מיקום... הצג שאלה קצרה: באיזה אזור לחפש"). כשיש street זה כבר מטופל
+      // למעלה (needsClarification משרת) - זה המקרה השני, "בכלל לא הוזכר מיקום".
+      const loc = data.intent.location;
+      const hasAnyLocation = !!(loc.city || loc.region || loc.street || loc.coords);
+      if (!hasAnyLocation && !filters.location?.mode) {
+        setSmartSearchClarify({ message: '📍 באיזה אזור לחפש?', pendingIntent: data.intent, mode: 'plain' });
+        return;
+      }
+      showSmartSearchSummary(data.intent);
+    } catch (err) {
+      setSmartSearchError(err.message || 'לא הצלחנו להבין את החיפוש, נסו לנסח אחרת');
+    } finally {
+      setSmartSearchLoading(false);
+    }
+  };
+
+  // סבב-הבהרה (שלב 8/9 בבקשה): רחוב הוזכר בלי עיר - לא מנחשים, מבקשים עיר ואז ממשיכים בלי
+  // קריאת AI נוספת (ה-Edge Function מדלגת על Claude כש-cityOverride+pendingIntent מגיעים יחד).
+  const handleClarifyCity = async () => {
+    if (!smartSearchClarify || !smartSearchClarifyCity.trim()) return;
+    const city = smartSearchClarifyCity.trim();
+    // 'plain' (שלב 7/17) - אין רחוב לגאוקד, רק ממלאים עיר ישירות בקליינט, בלי קריאת שרת נוספת.
+    if (smartSearchClarify.mode === 'plain') {
+      setSmartSearchClarifyCity('');
+      showSmartSearchSummary({ ...smartSearchClarify.pendingIntent, location: { ...smartSearchClarify.pendingIntent.location, city } });
+      return;
+    }
+    setSmartSearchError('');
+    setSmartSearchLoading(true);
+    try {
+      const data = await parseSmartSearchQuery(smartSearchText, {
+        cityOverride: city, pendingIntent: smartSearchClarify.pendingIntent,
+      });
+      if (data.needsClarification) {
+        setSmartSearchError('לא הצלחנו לזהות את המיקום, נסו לנסח אחרת');
+        return;
+      }
+      setSmartSearchClarifyCity('');
+      showSmartSearchSummary(data.intent);
+    } catch (err) {
+      setSmartSearchError(err.message || 'לא הצלחנו להבין את החיפוש');
+    } finally {
+      setSmartSearchLoading(false);
+    }
   };
 
   return (
     <View style={styles.screen}>
       <LinearGradient colors={[colors.accentTint, colors.accentTintLight, colors.bg]} style={styles.topGradient} />
       <SkyClouds />
-      <SunMascot />
+      <SunMascot headerLayout={headerLayout} />
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Header onMenuPress={() => {}} hideLogo />
+        <Header onMenuPress={() => {}} onHeaderLayout={setHeaderLayout} />
 
-        <View style={styles.logoImageWrap}>
-          <Image source={require('../assets/turu-logo.jpeg')} style={styles.logoImage} resizeMode="contain" />
+        {Platform.OS === 'web' ? (
+          // גרדיאנט-טקסט אמיתי (צהוב חם→ירוק רענן) - חייב <span> גולמי, לא <Text> של RN: RN
+          // Web מוסיף אוטומטית dir="auto" לכל <Text>, וצירוף dir+background-clip:text שובר
+          // את הרינדור בדפדפן (נבדק ישירות - עם dir מוצג צבע אחיד, בלי dir הגרדיאנט תקין).
+          // SVG fill=url(#gradient) על <text> נבדק גם הוא ונכשל כאן (מגבלת דפדפן/מנוע נפרדת -
+          // גרדיאנט על SVG shapes תקין, על SVG <text> לא) - span+CSS הוא הפתרון היחיד שעבד בפועל.
+          createElement('span', { style: TAGLINE_GRADIENT_SPAN_STYLE }, 'לאן קופצים היום?')
+        ) : (
+          <Text style={styles.tagline}>לאן קופצים היום?</Text>
+        )}
+
+        {/* 🔎 חיפוש חכם - תוספת, לא תחליף: הפילטרים הרגילים למטה (מה בא לנו/איפה נח לכם/סינון
+            מתקדם) ממשיכים לעבוד זהה לגמרי, בלי שינוי. */}
+        <View style={styles.smartSearchCard}>
+          <Text style={styles.smartSearchTitle}>🔎 מה בא לכם לעשות?</Text>
+          <View style={isNarrowScreen ? styles.smartSearchInputRowStacked : styles.smartSearchInputRow}>
+            <TextInput
+              style={styles.smartSearchInput}
+              placeholder='למשל: "משחקייה ליד רחוב הרצל בתל אביב מחר בבוקר"'
+              placeholderTextColor={colors.textMuted}
+              value={smartSearchText}
+              onChangeText={setSmartSearchText}
+              onSubmitEditing={() => handleSmartSearch()}
+              returnKeyType="search"
+              editable={!smartSearchLoading}
+            />
+            <Pressable
+              style={[
+                styles.smartSearchBtn,
+                isNarrowScreen && styles.smartSearchBtnFullWidth,
+                (smartSearchLoading || !smartSearchText.trim()) && styles.smartSearchBtnDisabled,
+              ]}
+              onPress={() => handleSmartSearch()}
+              disabled={smartSearchLoading || !smartSearchText.trim()}
+            >
+              {smartSearchLoading ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.smartSearchBtnText}>חיפוש 🔎</Text>}
+            </Pressable>
+          </View>
+
+          {smartSearchError ? <Text style={styles.smartSearchErrorText}>{smartSearchError}</Text> : null}
+
+          {smartSearchSummary ? (
+            <View style={styles.smartSearchSummaryBox}>
+              <Text style={styles.smartSearchClarifyText}>🔎 הבנתי שאתם מחפשים:</Text>
+              <View style={styles.smartSearchIdeasRow}>
+                {smartSearchSummary.chips.length > 0 ? smartSearchSummary.chips.map((chip, i) => (
+                  <View key={i} style={styles.smartSearchSummaryChip}>
+                    <Text style={styles.smartSearchSummaryChipText}>{chip.icon} {chip.text}</Text>
+                  </View>
+                )) : (
+                  <Text style={styles.smartSearchIdeasTitle}>הכל, בלי הגבלות מיוחדות</Text>
+                )}
+              </View>
+              <View style={styles.smartSearchSummaryActionsRow}>
+                <Pressable
+                  style={[styles.smartSearchBtn, styles.smartSearchSummaryConfirmBtn]}
+                  onPress={() => goToSmartSearchResults(smartSearchSummary.intent)}
+                >
+                  <Text style={styles.smartSearchBtnText}>🔎 חפשו פעילויות</Text>
+                </Pressable>
+                <Pressable style={styles.smartSearchChangeBtn} onPress={changeSmartSearch}>
+                  <Text style={styles.smartSearchChangeBtnText}>✏️ שינוי חיפוש</Text>
+                </Pressable>
+              </View>
+            </View>
+          ) : smartSearchClarify ? (
+            <View style={styles.smartSearchClarifyBox}>
+              <Text style={styles.smartSearchClarifyText}>{smartSearchClarify.message}</Text>
+              <CityAutocomplete
+                inputStyle={styles.smartSearchClarifyInput}
+                placeholder="הזינו שם עיר..."
+                value={smartSearchClarifyCity}
+                onChangeText={setSmartSearchClarifyCity}
+                onSubmitEditing={handleClarifyCity}
+              />
+              <Pressable
+                style={[styles.smartSearchClarifyBtn, (!smartSearchClarifyCity.trim() || smartSearchLoading) && styles.smartSearchBtnDisabled]}
+                onPress={handleClarifyCity}
+                disabled={!smartSearchClarifyCity.trim() || smartSearchLoading}
+              >
+                <Text style={styles.smartSearchBtnText}>{smartSearchLoading ? '...' : 'המשך'}</Text>
+              </Pressable>
+            </View>
+          ) : (
+            <View style={styles.smartSearchIdeasWrap}>
+              <Pressable
+                style={styles.recentSearchesHeader}
+                onPress={() => setRecentSearchesOpen((open) => !open)}
+                accessibilityLabel="חיפושים אחרונים"
+              >
+                <Text style={styles.smartSearchIdeasTitle}>🕐 חיפושים אחרונים</Text>
+                <Text style={styles.recentSearchesChevron}>{recentSearchesOpen ? '▲' : '▼'}</Text>
+              </Pressable>
+              {recentSearchesOpen ? (
+                recentSearches.length > 0 ? (
+                  <>
+                    <View style={styles.smartSearchIdeasRow}>
+                      {recentSearches.map((q, i) => (
+                        <Pressable
+                          key={`${q}-${i}`}
+                          style={styles.smartSearchIdeaChip}
+                          onPress={() => { setSmartSearchText(q); handleSmartSearch(q); }}
+                          disabled={smartSearchLoading}
+                        >
+                          <Text style={styles.smartSearchIdeaChipText}>{q}</Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                    <Pressable onPress={clearRecentSearches} hitSlop={6}>
+                      <Text style={styles.clearRecentSearchesText}>🗑️ מחק היסטוריה</Text>
+                    </Pressable>
+                  </>
+                ) : (
+                  <Text style={styles.recentSearchesEmptyText}>עדיין אין חיפושים - נסו לחפש משהו למעלה 🔎</Text>
+                )
+              ) : null}
+            </View>
+          )}
+        </View>
+
+        <View style={styles.orDividerRow}>
+          <View style={styles.orDividerLine} />
+          <Text style={styles.orDividerText}>או בחרו בעצמכם</Text>
+          <View style={styles.orDividerLine} />
         </View>
 
         {isPersonalized ? (
@@ -419,12 +651,6 @@ export default function HomeScreen() {
             ))}
           </View>
         )}
-
-        <Pressable style={styles.ageAddRow} onPress={() => setAgeQuickOpen(true)} hitSlop={8}>
-          <Text style={[styles.ageAddText, filters.age.length > 0 && styles.ageAddTextActive]}>
-            {filters.age.length > 0 ? `+ גילאים: ${ageSummary(filters.age)}` : '+ הוספת גילאים'}
-          </Text>
-        </Pressable>
 
         {visibleHomeFilters.length > 0 ? (
           <View style={styles.extraFiltersWrap}>
@@ -462,53 +688,17 @@ export default function HomeScreen() {
             )}
           </LinearGradient>
         </Pressable>
-        {locationNotice ? <Text style={styles.locationNoticeText}>{locationNotice}</Text> : null}
 
-        <View style={styles.smallActionsRow}>
-          <Pressable style={styles.smallActionBtn} onPress={handleAdvancedFilters}>
-            <Text style={styles.smallActionText}>🎯 סינון מתקדם</Text>
-          </Pressable>
-          <Pressable style={styles.spontaneousBtnWrap} onPress={handleSpontaneous} disabled={spontaneousLoading}>
-            <LinearGradient colors={['#ffbb4d', '#ff8a3d']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.spontaneousBtn}>
-              {spontaneousLoading ? <ActivityIndicator color="#ffffff" size="small" /> : <Text style={styles.spontaneousEmoji}>🪄</Text>}
-              <Text style={styles.spontaneousBtnText}>ספונטניים</Text>
-            </LinearGradient>
-          </Pressable>
-        </View>
-        {spontaneousError ? <Text style={styles.spontaneousErrorText}>{spontaneousError}</Text> : null}
+        {/* "🎯 סינון מתקדם" הוסר מעמוד הבית (בקשת המשתמש - simplification: עמוד הבית = מתחילים
+            חיפוש, עמוד התוצאות = מדייקים). handleAdvancedFilters עצמו נשאר בקוד בלי שינוי -
+            עדיין משמש את הקישורים ב-visibleHomeFilters למעלה (פילטרים שהמשתמש עצמו בחר להציג
+            בעמוד הבית, פיצ'ר נפרד). "🪄 ספונטני" עבר בפועל לעמוד התוצאות (app/activities.js) -
+            לא רק "מוכן לעתיד" יותר, אלא כבר שם. הציטוט התדמיתי עבר ל"עלינו" (app/about.js) -
+            עמוד הבית ממוקד בפעולה, לא בסיפור המותג. */}
 
-        <View style={styles.freeSearch}>
-          <Pressable onPress={handleFreeSearch} hitSlop={8}>
-            <SearchIcon />
-          </Pressable>
-          <TextInput
-            style={styles.freeSearchInput}
-            placeholder="חפשו פעילות, אירוע או מקום..."
-            placeholderTextColor={colors.textMuted}
-            value={freeSearchText}
-            onChangeText={setFreeSearchText}
-            onSubmitEditing={handleFreeSearch}
-            returnKeyType="search"
-          />
-        </View>
-
-        <View style={styles.footerVerseCard}>
-          <Text style={styles.footerVerse}>
-            <Text style={styles.footerVerseMark}>״</Text>
-            {'שְׁלַח־לְךָ֣ יְלָדִים֮ וְיָתֻר֖וּ אֶת־הָאָ֗רֶץ\n(אֹ֥ו לְפָחֹ֖ות אֶת־הַמִּשְׂחֲקִיָּה֮ הַקְּרוֹבָה֒)'}
-            <Text style={styles.footerVerseMark}>״</Text>
-          </Text>
-        </View>
-
-        <GrassFooter />
+        <GrassFooter width={windowWidth} />
       </ScrollView>
 
-      <AgeQuickPicker
-        visible={ageQuickOpen}
-        value={filters.age}
-        onChange={(v) => setField('age', v)}
-        onClose={() => setAgeQuickOpen(false)}
-      />
       <QuickPicker
         visible={categoryQuickOpen}
         title="מה בא לנו?"
@@ -542,15 +732,27 @@ const styles = StyleSheet.create({
     position: 'absolute', top: 0, left: 0, right: 0, height: 230,
   },
   sunMascot: {
-    position: 'absolute', top: -14, left: 4,
+    position: 'absolute', top: 46, left: 10,
   },
-  logoImageWrap: { alignItems: 'center', marginTop: 4, marginBottom: 10 },
-  logoImage: { width: 220, height: 220 * (816 / 1304) },
+  // כותרת "לאן קופצים היום?" - ממש מתחת ללוגו (שעבר ל-Header המשותף, מוצג בכל עמוד). גרדיאנט
+  // אמיתי (צהוב חם→ירוק רענן) רק בווב
+  // דרך background-clip: text; ב-native (RN אמיתי לא תומך ב-CSS gradient-text בלי ספריית
+  // masked-view שהוסרה בעבר בכוונה אחרי שהמשתמש דחה שימוש בה על הלוגו) - נופל לצבע ירוק אחיד
+  // (הקצה החם-פחות של אותו גרדיאנט), לא ריק/שקוף.
+  // native (iOS/Android): אין CSS background-clip בלי תלות native נוספת (הוסרה בעבר בכוונה
+  // אחרי שהמשתמש דחה אותה על הלוגו) - צבע אחיד, הקצה הכהה של אותו גרדיאנט בדיוק (תואם לכפתור
+  // "יאללה, יוצאים לדרך!").
+  tagline: {
+    textAlign: 'center', fontFamily: fonts.extraBold, fontSize: 19,
+    marginTop: -2, marginBottom: 16, color: '#00647f',
+  },
   grassFooter: {
-    marginTop: 28, marginHorizontal: -spacing.xl, aspectRatio: 939 / 148,
+    marginTop: 28, marginHorizontal: -spacing.xl,
   },
-  grassFooterImage: { width: '100%', height: '100%' },
-  grassFooterFade: { position: 'absolute', top: 0, left: 0, right: 0, height: '100%' },
+  grassFooterFade: { position: 'absolute', top: 0, left: 0 },
+  orDividerRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 22 },
+  orDividerLine: { flex: 1, height: 1, backgroundColor: colors.borderLight },
+  orDividerText: { fontFamily: fonts.semiBold, fontSize: 12.5, color: colors.textMuted },
   filtersCard: {
     backgroundColor: colors.card, borderRadius: radii.xl, borderWidth: 1, borderColor: colors.borderLight,
     overflow: 'hidden', marginBottom: 18,
@@ -589,23 +791,6 @@ const styles = StyleSheet.create({
   saveDefaultLink: { alignItems: 'center', marginBottom: 14 },
   saveDefaultText: { fontFamily: fonts.semiBold, fontSize: 12.5, color: colors.accent },
   defaultNoticeText: { fontFamily: fonts.semiBold, fontSize: 12, color: colors.greenStrong, textAlign: 'center', marginBottom: 10 },
-  smallActionsRow: { flexDirection: 'row-reverse', gap: 10, marginTop: 12, marginBottom: 16 },
-  smallActionBtn: {
-    flex: 1, flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'center', gap: 6,
-    borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card,
-    borderRadius: radii.pill, paddingVertical: 10,
-  },
-  smallActionText: { fontFamily: fonts.bold, fontSize: 12.5, color: colors.textSecondary },
-  spontaneousBtnWrap: {
-    flex: 1, borderRadius: radii.pill, overflow: 'hidden',
-    shadowColor: '#ff8a3d', shadowOpacity: 0.35, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 3,
-  },
-  spontaneousBtn: {
-    flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10,
-  },
-  spontaneousEmoji: { fontSize: 15, marginTop: -1 },
-  spontaneousBtnText: { fontFamily: fonts.bold, fontSize: 12.5, color: '#ffffff' },
-  spontaneousErrorText: { fontFamily: fonts.semiBold, fontSize: 12, color: colors.danger, textAlign: 'center', marginTop: -4, marginBottom: 10 },
   searchBtnWrap: {
     width: '100%', borderRadius: radii.pill, overflow: 'hidden', marginBottom: 20,
     shadowColor: colors.accent, shadowOpacity: 0.3, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 4,
@@ -616,20 +801,65 @@ const styles = StyleSheet.create({
   },
   searchBtnText: { fontFamily: fonts.bold, fontSize: 16.5, color: '#ffffff' },
   searchBtnEmoji: { fontSize: 16.5 },
-  locationNoticeText: { fontFamily: fonts.semiBold, fontSize: 12, color: colors.danger, textAlign: 'center', marginTop: -12, marginBottom: 16 },
-  freeSearch: {
-    flexDirection: 'row-reverse', alignItems: 'center', gap: 10,
-    backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border,
+  // 🔎 חיפוש חכם - shadow עדין (לא צבע חדש, אותו colors.accent שכבר על המסגרת) בנוסף למסגרת
+  // המודגשת הקיימת - מרים ויזואלית את הכרטיס הזה מעל "או בחרו בעצמכם"/הפילטרים הידניים מתחתיו
+  // (ל-filtersCard אין shadow בכלל), בלי הפיכתו לכרטיס "כבד" - עדיין אותו padding/רדיוס בדיוק.
+  smartSearchCard: {
+    backgroundColor: colors.card, borderWidth: 1.5, borderColor: colors.accent,
+    borderRadius: radii.xl, padding: spacing.lg, marginBottom: 28,
+    shadowColor: colors.accent, shadowOpacity: 0.12, shadowRadius: 14, shadowOffset: { width: 0, height: 5 }, elevation: 2,
+  },
+  smartSearchTitle: { fontFamily: fonts.extraBold, fontSize: 15.5, color: colors.textPrimary, textAlign: 'right', marginBottom: 12 },
+  smartSearchInputRow: { flexDirection: 'row-reverse', gap: 8 },
+  // מסך צר (כולל האפליקציה הנטיבית): שדה מלא-רוחב, ואז כפתור מלא-רוחב מתחתיו (לא לצידו) - ראו
+  // isNarrowScreen ב-JSX. gap אנכי קטן יותר מהאופקי כדי שהזוג עדיין ירגיש כמו יחידה אחת.
+  smartSearchInputRowStacked: { flexDirection: 'column', gap: 10 },
+  smartSearchInput: {
+    flex: 1, backgroundColor: colors.bg, borderWidth: 1, borderColor: colors.border,
     borderRadius: radii.pill, paddingVertical: 12, paddingHorizontal: 16,
+    fontFamily: fonts.regular, fontSize: 14, color: colors.textPrimary, textAlign: 'right', writingDirection: 'rtl',
   },
-  freeSearchInput: { flex: 1, fontFamily: fonts.regular, fontSize: 14, color: colors.textPrimary, textAlign: 'right', writingDirection: 'rtl' },
-  footerVerseCard: {
-    marginTop: 22, marginHorizontal: 10, paddingVertical: 12, paddingHorizontal: 18,
-    backgroundColor: 'rgba(255,255,255,0.6)', borderRadius: radii.lg,
+  smartSearchBtn: {
+    backgroundColor: colors.accent, borderRadius: radii.pill, paddingHorizontal: 20,
+    alignItems: 'center', justifyContent: 'center',
   },
-  footerVerse: {
-    fontFamily: fonts.verseBold, fontSize: 14, color: colors.ink, textAlign: 'center',
-    letterSpacing: 0.2, lineHeight: 21,
+  smartSearchBtnFullWidth: { width: '100%', paddingVertical: 13 },
+  smartSearchBtnDisabled: { opacity: 0.5 },
+  smartSearchBtnText: { fontFamily: fonts.bold, fontSize: 13.5, color: '#ffffff' },
+  smartSearchErrorText: { fontFamily: fonts.semiBold, fontSize: 12, color: colors.danger, textAlign: 'center', marginTop: 10 },
+  smartSearchClarifyBox: { marginTop: 14, paddingTop: 14, borderTopWidth: 1, borderTopColor: colors.borderLight },
+  smartSearchClarifyText: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.textPrimary, textAlign: 'right', marginBottom: 8 },
+  smartSearchClarifyInput: {
+    borderWidth: 1, borderColor: colors.border, borderRadius: radii.md, padding: 11,
+    fontFamily: fonts.regular, fontSize: 14, color: colors.textPrimary, backgroundColor: colors.bg,
   },
-  footerVerseMark: { fontFamily: fonts.verseBold, fontSize: 14, color: colors.accent },
+  smartSearchClarifyBtn: {
+    backgroundColor: colors.accent, borderRadius: radii.pill, paddingVertical: 12,
+    alignItems: 'center', marginTop: 10,
+  },
+  smartSearchSummaryBox: { marginTop: 14, paddingTop: 14, borderTopWidth: 1, borderTopColor: colors.borderLight },
+  smartSearchSummaryChip: {
+    backgroundColor: colors.accentTintLight, borderWidth: 1, borderColor: colors.accent,
+    borderRadius: radii.pill, paddingVertical: 7, paddingHorizontal: 13,
+  },
+  smartSearchSummaryChipText: { fontFamily: fonts.bold, fontSize: 12.5, color: colors.accent },
+  smartSearchSummaryActionsRow: { flexDirection: 'row-reverse', gap: 10, marginTop: 14 },
+  smartSearchSummaryConfirmBtn: { flex: 1, paddingVertical: 12 },
+  smartSearchChangeBtn: {
+    flex: 1, borderWidth: 1, borderColor: colors.border, borderRadius: radii.pill,
+    paddingVertical: 12, alignItems: 'center',
+  },
+  smartSearchChangeBtnText: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.textSecondary },
+  smartSearchIdeasWrap: { marginTop: 14, paddingTop: 14, borderTopWidth: 1, borderTopColor: colors.borderLight },
+  smartSearchIdeasTitle: { fontFamily: fonts.bold, fontSize: 12.5, color: colors.textSecondary, textAlign: 'right', marginBottom: 8 },
+  recentSearchesHeader: { flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between' },
+  recentSearchesChevron: { fontSize: 11, color: colors.textMuted, marginBottom: 8 },
+  clearRecentSearchesText: { fontFamily: fonts.semiBold, fontSize: 11.5, color: colors.danger, textAlign: 'right', marginTop: 6 },
+  recentSearchesEmptyText: { fontFamily: fonts.regular, fontSize: 12.5, color: colors.textMuted, textAlign: 'right' },
+  smartSearchIdeasRow: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 8 },
+  smartSearchIdeaChip: {
+    borderWidth: 1, borderColor: colors.border, backgroundColor: colors.bg,
+    borderRadius: radii.pill, paddingVertical: 7, paddingHorizontal: 13,
+  },
+  smartSearchIdeaChipText: { fontFamily: fonts.semiBold, fontSize: 12, color: colors.textSecondary },
 });
