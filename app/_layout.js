@@ -43,9 +43,9 @@ export default function RootLayout() {
         }
         await recordLegalConsentIfNeeded(userId);
         const [asked, pin, bio] = await Promise.all([
-          AsyncStorage.getItem('wabbit_asked_quick_login'),
-          AsyncStorage.getItem('wabbit_pin_enabled'),
-          AsyncStorage.getItem('wabbit_biometric_enabled'),
+          AsyncStorage.getItem('turu_asked_quick_login'),
+          AsyncStorage.getItem('turu_pin_enabled'),
+          AsyncStorage.getItem('turu_biometric_enabled'),
         ]);
         if (cancelled) return;
         const alreadySetUp = pin === 'true' || bio === 'true';
