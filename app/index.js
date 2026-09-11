@@ -445,10 +445,8 @@ export default function HomeScreen() {
   const handleSmartSearch = async (overrideText) => {
     const text = (overrideText ?? smartSearchText).trim();
     if (!text) return;
-    if (!userId) {
-      setShowLoginPrompt(true);
-      return;
-    }
+    // חיפוש חכם פתוח גם למי שלא מחובר (supabase/functions/smart-search - rate-limit לפי IP
+    // כשאין user, לא חוסם עם 401) - לא לחסום כאן בקליינט, זה סותר את העיצוב של ה-Edge Function עצמה.
     recordRecentSearch(text);
     setSmartSearchError('');
     setSmartSearchClarify(null);

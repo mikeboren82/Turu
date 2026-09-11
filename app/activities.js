@@ -24,7 +24,7 @@ import {
 import { categorySummary, whenSummary, hebrewJoin } from '../lib/filterSummaries';
 import { rankActivities, countActiveFilters, normalizeFilters, getOpenNowInfo, haversineKm } from '../lib/filterActivities';
 import { formatBenefitCardTag } from '../lib/benefits';
-import { parseSmartSearchQuery, intentToFilters } from '../lib/smartSearch';
+import { parseSmartSearchQuery, intentToFilters, buildSmartSearchSummary } from '../lib/smartSearch';
 
 const BOOKING_REQUIRED_VALUES = ['registration_required', 'advance_booking'];
 const SPONTANEOUS_TOP_COUNT = 5;
@@ -141,6 +141,7 @@ export default function ActivitiesScreen() {
   // ב-lib/filterActivities.js) מעל הפילטרים הפעילים בדיוק כפי שהם - "לחיצה נוספת" מכבה בחזרה.
   const [spontaneousActive, setSpontaneousActive] = useState(false);
   const [spontaneousCoords, setSpontaneousCoords] = useState(null);
+  const [showLocationPermissionModal, setShowLocationPermissionModal] = useState(false);
   // 🔎 חיפוש חופשי קומפקטי - collapsed כברירת מחדל, פותח שדה טקסט קטן שמפעיל את אותו Smart
   // Search Engine בדיוק כמו עמוד הבית (lib/smartSearch.js, parseSmartSearchQuery/intentToFilters) -
   // בלי לנווט/לטעון מסך חדש, רק כותב ל-filters הקיים של העמוד הזה (setFilters).
@@ -150,6 +151,7 @@ export default function ActivitiesScreen() {
   const [freeSearchError, setFreeSearchError] = useState('');
   const [freeSearchClarify, setFreeSearchClarify] = useState(null); // { message, pendingIntent, mode }
   const [freeSearchClarifyCity, setFreeSearchClarifyCity] = useState('');
+  const [freeSearchSummary, setFreeSearchSummary] = useState(null); // { intent, chips } - "🔎 הבנתי..." לפני שמפעילים בפועל
 
   useEffect(() => {
     let cancelled = false;
@@ -245,21 +247,12 @@ export default function ActivitiesScreen() {
     }
   };
 
-  const toggleSpontaneous = async () => {
-    if (spontaneousActive) {
-      setSpontaneousActive(false);
-      setSpontaneousError('');
-      setShowAllSpontaneous(false);
-      return;
-    }
-    setSpontaneousError('');
+  // מפעיל בפועל אחרי שההרשאה כבר קיימת (או שהמשתמש אישר עכשיו דרך showLocationPermissionModal
+  // למטה) - לא מציג יותר שורת-שגיאה קטנה על חוסר-הרשאה; אם ההרשאה עדיין לא מתקבלת (גם אחרי
+  // הבקשה המפורשת), פשוט חוזרים למסך כרגיל בלי הודעה (בקשת המשתמש: "בלי שקרה כלום").
+  const activateSpontaneous = async () => {
     setSpontaneousLoading(true);
     try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        setSpontaneousError('צריך לאשר גישה למיקום כדי להשתמש בכפתור הזה');
-        return;
-      }
       const pos = await Location.getCurrentPositionAsync({});
       setSpontaneousCoords({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
       setSpontaneousActive(true);
@@ -268,6 +261,31 @@ export default function ActivitiesScreen() {
     } finally {
       setSpontaneousLoading(false);
     }
+  };
+
+  const toggleSpontaneous = async () => {
+    if (spontaneousActive) {
+      setSpontaneousActive(false);
+      setSpontaneousError('');
+      setShowAllSpontaneous(false);
+      return;
+    }
+    setSpontaneousError('');
+    const { status } = await Location.getForegroundPermissionsAsync();
+    if (status === 'granted') {
+      await activateSpontaneous();
+      return;
+    }
+    // עדיין לא אושר - קופץ חלון שמסביר למה נדרש מיקום ונותן אפשרות מפורשת לאשר (במקום שורת-
+    // שגיאה קטנה שהמשתמש עלול לפספס), במקום requestForegroundPermissionsAsync ישיר בלי הקשר.
+    setShowLocationPermissionModal(true);
+  };
+
+  const confirmLocationPermission = async () => {
+    setShowLocationPermissionModal(false);
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== 'granted') return; // המשתמש דחה גם את בקשת המערכת - חוזרים למסך בלי שגיאה.
+    await activateSpontaneous();
   };
 
   // 🔎 חיפוש חופשי קומפקטי - אותו זרימת-הבהרה בדיוק כמו app/index.js (handleSmartSearch/
@@ -282,14 +300,22 @@ export default function ActivitiesScreen() {
     }
     setFreeSearchText('');
     setFreeSearchClarify(null);
+    setFreeSearchSummary(null);
     setFreeSearchOpen(false);
   };
+
+  // לפני שמפעילים סינון בפועל, מציגים למשתמש מה ה-AI הבין ("🔎 הבנתי שאתם מחפשים: [צ'יפים]") -
+  // אותו דפוס בדיוק כמו עמוד הבית (smartSearchSummary/buildSmartSearchSummary), שהחיפוש הקומפקטי
+  // כאן דילג עליו בטעות. בלי זה, סינון שה-AI ניחש (למשל קטגוריה/מיקום/פנים-חוץ שהמשתמש לא ציין
+  // בכלל) הוחל בשקט בלי שום הסבר למה הופיעו תוצאות לא-קשורות למה שהוקלד.
+  const changeFreeSearch = () => setFreeSearchSummary(null);
 
   const handleFreeSearch = async (overrideText) => {
     const text = (overrideText ?? freeSearchText).trim();
     if (!text) return;
     setFreeSearchError('');
     setFreeSearchClarify(null);
+    setFreeSearchSummary(null);
     setFreeSearchLoading(true);
     try {
       const data = await parseSmartSearchQuery(text);
@@ -303,7 +329,7 @@ export default function ActivitiesScreen() {
         setFreeSearchClarify({ message: '📍 באיזה אזור לחפש?', pendingIntent: data.intent, mode: 'plain' });
         return;
       }
-      applyFreeSearchIntent(data.intent);
+      setFreeSearchSummary({ intent: data.intent, chips: buildSmartSearchSummary(data.intent) });
     } catch (err) {
       setFreeSearchError(err.message || 'לא הצלחנו להבין את החיפוש, נסו לנסח אחרת');
     } finally {
@@ -496,7 +522,31 @@ export default function ActivitiesScreen() {
         </Pressable>
         {freeSearchOpen && (
           <View style={styles.freeSearchBox}>
-            {freeSearchClarify ? (
+            {freeSearchSummary ? (
+              <View>
+                <Text style={styles.freeSearchClarifyText}>🔎 הבנתי שאתם מחפשים:</Text>
+                <View style={styles.freeSearchSummaryChipsRow}>
+                  {freeSearchSummary.chips.length > 0 ? freeSearchSummary.chips.map((chip, i) => (
+                    <View key={i} style={styles.freeSearchSummaryChip}>
+                      <Text style={styles.freeSearchSummaryChipText}>{chip.icon} {chip.text}</Text>
+                    </View>
+                  )) : (
+                    <Text style={styles.freeSearchClarifyText}>לא זיהינו סינון ברור מהניסוח הזה - נסו לנסח אחרת, או המשיכו לראות הכל.</Text>
+                  )}
+                </View>
+                <View style={styles.freeSearchSummaryActionsRow}>
+                  <Pressable
+                    style={[styles.freeSearchBtn, styles.freeSearchSummaryConfirmBtn]}
+                    onPress={() => applyFreeSearchIntent(freeSearchSummary.intent)}
+                  >
+                    <Text style={styles.freeSearchBtnText}>🔎 חפשו</Text>
+                  </Pressable>
+                  <Pressable style={styles.freeSearchChangeBtn} onPress={changeFreeSearch}>
+                    <Text style={styles.freeSearchChangeBtnText}>✏️ שינוי חיפוש</Text>
+                  </Pressable>
+                </View>
+              </View>
+            ) : freeSearchClarify ? (
               <View>
                 <Text style={styles.freeSearchClarifyText}>{freeSearchClarify.message}</Text>
                 <CityAutocomplete
@@ -597,7 +647,7 @@ export default function ActivitiesScreen() {
             <View style={styles.emptyWidenRow}>
               {filters.location?.mode && (
                 <Pressable style={styles.emptyWidenChip} onPress={() => setField('location', DEFAULT_FILTERS.location)}>
-                  <Text style={styles.emptyWidenChipText}>📍 הרחבת אזור</Text>
+                  <Text style={styles.emptyWidenChipText}>📍 הראה בכל הארץ</Text>
                 </Pressable>
               )}
               {(filters.hour?.option || filters.hour?.custom) && (
@@ -607,7 +657,7 @@ export default function ActivitiesScreen() {
               )}
               {filters.category?.length > 0 && (
                 <Pressable style={styles.emptyWidenChip} onPress={() => setField('category', DEFAULT_FILTERS.category)}>
-                  <Text style={styles.emptyWidenChipText}>🎯 הצגת כל הסוגים</Text>
+                  <Text style={styles.emptyWidenChipText}>🎯 הצגת כל הפעילויות</Text>
                 </Pressable>
               )}
               {filters.when?.options?.length > 0 && (
@@ -823,6 +873,23 @@ export default function ActivitiesScreen() {
           </Pressable>
         </Pressable>
       </Modal>
+
+      {/* מיקום נדרש עבור "ספונטני" - חלון שמסביר למה, במקום שורת-שגיאה קטנה שקל לפספס. תפריט-
+          רקע/ביטול = חוזרים למסך כרגיל בלי שום הודעה (בקשת המשתמש: "בלי שקרה כלום"). */}
+      <Modal visible={showLocationPermissionModal} transparent animationType="fade" onRequestClose={() => setShowLocationPermissionModal(false)}>
+        <Pressable style={styles.gateBackdrop} onPress={() => setShowLocationPermissionModal(false)}>
+          <Pressable style={styles.gateCard} onPress={() => {}}>
+            <Text style={styles.gateTitle}>📍 נדרשת גישה למיקום</Text>
+            <Text style={styles.gateSubtitle}>צריך לאשר גישה למיקום כדי להשתמש בכפתור הזה</Text>
+            <Pressable style={styles.gateGoBtn} onPress={confirmLocationPermission}>
+              <Text style={styles.gateGoBtnText}>אישור גישה למיקום</Text>
+            </Pressable>
+            <Pressable onPress={() => setShowLocationPermissionModal(false)} hitSlop={8}>
+              <Text style={styles.gateSkipText}>ביטול</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
       <QuickPicker
         visible={gateCategoryOpen}
         title="מה בא לנו?"
@@ -920,6 +987,19 @@ const styles = StyleSheet.create({
   freeSearchBtnText: { fontFamily: fonts.bold, fontSize: 13, color: '#ffffff' },
   freeSearchClarifyText: { fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary, textAlign: 'right', marginBottom: 8 },
   freeSearchErrorText: { fontFamily: fonts.semiBold, fontSize: 11.5, color: colors.danger, textAlign: 'center', marginTop: 8 },
+  freeSearchSummaryChipsRow: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 8 },
+  freeSearchSummaryChip: {
+    backgroundColor: colors.accentTintLight, borderWidth: 1, borderColor: colors.accent,
+    borderRadius: radii.pill, paddingVertical: 7, paddingHorizontal: 13,
+  },
+  freeSearchSummaryChipText: { fontFamily: fonts.bold, fontSize: 12.5, color: colors.accent },
+  freeSearchSummaryActionsRow: { flexDirection: 'row-reverse', gap: 10, marginTop: 12 },
+  freeSearchSummaryConfirmBtn: { flex: 1, paddingVertical: 12 },
+  freeSearchChangeBtn: {
+    flex: 1, borderWidth: 1, borderColor: colors.border, borderRadius: radii.pill,
+    paddingVertical: 12, alignItems: 'center',
+  },
+  freeSearchChangeBtnText: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.textSecondary },
 
   advToggle: {
     flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'center', gap: 6,
