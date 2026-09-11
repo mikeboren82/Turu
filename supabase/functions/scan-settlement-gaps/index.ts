@@ -4,10 +4,14 @@
 //
 // שני שלבים בכל הרצה, לפי התקציב שנקבע ב-automation_settings (בלי deploy קוד כדי לשנות):
 //   1. בדיקה זולה (Nearby Search, IDs-only field mask = Google's Essentials SKU, כמעט חינם) על
-//      אצווה מתגלגלת של יישובים (settlement_scan_batch_size ליישוב-לגל, לא כולם בבת אחת - כך
-//      שהעלות היומית נשארת קטנה וקבועה, לא תלויה במספר-היישובים הכולל). cursor ב-
-//      automation_settings מתקדם בכל הרצה ומתגלגל-חוזר לתחילת הרשימה - כך שכל הארץ מתבדקת
-//      מחדש בערך כל (סה"כ יישובים / batch_size) ימים, לא חד-פעמי.
+//      אצווה של יישובים (settlement_scan_batch_size ליישוב-לגל, לא כולם בבת אחת - כך שהעלות
+//      היומית נשארת קטנה וקבועה). cursor ב-automation_settings מתקדם בכל הרצה - בלי לגלגל-חזור
+//      לתחילת הרשימה: בקשת המשתמש המפורשת (2026-09-11) - "אין סיבה שזה ירוץ לנצח... ירוץ עד
+//      שיכסה את כל הארץ לחלוטין ואז יסיים". כשה-cursor מגיע לסוף הרשימה, ה-batch האחרון נחתך
+//      (לא עוטף), ו-settlement_scan_enabled מוכבה אוטומטית ל-false + settlement_scan_completed_at
+//      נרשם - הריצה הבאה של ה-cron (וכל _dispatch_settlement_scan עתידי) פשוט לא-עושה-כלום
+//      מהרגע הזה, בלי לכבות את ה-cron job עצמו. reset_settlement_scan() (RPC, ראו 0060) מאפשר
+//      סבב-סקירה מלא נוסף בעתיד בלי לצטרך migration/deploy נוספים.
 //   2. לכל יישוב שדוח-הפער (google_count - turu_count) עבר סף (settlement_scan_gap_threshold,
 //      כמו GAP_THRESHOLD הקיים) - חיפוש-טקסט אמיתי (Pro-tier, יקר משמעותית) שמייבא ישירות את
 //      התוצאות שאינן כפילות. מוגבל בפועל ל-settlement_scan_daily_pro_budget יישובים/הרצה (הכי-
@@ -141,9 +145,12 @@ Deno.serve(async (req: Request) => {
     .sort((a, b) => a.city.localeCompare(b.city)); // סדר יציב - כדי שה-cursor יתקדם בעקביות בין הרצות
 
   if (settlements.length === 0) return jsonResponse({ error: 'no settlements found' }, 500);
-  cursor = cursor % settlements.length;
-  const batch = [];
-  for (let i = 0; i < Math.min(batchSize, settlements.length); i++) batch.push(settlements[(cursor + i) % settlements.length]);
+  // בלי גלגול-חזור (modulo) - ה-cursor רק מתקדם, לעולם לא חוזר ל-0 מעצמו. אם cursor ישן חורג
+  // ממספר-היישובים הנוכחי (למשל אחרי reset_settlement_scan עם רשימה שהצטמצמה) - קלאמפ בטוח.
+  cursor = Math.min(cursor, settlements.length);
+  const batchEnd = Math.min(cursor + batchSize, settlements.length);
+  const batch = settlements.slice(cursor, batchEnd);
+  const isLastBatch = batchEnd >= settlements.length;
 
   // שלב 1: בדיקה זולה (Essentials SKU) על האצווה הזו בלבד.
   const flagged: { city: string; lat: number; lng: number; turuCount: number; googleCount: number; gap: number }[] = [];
@@ -225,11 +232,20 @@ Deno.serve(async (req: Request) => {
     }
   }
 
-  const nextCursor = (cursor + batch.length) % settlements.length;
-  await client.from('automation_settings').upsert({ key: 'settlement_scan_cursor', value: nextCursor });
+  const nextCursor = batchEnd;
+  const rows: { key: string; value: unknown }[] = [{ key: 'settlement_scan_cursor', value: nextCursor }];
+  if (isLastBatch) {
+    // סבב שלם הושלם - מכבה את עצמו (לא רק את ה-cron job, שנשאר רשום: הריצה הבאה תבדוק את
+    // הדגל הזה ותצא מיד, בלי לבצע שום קריאת API). settlement_scan_completed_at מבדיל את זה
+    // מ"מישהו כיבה ידנית" - ראו reset_settlement_scan() (0060) להפעלת סבב נוסף בעתיד.
+    rows.push({ key: 'settlement_scan_enabled', value: false });
+    rows.push({ key: 'settlement_scan_completed_at', value: new Date().toISOString() });
+  }
+  await client.from('automation_settings').upsert(rows);
 
   return jsonResponse({
     total_settlements: settlements.length, checked: batch.length, next_cursor: nextCursor,
+    completed: isLastBatch,
     flagged: flagged.length, filled: toFill.length, imported, imported_names: importedNames,
     check_errors: checkErrors, import_errors: importErrors,
   });
