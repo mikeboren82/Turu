@@ -13,6 +13,7 @@ import {
   DEFAULT_FILTERS, CATEGORY_OPTIONS, BENEFIT_PROVIDER_EDIT_OPTIONS, BENEFIT_TYPE_EDIT_OPTIONS, REDEMPTION_METHOD_EDIT_OPTIONS,
 } from '../../constants/filterSchema';
 import { fetchActivityById, updateActivityAsAdmin, deleteActivityAsAdmin } from '../../lib/activities';
+import { placeholderImageFor } from '../../lib/placeholderImages';
 import { supabase } from '../../lib/supabase';
 import { uploadActivityPhoto } from '../../lib/photoUpload';
 import { relativeDate } from '../../lib/formatDate';
@@ -500,6 +501,19 @@ export default function ActivityScreen() {
       + (activity.booking_requirement === 'registration_required' ? ' דורש הרשמה מראש.' : '')
       + (activity.indoor_outdoor === 'indoor' ? ' פעילות בתוך מבנה.' : activity.indoor_outdoor === 'outdoor' ? ' פעילות בחוץ.' : '');
 
+  const heroActions = (
+    <>
+      <View style={styles.actionRowRight}>
+        <ActionButton onPress={handleToggleFavorite}><StarIcon size={16} filled={favorite} /></ActionButton>
+        <ActionButton onPress={handleTogglePlanned}><CalendarIcon size={16} filled={planned} /></ActionButton>
+        <ActionButton onPress={handleToggleVisited}><CheckIcon size={16} filled={visited} /></ActionButton>
+      </View>
+      <View style={styles.actionRowLeft}>
+        <ActionButton onPress={handleToggleHidden}><HideIcon size={16} /></ActionButton>
+      </View>
+    </>
+  );
+
   return (
     <View style={styles.screen}>
       <ScrollView showsVerticalScrollIndicator={false}>
@@ -509,25 +523,15 @@ export default function ActivityScreen() {
 
         {activity.imageUrl ? (
           <ImageBackground source={{ uri: activity.imageUrl }} style={styles.hero}>
-            <View style={styles.actionRowRight}>
-              <ActionButton onPress={handleToggleFavorite}><StarIcon size={16} filled={favorite} /></ActionButton>
-              <ActionButton onPress={handleTogglePlanned}><CalendarIcon size={16} filled={planned} /></ActionButton>
-              <ActionButton onPress={handleToggleVisited}><CheckIcon size={16} filled={visited} /></ActionButton>
-            </View>
-            <View style={styles.actionRowLeft}>
-              <ActionButton onPress={handleToggleHidden}><HideIcon size={16} /></ActionButton>
-            </View>
+            {heroActions}
+          </ImageBackground>
+        ) : placeholderImageFor(activity.placeholderGroup) ? (
+          <ImageBackground source={placeholderImageFor(activity.placeholderGroup)} style={styles.hero}>
+            {heroActions}
           </ImageBackground>
         ) : (
           <LinearGradient colors={activity.gradient} style={styles.hero}>
-            <View style={styles.actionRowRight}>
-              <ActionButton onPress={handleToggleFavorite}><StarIcon size={16} filled={favorite} /></ActionButton>
-              <ActionButton onPress={handleTogglePlanned}><CalendarIcon size={16} filled={planned} /></ActionButton>
-              <ActionButton onPress={handleToggleVisited}><CheckIcon size={16} filled={visited} /></ActionButton>
-            </View>
-            <View style={styles.actionRowLeft}>
-              <ActionButton onPress={handleToggleHidden}><HideIcon size={16} /></ActionButton>
-            </View>
+            {heroActions}
           </LinearGradient>
         )}
 

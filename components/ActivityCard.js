@@ -3,6 +3,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { colors, fonts, radii } from '../constants/theme';
 import { StarIcon, HideIcon, CheckIcon, NoteIcon, LocationPinIcon, ChevronLeftIcon } from './icons';
+import { placeholderImageFor } from '../lib/placeholderImages';
 
 function ActionButton({ children, onPress }) {
   return (
@@ -20,6 +21,7 @@ export default function ActivityCard({
   hours,
   gradient,
   imageUrl,
+  placeholderGroup,
   recommendedBy,
   requiresTicket = false,
   benefitTag = null,
@@ -63,6 +65,10 @@ export default function ActivityCard({
     >
       {imageUrl ? (
         <ImageBackground source={{ uri: imageUrl }} style={styles.image}>
+          {imageOverlay}
+        </ImageBackground>
+      ) : placeholderImageFor(placeholderGroup) ? (
+        <ImageBackground source={placeholderImageFor(placeholderGroup)} style={styles.image}>
           {imageOverlay}
         </ImageBackground>
       ) : (
