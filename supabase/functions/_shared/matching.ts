@@ -7,6 +7,8 @@
 // computeConfidence/computeFieldDiff הם חדשים - היישום הישיר של הדרישה "confidence score
 // לכל התאמה" ו-"diff ברור בין השדות שהשתנו".
 
+import { isGenericPlaygroundName } from './playgroundNaming.ts';
+
 // deno-lint-ignore no-explicit-any
 export type SettingsMap = Record<string, any>;
 
@@ -43,6 +45,7 @@ export function haversineKm(lat1: number, lng1: number, lat2: number, lng2: numb
 export interface ExistingActivity {
   id: string;
   name: string;
+  name_source: string | null;
   description: string | null;
   category: string | null;
   min_age: number | null;
@@ -70,7 +73,7 @@ export async function getExistingActivitiesForCity(client: any, city: string, ca
   const { data, error } = await client
     .from('activities')
     .select(`
-      id, name, description, category, min_age, max_age, price_type, price_amount,
+      id, name, name_source, description, category, min_age, max_age, price_type, price_amount,
       booking_requirement, source_url,
       location:locations!inner(name, city, lat, lng),
       activity_schedules(schedule_type, one_time_date, start_time, end_time, day_of_week),
@@ -83,7 +86,7 @@ export async function getExistingActivitiesForCity(client: any, city: string, ca
   const mapped: ExistingActivity[] = (data || []).map((a: any) => {
     const sched = (a.activity_schedules || [])[0] || {};
     return {
-      id: a.id, name: a.name, description: a.description, category: a.category,
+      id: a.id, name: a.name, name_source: a.name_source, description: a.description, category: a.category,
       min_age: a.min_age, max_age: a.max_age, price_type: a.price_type, price_amount: a.price_amount,
       booking_requirement: a.booking_requirement, source_url: a.source_url,
       location_name: a.location?.name ?? null, city: a.location?.city ?? null,
@@ -156,7 +159,7 @@ const DIFF_FIELD_LABELS: Record<string, string> = {
   one_time_date: 'תאריך', start_time: 'שעת התחלה', end_time: 'שעת סיום',
   price_amount: 'מחיר', price_type: 'סוג מחיר', location_name: 'מיקום', city: 'עיר',
   min_age: 'גיל מינימלי', max_age: 'גיל מקסימלי', description: 'תיאור',
-  booking_requirement: 'זמינות/הזמנה', has_image: 'תמונה',
+  booking_requirement: 'זמינות/הזמנה', has_image: 'תמונה', name: 'שם',
 };
 
 export interface DiffEntry { label: string; before: unknown; after: unknown }
@@ -188,6 +191,16 @@ export function computeFieldDiff(candidate: any, existing: ExistingActivity): Re
   const candidateHasImage = Array.isArray(candidate.image_urls) && candidate.image_urls.length > 0;
   if (candidateHasImage && !existing.has_image) {
     compare('has_image', 'אין תמונה', 'נמצאה תמונה');
+  }
+
+  // שדרוג שם (סעיף 9 בבקשה - "אם בעתיד יתגלה שם אמיתי"): רק לגני-שעשועים, רק אם למקור הקיים
+  // אין כבר name_source='admin_confirmed' (מנהל שאישר שם ידנית > הכל, לעולם לא נדרס אוטומטית),
+  // ורק אם המועמד-שנחלץ מציע שם *לא*-גנרי אמיתי שונה מהקיים - לעולם לא דורסים בשם-גנרי אחר.
+  if (
+    existing.category === 'גן שעשועים' && existing.name_source !== 'admin_confirmed'
+    && candidate.name && !isGenericPlaygroundName(candidate.name) && candidate.name !== existing.name
+  ) {
+    compare('name', existing.name, candidate.name);
   }
 
   return diff;

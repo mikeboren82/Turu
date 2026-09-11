@@ -16,6 +16,8 @@
 
 require('dotenv').config();
 const { getClient } = require('./supabase');
+const { generatePlaygroundDisplayName, isGenericPlaygroundName } = require('./playgroundNaming');
+const { normalizeCityName } = require('./cityNaming');
 
 const BATCH_LIMIT = Number(process.argv.find((a) => a.startsWith('--limit='))?.split('=')[1]) || 250;
 
@@ -39,6 +41,12 @@ async function reverseGeocode(lat, lng) {
   url.searchParams.set('lon', String(lng));
   url.searchParams.set('addressdetails', '1');
   url.searchParams.set('zoom', '18'); // רמת-רחוב, לא עיר/מדינה
+  // בלי זה Nominatim מחזיר road/city בכל שפה שרשומה ב-OSM לאזור הזה - ביישובים ערביים/דרוזיים
+  // (למשל ירכא) זו לרוב ערבית, גם כש-addr.city עצמו כן חוזר בעברית (תגית נפרדת). נצפה בפועל:
+  // "free jump" קיבל address="160, يركا" (רחוב בערבית) אבל city="ירכא" (עברית) - אי-התאמה
+  // שגרמה לכרטיס הפעילות (שמציג address) להיראות שונה ממסך הפרטים (שמציג city). he קודם,
+  // עם נפילה חזרה לברירת המחדל המקומית של Nominatim אם באמת אין תגית-שם בעברית לרחוב הזה.
+  url.searchParams.set('accept-language', 'he');
 
   try {
     const res = await fetch(url.toString(), {
@@ -48,9 +56,14 @@ async function reverseGeocode(lat, lng) {
     if (!res.ok) return null;
     const data = await res.json();
     const addr = data.address || {};
-    const road = addr.road || addr.pedestrian || addr.footway || null;
+    let road = addr.road || addr.pedestrian || addr.footway || null;
     const houseNumber = addr.house_number || null;
-    const city = addr.city || addr.town || addr.village || addr.suburb || addr.municipality || null;
+    const city = normalizeCityName(addr.city || addr.town || addr.village || addr.suburb || addr.municipality || null);
+    // accept-language=he עוזר רק כשל-OSM יש בכלל תגית-שם בעברית לרחוב הזה - לא תמיד המצב
+    // (נצפה בפועל: 12/27 עדיין חזרו בערבית גם עם accept-language=he, כי אין name:he על הרחוב
+    // הספציפי). מציג טקסט ערבי בודד בתוך כרטיס בעברית נראה כמו נתון שבור, גם אם "מדויק" - אז
+    // מתייחסים לרחוב-לא-עברי בדיוק כמו רחוב-לא-קיים (לא ממציאים, לא מציגים script לא-עקבי).
+    if (road && /[؀-ۿ]/.test(road)) road = null;
     // בלי road - אין "כתובת" אמיתית להציע (רק עיר לבד לא מוסיף על מה שכבר יש), מוותרים בשקט.
     if (!road) return { city, street: null };
     return { street: houseNumber ? `${road} ${houseNumber}` : road, city };
@@ -97,7 +110,7 @@ async function main() {
   while (true) {
     const { data, error } = await client
       .from('activities')
-      .select('id, name, location_id, location:locations(id, name, address, city, lat, lng)')
+      .select('id, name, category, name_source, location_id, location:locations(id, name, address, city, lat, lng)')
       .range(from, from + 999);
     if (error) throw error;
     all = all.concat(data);
@@ -124,6 +137,21 @@ async function main() {
   console.log(`הסבב הזה מטפל ב-${targets.length} (מכסה: ${BATCH_LIMIT}: ${targetsReverse.length} reverse-geocode, ${targetsForward.length} forward-geocode).`);
   console.log(`קצב: בקשה כל ${MIN_INTERVAL_MS}ms (~${Math.ceil(targets.length * MIN_INTERVAL_MS / 60000)} דקות משוער).\n`);
 
+  // גן-שעשועים שקיבל עכשיו כתובת-רחוב אמיתית לראשונה (tier היה 'no_data' עד עכשיו, ראו
+  // playgroundNaming.js) - הזדמנות לתת לו שם מבוסס-כתובת במקום להישאר תקוע עם שם גנרי/ריק
+  // לנצח (סעיף 9 בבקשה, "אם בעתיד יתגלה מידע"). לא נוגעים ב-admin_confirmed לעולם.
+  async function maybeRenamePlayground(t, address, city) {
+    if (t.category !== 'גן שעשועים' || t.name_source === 'admin_confirmed') return;
+    if (t.name_source && t.name_source !== 'generated_from_address') return; // 'official' - לא לגעת
+    if (t.name_source !== 'generated_from_address' && !isGenericPlaygroundName(t.name)) return;
+    const naming = generatePlaygroundDisplayName({ officialName: t.name_source ? null : t.name, address, city: city || t.location.city });
+    if (!naming.name || naming.name === t.name) return;
+    await client.from('activities').update({
+      name: naming.name, name_source: naming.nameSource,
+      original_source_name: t.name_source ? undefined : (t.name || null),
+    }).eq('id', t.id);
+  }
+
   let enriched = 0;
   let noStreetFound = 0;
   let coordsOnlyFound = 0;
@@ -141,7 +169,7 @@ async function main() {
         const update = { address };
         if (result.city && !t.location.city) update.city = result.city;
         const { error } = await client.from('locations').update(update).eq('id', t.location.id);
-        if (error) { failed++; } else { enriched++; }
+        if (error) { failed++; } else { enriched++; await maybeRenamePlayground(t, address, result.city); }
       }
     } else {
       const result = await forwardGeocode(t.location.name, t.location.city);
@@ -156,7 +184,7 @@ async function main() {
         if (reverse?.city && !t.location.city) update.city = reverse.city;
         const { error } = await client.from('locations').update(update).eq('id', t.location.id);
         if (error) { failed++; }
-        else if (update.address) { enriched++; }
+        else if (update.address) { enriched++; await maybeRenamePlayground(t, update.address, reverse?.city); }
         else { coordsOnlyFound++; } // מיקום נמצא אך בלי רחוב מזוהה - קואורדינטות בכל זאת שימושיות
       }
     }

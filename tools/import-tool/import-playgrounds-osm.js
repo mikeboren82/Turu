@@ -120,6 +120,7 @@ function haversineKm(lat1, lng1, lat2, lng2) {
 // גן-שעשועים ללא name - לא ממציאים שם, משתמשים באותה פונקציה מרכזית שגם המיגרציה החד-פעמית
 // (migrate-playground-names.js) קוראת לה - "לא לשכפל לוגיקה" (סעיף 14 בבקשה, playgroundNaming.js).
 const { generatePlaygroundDisplayName } = require('./playgroundNaming');
+const { normalizeCityName } = require('./cityNaming');
 
 function normalizeElement(el, region) {
   const tags = el.tags || {};
@@ -128,19 +129,23 @@ function normalizeElement(el, region) {
   if (lat == null || lng == null) return null;
   const regionLabel = classifyRegion(lat, lng);
   const street = tags['addr:street'] ? `${tags['addr:street']}${tags['addr:housenumber'] ? ' ' + tags['addr:housenumber'] : ''}` : null;
-  const city = tags['addr:city'] || tags['addr:place'] || null;
+  const city = normalizeCityName(tags['addr:city'] || tags['addr:place'] || null);
   const officialName = tags.name || tags['name:he'] || tags['name:en'] || null;
   const address = [street, city].filter(Boolean).join(', ') || null;
   const hasName = !!officialName;
-  const { name: displayName, tier } = generatePlaygroundDisplayName({ officialName, address, city });
+  const { name: displayName, tier, nameSource } = generatePlaygroundDisplayName({ officialName, address, city });
   return {
     osmType: el.type,
     osmId: el.id,
     sourceUrl: `https://www.openstreetmap.org/${el.type}/${el.id}`,
     // אין city/street כלל (tier==='no_data') - עדיין לא ממציאים שם; נופל לאזור בתור המוצא-אחרון
     // היחיד שבאמת אין ברירה אחרת (שונה מהמיגרציה על נתונים קיימים, ששם משאירים ללא שינוי -
-    // כאן חייבים *איזשהו* name לא-ריק כדי לייבא בכלל, ה-DB לא מאפשר name null).
+    // כאן חייבים *איזשהו* name לא-ריק כדי לייבא בכלל, ה-DB לא מאפשר name null). name_source
+    // נשאר null במקרה הזה בכוונה (לא 'generated_from_address') - זה עדיין לא שם מבוסס-כתובת
+    // אמיתי, רק placeholder-אזורי; משאיר את הרשומה "פתוחה" לשיפור מאוחר יותר (enrich-playground-
+    // addresses.js) בלי לסמן אותה כאילו כבר טופלה.
     name: displayName || `גן שעשועים ציבורי - ${regionLabel}`,
+    nameSource: displayName ? nameSource : null,
     originalSourceName: officialName,
     nameTier: tier,
     hasName,
@@ -299,6 +304,8 @@ async function main() {
           source: 'scraped',
           source_url: c.sourceUrl,
           created_by: userId,
+          name_source: c.nameSource,
+          original_source_name: c.originalSourceName || null,
         });
       if (actErr) throw actErr;
       inserted++;
