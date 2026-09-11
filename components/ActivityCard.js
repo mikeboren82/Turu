@@ -3,7 +3,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { colors, fonts, radii } from '../constants/theme';
 import { StarIcon, HideIcon, CheckIcon, NoteIcon, LocationPinIcon, ChevronLeftIcon } from './icons';
-import { placeholderImageFor } from '../lib/placeholderImages';
+import { placeholderImageFor, placeholderBgColorFor } from '../lib/placeholderImages';
 
 function ActionButton({ children, onPress }) {
   return (
@@ -68,7 +68,11 @@ export default function ActivityCard({
           {imageOverlay}
         </ImageBackground>
       ) : placeholderImageFor(placeholderGroup) ? (
-        <ImageBackground source={placeholderImageFor(placeholderGroup)} style={styles.image}>
+        <ImageBackground
+          source={placeholderImageFor(placeholderGroup)}
+          resizeMode="contain"
+          style={[styles.image, { backgroundColor: placeholderBgColorFor(placeholderGroup) }]}
+        >
           {imageOverlay}
         </ImageBackground>
       ) : (
@@ -124,7 +128,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     marginBottom: 16,
   },
-  image: { height: 158, position: 'relative' },
+  image: { width: '100%', height: 158, position: 'relative' },
   topLeft: { position: 'absolute', top: 10, left: 10 },
   rightStack: { position: 'absolute', top: 10, right: 10, gap: 8 },
   actionBtn: {

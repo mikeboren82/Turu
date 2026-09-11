@@ -13,7 +13,7 @@ import {
   DEFAULT_FILTERS, CATEGORY_OPTIONS, BENEFIT_PROVIDER_EDIT_OPTIONS, BENEFIT_TYPE_EDIT_OPTIONS, REDEMPTION_METHOD_EDIT_OPTIONS,
 } from '../../constants/filterSchema';
 import { fetchActivityById, updateActivityAsAdmin, deleteActivityAsAdmin } from '../../lib/activities';
-import { placeholderImageFor } from '../../lib/placeholderImages';
+import { placeholderImageFor, placeholderBgColorFor } from '../../lib/placeholderImages';
 import { supabase } from '../../lib/supabase';
 import { uploadActivityPhoto } from '../../lib/photoUpload';
 import { relativeDate } from '../../lib/formatDate';
@@ -526,7 +526,11 @@ export default function ActivityScreen() {
             {heroActions}
           </ImageBackground>
         ) : placeholderImageFor(activity.placeholderGroup) ? (
-          <ImageBackground source={placeholderImageFor(activity.placeholderGroup)} style={styles.hero}>
+          <ImageBackground
+            source={placeholderImageFor(activity.placeholderGroup)}
+            resizeMode="contain"
+            style={[styles.hero, { backgroundColor: placeholderBgColorFor(activity.placeholderGroup) }]}
+          >
             {heroActions}
           </ImageBackground>
         ) : (
@@ -1046,7 +1050,7 @@ export default function ActivityScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   headerWrap: { paddingHorizontal: spacing.xl, paddingTop: spacing.xl },
-  hero: { height: 240, marginTop: 12, position: 'relative' },
+  hero: { width: '100%', height: 240, marginTop: 12, position: 'relative' },
   actionRowRight: { position: 'absolute', top: 14, right: 16, flexDirection: 'row-reverse', gap: 8 },
   actionRowLeft: { position: 'absolute', top: 14, left: 16, flexDirection: 'row', gap: 8 },
   actionBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.92)', alignItems: 'center', justifyContent: 'center' },
