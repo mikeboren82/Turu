@@ -22,6 +22,7 @@ import {
 } from '../lib/preferences';
 import { formatChildAge } from '../lib/children';
 import { fetchAllPersonalNotes, savePersonalNote, fetchHiddenActivities, toggleHidden } from '../lib/interactions';
+import { placeholderImageFor, placeholderBgColorFor } from '../lib/placeholderImages';
 import { relativeDate } from '../lib/formatDate';
 import { requestAccountDeletion } from '../lib/legal';
 
@@ -875,6 +876,12 @@ export default function ProfileScreen() {
                 <View style={styles.noteCardTop}>
                   {thumb ? (
                     <Image source={{ uri: thumb }} style={styles.noteThumb} />
+                  ) : placeholderImageFor(note.activity.placeholder_group) ? (
+                    <Image
+                      source={placeholderImageFor(note.activity.placeholder_group)}
+                      resizeMode="contain"
+                      style={[styles.noteThumb, { backgroundColor: placeholderBgColorFor(note.activity.placeholder_group) }]}
+                    />
                   ) : (
                     <View style={styles.noteThumbPlaceholder}><Text style={styles.noteThumbPlaceholderText}>🖼️</Text></View>
                   )}

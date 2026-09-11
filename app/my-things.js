@@ -10,6 +10,7 @@ import { colors, fonts, radii, spacing } from '../constants/theme';
 import { CATEGORY_OPTIONS, REGION_OPTIONS, AGE_OPTIONS } from '../constants/filterSchema';
 import { supabase } from '../lib/supabase';
 import { mapActivityRow } from '../lib/activities';
+import { placeholderImageFor, placeholderBgColorFor } from '../lib/placeholderImages';
 import { relativeDate } from '../lib/formatDate';
 import { openNavigationTo } from '../lib/openNavigation';
 import {
@@ -35,7 +36,7 @@ const SORT_OPTIONS = [
   { id: 'name', label: 'לפי שם פעילות' },
 ];
 
-const NESTED_ACTIVITY_FIELDS = `id, name, category, entity_type, min_age, max_age, status,
+const NESTED_ACTIVITY_FIELDS = `id, name, category, entity_type, placeholder_group, min_age, max_age, status,
   location:locations(id, name, city, region, address, lat, lng),
   activity_images(url)`;
 
@@ -382,6 +383,12 @@ export default function MyThingsScreen() {
                       <View style={styles.noteCardTop}>
                         {thumb ? (
                           <Image source={{ uri: thumb }} style={styles.noteThumb} />
+                        ) : placeholderImageFor(note.activity.placeholder_group) ? (
+                          <Image
+                            source={placeholderImageFor(note.activity.placeholder_group)}
+                            resizeMode="contain"
+                            style={[styles.noteThumb, { backgroundColor: placeholderBgColorFor(note.activity.placeholder_group) }]}
+                          />
                         ) : (
                           <View style={styles.noteThumbPlaceholder}><Text style={styles.noteThumbPlaceholderText}>🖼️</Text></View>
                         )}
@@ -528,6 +535,12 @@ export default function MyThingsScreen() {
                       <View style={styles.cardTop}>
                         {thumb ? (
                           <Image source={{ uri: thumb }} style={styles.thumb} />
+                        ) : placeholderImageFor(a.placeholder_group) ? (
+                          <Image
+                            source={placeholderImageFor(a.placeholder_group)}
+                            resizeMode="contain"
+                            style={[styles.thumb, { backgroundColor: placeholderBgColorFor(a.placeholder_group) }]}
+                          />
                         ) : (
                           <LinearGradient colors={mapActivityRow(a).gradient} style={styles.thumb} />
                         )}

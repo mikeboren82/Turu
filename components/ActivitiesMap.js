@@ -5,6 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { colors, fonts, radii } from '../constants/theme';
 import { ChevronLeftIcon } from './icons';
+import { placeholderImageFor, placeholderBgColorFor } from '../lib/placeholderImages';
 
 const ISRAEL_CENTER = { latitude: 31.4, longitude: 34.9 };
 
@@ -60,6 +61,12 @@ export default function ActivitiesMap({ activities, deviceCoords }) {
         <Pressable style={styles.previewCard} onPress={() => router.push(`/activity/${selected.id}`)}>
           {selected.imageUrl ? (
             <Image source={{ uri: selected.imageUrl }} style={styles.previewImage} />
+          ) : placeholderImageFor(selected.placeholderGroup) ? (
+            <Image
+              source={placeholderImageFor(selected.placeholderGroup)}
+              resizeMode="contain"
+              style={[styles.previewImage, { backgroundColor: placeholderBgColorFor(selected.placeholderGroup) }]}
+            />
           ) : (
             <LinearGradient colors={selected.gradient} style={styles.previewImage} />
           )}
