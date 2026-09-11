@@ -270,6 +270,15 @@ async def run_import_supabase(master_rows: list[dict], stats: dict) -> None:
                 row["status"] = "IMPORTED"
                 row["imported_activity_id"] = new_id
                 imported += 1
+                # מונע כפילויות תוך-ריצה (2026-09-11: אותו באג שנמצא ותוקן ב-scan-source/index.ts,
+                # שם 80+ שורות כפולות נוצרו בפועל) - existing נטען פעם אחת בתחילת הפונקציה ולעולם
+                # לא מתעדכן, כך שמועמד הבא ב-master_rows (למשל מהתאמה בין שתי יישובים סמוכים, או
+                # שני place_id שונים לאותו מקום פיזי בפועל) נבדק רק מול מה שהיה במאגר *לפני* הריצה
+                # הזו, לא מול מה שהריצה עצמה הספיקה ליצור שנייה קודם.
+                existing.append({
+                    "id": new_id, "name": row["name"], "google_place_id": row["google_place_id"],
+                    "lat": row["latitude"], "lon": row["longitude"], "address": row["formatted_address"],
+                })
             except Exception as exc:
                 logger.error("Insert failed for %s: %s", row["google_place_id"], exc)
                 row["status"] = "ERROR"
