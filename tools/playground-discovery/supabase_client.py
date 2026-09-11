@@ -338,6 +338,7 @@ class SupabaseBotClient:
                     "entity_type": "מקום_קבוע",
                     "location_id": location_id,
                     "category": "גן שעשועים",
+                    "placeholder_group": "PLAY_AND_FUN",
                     "price_type": "free",
                     "price_amount": 0,
                     "indoor_outdoor": "outdoor",
