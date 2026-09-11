@@ -64,18 +64,17 @@ def generate_grid(bounds: dict, step_deg: float, radius_m: int) -> list[GridPoin
     """
     if step_deg <= 0:
         raise ValueError("step_deg must be > 0")
+    # Indexed by row/col count (rounded) rather than accumulating floats in a
+    # while-loop condition - repeated += step_deg drifts (e.g. 31.0 + 0.1 + 0.1
+    # lands a hair above 31.2 in binary float), silently dropping the last row/col.
     points: list[GridPoint] = []
-    lat = bounds["min_lat"]
-    row = 0
-    while lat <= bounds["max_lat"]:
-        lon = bounds["min_lon"]
-        col = 0
-        while lon <= bounds["max_lon"]:
-            points.append(GridPoint(grid_id=f"g{row}-{col}", lat=round(lat, 6), lon=round(lon, 6), radius_m=radius_m))
-            lon += step_deg
-            col += 1
-        lat += step_deg
-        row += 1
+    n_rows = round((bounds["max_lat"] - bounds["min_lat"]) / step_deg) + 1
+    n_cols = round((bounds["max_lon"] - bounds["min_lon"]) / step_deg) + 1
+    for row in range(n_rows):
+        lat = round(bounds["min_lat"] + row * step_deg, 6)
+        for col in range(n_cols):
+            lon = round(bounds["min_lon"] + col * step_deg, 6)
+            points.append(GridPoint(grid_id=f"g{row}-{col}", lat=lat, lon=lon, radius_m=radius_m))
     return points
 
 

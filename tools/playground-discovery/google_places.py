@@ -31,6 +31,14 @@ DISCOVERY_FIELD_MASK = ",".join([
     "places.googleMapsUri",
 ])
 
+# IDs-only field mask - bills at Google's cheapest ("Essentials") SKU rather
+# than the "Pro" tier DISCOVERY_FIELD_MASK triggers (any field beyond a bare
+# ID/resource name is Pro). Used only for settlement_gap_check.py's coverage
+# spot-check, where a raw result *count* is all that's needed - never for
+# actually importing a place (a bare ID with no name/address/location isn't
+# usable as an activity record).
+IDS_ONLY_FIELD_MASK = "places.id"
+
 RETRYABLE_STATUS = {429, 500, 502, 503, 504}
 
 
@@ -93,7 +101,7 @@ class GooglePlacesClient:
         self._timeout = timeout_seconds
         self.stats = ApiCallStats()
 
-    async def _post(self, path: str, body: dict, field_mask: str, *, query_label: str | None) -> dict:
+    async def _request(self, method: str, path: str, body: dict | None, field_mask: str, *, query_label: str | None) -> dict:
         url = f"{PLACES_BASE_URL}/{path}"
         headers = {
             "Content-Type": "application/json",
@@ -106,7 +114,7 @@ class GooglePlacesClient:
                 for attempt in range(self._max_retries + 1):
                     await self._rate_limiter.wait()
                     try:
-                        resp = await client.post(url, json=body, headers=headers)
+                        resp = await client.request(method, url, json=body, headers=headers)
                     except httpx.TimeoutException as exc:
                         last_error = exc
                         logger.warning("[ERROR] endpoint=%s query=%s status=timeout retry=%d", path, query_label, attempt)
@@ -128,6 +136,9 @@ class GooglePlacesClient:
                     raise RuntimeError(f"Places API {path} failed: HTTP {resp.status_code} - {resp.text[:300]}")
         raise RuntimeError(f"Places API {path} failed after retries: {last_error}")
 
+    async def _post(self, path: str, body: dict, field_mask: str, *, query_label: str | None) -> dict:
+        return await self._request("POST", path, body, field_mask, query_label=query_label)
+
     @staticmethod
     def _backoff_seconds(attempt: int) -> float:
         import random
@@ -145,6 +156,23 @@ class GooglePlacesClient:
         data = await self._post("places:searchNearby", body, DISCOVERY_FIELD_MASK, query_label=query_label)
         return data.get("places", [])
 
+    async def count_nearby_ids(self, *, lat: float, lon: float, radius_m: int, included_types: list[str] | None,
+                                max_results: int = 20) -> int:
+        """IDs-only Nearby Search (IDS_ONLY_FIELD_MASK) - returns just how many
+        places Google finds, not the places themselves. Cheap ("Essentials" tier)
+        gap-detection signal for settlement_gap_check.py: if this count is
+        meaningfully higher than what's already in TuRu for the same settlement,
+        that settlement is worth a real (Pro-tier) follow-up search."""
+        body = {
+            "locationRestriction": {"circle": {"center": {"latitude": lat, "longitude": lon}, "radius": radius_m}},
+            "maxResultCount": max_results,
+            "rankPreference": "DISTANCE",
+        }
+        if included_types:
+            body["includedTypes"] = included_types
+        data = await self._post("places:searchNearby", body, IDS_ONLY_FIELD_MASK, query_label="__gap_check__")
+        return len(data.get("places", []))
+
     async def search_text(self, *, query: str, lat: float, lon: float, radius_m: int,
                            max_results: int = 20) -> list[dict]:
         body = {
@@ -156,3 +184,13 @@ class GooglePlacesClient:
         }
         data = await self._post("places:searchText", body, DISCOVERY_FIELD_MASK, query_label=query)
         return data.get("places", [])
+
+    async def has_photos(self, place_id: str) -> bool:
+        """Place Details lookup used only to decide whether image enrichment has
+        anything to offer for this place - never downloads/stores the photo
+        itself or its `photos[].name` reference (Google's terms only allow
+        indefinite storage of the place_id, see supabase/0055 and the
+        place-photo Edge Function, which re-resolves the current photo live on
+        every request instead)."""
+        data = await self._request("GET", f"places/{place_id}", None, "photos", query_label="__details_photos__")
+        return bool(data.get("photos"))

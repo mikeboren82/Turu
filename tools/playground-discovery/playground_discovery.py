@@ -36,7 +36,7 @@ CHECKPOINT_PATH = THIS_DIR / "checkpoint.json"
 # Section 4/38 - configuration, not hardcoded logic. Add more phrases here any
 # time without touching the search loop itself.
 SEARCH_QUERIES = [
-    "גן שעשועים", "גני שעשועים", "מתקני משחקים", "פארק ילדים", "פארק שעשועים", "משחקייה בפארק",
+    "גן שעשועים", "גני שעשועים", "גן משחקים", "מתקני משחקים", "פארק ילדים", "פארק שעשועים", "משחקייה בפארק",
     "Playground", "Playgrounds", "Kids Playground", "Children's Playground", "Play Area",
 ]
 NEARBY_INCLUDED_TYPES = ["playground", "park"]
