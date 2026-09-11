@@ -26,6 +26,12 @@
 // מופעלת ע"י pg_cron+pg_net (ראו supabase/0060_settlement_scan_scheduler.sql), אותה תבנית
 // בדיוק כמו scan-source. GOOGLE_MAPS_API_KEY כבר מוגדר כ-secret של הפרויקט (בשימוש גם ע"י
 // place-photo).
+//
+// בסוף כל הרצה (בין אם היתה זו הרצה רגילה או ההרצה האחרונה שסיימה את הסבב) - מייל יומי דרך
+// Resend (RESEND_API_KEY, secret קיים - אותו דפוס בדיוק כמו send-contact-email) עם כמה גני
+// שעשועים חדשים נמצאו היום ועוד כמה ימים נשארו לסיום הסבב המלא - בקשת המשתמש המפורשת
+// (2026-09-11). כשל בשליחת המייל לא מפיל את הסריקה עצמה - ה-cursor וההוספות ל-DB כבר בוצעו
+// והמייל נשלח מתוך try/catch נפרד.
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { classifyPlace, matchAgainstExisting, extractCityFromAddress, type ExistingForMatch } from '../_shared/placesDiscovery.ts';
@@ -42,6 +48,52 @@ const ISRAEL_BOUNDS = { minLat: 29.45, maxLat: 33.35, minLon: 34.20, maxLon: 35.
 const CORS_HEADERS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type' };
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } });
+}
+
+// אותו דפוס בדיוק כמו send-contact-email (RESEND_API_KEY כבר secret קיים בפרויקט, אותו נמען
+// קבוע) - הודעה יומית "כמה גני-שעשועים חדשים נמצאו היום, כמה ימים נשארו לסיום הסבב המלא" -
+// בקשת המשתמש המפורשת (2026-09-11). כשל בשליחת המייל עצמו לא אמור להפיל את הסריקה/ה-cursor -
+// נקרא מתוך try/catch בקריאה, לא כאן.
+const NOTIFY_EMAIL = 'mborenmusic@gmail.com';
+
+function escapeHtml(s: string): string {
+  return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' } as Record<string, string>)[c]);
+}
+
+async function sendDailySummaryEmail(params: {
+  imported: number; importedNames: string[]; checked: number; totalSettlements: number;
+  nextCursor: number; daysRemaining: number; completed: boolean; errorCount: number;
+}) {
+  const resendKey = Deno.env.get('RESEND_API_KEY');
+  if (!resendKey) { console.warn('RESEND_API_KEY not configured - skipping daily summary email'); return; }
+
+  const { imported, importedNames, checked, totalSettlements, nextCursor, daysRemaining, completed, errorCount } = params;
+  const subject = completed
+    ? `TuRu - סריקת גני השעשועים הארצית הסתיימה (${imported} חדשים היום)`
+    : `TuRu - סריקה יומית: ${imported} גני שעשועים חדשים, עוד ${daysRemaining} ימים לסיום`;
+
+  const progressLine = completed
+    ? `<p><b>הסבב הארצי הושלם!</b> ${nextCursor} מתוך ${totalSettlements} יישובים נבדקו. הסריקה כובתה אוטומטית ולא תרוץ שוב עד הפעלה חדשה.</p>`
+    : `<p>התקדמות: ${nextCursor} מתוך ${totalSettlements} יישובים נבדקו עד כה. נותרו בערך <b>${daysRemaining} ימים</b> לסיום הסבב המלא.</p>`;
+
+  const namesList = importedNames.length
+    ? `<ul>${importedNames.map((n) => `<li>${escapeHtml(n)}</li>`).join('')}</ul>`
+    : '<p>לא נמצאו גני שעשועים חדשים בבדיקה של היום.</p>';
+
+  const errorLine = errorCount > 0 ? `<p style="color:#b45309">⚠️ ${errorCount} שגיאות בהרצה הזו - ראו לוגי ה-Edge Function לפרטים.</p>` : '';
+
+  const html = `<div dir="rtl" style="font-family: Arial, sans-serif; font-size: 15px; line-height: 1.6;">` +
+    `<p>נבדקו ${checked} יישובים היום.</p>` +
+    `<p><b>${imported} גני שעשועים חדשים נוספו:</b></p>` +
+    namesList + progressLine + errorLine +
+    `</div>`;
+
+  const res = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ from: 'TuRu <onboarding@resend.dev>', to: [NOTIFY_EMAIL], subject, html }),
+  });
+  if (!res.ok) console.error('Daily summary email failed:', res.status, await res.text());
 }
 
 async function callPlaces(apiKey: string, path: string, body: Record<string, unknown>, fieldMask: string) {
@@ -243,9 +295,20 @@ Deno.serve(async (req: Request) => {
   }
   await client.from('automation_settings').upsert(rows);
 
+  const daysRemaining = Math.max(0, Math.ceil((settlements.length - nextCursor) / batchSize));
+  try {
+    await sendDailySummaryEmail({
+      imported, importedNames, checked: batch.length, totalSettlements: settlements.length,
+      nextCursor, daysRemaining, completed: isLastBatch,
+      errorCount: checkErrors.length + importErrors.length,
+    });
+  } catch (err) {
+    console.error('Daily summary email threw:', err instanceof Error ? err.message : String(err));
+  }
+
   return jsonResponse({
     total_settlements: settlements.length, checked: batch.length, next_cursor: nextCursor,
-    completed: isLastBatch,
+    completed: isLastBatch, days_remaining: daysRemaining,
     flagged: flagged.length, filled: toFill.length, imported, imported_names: importedNames,
     check_errors: checkErrors, import_errors: importErrors,
   });
