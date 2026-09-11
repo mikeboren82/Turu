@@ -19,7 +19,7 @@ import { whenSummary, hebrewJoin, categorySummary } from '../lib/filterSummaries
 import { supabase } from '../lib/supabase';
 import { fetchUserPreferences, saveDefaultHomeFilters } from '../lib/preferences';
 import { childrenToDefaultAgeFilter, formatChildAge } from '../lib/children';
-import { parseSmartSearchQuery, intentToFilters, buildSmartSearchSummary } from '../lib/smartSearch';
+import { parseSmartSearchQuery, intentToFilters } from '../lib/smartSearch';
 import { colors, fonts, radii, spacing } from '../constants/theme';
 
 // "🕐 חיפושים אחרונים" - מוחלף מ"💡 רעיונות לחיפוש" הקבוע (בקשת המשתמש): נשמר מקומית במכשיר
@@ -240,7 +240,6 @@ export default function HomeScreen() {
   const [smartSearchError, setSmartSearchError] = useState('');
   const [smartSearchClarify, setSmartSearchClarify] = useState(null); // { message, pendingIntent }
   const [smartSearchClarifyCity, setSmartSearchClarifyCity] = useState('');
-  const [smartSearchSummary, setSmartSearchSummary] = useState(null); // { intent, chips } - "🔎 הבנתי..."
   const [recentSearches, setRecentSearches] = useState([]);
   const [recentSearchesOpen, setRecentSearchesOpen] = useState(false);
 
@@ -427,19 +426,7 @@ export default function HomeScreen() {
     }
     setSmartSearchText('');
     setSmartSearchClarify(null);
-    setSmartSearchSummary(null);
     router.push({ pathname: '/activities', params });
-  };
-
-  // "🔎 הבנתי שאתם מחפשים:" - מוצג לפני שמריצים את החיפוש בפועל, לא רק אחרי (המשתמש יכול
-  // לתקן לפני שמנווטים, ולא רק דרך "סינון מתקדם" בעמוד התוצאות עצמו).
-  const showSmartSearchSummary = (intent) => {
-    setSmartSearchClarify(null);
-    setSmartSearchSummary({ intent, chips: buildSmartSearchSummary(intent) });
-  };
-
-  const changeSmartSearch = () => {
-    setSmartSearchSummary(null);
   };
 
   const handleSmartSearch = async (overrideText) => {
@@ -450,7 +437,6 @@ export default function HomeScreen() {
     recordRecentSearch(text);
     setSmartSearchError('');
     setSmartSearchClarify(null);
-    setSmartSearchSummary(null);
     setSmartSearchLoading(true);
     try {
       const data = await parseSmartSearchQuery(text);
@@ -467,7 +453,7 @@ export default function HomeScreen() {
         setSmartSearchClarify({ message: '📍 באיזה אזור לחפש?', pendingIntent: data.intent, mode: 'plain' });
         return;
       }
-      showSmartSearchSummary(data.intent);
+      goToSmartSearchResults(data.intent);
     } catch (err) {
       setSmartSearchError(err.message || 'לא הצלחנו להבין את החיפוש, נסו לנסח אחרת');
     } finally {
@@ -483,7 +469,7 @@ export default function HomeScreen() {
     // 'plain' (שלב 7/17) - אין רחוב לגאוקד, רק ממלאים עיר ישירות בקליינט, בלי קריאת שרת נוספת.
     if (smartSearchClarify.mode === 'plain') {
       setSmartSearchClarifyCity('');
-      showSmartSearchSummary({ ...smartSearchClarify.pendingIntent, location: { ...smartSearchClarify.pendingIntent.location, city } });
+      goToSmartSearchResults({ ...smartSearchClarify.pendingIntent, location: { ...smartSearchClarify.pendingIntent.location, city } });
       return;
     }
     setSmartSearchError('');
@@ -497,7 +483,7 @@ export default function HomeScreen() {
         return;
       }
       setSmartSearchClarifyCity('');
-      showSmartSearchSummary(data.intent);
+      goToSmartSearchResults(data.intent);
     } catch (err) {
       setSmartSearchError(err.message || 'לא הצלחנו להבין את החיפוש');
     } finally {
@@ -555,31 +541,7 @@ export default function HomeScreen() {
 
           {smartSearchError ? <Text style={styles.smartSearchErrorText}>{smartSearchError}</Text> : null}
 
-          {smartSearchSummary ? (
-            <View style={styles.smartSearchSummaryBox}>
-              <Text style={styles.smartSearchClarifyText}>🔎 הבנתי שאתם מחפשים:</Text>
-              <View style={styles.smartSearchIdeasRow}>
-                {smartSearchSummary.chips.length > 0 ? smartSearchSummary.chips.map((chip, i) => (
-                  <View key={i} style={styles.smartSearchSummaryChip}>
-                    <Text style={styles.smartSearchSummaryChipText}>{chip.icon} {chip.text}</Text>
-                  </View>
-                )) : (
-                  <Text style={styles.smartSearchIdeasTitle}>הכל, בלי הגבלות מיוחדות</Text>
-                )}
-              </View>
-              <View style={styles.smartSearchSummaryActionsRow}>
-                <Pressable
-                  style={[styles.smartSearchBtn, styles.smartSearchSummaryConfirmBtn]}
-                  onPress={() => goToSmartSearchResults(smartSearchSummary.intent)}
-                >
-                  <Text style={styles.smartSearchBtnText}>🔎 חפשו פעילויות</Text>
-                </Pressable>
-                <Pressable style={styles.smartSearchChangeBtn} onPress={changeSmartSearch}>
-                  <Text style={styles.smartSearchChangeBtnText}>✏️ שינוי חיפוש</Text>
-                </Pressable>
-              </View>
-            </View>
-          ) : smartSearchClarify ? (
+          {smartSearchClarify ? (
             <View style={styles.smartSearchClarifyBox}>
               <Text style={styles.smartSearchClarifyText}>{smartSearchClarify.message}</Text>
               <CityAutocomplete
@@ -835,19 +797,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.accent, borderRadius: radii.pill, paddingVertical: 12,
     alignItems: 'center', marginTop: 10,
   },
-  smartSearchSummaryBox: { marginTop: 14, paddingTop: 14, borderTopWidth: 1, borderTopColor: colors.borderLight },
-  smartSearchSummaryChip: {
-    backgroundColor: colors.accentTintLight, borderWidth: 1, borderColor: colors.accent,
-    borderRadius: radii.pill, paddingVertical: 7, paddingHorizontal: 13,
-  },
-  smartSearchSummaryChipText: { fontFamily: fonts.bold, fontSize: 12.5, color: colors.accent },
-  smartSearchSummaryActionsRow: { flexDirection: 'row-reverse', gap: 10, marginTop: 14 },
-  smartSearchSummaryConfirmBtn: { flex: 1, paddingVertical: 12 },
-  smartSearchChangeBtn: {
-    flex: 1, borderWidth: 1, borderColor: colors.border, borderRadius: radii.pill,
-    paddingVertical: 12, alignItems: 'center',
-  },
-  smartSearchChangeBtnText: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.textSecondary },
   smartSearchIdeasWrap: { marginTop: 14, paddingTop: 14, borderTopWidth: 1, borderTopColor: colors.borderLight },
   smartSearchIdeasTitle: { fontFamily: fonts.bold, fontSize: 12.5, color: colors.textSecondary, textAlign: 'right', marginBottom: 8 },
   recentSearchesHeader: { flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between' },

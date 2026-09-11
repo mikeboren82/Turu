@@ -62,7 +62,7 @@ async function autoApproveNewActivity(
   createdBy: string | null,
   sourceUrl: string,
   candidate: Record<string, unknown>,
-): Promise<string> {
+): Promise<{ id: string; lat: number | null; lng: number | null }> {
   // מנרמל city לצורה קנונית לפני כל כתיבה - מונע וריאציות-איות שמפצלות אותה עיר לכמה ערכים
   // (ראו tools/import-tool/cityNaming.js + migrate-city-names.js, 2026-09-11).
   candidate = { ...candidate, city: normalizeCityName(candidate.city as string | null) };
@@ -93,6 +93,8 @@ async function autoApproveNewActivity(
   // לא משאירים יתום) וזורקים; הקורא כבר תופס את זה ונופל בחזרה לתור-בדיקה ידנית של מנהל.
   const { data: locRow } = await client.from('locations').select('lat, lng, address, name, city').eq('id', locationId).maybeSingle();
   let hasCoords = !!(locRow && (locRow as { lat: unknown }).lat != null);
+  let finalLat = (locRow as { lat: number | null } | null)?.lat ?? null;
+  let finalLng = (locRow as { lng: number | null } | null)?.lng ?? null;
   if (locRow && !hasCoords) {
     const l = locRow as { address: string | null; name: string | null; city: string | null };
     const query = [l.address, l.name, l.city].filter(Boolean).join(', ') || l.city;
@@ -101,6 +103,8 @@ async function autoApproveNewActivity(
       if (coords) {
         await client.from('locations').update({ lat: coords.lat, lng: coords.lng }).eq('id', locationId);
         hasCoords = true;
+        finalLat = coords.lat;
+        finalLng = coords.lng;
       }
     }
   }
@@ -166,7 +170,7 @@ async function autoApproveNewActivity(
     }));
   if (images.length) await client.from('activity_images').insert(images);
 
-  return activityId;
+  return { id: activityId, lat: finalLat, lng: finalLng };
 }
 
 const CORS_HEADERS = {
@@ -511,9 +515,33 @@ Deno.serve(async (req: Request) => {
         let autoApprovedActivityId: string | null = null;
         if (matchType === 'new' && autoApproveEligible(candidate, issues)) {
           try {
-            autoApprovedActivityId = await autoApproveNewActivity(client, source.created_by ?? null, pageUrl, candidate);
+            const approved = await autoApproveNewActivity(client, source.created_by ?? null, pageUrl, candidate);
+            autoApprovedActivityId = approved.id;
             status = 'approved';
             existingActivityId = null;
+            // מונע כפילויות תוך-סריקה: בלי זה, שני מועמדים דומים שנחלצו באותה סריקה (למשל אותה
+            // פעילות שמופיעה כמה פעמים באותו עמוד/מקור) לא "רואים" זה את זה - cityCache נטען פעם
+            // אחת בתחילת הריצה ולעולם לא מתעדכן, כך שהמועמד הבא באותה עיר נבדק רק מול המצב שהיה
+            // במאגר *לפני* הסריקה הזו, לא מול מה שהסריקה עצמה כבר יצרה שנייה קודם - זה הביא בפועל
+            // ליצירת כמה עשרות שורות כפולות לאותו גן שעשועים פיזי (נצפה: "יצחק רבין, צורן" x7).
+            if (candidate.city) {
+              const cityKey = candidate.city as string;
+              const list = cityCache.get(cityKey) || [];
+              list.push({
+                id: approved.id, name: candidate.name as string, name_source: null,
+                description: candidate.description as string | null, category: candidate.category as string | null,
+                min_age: candidate.min_age as number | null, max_age: candidate.max_age as number | null,
+                price_type: candidate.price_type as string | null, price_amount: candidate.price_amount as number | null,
+                booking_requirement: candidate.booking_requirement as string | null, source_url: pageUrl,
+                location_name: candidate.location_name as string | null, city: cityKey,
+                lat: approved.lat, lng: approved.lng,
+                schedule_type: candidate.schedule_type as string | null, one_time_date: candidate.one_time_date as string | null,
+                start_time: candidate.start_time as string | null, end_time: candidate.end_time as string | null,
+                recurring_days: (candidate.recurring_days as string[]) || [],
+                has_image: Array.isArray(candidate.images) && (candidate.images as unknown[]).length > 0,
+              });
+              cityCache.set(cityKey, list);
+            }
           } catch (saveErr) {
             // כשל ביצירה בפועל (למשל geocoding נכשל בצורה לא-צפויה) - לא "בולעים" את המועמד,
             // נופלים בחזרה לתור-הבדיקה הרגיל של מנהל, בדיוק כמו שהיה קורה בלי אוטומציה בכלל.
