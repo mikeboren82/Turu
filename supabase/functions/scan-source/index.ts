@@ -25,6 +25,8 @@ import {
   findSimilarActivities, computeConfidence, computeFieldDiff, getConfidenceThresholds,
   type ExistingActivity,
 } from '../_shared/matching.ts';
+import { generatePlaygroundDisplayName } from '../_shared/playgroundNaming.ts';
+import { normalizeCityName } from '../_shared/cityNaming.ts';
 
 // TuRu מציגה רק פעילויות שאפשר להגיע אליהן מתי שרוצים בלי הרשמה/התחייבות מראש (אותו כלל בדיוק
 // כמו shouldArchiveForCommitment ב-tools/import-tool/server.js - "פעילות" = חוג/סדנה/פעילות
@@ -61,6 +63,9 @@ async function autoApproveNewActivity(
   sourceUrl: string,
   candidate: Record<string, unknown>,
 ): Promise<string> {
+  // מנרמל city לצורה קנונית לפני כל כתיבה - מונע וריאציות-איות שמפצלות אותה עיר לכמה ערכים
+  // (ראו tools/import-tool/cityNaming.js + migrate-city-names.js, 2026-09-11).
+  candidate = { ...candidate, city: normalizeCityName(candidate.city as string | null) };
   let locationId: string | null = null;
   let createdNewLocation = false;
   const locationName = candidate.location_name as string;
@@ -104,10 +109,28 @@ async function autoApproveNewActivity(
     throw new Error(`לא נמצאה כתובת מאומתת למקום "${locationName}"`);
   }
 
+  // גן-שעשועים ללא שם רשמי מקבל שם מבוסס-כתובת - אותה לוגיקה בדיוק כמו saveNewActivity
+  // ב-tools/import-tool/server.js (playgroundNaming.js), בעותק Deno (_shared/playgroundNaming.ts).
+  let finalName = candidate.name as string;
+  let nameSource: string | null = null;
+  let originalSourceName: string | null = null;
+  if (candidate.category === 'גן שעשועים') {
+    const l = locRow as { address: string | null; city: string | null } | null;
+    const naming = generatePlaygroundDisplayName({ officialName: finalName, address: l?.address ?? null, city: l?.city ?? null });
+    if (naming.name && naming.name !== finalName) {
+      originalSourceName = finalName || null;
+      finalName = naming.name;
+      nameSource = naming.nameSource;
+    } else {
+      nameSource = 'official';
+    }
+  }
+
   const { data: savedActivity, error: actErr } = await client
     .from('activities')
     .insert({
-      name: candidate.name, description: candidate.description || null, entity_type: candidate.entity_type,
+      name: finalName, name_source: nameSource, original_source_name: originalSourceName,
+      description: candidate.description || null, entity_type: candidate.entity_type,
       location_id: locationId, location_detail: candidate.location_detail || null,
       min_age: candidate.min_age ?? null, max_age: candidate.max_age ?? null,
       price_type: candidate.price_type || null, price_amount: candidate.price_amount ?? null,

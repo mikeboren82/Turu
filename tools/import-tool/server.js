@@ -5,6 +5,7 @@ const Anthropic = require('@anthropic-ai/sdk');
 const { renderPage } = require('./page');
 const { renderManagePage } = require('./manage');
 const { renderMembersPage } = require('./members');
+const { renderArchivePage } = require('./archive');
 const { renderContributorsPage } = require('./contributors');
 const { renderFeedbackPage } = require('./feedback');
 const { renderMessagesPage } = require('./messages');
@@ -12,6 +13,27 @@ const { renderDashboardPage } = require('./dashboard');
 const { renderSourcesPage } = require('./sources');
 const { renderIncomingPage } = require('./incoming');
 const { getClient } = require('./supabase');
+const { generatePlaygroundDisplayName, isGenericPlaygroundName } = require('./playgroundNaming');
+const { normalizeCityName } = require('./cityNaming');
+
+// Supabase/PostgREST מגביל תגובת select ל-1000 שורות כברירת מחדל בשקט (בלי שגיאה!) - באג
+// שנתקלנו בו שוב ושוב במקומות נפרדים בקובץ הזה (activities/contributors/duplicates/geocode-
+// missing, כל אחת בנפרד עד עכשיו - 2026-09-11 audit). helper אחד משותף במקום העתק-הדבק של
+// אותה לולאת-range בכל endpoint חדש. queryBuilder הוא פונקציה שמחזירה שאילתה *בלי* .range()
+// (עם select/eq/order/וכו' משלה) - ה-helper מוסיף את ה-range ולולאת-העימוד.
+async function fetchAllRows(queryBuilder) {
+  let data = [];
+  let from = 0;
+  const pageSize = 1000;
+  while (true) {
+    const { data: page, error } = await queryBuilder().range(from, from + pageSize - 1);
+    if (error) throw error;
+    data = data.concat(page);
+    if (page.length < pageSize) break;
+    from += pageSize;
+  }
+  return data;
+}
 
 const app = express();
 // המגבלה הרגילה (100kb) קטנה מדי להעלאת תמונה ידנית (base64 בגוף הבקשה) - כלי פנימי
@@ -827,10 +849,13 @@ app.post('/api/discover/scrape', async (req, res) => {
 // *לפני* שיוצרים שורת location חדשה, כך שאף פעם לא נוצרת שורה שצריך למחוק. location *קיים*
 // עם קואורדינטות-חסרות (אולי פעילות אחרת כבר מצביעה עליו) נשאר כמו שהוא בלי נגיעה - רק מנסים
 // להשלים לו קואורדינטות אם ניתן, לא מוחקים.
-async function requireVerifiedLocation(client, activity) {
-  if (!activity.location_name) {
+async function requireVerifiedLocation(client, rawActivity) {
+  if (!rawActivity.location_name) {
     throw new Error('לא נמצאה כתובת למקום - הפעילות לא נשמרה (חובה מיקום עם כתובת מאומתת)');
   }
+  // מנרמל city לצורה קנונית (cityNaming.js) לפני כל כתיבה - מונע וריאציות-איות ("תל אביב" מול
+  // "תל־אביב–יפו") שמפצלות אותה עיר לכמה ערכים שונים, ראו migrate-city-names.js.
+  const activity = { ...rawActivity, city: normalizeCityName(rawActivity.city) };
   const { data: existing, error: findErr } = await client
     .from('locations')
     .select('id, city, region, lat, lng')
@@ -881,10 +906,35 @@ async function saveNewActivity(client, userId, sourceUrl, activity) {
     const archived = shouldArchiveForCommitment(activity);
     const locationId = await requireVerifiedLocation(client, activity);
 
+    // גן-שעשועים ללא שם רשמי מקבל שם מבוסס-כתובת במקום גנרי, באותה פונקציה מרכזית שגם
+    // migrate-playground-names.js/import-playgrounds-osm.js קוראים לה (playgroundNaming.js -
+    // "לא לשכפל לוגיקה", סעיף 14 בבקשה). נקודת-הכניסה היחידה ל-activities חדשות בקוד ה-Node
+    // (קליטה ידנית + אישור "מקורות מידע" - שתיהן עוברות כאן) - אבל *לא* היחידה במערכת כולה:
+    // scan-source (Deno, אישור-אוטומטי) מריצה את אותה לוגיקה בעותק TypeScript נפרד
+    // (supabase/functions/_shared/playgroundNaming.ts, אותם דפוסים/פורמט בדיוק).
+    let finalName = activity.name;
+    let nameSource = null;
+    let originalSourceName = null;
+    if (activity.category === 'גן שעשועים') {
+      const { data: loc } = await client.from('locations').select('address, city').eq('id', locationId).maybeSingle();
+      const naming = generatePlaygroundDisplayName({
+        officialName: activity.name, address: loc?.address || null, city: loc?.city || null,
+      });
+      if (naming.name && naming.name !== activity.name) {
+        finalName = naming.name;
+        nameSource = naming.nameSource;
+        originalSourceName = activity.name || null;
+      } else if (activity.name && !isGenericPlaygroundName(activity.name)) {
+        nameSource = 'official';
+      }
+    }
+
     const { data: savedActivity, error: actErr } = await client
       .from('activities')
       .insert({
-        name: activity.name,
+        name: finalName,
+        name_source: nameSource,
+        original_source_name: originalSourceName,
         description: activity.description || null,
         entity_type: activity.entity_type,
         location_id: locationId,
@@ -1129,6 +1179,13 @@ async function applyIncomingUpdate(client, userId, existingActivityId, diff, can
   for (const [key, entry] of Object.entries(diff || {})) {
     if (INCOMING_UPDATE_SCALAR_KEYS.has(key)) scalarFields[key] = entry.after;
   }
+  // diff.name קיים רק כשמקורות.ts (matching.ts computeFieldDiff) כבר סינן שזה גן-שעשועים עם
+  // name_source לא-admin_confirmed ושם-מועמד לא-גנרי - כאן רק מיישמים, name_source='official'
+  // כי המקור הוא שם אמיתי שהתגלה מסריקה, לא שם שיצרנו מכתובת (סעיף 9 בבקשה).
+  if (diff?.name) {
+    scalarFields.name = diff.name.after;
+    scalarFields.name_source = 'official';
+  }
   if (Object.keys(scalarFields).length > 0) {
     const { error } = await client.from('activities').update(scalarFields).eq('id', existingActivityId);
     if (error) throw error;
@@ -1141,7 +1198,7 @@ async function applyIncomingUpdate(client, userId, existingActivityId, diff, can
     if (current?.location_id) {
       const locFields = {};
       if (diff.location_name) locFields.name = diff.location_name.after;
-      if (diff.city) locFields.city = diff.city.after;
+      if (diff.city) locFields.city = normalizeCityName(diff.city.after);
       const { error: locErr } = await client.from('locations').update(locFields).eq('id', current.location_id);
       if (locErr) throw locErr;
       if (diff.city) await geocodeAndFillLocation(client, current.location_id, { force: true });
@@ -1200,14 +1257,13 @@ const PROXIMITY_NAME_SCORE = 0.4;
 app.get('/api/duplicates', async (req, res) => {
   try {
     const { client } = await getClient();
-    const [{ data, error }, { data: dismissedRows, error: dismErr }] = await Promise.all([
-      client
+    const [data, { data: dismissedRows, error: dismErr }] = await Promise.all([
+      fetchAllRows(() => client
         .from('activities')
         .select('id, name, entity_type, status, source, source_url, created_at, location:locations(name, lat, lng)')
-        .order('created_at', { ascending: false }),
+        .order('created_at', { ascending: false })),
       client.from('dismissed_duplicates').select('activity_id_a, activity_id_b'),
     ]);
-    if (error) throw error;
     if (dismErr) throw dismErr;
 
     const dismissed = new Set((dismissedRows || []).map((r) => dismissKey(r.activity_id_a, r.activity_id_b)));
@@ -1574,27 +1630,28 @@ app.post('/api/manage/photo-status', async (req, res) => {
 app.get('/api/manage/activities', async (req, res) => {
   try {
     const { client } = await getClient();
-    // Supabase מגביל תגובת select ל-1000 שורות כברירת מחדל בשקט (בלי שגיאה!) - בדיוק הבאג
-    // שכבר תועד/נתקל בו ב-import-playgrounds-osm.js. בלי pagination מפורש כאן, הדשבורד/עמוד
-    // הפעילויות "רואים" רק 1000 מתוך (נכון לעכשיו) 6000+ פעילויות אמיתיות - מספרים שגויים
-    // בכל מקום שמסתמך על ה-endpoint הזה (כרטיסי הדשבורד, ספירת "עם בעיות" וכו').
-    let data = [];
-    let from = 0;
-    while (true) {
-      const { data: page, error } = await client
-        .from('activities')
-        .select(MANAGE_SELECT)
-        .order('created_at', { ascending: false })
-        .range(from, from + 999);
-      if (error) throw error;
-      data = data.concat(page);
-      if (page.length < 1000) break;
-      from += 1000;
-    }
+    const data = await fetchAllRows(() => client
+      .from('activities')
+      .select(MANAGE_SELECT)
+      .order('created_at', { ascending: false }));
     res.json({ activities: data });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message || 'שגיאה בטעינת הפעילויות' });
+  }
+});
+
+app.post('/api/manage/delete-activity', async (req, res) => {
+  const { id } = req.body || {};
+  if (!id) return res.status(400).json({ error: 'חסר מזהה פעילות' });
+  try {
+    const { client } = await getClient();
+    const { error } = await client.from('activities').delete().eq('id', id);
+    if (error) throw error;
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || 'שגיאה במחיקת הפעילות' });
   }
 });
 
@@ -1777,7 +1834,7 @@ app.post('/api/manage/update', async (req, res) => {
 
       const locFields = {};
       if (typeof location.name === 'string') locFields.name = location.name;
-      if (typeof location.city === 'string') locFields.city = location.city || null;
+      if (typeof location.city === 'string') locFields.city = normalizeCityName(location.city) || null;
       if (typeof location.region === 'string') locFields.region = location.region || null;
       if (typeof location.address === 'string') locFields.address = location.address || null;
 
@@ -1804,6 +1861,15 @@ app.post('/api/manage/update', async (req, res) => {
     // עריכה נחשבת אימות - כל שמירה (גם אם רק שדה מיקום השתנה) "מגעת" בפעילות, אז מעדכנים
     // last_verified_at כדי שהיא תרד מרשימת "דורשות עדכון" בדשבורד בלי צורך בפעולה נפרדת.
     safeFields.last_verified_at = new Date().toISOString();
+
+    // מנהל שערך name ידנית לגן-שעשועים = אישר אותו כשם אמיתי - מסמנים name_source='admin_confirmed'
+    // כדי שהוא לעולם לא יידרס שוב ע"י מיגרציה/ingestion אוטומטיים (סעיף 9/14 בבקשה,
+    // playgroundNaming.js). בודקים category בפועל (לא סומכים על safeFields.category, שאולי
+    // לא נשלח בבקשה הזו בכלל) כדי שזה יעבוד גם כשעורכים רק name בלי לגעת בשדות אחרים.
+    if (typeof safeFields.name === 'string' && safeFields.name.trim()) {
+      const { data: current } = await client.from('activities').select('category').eq('id', id).maybeSingle();
+      if (current?.category === 'גן שעשועים') safeFields.name_source = 'admin_confirmed';
+    }
 
     if (Object.keys(safeFields).length > 0) {
       const { error: updErr } = await client.from('activities').update(safeFields).eq('id', id);
@@ -1931,11 +1997,10 @@ app.post('/api/manage/geocode-location', async (req, res) => {
 app.post('/api/manage/geocode-missing', async (req, res) => {
   try {
     const { client } = await getClient();
-    const { data: locations, error } = await client
+    const locations = await fetchAllRows(() => client
       .from('locations')
       .select('id, name, address, city')
-      .or('lat.is.null,lng.is.null');
-    if (error) throw error;
+      .or('lat.is.null,lng.is.null'));
 
     let geocoded = 0;
     let failed = 0;
@@ -1999,12 +2064,12 @@ async function checkOneLink(url) {
 app.post('/api/manage/check-links', async (req, res) => {
   try {
     const { client } = await getClient();
-    // שליפה מלאה + סינון ב-JS (לא שני .or() מחוברים) - הטבלה קטנה, ופחות שביר מהרכבת שאילתת
-    // PostgREST מורכבת עם שני תנאי or נפרדים.
-    const { data: activities, error } = await client
+    // שליפה מלאה + סינון ב-JS (לא שני .or() מחוברים) - פחות שביר מהרכבת שאילתת PostgREST
+    // מורכבת עם שני תנאי or נפרדים. "הטבלה קטנה" (הערה קודמת כאן) היה שגוי בפועל - activities
+    // כבר מעל 6000 שורות, אז fetchAllRows נדרש כאן בדיוק כמו בכל מקום אחר בקובץ.
+    const activities = await fetchAllRows(() => client
       .from('activities')
-      .select('id, source_url, official_url, link_checked_at');
-    if (error) throw error;
+      .select('id, source_url, official_url, link_checked_at'));
 
     const staleBeforeMs = Date.now() - LINK_CHECK_STALE_MS;
     const targets = (activities || [])
@@ -2037,6 +2102,10 @@ app.post('/api/manage/check-links', async (req, res) => {
 
 app.get('/members', (req, res) => {
   res.type('html').send(renderMembersPage());
+});
+
+app.get('/archive', (req, res) => {
+  res.type('html').send(renderArchivePage());
 });
 
 app.get('/api/manage/members', async (req, res) => {
@@ -2081,12 +2150,11 @@ app.get('/contributors', (req, res) => {
 app.get('/api/manage/contributors', async (req, res) => {
   try {
     const { client } = await getClient();
-    const { data: activities, error } = await client
+    const activities = await fetchAllRows(() => client
       .from('activities')
       .select('id, name, status, category, entity_type, created_at, created_by, location:locations(name, city)')
       .not('created_by', 'is', null)
-      .order('created_at', { ascending: false });
-    if (error) throw error;
+      .order('created_at', { ascending: false }));
 
     const activitiesByUser = new Map();
     for (const a of activities || []) {

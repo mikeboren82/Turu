@@ -35,6 +35,7 @@ const PRIMARY_ITEMS = [
   { key: 'import', href: '/import', label: '➕ הוספת תוכן' },
   { key: 'sources', href: '/sources', label: '🌐 מקורות' },
   { key: 'incoming', href: '/incoming', label: '🆕 פעילויות שנמצאו' },
+  { key: 'archive', href: '/archive', label: '🗄️ ארכיון' },
 ];
 
 const USER_ITEMS = [
