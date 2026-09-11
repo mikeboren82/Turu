@@ -44,3 +44,20 @@ supabase/.temp/
 # generated native folders
 /ios
 /android
+
+# one-time script run output (logs/CSVs/audit JSON/checkpoints) - not source, regenerated per-run
+tools/import-tool/*.log
+tools/import-tool/_playground-name-migration-audit-*.json
+tools/import-tool/_final_examples*.txt
+tools/import-tool/_audit_sample.txt
+tools/playground-discovery/*.log
+tools/playground-discovery/*.csv
+tools/playground-discovery/*.jsonl
+tools/playground-discovery/*.json
+tools/playground-discovery/_*.txt
+tools/playground-discovery/checkpoint.json
+tools/playground-discovery/__pycache__/
+_all_cities_raw.json
+_merged_city_candidates.txt
+_categories_list.txt
+_audit_sample.txt
