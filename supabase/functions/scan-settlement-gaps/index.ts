@@ -124,6 +124,21 @@ async function searchTextPlaygrounds(apiKey: string, lat: number, lon: number, r
   return data.places || [];
 }
 
+// עותק מדויק של has_photos (tools/playground-discovery/google_places.py) - Place Details עם
+// field mask "photos" בלבד, לא שומר את התמונה/photo name בעצמה (תנאי-שימוש של Google Maps
+// Platform מתירים אחסון-קבע רק ל-place_id) - ראו supabase/functions/place-photo שמפענח את
+// זה חדש בכל בקשה. נבדק אוטומטית לכל גן-שעשועים חדש שהריצה הזו עצמה מייבאת (ראו למטה) - בקשת
+// המשתמש המפורשת (2026-09-11: "לבדוק אם אפשר למצוא תמונות לגני שעשועים אחרים בקלות") - בלי זה,
+// תמונות היו נשארות חסרות עד שמישהו מריץ ידנית את tools/playground-discovery/enrich_images.py.
+async function hasPhotos(apiKey: string, placeId: string): Promise<boolean> {
+  const res = await fetch(`${PLACES_BASE_URL}/places/${placeId}`, {
+    headers: { 'X-Goog-Api-Key': apiKey, 'X-Goog-FieldMask': 'photos' },
+  });
+  if (!res.ok) throw new Error(`Places API details failed: HTTP ${res.status}`);
+  const data = await res.json();
+  return !!(data.photos && data.photos.length > 0);
+}
+
 function isInBounds(lat: number | null, lon: number | null): boolean {
   if (lat == null || lon == null) return false;
   return lat >= ISRAEL_BOUNDS.minLat && lat <= ISRAEL_BOUNDS.maxLat && lon >= ISRAEL_BOUNDS.minLon && lon <= ISRAEL_BOUNDS.maxLon;
@@ -270,7 +285,7 @@ Deno.serve(async (req: Request) => {
         .select('id').single();
       if (locErr) { importErrors.push({ city: s.city, error: locErr.message }); continue; }
 
-      const { error: actErr } = await client.from('activities').insert({
+      const { data: actRow, error: actErr } = await client.from('activities').insert({
         name: finalName, name_source: nameSource, entity_type: 'מקום_קבוע', location_id: (locRow as { id: string }).id,
         category: 'גן שעשועים', placeholder_group: 'PLAY_AND_FUN', price_type: 'free', price_amount: 0,
         indoor_outdoor: 'outdoor', booking_requirement: 'none', status: 'approved', source: 'scraped',
@@ -281,6 +296,21 @@ Deno.serve(async (req: Request) => {
       imported++;
       importedNames.push(`${finalName} (${s.city})`);
       existing.push({ id: 'pending', name: finalName, google_place_id: placeId, lat, lon }); // מונע כפילות תוך-ריצה
+
+      // תמונה אמיתית מיד, לא רק שם/כתובת - קריאת Place Details נוספת (photos בלבד) פר-גן-חדש,
+      // מוגבל טבעית ל-daily_pro_budget מקומות/יום (אותו גבול-תקציב כמו החיפוש עצמו) - לא עלות
+      // בלתי-חסומה. כשל בבדיקת-תמונה לא נחשב import error (הגן עצמו כבר נשמר בהצלחה).
+      try {
+        if (await hasPhotos(apiKey, placeId)) {
+          await client.from('activity_images').insert({
+            activity_id: (actRow as { id: string }).id,
+            url: `${Deno.env.get('SUPABASE_URL')}/functions/v1/place-photo/${placeId}`,
+            uploaded_by: null, image_source_type: 'PROVIDER', image_source_url: p.googleMapsUri ?? null,
+          });
+        }
+      } catch (err) {
+        console.error('Photo check failed for', placeId, err instanceof Error ? err.message : String(err));
+      }
     }
   }
 
