@@ -15,6 +15,7 @@ const { renderIncomingPage } = require('./incoming');
 const { getClient } = require('./supabase');
 const { generatePlaygroundDisplayName, isGenericPlaygroundName } = require('./playgroundNaming');
 const { normalizeCityName } = require('./cityNaming');
+const { classifyPlaceholderGroup } = require('./placeholderGroup');
 
 // Supabase/PostgREST מגביל תגובת select ל-1000 שורות כברירת מחדל בשקט (בלי שגיאה!) - באג
 // שנתקלנו בו שוב ושוב במקומות נפרדים בקובץ הזה (activities/contributors/duplicates/geocode-
@@ -929,6 +930,15 @@ async function saveNewActivity(client, userId, sourceUrl, activity) {
       }
     }
 
+    // תמונה חסרה כבר לא צריכה למנוע כניסה למאגר (בקשת המשתמש, 2026-09-11) - placeholder_group
+    // מחושב כאן מראש (ינוקה בהמשך אם בכל זאת נמצאה תמונה אמיתית - ראו imageAdded/searchGoogleImage
+    // למטה). לא נקבע כלל אם יש כבר תמונה שהגיעה עם הפעילות (images/image_urls).
+    const hasProvidedImage = (Array.isArray(activity.images) && activity.images.length > 0)
+      || (Array.isArray(activity.image_urls) && activity.image_urls.length > 0);
+    const placeholderGroup = hasProvidedImage
+      ? null
+      : classifyPlaceholderGroup({ category: activity.category, name: finalName, description: activity.description });
+
     const { data: savedActivity, error: actErr } = await client
       .from('activities')
       .insert({
@@ -944,6 +954,7 @@ async function saveNewActivity(client, userId, sourceUrl, activity) {
         price_type: activity.price_type || null,
         price_amount: activity.price_amount ?? null,
         category: activity.category || null,
+        placeholder_group: placeholderGroup,
         duration_minutes: activity.duration_minutes ?? null,
         indoor_outdoor: activity.indoor_outdoor || null,
         booking_requirement: activity.booking_requirement || null,
@@ -1029,7 +1040,12 @@ async function saveNewActivity(client, userId, sourceUrl, activity) {
         const { error: autoImgErr } = await client
           .from('activity_images')
           .insert({ activity_id: savedActivity.id, url: foundUrl, uploaded_by: userId });
-        if (autoImgErr) console.error('שמירת תמונה שנמצאה אוטומטית נכשלה:', autoImgErr);
+        if (autoImgErr) {
+          console.error('שמירת תמונה שנמצאה אוטומטית נכשלה:', autoImgErr);
+        } else if (placeholderGroup) {
+          // תמונה אמיתית בכל זאת נמצאה - אין עוד צורך ב-placeholder שנקבע מראש.
+          await client.from('activities').update({ placeholder_group: null }).eq('id', savedActivity.id);
+        }
       }
     }
 

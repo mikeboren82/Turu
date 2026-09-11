@@ -1,8 +1,8 @@
 // TuRu - "מקורות מידע": הפונקציה שסורקת מקור אחד (seed URL + עד כמה דפי-רשימה שהתגלו באותו
 // דומיין), מחלצת פעילויות (רק מדפים ששונו מאז הסריקה הקודמת - ראו _shared/hashing.ts), מזהה
-// חדש/עדכון/כפילות מול המאגר הקיים, ומטמינה הכל בתור incoming_activities לבדיקת מנהל. שום
-// דבר לא נכתב ל-activities/locations/וכו' כאן - זה קורה רק דרך אישור מנהל בכלי הניהול
-// (POST /api/incoming/:id/approve).
+// חדש/עדכון/כפילות מול המאגר הקיים, ומטמינה הכל בתור incoming_activities לבדיקת מנהל -
+// חוץ ממועמד *חדש* וזכאי-לאישור-אוטומטי (autoApproveEligible/autoApproveNewActivity למטה),
+// שנכתב ישירות ל-activities/locations כ-status='approved' בלי לחכות לבדיקת מנהל בכלל.
 //
 // מופעלת דרך HTTP POST {source_id} - או ע"י _dispatch_source_scan (מה-scheduler, pg_cron+
 // pg_net) או ישירות מכלי הניהול (כפתור "סרוק עכשיו"). אימות: לא מסתמכים על ברירת המחדל
@@ -27,6 +27,7 @@ import {
 } from '../_shared/matching.ts';
 import { generatePlaygroundDisplayName } from '../_shared/playgroundNaming.ts';
 import { normalizeCityName } from '../_shared/cityNaming.ts';
+import { classifyPlaceholderGroup } from '../_shared/placeholderGroup.ts';
 
 // TuRu מציגה רק פעילויות שאפשר להגיע אליהן מתי שרוצים בלי הרשמה/התחייבות מראש (אותו כלל בדיוק
 // כמו shouldArchiveForCommitment ב-tools/import-tool/server.js - "פעילות" = חוג/סדנה/פעילות
@@ -38,25 +39,29 @@ function isCommitmentActivity(candidate: { entity_type: unknown; category: unkno
   return ARCHIVE_ENTITY_TYPES.has(candidate.entity_type as string) || ARCHIVE_CATEGORIES.includes(candidate.category as string);
 }
 
-// הוספה ישירה למאגר בלי לחכות לאישור מנהל (בקשת המשתמש) - רק למועמד *חדש* (match_type='new',
-// לא update/duplicate - אלה תמיד ממשיכים לדרוש בדיקה כי הם נוגעים בנתון קיים) שעונה על שלושת
-// התנאים שהמשתמש קבע: (1) "לא נראה בעייתי" - issues.length===0, כלומר sanitizeCandidate לא
-// זיהה אף שדה-חובה חסר; (2) "יש כתובת" - יש גם city וגם location_name (שני האיתותים היחידים
-// שקיימים בשלב הזה של מועמד-שנחלץ, לפני geocoding בפועל - מספיקים כדי ש-saveNewActivity-style
-// יצירת location תצליח בצורה משמעותית); (3) "יש תמונה" - candidate.images לא ריק.
+// הוספה ישירה למאגר בלי לחכות לאישור מנהל (בקשת המשתמש, מעודכן 2026-09-11: "כל פעילות
+// שעוברת את כל הפילטרים ונראית כמו פעילות לגיטימית צריכה להכנס אוטומטית למאגר, בלי לחכות
+// לאישור שלי, עם תמונת placeholder") - רק למועמד *חדש* (match_type='new', לא update/duplicate -
+// אלה תמיד ממשיכים לדרוש בדיקה כי הם נוגעים בנתון קיים) שעונה על שני התנאים שנותרו: (1) "לא
+// נראה בעייתי" - issues.length===0, כלומר sanitizeCandidate לא זיהה אף שדה-חובה חסר; (2) "יש
+// כתובת" - יש גם city וגם location_name (שני האיתותים היחידים שקיימים בשלב הזה של מועמד-שנחלץ,
+// לפני geocoding בפועל - מספיקים כדי ש-saveNewActivity-style יצירת location תצליח בצורה
+// משמעותית). "יש תמונה" הוסר בכוונה מכאן - זה היה בעבר תנאי-סף שלישי, אבל תמונה חסרה כבר
+// לא אמורה לעצור אישור-אוטומטי: autoApproveNewActivity ממלא placeholder_group אוטומטית
+// (classifyPlaceholderGroup, _shared/placeholderGroup.ts) כשאין תמונה אמיתית, בדיוק כמו כל
+// פעילות אחרת במאגר בלי תמונה.
 function autoApproveEligible(candidate: Record<string, unknown>, issues: string[]): boolean {
   return (
     issues.length === 0 &&
     !!candidate.city &&
-    !!candidate.location_name &&
-    Array.isArray(candidate.images) && (candidate.images as unknown[]).length > 0
+    !!candidate.location_name
   );
 }
 
 // מקביל-בפועל ל-saveNewActivity ב-tools/import-tool/server.js (לא שכפול-מקרי - אותה תוצאה
 // בדיוק נדרשת: location+activity+schedules+images) אבל ל-Deno/Edge Function, ובלי שני הצעדים
-// האחרונים שם (חיפוש-תמונה-אוטומטי/אתר-רשמי) - לא רלוונטיים כאן כי תמונה היא כבר תנאי-סף
-// לזכאות (סעיף 3 למעלה), ואתר-רשמי דורש SERPAPI שלא בהכרח מוגדר לסביבת ה-Edge Function.
+// האחרונים שם (חיפוש-תמונה-אוטומטי/אתר-רשמי) - לא רלוונטיים כאן, אתר-רשמי דורש SERPAPI שלא
+// בהכרח מוגדר לסביבת ה-Edge Function.
 async function autoApproveNewActivity(
   client: ReturnType<typeof createClient>,
   createdBy: string | null,
@@ -130,6 +135,15 @@ async function autoApproveNewActivity(
     }
   }
 
+  // תמונה אמיתית לא נדרשת יותר לאישור-אוטומטי (ראו הערת autoApproveEligible למעלה) - כשאין
+  // אחת, placeholder_group מחושב אוטומטית (classifyPlaceholderGroup) כדי שהכרטיס יקבל תמונה
+  // מתאימה במקום placeholder ריק/גנרי-אחד. פעילות עם תמונה אמיתית לא מקבלת placeholder_group -
+  // אין צורך, ה-UI מציג את התמונה עצמה.
+  const hasRealImage = Array.isArray(candidate.images) && (candidate.images as unknown[]).length > 0;
+  const placeholderGroup = hasRealImage
+    ? null
+    : classifyPlaceholderGroup({ category: candidate.category as string | null, name: finalName, description: candidate.description as string | null });
+
   const { data: savedActivity, error: actErr } = await client
     .from('activities')
     .insert({
@@ -138,7 +152,7 @@ async function autoApproveNewActivity(
       location_id: locationId, location_detail: candidate.location_detail || null,
       min_age: candidate.min_age ?? null, max_age: candidate.max_age ?? null,
       price_type: candidate.price_type || null, price_amount: candidate.price_amount ?? null,
-      category: candidate.category || null, duration_minutes: candidate.duration_minutes ?? null,
+      category: candidate.category || null, placeholder_group: placeholderGroup, duration_minutes: candidate.duration_minutes ?? null,
       indoor_outdoor: candidate.indoor_outdoor || null, booking_requirement: candidate.booking_requirement || null,
       weather_suitable: candidate.weather_suitable || [], amenities: candidate.amenities || [],
       family_fit: candidate.family_fit || [], status: 'approved', source: 'scraped',

@@ -1178,7 +1178,7 @@ function renderManagePage() {
       : '<span class="row-actions">' +
           '<button class="icon-btn search-photo-btn" data-id="' + a.id + '">חפש תמונה</button>' +
           '<button class="icon-btn manual-photo-btn" data-id="' + a.id + '">הוסף תמונה ידנית</button>' +
-          '<button class="icon-btn approve-no-photo-btn" data-id="' + a.id + '">אשר ללא תמונה</button>' +
+          '<button class="icon-btn approve-no-photo-btn" data-id="' + a.id + '">סמן שלא נדרשת תמונה</button>' +
         '</span>';
     const candidatePreview = pendingImage
       ? '<div class="photo-candidate">' +
@@ -1286,6 +1286,9 @@ function renderManagePage() {
 
     const approveNoPhotoBtn = e.target.closest('.approve-no-photo-btn');
     if (approveNoPhotoBtn) {
+      // רק photo_skipped - לא נוגע ב-status בכלל: תמונה חסרה כבר לא "עוצרת אישור" (ראו
+      // computePendingActivities/autoApproveEligible) - זה כאן רק כדי להשתיק פעילות ספציפית
+      // מרשימת "ללא תמונה" כשמנהל בדק וקבע שאין לה צורך בתמונה, לא "אישור" של שום דבר.
       const id = approveNoPhotoBtn.dataset.id;
       approveNoPhotoBtn.disabled = true;
       approveNoPhotoBtn.textContent = '...';
@@ -1293,7 +1296,7 @@ function renderManagePage() {
         const res = await fetch('/api/manage/update', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id, fields: { status: 'approved', photo_skipped: true } }),
+          body: JSON.stringify({ id, fields: { photo_skipped: true } }),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'שגיאה לא ידועה');
@@ -1304,8 +1307,8 @@ function renderManagePage() {
         renderAll();
       } catch (err) {
         approveNoPhotoBtn.disabled = false;
-        approveNoPhotoBtn.textContent = 'אשר ללא תמונה';
-        alert('שגיאה באישור: ' + err.message);
+        approveNoPhotoBtn.textContent = 'סמן שלא נדרשת תמונה';
+        alert('שגיאה בסימון: ' + err.message);
       }
       return;
     }
@@ -2236,10 +2239,12 @@ function renderManagePage() {
 
   $cleanupExpired.addEventListener('click', cleanupExpired);
 
-  // פעילות "לאישור" רק אם היא ממתינה וגם כבר יש לה תמונה מאושרת (או שסומנה "אשר ללא תמונה") -
-  // כך פעילות בלי תמונה לא מופיעה כאן בכלל, רק ב"פעילויות ללא תמונה" - ראו computeMissingPhotoActivities.
+  // עד 2026-09-11 פעילות "לאישור" הוצגה כאן רק אם היה לה תמונה מאושרת (או photo_skipped) - כך
+  // שפעילות בלי תמונה לא הופיעה כאן בכלל, רק ב"פעילויות ללא תמונה". בקשת המשתמש: תמונה חסרה
+  // כבר לא אמורה לעצור אישור בכלל (autoApproveEligible ב-scan-source ותומכיו כבר לא בודקים
+  // תמונה, ומקבלים placeholder_group אוטומטית) - אז אין עוד סיבה לסנן פעילויות-לאישור לפי תמונה.
   function computePendingActivities() {
-    return allActivities.filter((a) => a.status === 'pending' && (activityHasApprovedPhoto(a) || a.photo_skipped));
+    return allActivities.filter((a) => a.status === 'pending');
   }
 
   function updateStatusBulkBar() {
