@@ -389,7 +389,7 @@ export default function ProfileScreen() {
     }
   };
 
-  // 📍 "אזורים שלא להציג" - מקביל מדויק ל-openExcludedPicker/closeExcludedPicker למעלה.
+  // ⛔ "אזורים שלא להציג" - מקביל מדויק ל-openExcludedPicker/closeExcludedPicker למעלה.
   const openExcludedCitiesPicker = () => {
     setExcludedCitiesDraft(excludedCities);
     setExcludedCitiesPickerOpen(true);
@@ -715,7 +715,7 @@ export default function ProfileScreen() {
                   </View>
                 </Pressable>
                 <Pressable style={[styles.settingRow, styles.settingRowLast]} onPress={openExcludedCitiesPicker} disabled={savingExcludedCities}>
-                  <Text style={styles.settingLabel}>📍 אזורים שלא להציג</Text>
+                  <Text style={styles.settingLabel}>⛔ אזורים שלא להציג</Text>
                   <View style={styles.badgeSetup}>
                     <Text style={styles.badgeSetupText} numberOfLines={1}>
                       {savingExcludedCities ? 'שומר...' : excludedCities.length > 0 ? excludedCities.join(' · ') : 'בחירה'}
@@ -1256,7 +1256,7 @@ export default function ProfileScreen() {
 
       <QuickPicker
         visible={excludedCitiesPickerOpen}
-        title="📍 אילו אזורים תרצו להסתיר?"
+        title="⛔ אילו אזורים תרצו להסתיר?"
         subtitle="פעילויות בערים שתבחרו לא יופיעו לכם באפליקציה, גם אם הן תואמות לפילטרים אחרים"
         options={CITY_OPTIONS}
         value={excludedCitiesDraft}

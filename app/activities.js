@@ -123,7 +123,7 @@ export default function ActivitiesScreen() {
   const [hideDraft, setHideDraft] = useState([]);
   const [saveAsDefault, setSaveAsDefault] = useState(false);
   const [showRegisterPromptForHide, setShowRegisterPromptForHide] = useState(false);
-  // 📍 "אזורים שלא להציג" - מקביל מבני מלא ל"הסר פעילויות" למעלה, על ערים במקום קטגוריות.
+  // ⛔ "אזורים שלא להציג" - מקביל מבני מלא ל"הסר פעילויות" למעלה, על ערים במקום קטגוריות.
   const [hideLocationsModalOpen, setHideLocationsModalOpen] = useState(false);
   const [hideCityDraft, setHideCityDraft] = useState([]);
   const [saveCityAsDefault, setSaveCityAsDefault] = useState(false);
@@ -671,7 +671,7 @@ export default function ActivitiesScreen() {
           </Pressable>
           <Pressable style={styles.hideCategoriesBtn} onPress={openHideLocationsModal}>
             <Text style={styles.hideCategoriesBtnText}>
-              {hiddenCityCount > 0 ? `📍 ${hiddenCityCount} אזורים מוסתרים` : '📍 אזורים שלא להציג'}
+              {hiddenCityCount > 0 ? `⛔ ${hiddenCityCount} אזורים מוסתרים` : '⛔ אזורים שלא להציג'}
             </Text>
           </Pressable>
         </View>
@@ -881,7 +881,7 @@ export default function ActivitiesScreen() {
 
       <QuickPicker
         visible={hideLocationsModalOpen}
-        title="📍 אילו אזורים תרצו להסתיר?"
+        title="⛔ אילו אזורים תרצו להסתיר?"
         subtitle="בחרו אזורים שבהם אתם מעדיפים לא לראות פעילויות."
         options={CITY_OPTIONS}
         value={hideCityDraft}
@@ -1109,7 +1109,7 @@ const styles = StyleSheet.create({
   },
   filterSheetSearchBtnText: { fontFamily: fonts.bold, fontSize: 15, color: '#fff' },
 
-  // כפתורי "🚫 הסר פעילויות" / "📍 אזורים שלא להציג" - במכוון שקטים/משניים (טקסט בלבד, בלי
+  // כפתורי "🚫 הסר פעילויות" / "⛔ אזורים שלא להציג" - במכוון שקטים/משניים (טקסט בלבד, בלי
   // מסגרת/רקע), בניגוד ל-advToggle הבולט למעלה - אלה פעולות מתקדמות, לא אמורות להתחרות עם
   // "סינון מתקדם". שני הכפתורים באותה שורה כדי לא לתפוס עוד שורה אנכית מיותרת בעמוד.
   hideBtnsRow: { flexDirection: 'row-reverse', justifyContent: 'center', gap: 18, marginBottom: 14 },
