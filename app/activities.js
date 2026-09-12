@@ -91,6 +91,60 @@ function buildActiveChips(filters) {
   return chips;
 }
 
+const SORT_OPTIONS = [
+  { id: 'recommended', label: '✨ מומלץ', shortLabel: 'מומלץ' },
+  { id: 'distance', label: '📍 הקרובים ביותר', shortLabel: 'הקרובים ביותר' },
+];
+
+// ↕️ מיון - chip קומפקטי + תפריט-נפתח קטן (לא Modal, בקשת המשתמש: "אל תוסיף modal גדול בשביל
+// שתי אפשרויות בלבד") - אותה טכניקה בדיוק כמו dropdown ה-CityAutocomplete הקיים באותו מסך
+// (position:relative על ה-wrapper, position:absolute עם top:'100%' על התפריט) - כבר מוכח שעובד
+// בתוך ה-ScrollView הזה, לא מנגנון חדש. הכותרת מציגה תמיד "לפי מרחק"/"הקרובים ביותר" ולא "הכי
+// קרוב אליי" - כי ה-origin עשוי להיות עיר/כתובת שחיפשו, לא בהכרח ה-GPS הנוכחי (ראו searchOriginKm
+// למעלה) - ה-copy הזה לא מניח בטעות "קרוב אליי" כשבפועל זה "קרוב לתנובות" למשל.
+function SortControl({ sortMode, menuOpen, onToggleMenu, onSelect }) {
+  const current = SORT_OPTIONS.find((o) => o.id === sortMode) || SORT_OPTIONS[0];
+  return (
+    <View style={styles.sortWrap}>
+      <Pressable
+        style={styles.sortChip}
+        onPress={onToggleMenu}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: menuOpen }}
+        accessibilityLabel={`מיון: ${current.label}`}
+      >
+        <Text style={styles.sortChipIcon}>↕️</Text>
+        <Text style={styles.sortChipText} numberOfLines={1}>מיון: {current.shortLabel}</Text>
+        <View style={{ transform: [{ rotate: menuOpen ? '180deg' : '0deg' }] }}>
+          <ChevronDownIcon size={11} />
+        </View>
+      </Pressable>
+      {menuOpen && (
+        // אין backdrop-למסך-מלא בכוונה (מיקום-absolute שכזה בתוך ScrollView לא אמין ב-RN) - סגירה
+        // בבחירת אפשרות או בלחיצה חוזרת על ה-chip, אותו דפוס בדיוק כמו freeSearchOpen/sheetOpen
+        // הקיימים באותו מסך (toggle, לא backdrop-dismiss).
+        <View style={styles.sortMenu} accessibilityRole="menu">
+          {SORT_OPTIONS.map((opt) => {
+            const selected = opt.id === sortMode;
+            return (
+              <Pressable
+                key={opt.id}
+                style={[styles.sortMenuItem, selected && styles.sortMenuItemSelected]}
+                onPress={() => onSelect(opt.id)}
+                accessibilityRole="menuitem"
+                accessibilityState={{ selected }}
+              >
+                <Text style={[styles.sortMenuItemText, selected && styles.sortMenuItemTextSelected]}>{opt.label}</Text>
+                {selected && <Text style={styles.sortMenuItemCheck}>✓</Text>}
+              </Pressable>
+            );
+          })}
+        </View>
+      )}
+    </View>
+  );
+}
+
 export default function ActivitiesScreen() {
   const router = useRouter();
   const { homeFilters, homeCoords, openFilters, view } = useLocalSearchParams();
@@ -102,6 +156,13 @@ export default function ActivitiesScreen() {
   // view=map - מגיע מ-BottomNav (components/BottomNav.js, "🗺️ מפה") כדי לפתוח ישר בתצוגת מפה;
   // בלי הפרמטר (כל שאר הכניסות לעמוד) מתנהג בדיוק כמו קודם - ברירת מחדל 'list'.
   const [viewMode, setViewMode] = useState(() => (view === 'map' ? 'map' : 'list'));
+  // ↕️ מיון - 'recommended' (ברירת מחדל, בדיוק ה-order הקיים של rankedResult, ללא שינוי) או
+  // 'distance' (מיון-לקוח בלבד מעל אותו result set, ראו sortedActivities למטה - לא חיפוש חדש,
+  // לא נוגע ב-Smart Radius/filters/matching). state מקומי גרידא (לא AsyncStorage/DB) - נעלם
+  // בחזרה ל-'recommended' עם עזיבת המסך, בדיוק כמו viewMode/sheetOpen למעלה - האפליקציה לא
+  // שומרת העדפת-מיון בשום מקום אחר היום, אז לא ממציאים persistence חדש כאן.
+  const [sortMode, setSortMode] = useState('recommended');
+  const [sortMenuOpen, setSortMenuOpen] = useState(false);
   const [activities, setActivities] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
@@ -494,6 +555,16 @@ export default function ActivitiesScreen() {
         const spontaneousKm = spontaneousActive && spontaneousCoords && a.lat != null && a.lng != null
           ? haversineKm(spontaneousCoords.latitude, spontaneousCoords.longitude, a.lat, a.lng)
           : null;
+        // ↕️ מיון לפי מרחק - אותו haversineKm+searchOriginCoords בדיוק ש-formatSearchDistance
+        // כבר מחשב לצורך התצוגה (lib/activities.js) - לא מנוע-מרחק מקביל, רק חושפים כאן גם את
+        // המספר הגולמי (לא רק המחרוזת המעוצבת) כדי שיהיה ניתן למיין לפיו. searchOriginCoords
+        // הוא ה-canonical search origin הקיים (city/address/current, ראו למעלה) - "הקרוב ביותר"
+        // תמיד ביחס אליו, לא ביחס ל-GPS הנוכחי בהכרח (בקשת המשתמש: "לא להניח שמרחק=ממני").
+        const originLat = searchOriginCoords?.lat ?? searchOriginCoords?.latitude ?? null;
+        const originLng = searchOriginCoords?.lng ?? searchOriginCoords?.longitude ?? null;
+        const searchOriginKm = originLat != null && originLng != null && a.lat != null && a.lng != null
+          ? haversineKm(originLat, originLng, a.lat, a.lng)
+          : null;
         return {
           ...a,
           // formatSearchDistance (לא formatDistance הישן) - משתמש ב-searchOriginCoords, שמכסה
@@ -502,6 +573,9 @@ export default function ActivitiesScreen() {
           distance: spontaneousKm != null
             ? `${spontaneousKm < 10 ? spontaneousKm.toFixed(1) : Math.round(spontaneousKm)} ק"מ ממך`
             : formatSearchDistance(a, searchOriginCoords, filters.location?.mode === 'current'),
+          // ספונטני פעיל -> אותה נקודת-ייחוס בדיוק שכבר מוצגת למשתמש כ"distance" למעלה (לא
+          // origin אחר "מאחורי הקלעים" שהיה נראה כמו באג - סדר-המיון תמיד תואם את המספר המוצג).
+          distanceKm: spontaneousKm != null ? spontaneousKm : searchOriginKm,
           favorite: favoriteIds.has(a.id),
           visited: visitedIds.has(a.id),
           hasNote: notesByActivity.has(a.id),
@@ -564,6 +638,18 @@ export default function ActivitiesScreen() {
   const spontaneousVisibleActivities = spontaneousActive && !showAllSpontaneous
     ? filteredActivities.slice(0, SPONTANEOUS_TOP_COUNT)
     : filteredActivities;
+
+  // ↕️ מיון - 'recommended' משאיר את הסדר בדיוק כפי שהוא (זהה ל-filteredActivities, אותו
+  // reference אפילו - "ברירת המחדל חייבת להישאר בדיוק כמו היום"). 'distance' ממיין *עותק* לפי
+  // distanceKm ASC בלבד - לא search חדש, לא נוגע ב-rankedResult/filters/Smart Radius. Array.sort
+  // של JS יציב (מובטח מ-ES2019, גם ב-Hermes) - אז תוצאות-בלי-distanceKm (Infinity) נופלות תמיד
+  // לסוף בסדר-היציבות המקורי שלהן, ותוצאות עם מרחק-שווה נשארות באותו סדר-מומלץ יחסי ביניהן
+  // (secondary sort key) - בדיוק "distance ASC, then existingRank ASC" מהבקשה, בלי צורך
+  // בקומפרטור-משני מפורש.
+  const sortedActivities = useMemo(() => {
+    if (sortMode !== 'distance') return filteredActivities;
+    return [...filteredActivities].sort((a, b) => (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity));
+  }, [filteredActivities, sortMode]);
 
   const setField = (key, value) => setFilters((prev) => ({ ...prev, [key]: value }));
   const clearAll = () => setFilters(DEFAULT_FILTERS);
@@ -765,6 +851,17 @@ export default function ActivitiesScreen() {
           </View>
         ) : (
           <>
+            {/* ↕️ מיון - לא רלוונטי במצב ספונטני (יש לו כבר דירוג-קרבה משלו, spontaneousProximityScore
+                למעלה) - מוסתר שם לגמרי במקום להציג control שלא עושה כלום/מתנגש. */}
+            {!spontaneousActive && (
+              <SortControl
+                sortMode={sortMode}
+                menuOpen={sortMenuOpen}
+                onToggleMenu={() => setSortMenuOpen((v) => !v)}
+                onSelect={(mode) => { setSortMode(mode); setSortMenuOpen(false); }}
+              />
+            )}
+
             <View style={styles.viewToggleRow}>
               <Pressable
                 style={[styles.viewToggleBtn, viewMode === 'list' && styles.viewToggleBtnActive]}
@@ -781,7 +878,7 @@ export default function ActivitiesScreen() {
             </View>
 
             {viewMode === 'map' ? (
-              <ActivitiesMap activities={filteredActivities} deviceCoords={deviceCoords} />
+              <ActivitiesMap activities={sortedActivities} deviceCoords={deviceCoords} />
             ) : spontaneousActive && spontaneousOpenCount === 0 ? (
               // 🪄 ספונטני, אבל שום דבר לא פתוח ברגע זה (סעיף 13 בבקשה) - לא מסך ריק: הודעה
               // ידידותית, ואם יש מידע אמיתי על "נפתח בקרוב" (spontaneousOpensSoon, לא ניחוש) -
@@ -811,7 +908,7 @@ export default function ActivitiesScreen() {
                 {spontaneousActive && (
                   <Text style={styles.spontaneousTopTitle}>🪄 הכי מתאים עכשיו</Text>
                 )}
-                {(spontaneousActive ? spontaneousVisibleActivities : filteredActivities).map((a) => (
+                {(spontaneousActive ? spontaneousVisibleActivities : sortedActivities).map((a) => (
                   <ActivityCard
                     key={a.id}
                     {...a}
@@ -1135,6 +1232,33 @@ const styles = StyleSheet.create({
   toggleOffSmall: { backgroundColor: colors.border, alignItems: 'flex-end' },
   toggleDotSmall: { width: 18, height: 18, borderRadius: 9, backgroundColor: '#fff', marginHorizontal: 2 },
   toggleDotOffSmall: {},
+
+  // ↕️ מיון - chip יחיד לא-נמתח (בניגוד ל-viewToggleBtn למטה, שם flex:1) כדי לא "להתחרות" עם
+  // כפתורי רשימה/מפה מתחתיו - שורה נפרדת משלו, לא נדחס לאותה שורה (בקשת המשתמש: לא ליצור שורה
+  // אופקית עמוסה ב-375px). zIndex גבוה כדי שהתפריט-הנפתח יופיע מעל viewToggleRow/כרטיסי-הפעילות
+  // שמתחתיו, אותו עיקרון כמו CityAutocomplete הקיים.
+  sortWrap: { position: 'relative', zIndex: 15, marginBottom: 10, alignItems: 'flex-start' },
+  sortChip: {
+    flexDirection: 'row-reverse', alignItems: 'center', gap: 6,
+    borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card,
+    borderRadius: radii.pill, paddingVertical: 8, paddingHorizontal: 14, minHeight: 36,
+  },
+  sortChipIcon: { fontSize: 13 },
+  sortChipText: { fontFamily: fonts.semiBold, fontSize: 13, color: colors.textSecondary },
+  sortMenu: {
+    position: 'absolute', top: '100%', right: 0, marginTop: 4, minWidth: 190,
+    backgroundColor: colors.card, borderRadius: radii.md, borderWidth: 1, borderColor: colors.border,
+    shadowColor: '#000', shadowOpacity: 0.12, shadowOffset: { width: 0, height: 4 }, shadowRadius: 10,
+    elevation: 6, overflow: 'hidden', zIndex: 15,
+  },
+  sortMenuItem: {
+    flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between',
+    paddingVertical: 12, paddingHorizontal: 14, borderBottomWidth: 1, borderBottomColor: colors.borderLight, minHeight: 44,
+  },
+  sortMenuItemSelected: { backgroundColor: colors.accentTintLight },
+  sortMenuItemText: { fontFamily: fonts.semiBold, fontSize: 13.5, color: colors.textPrimary },
+  sortMenuItemTextSelected: { color: colors.accent, fontFamily: fonts.bold },
+  sortMenuItemCheck: { fontFamily: fonts.bold, fontSize: 13, color: colors.accent },
 
   viewToggleRow: { flexDirection: 'row-reverse', gap: 8, marginBottom: 14 },
   viewToggleBtn: {
