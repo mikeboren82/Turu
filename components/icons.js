@@ -267,6 +267,30 @@ export function InfoIcon({ size = 18, color = colors.textPrimary }) {
   );
 }
 
+// תפריט Header - "משהו לא עובד?" (components/Header.js) - אותו סגנון SVG בדיוק כמו InfoIcon,
+// רק הפוך (נקודה למעלה, קו למטה) - קונבנציית "אזהרה" מוכרת, לא המצאה חדשה.
+export function AlertIcon({ size = 17, color = colors.textSecondary }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <Circle cx="12" cy="12" r="10" />
+      <Line x1="12" y1="8" x2="12" y2="13" />
+      <Line x1="12" y1="16" x2="12.01" y2="16" />
+    </Svg>
+  );
+}
+
+// לתפריט ההמבורגר וגם ל-BottomNav (components/BottomNav.js) - "מפה" (תצוגת מפה קיימת ב-
+// app/activities.js, ראו viewMode).
+export function MapIcon({ size = 18, color = colors.textPrimary }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <Polyline points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6" />
+      <Line x1="8" y1="2" x2="8" y2="18" />
+      <Line x1="16" y1="6" x2="16" y2="22" />
+    </Svg>
+  );
+}
+
 export function LogOutIcon({ size = 18, color = colors.textSecondary }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">

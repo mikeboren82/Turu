@@ -92,13 +92,15 @@ function buildActiveChips(filters) {
 
 export default function ActivitiesScreen() {
   const router = useRouter();
-  const { homeFilters, homeCoords, openFilters } = useLocalSearchParams();
+  const { homeFilters, homeCoords, openFilters, view } = useLocalSearchParams();
   const [filters, setFilters] = useState(() => normalizeFilters(parseJson(homeFilters, {})));
   const [deviceCoords, setDeviceCoords] = useState(() => parseJson(homeCoords, null));
   // כשמגיעים דרך "סינון מתקדם" מהעמוד הראשי - פותחים ישר את הפאנל, אבל עדיין מציגים תוצאות
   // (בניגוד למודל הישן, הפאנל עכשיו inline מעל תוצאות חיות, לא חוסם אותן).
   const [sheetOpen, setSheetOpen] = useState(openFilters === 'true');
-  const [viewMode, setViewMode] = useState('list');
+  // view=map - מגיע מ-BottomNav (components/BottomNav.js, "🗺️ מפה") כדי לפתוח ישר בתצוגת מפה;
+  // בלי הפרמטר (כל שאר הכניסות לעמוד) מתנהג בדיוק כמו קודם - ברירת מחדל 'list'.
+  const [viewMode, setViewMode] = useState(() => (view === 'map' ? 'map' : 'list'));
   const [activities, setActivities] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);

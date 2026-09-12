@@ -28,21 +28,42 @@ export default function QuickPicker({
     ? options.filter((o) => o.label.includes(search.trim()))
     : options;
 
+  // כשלאופציות יש emoji (כרגע: CATEGORY_OPTIONS/CATEGORY_FILTER_OPTIONS, constants/filterSchema.js) -
+  // רשת דו-טורית מסודרת עם אייקון+טקסט בכל שורה, במקום ה-pills-ברוחב-משתנה שהיו נדחסות אחת
+  // ליד השנייה (בקשת המשתמש: "מסודרות עם אייקונים קטנים... בצורה נעימה וברורה לעין"). אופציות
+  // בלי emoji (מחיר/עיר/הזמנה/משך וכו') ממשיכות בדיוק כמו קודם - אין שינוי חזותי אצלן.
+  const hasIcons = options.some((o) => o.emoji);
+
   const gridContent = (
-    <View style={styles.grid}>
+    <View>
       {showAll && (
-        <Pressable onPress={() => onChange([])} style={[styles.chip, isAllSelected && styles.chipSelected]}>
+        <Pressable
+          onPress={() => onChange([])}
+          style={[hasIcons ? styles.allChipWide : styles.allChipCentered, isAllSelected && styles.chipSelected]}
+        >
           <Text style={[styles.chipText, isAllSelected && styles.chipTextSelected]}>{allLabel}</Text>
         </Pressable>
       )}
-      {visibleOptions.map((opt) => {
-        const selected = value.includes(opt.id);
-        return (
-          <Pressable key={opt.id} onPress={() => toggle(opt.id)} style={[styles.chip, selected && styles.chipSelected]}>
-            <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{opt.label}</Text>
-          </Pressable>
-        );
-      })}
+      <View style={hasIcons ? styles.iconGrid : styles.grid}>
+        {visibleOptions.map((opt) => {
+          const selected = value.includes(opt.id);
+          return (
+            <Pressable
+              key={opt.id}
+              onPress={() => toggle(opt.id)}
+              style={[hasIcons ? styles.iconRow : styles.chip, selected && styles.chipSelected]}
+            >
+              {opt.emoji ? <Text style={styles.iconRowEmoji}>{opt.emoji}</Text> : null}
+              <Text
+                style={[hasIcons ? styles.iconRowText : styles.chipText, selected && styles.chipTextSelected]}
+                numberOfLines={2}
+              >
+                {opt.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
     </View>
   );
 
@@ -91,11 +112,33 @@ const styles = StyleSheet.create({
     fontFamily: fonts.regular, fontSize: 14, color: colors.textPrimary, backgroundColor: colors.bg,
     textAlign: 'right', writingDirection: 'rtl',
   },
-  scrollArea: { maxHeight: 320 },
+  scrollArea: { maxHeight: 360 },
   grid: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 8, justifyContent: 'center', marginTop: 12 },
   chip: { borderWidth: 1, borderColor: colors.border, backgroundColor: colors.bg, borderRadius: radii.pill, paddingVertical: 9, paddingHorizontal: 14 },
+  allChipCentered: {
+    alignSelf: 'center', marginTop: 12, marginBottom: 4,
+    borderWidth: 1, borderColor: colors.border, backgroundColor: colors.bg, borderRadius: radii.pill,
+    paddingVertical: 9, paddingHorizontal: 14,
+  },
+  // "הכל" ברשת-אייקונים - שורה רחבה ונפרדת מעל הרשת (לא עוד תא ברשת דו-טורית), כדי שתישאר
+  // ברורה כפעולת-איפוס נבדלת, לא כקטגוריה נוספת בין השאר.
+  allChipWide: {
+    alignItems: 'center', marginBottom: 10,
+    borderWidth: 1, borderColor: colors.border, backgroundColor: colors.bg, borderRadius: radii.md,
+    paddingVertical: 11,
+  },
   chipSelected: { borderColor: colors.accent, backgroundColor: colors.accentTintLight },
   chipText: { fontFamily: fonts.semiBold, fontSize: 13, color: colors.textSecondary },
+  // רשת דו-טורית לאופציות-עם-אייקון (קטגוריות) - שורות קבועות-רוחב (48%) במקום pills
+  // ברוחב-משתנה, כדי שהעין תסרוק בקלות עמודה-עמודה במקום צפיפות לא-אחידה.
+  iconGrid: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 10, justifyContent: 'space-between' },
+  iconRow: {
+    width: '47%', flexDirection: 'row-reverse', alignItems: 'center', gap: 8,
+    borderWidth: 1, borderColor: colors.border, backgroundColor: colors.bg, borderRadius: radii.md,
+    paddingVertical: 11, paddingHorizontal: 10, marginBottom: 2,
+  },
+  iconRowEmoji: { fontSize: 18, width: 22, textAlign: 'center' },
+  iconRowText: { flex: 1, fontFamily: fonts.semiBold, fontSize: 13, color: colors.textSecondary, textAlign: 'right' },
   chipTextSelected: { color: colors.accent, fontFamily: fonts.bold },
   doneBtn: { marginTop: 18, backgroundColor: colors.accent, borderRadius: radii.pill, paddingVertical: 13, alignItems: 'center' },
   doneBtnText: { fontFamily: fonts.bold, fontSize: 14, color: '#fff' },

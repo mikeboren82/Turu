@@ -7,8 +7,9 @@ import { useRouter, usePathname } from 'expo-router';
 import { colors, fonts, radii, spacing } from '../constants/theme';
 import { supabase } from '../lib/supabase';
 import { clearPin } from '../lib/pin';
-import { HomeIcon, HeartIcon, UserIcon, ChatIcon, InfoIcon, MailIcon, LogOutIcon, NoteIcon } from './icons';
+import { HomeIcon, HeartIcon, UserIcon, ChatIcon, InfoIcon, MailIcon, LogOutIcon, NoteIcon, AlertIcon } from './icons';
 import LoginRequiredModal from './LoginRequiredModal';
+import FeedbackButton from './FeedbackButton';
 
 function BackIcon() {
   return (
@@ -29,7 +30,7 @@ function MenuIcon() {
   );
 }
 
-export default function Header({ showBack = false, onMenuPress, hideLogo = false, onHeaderLayout }) {
+export default function Header({ showBack = false, onMenuPress, hideLogo = false, onHeaderLayout, onNicknameResolved }) {
   const router = useRouter();
   const pathname = usePathname();
   const insets = useSafeAreaInsets();
@@ -41,6 +42,10 @@ export default function Header({ showBack = false, onMenuPress, hideLogo = false
   const [showDestinationsPrompt, setShowDestinationsPrompt] = useState(false);
   const [authPromptMessage, setAuthPromptMessage] = useState('');
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  // "משהו לא עובד?" (בקשת המשתמש 2026-09-12) - הכפתור-המרחף הגלובלי הוסר, הפיצ'ר עבר לכאן
+  // כפריט בתפריט, מתחת ל"צור קשר" - אותו FeedbackButton בדיוק, רק נשלט (visible/onClose) במקום
+  // כפתור עצמאי.
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -75,6 +80,12 @@ export default function Header({ showBack = false, onMenuPress, hideLogo = false
     });
     return () => { cancelled = true; };
   }, [session?.user?.id]);
+
+  // הודעת-כינוי-מוסכם החוצה למי שצריך אותו מחוץ ל-Header עצמו (למשל ברכת-שלום במסך הבית) -
+  // אותו דפוס בדיוק כמו onHeaderLayout, כדי לא לשכפל את שליפת ה-profile שכבר קורית כאן.
+  useEffect(() => {
+    onNicknameResolved?.(nickname);
+  }, [nickname, onNicknameResolved]);
 
   const handleMenuPress = () => {
     onMenuPress?.();
@@ -113,12 +124,19 @@ export default function Header({ showBack = false, onMenuPress, hideLogo = false
     { key: 'chat', label: 'שיח קהילה', path: '/chat', Icon: ChatIcon },
     { key: 'about', label: 'עלינו', path: '/about', Icon: InfoIcon },
     { key: 'contact', label: 'צור קשר', path: '/contact', Icon: MailIcon },
+    // "משהו לא עובד?" - מתחת ל"צור קשר" בדיוק (בקשת המשתמש), action במקום path: פותח את
+    // מודל-הדיווח (FeedbackButton) במקום לנווט לעמוד.
+    { key: 'feedback', label: 'משהו לא עובד?', action: 'openFeedback', Icon: AlertIcon },
   ];
 
   // בלי session - במקום ניווט לעמוד ריק, פותחים LoginRequiredModal עם הסבר מותאם-הקשר לפריט
   // שנלחץ (authMessage לכל פריט requiresAuth למעלה).
   const handleItemPress = (item) => {
     setMenuOpen(false);
+    if (item.action === 'openFeedback') {
+      setFeedbackOpen(true);
+      return;
+    }
     if (item.requiresAuth && !session) {
       setAuthPromptMessage(item.authMessage || 'צריך להתחבר כדי לבצע פעולה זו');
       setShowDestinationsPrompt(true);
@@ -260,6 +278,8 @@ export default function Header({ showBack = false, onMenuPress, hideLogo = false
           </Pressable>
         </Pressable>
       </Modal>
+
+      <FeedbackButton visible={feedbackOpen} onClose={() => setFeedbackOpen(false)} />
     </View>
   );
 }

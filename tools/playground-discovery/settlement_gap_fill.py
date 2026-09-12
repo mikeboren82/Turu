@@ -27,6 +27,15 @@ existing place_id/proximity matching (plus the within-run staleness fix below)
 already prevents them from becoming duplicate activities - worst case is a
 few redundant Text Search calls (~$0.03 each), not bad data.
 
+2026-09-11 update: master rows that are clearly legit (real playground type,
+has an address, decent quality score, no in-batch duplicate) AND genuinely
+new vs. TuRu's existing catalog still auto-approve exactly as before. Every
+other outcome (STRONG_MATCH/NEEDS_REVIEW against an existing activity,
+missing address, uncertain type, park-without-clear-playground) now queues
+into public.incoming_activities (status='needs_review') instead of vanishing
+into a CSV - see run_import_supabase/push_review_rows_to_incoming in
+playground_discovery.py.
+
 Usage:
     py settlement_gap_fill.py --dry-run   # report only, no Supabase writes
     py settlement_gap_fill.py             # writes new playgrounds to Supabase
@@ -124,6 +133,17 @@ async def main() -> None:
             if not place_id or place_id in places_by_id:
                 continue
             loc = r.get("location") or {}
+            # 2026-09-12 fix - נמצא בפועל ב-Batch 1 הראשון של scan-settlement-gaps (אותה בעיה
+            # בדיוק כאן, אותו endpoint): places:searchText עם locationBias הוא "העדפה" בלבד ל-
+            # Google, לא הגבלה קשיחה - תוצאות עד 41 ק"מ מהיישוב שחיפשנו חזרו בפועל (radius_m=3
+            # ק"מ). בדיקת-מרחק מפורשת לפני ההוספה ל-places_by_id - לא רק אחרי, ב-classify_and_
+            # bucket - כדי שתוצאה רחוקה לא "תזהם" גם dedup/occurrence_count מול יישובים אחרים.
+            plat, plon = loc.get("latitude"), loc.get("longitude")
+            if plat is not None and plon is not None:
+                dist_km = pd.israel_geo.haversine_km(s["lat"], s["lng"], plat, plon)
+                if dist_km > (SEARCH_RADIUS_M / 1000) * 2:
+                    logger.warning("  [SKIP too far] %s: %s (%.1f ק\"מ)", city, (r.get('displayName') or {}).get('text'), dist_km)
+                    continue
             places_by_id[place_id] = matching.DiscoveredPlace(
                 place_id=place_id, name=(r.get("displayName") or {}).get("text"),
                 formatted_address=r.get("formattedAddress"), lat=loc.get("latitude"), lon=loc.get("longitude"),
@@ -155,6 +175,13 @@ async def main() -> None:
     await pd.run_import_supabase(master_rows, stats)
     logger.info("Match counts: %s", stats["supabase_match_counts"])
     logger.info("Imported as brand-new playgrounds: %d", stats["supabase_imported"])
+    logger.info("Queued for review (STRONG_MATCH/NEEDS_REVIEW vs existing TuRu activity): %d", stats["supabase_queued_for_review"])
+    # 2026-09-11 fix - review_rows (missing address / uncertain type / possible in-batch
+    # duplicate / park-without-clear-playground) previously only went to the CSV below,
+    # invisible to anyone using the app. Now also queued into incoming_activities so a
+    # human can actually resolve them - see push_review_rows_to_incoming's docstring.
+    review_queued = await pd.push_review_rows_to_incoming(review_rows)
+    logger.info("Queued for review (classify_and_bucket review_rows): %d", review_queued)
     logger.info("api_requests=%d", places.stats.total_requests)
     pd.write_csv(THIS_DIR / f"settlement_gap_fill_master_{timestamp}.csv", master_rows)  # rewrite with match/import outcome
 

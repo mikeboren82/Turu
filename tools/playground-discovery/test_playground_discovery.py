@@ -97,20 +97,23 @@ class MatchingTests(unittest.TestCase):
     def test_match_against_existing_place_id_confirmed(self):
         discovered = {"place_id": "abc123", "name": "גן שעשועים חדש", "lat": 32.0, "lon": 34.8}
         existing = [{"id": "1", "name": "גן שעשועים ישן", "google_place_id": "abc123", "lat": 32.0, "lon": 34.8}]
-        outcome, match = matching.match_against_existing(discovered, existing)
+        outcome, match, _score = matching.match_against_existing(discovered, existing)
         self.assertEqual(outcome, matching.MATCH_CONFIRMED)
         self.assertEqual(match["id"], "1")
 
     def test_match_against_existing_strong_match_by_distance_and_name(self):
+        # ~72m apart - zone 3 (>50m), so this exercises the pre-existing distance+name path
+        # unchanged, not the new zone-1/zone-2 logic (moved from ~44m, which now lands in the
+        # new POSSIBLE_DUPLICATE zone regardless of name similarity - see the zone-2 tests below).
         discovered = {"place_id": "xyz", "name": "גן שעשועים תל חי", "lat": 32.0, "lon": 34.8}
-        existing = [{"id": "2", "name": "גן שעשועים תל חי", "google_place_id": None, "lat": 32.0004, "lon": 34.8}]
-        outcome, match = matching.match_against_existing(discovered, existing)
+        existing = [{"id": "2", "name": "גן שעשועים תל חי", "google_place_id": None, "lat": 32.00065, "lon": 34.8}]
+        outcome, match, _score = matching.match_against_existing(discovered, existing)
         self.assertEqual(outcome, matching.STRONG_MATCH)
 
     def test_match_against_existing_new_candidate(self):
         discovered = {"place_id": "new1", "name": "גן שעשועים חדש לגמרי", "lat": 33.0, "lon": 35.5}
         existing = [{"id": "3", "name": "גן שעשועים אחר", "google_place_id": None, "lat": 31.0, "lon": 34.0}]
-        outcome, match = matching.match_against_existing(discovered, existing)
+        outcome, match, _score = matching.match_against_existing(discovered, existing)
         self.assertEqual(outcome, matching.NEW_CANDIDATE)
         self.assertIsNone(match)
 

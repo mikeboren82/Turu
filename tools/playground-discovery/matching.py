@@ -126,44 +126,99 @@ def is_possible_duplicate(a: dict, b: dict) -> bool:
 
 MATCH_CONFIRMED = "MATCH_CONFIRMED"
 STRONG_MATCH = "STRONG_MATCH"
+POSSIBLE_DUPLICATE = "POSSIBLE_DUPLICATE"
 NEEDS_REVIEW = "NEEDS_REVIEW"
 NEW_CANDIDATE = "NEW_CANDIDATE"
 
-STRONG_MATCH_DISTANCE_METERS = 60
+# 60m -> 100m (2026-09-12): Batch 1 found two real duplicates that fell just outside the old
+# 60m cutoff (64.4m and 26m cases) and got auto-approved as "new" instead of STRONG_MATCH - GPS/
+# geocoding jitter between two sources describing the same physical playground easily exceeds
+# 60m; 100m still comfortably excludes genuinely distinct nearby playgrounds (>150m apart in
+# this dataset). Mirrored in supabase/functions/_shared/placesDiscovery.ts.
+STRONG_MATCH_DISTANCE_METERS = 100
 STRONG_MATCH_NAME_SIMILARITY = 0.5
+# 2026-09-12 (batch-3 validation): structural gap found in practice - two real duplicates in
+# Batch 3 ("גן לוטם" vs "גן שעשועים – לילך, עפולה", 11.8m; the אבן גבירול pair, 16.4m) had 0%
+# word overlap (a real official name vs. a generic address-based placeholder name for the same
+# physical place from a different source) - the AND between distance+name required both, so
+# these fell through to NEW_CANDIDATE and got auto-approved as "new". Fix: very-close distance
+# alone is enough for STRONG_MATCH, independent of name - but deliberately *not* MATCH_CONFIRMED
+# (which would drop the record with no trace): STRONG_MATCH still routes to human review, never
+# auto-merges/deletes anything. Over-merge guard: 30m is intentionally conservative - well under
+# the general 100m STRONG_MATCH radius, since geocoding jitter between two sources describing the
+# same physical place almost always falls far under 30m, while genuinely distinct nearby
+# playgrounds observed in this dataset are consistently >150m apart. Mirrored in
+# supabase/functions/_shared/placesDiscovery.ts.
+VERY_CLOSE_DISTANCE_METERS = 30
+# 2026-09-12 (post-Batch-6, "פארק עירוני 76" - 32.0m, 0% name similarity, fell 2m past
+# VERY_CLOSE and got auto-approved): a hard 30m/not-30m cliff means 30.0m and 30.1m have totally
+# different consequences. Per explicit instruction: do NOT just raise the cutoff (moves the cliff,
+# doesn't remove it) - add a genuine third zone. (30m, 50m] is NOT a duplicate confirmation, it's
+# a "look at this before approving as new" flag - deliberately does NOT escalate to STRONG_MATCH
+# even with a strong name match (45m + near-identical name still routes here, not STRONG_MATCH),
+# so POSSIBLE_DUPLICATE and STRONG_MATCH stay conceptually distinct for an admin reviewer. Beyond
+# 50m, falls through to the pre-existing distance+name logic unchanged (zone 3). Mirrored in
+# supabase/functions/_shared/placesDiscovery.ts.
+BORDERLINE_MAX_METERS = 50
 
 
-def match_against_existing(discovered: dict, existing_activities: list[dict]) -> tuple[str, dict | None]:
+def match_against_existing(discovered: dict, existing_activities: list[dict]) -> tuple[str, dict | None, float | None]:
     """discovered: {place_id, name, formatted_address, lat, lon}.
     existing_activities: rows already fetched from Supabase - each with
     {id, name, google_place_id, lat, lon, address}. Never invents a match -
     only MATCH_CONFIRMED (place_id equality) is treated as certain; everything
-    else that's merely plausible becomes STRONG_MATCH or NEEDS_REVIEW, never
+    else that's merely plausible becomes STRONG_MATCH/POSSIBLE_DUPLICATE/NEEDS_REVIEW, never
     auto-applied as a duplicate (section 26: "never create a duplicate activity
     just because the place turned up again in search" - the flip side, never
-    silently skip a genuinely new place either)."""
+    silently skip a genuinely new place either). Returns (outcome, matched_existing, name_score) -
+    name_score is only meaningful for POSSIBLE_DUPLICATE (evidence for the reviewer), None
+    otherwise."""
     for existing in existing_activities:
         if existing.get("google_place_id") and existing["google_place_id"] == discovered.get("place_id"):
-            return MATCH_CONFIRMED, existing
+            return MATCH_CONFIRMED, existing, None
 
     best_candidate = None
     best_score = 0.0
+    closest_very_close: tuple[dict, float] | None = None
+    closest_borderline: tuple[dict, float, float] | None = None
     for existing in existing_activities:
         if existing.get("lat") is None or discovered.get("lat") is None:
             continue
         dist_m = haversine_km(existing["lat"], existing["lon"], discovered["lat"], discovered["lon"]) * 1000
         if dist_m > STRONG_MATCH_DISTANCE_METERS * 3:
             continue
+
+        if dist_m <= VERY_CLOSE_DISTANCE_METERS:
+            if closest_very_close is None or dist_m < closest_very_close[1]:
+                closest_very_close = (existing, dist_m)
+            continue  # Zone 1 - distance alone decides, no need to weigh name evidence here.
+
         name_score = word_overlap_score(existing.get("name"), discovered.get("name"), drop_stopwords=True)
+        if dist_m <= BORDERLINE_MAX_METERS:
+            # Zone 2 - deliberately does NOT check name_score against a threshold to escalate to
+            # STRONG_MATCH (45m + a highly similar name still stays POSSIBLE_DUPLICATE). name_score
+            # is still captured as evidence for the reviewer, not used to change the routing.
+            if closest_borderline is None or dist_m < closest_borderline[1]:
+                closest_borderline = (existing, dist_m, name_score)
+            continue
+
+        # Zone 3 (>50m) - pre-existing logic, unchanged.
         if dist_m <= STRONG_MATCH_DISTANCE_METERS and name_score >= STRONG_MATCH_NAME_SIMILARITY:
-            return STRONG_MATCH, existing
+            return STRONG_MATCH, existing, name_score
         if name_score > best_score:
             best_score = name_score
             best_candidate = existing
 
+    # אחרי הלולאה, לא early-return בתוכה - כדי לבחור את הקרוב-ביותר אם כמה existing נופלים
+    # בטווח, לא סתם את הראשון לפי סדר-שרירותי.
+    if closest_very_close is not None:
+        return STRONG_MATCH, closest_very_close[0], None
+    if closest_borderline is not None:
+        return POSSIBLE_DUPLICATE, closest_borderline[0], closest_borderline[2]
+
     if best_candidate is not None and best_score >= 0.3:
-        return NEEDS_REVIEW, best_candidate
-    return NEW_CANDIDATE, None
+        return NEEDS_REVIEW, best_candidate, best_score
+    return NEW_CANDIDATE, None, None
 
 
 @dataclass

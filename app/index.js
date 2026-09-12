@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, createElement } from 'react';
+import { useState, useCallback, useEffect, useMemo, createElement } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, ActivityIndicator, Image, Platform, useWindowDimensions } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -10,17 +10,59 @@ import LoginRequiredModal from '../components/LoginRequiredModal';
 import QuickPicker from '../components/QuickPicker';
 import LocationQuickPicker, { locationSummary } from '../components/LocationQuickPicker';
 import CityAutocomplete from '../components/CityAutocomplete';
+import ActivityCard from '../components/ActivityCard';
 import {
   CATEGORY_FILTER_OPTIONS, DEFAULT_FILTERS, FILTER_SCHEMA,
   PRICE_OPTIONS, PLACE_TYPE_OPTIONS, BOOKING_OPTIONS, DURATION_OPTIONS, AMENITY_COMFORT_OPTIONS,
 } from '../constants/filterSchema';
-import { normalizeFilters } from '../lib/filterActivities';
+import { normalizeFilters, rankActivities } from '../lib/filterActivities';
 import { whenSummary, hebrewJoin, categorySummary } from '../lib/filterSummaries';
 import { supabase } from '../lib/supabase';
 import { fetchUserPreferences, saveDefaultHomeFilters } from '../lib/preferences';
 import { childrenToDefaultAgeFilter, formatChildAge } from '../lib/children';
 import { parseSmartSearchQuery, intentToFilters } from '../lib/smartSearch';
+import { fetchApprovedActivities, formatDistance } from '../lib/activities';
+import { fetchUserActivityFlags, toggleFavorite, toggleVisited, toggleHidden, fetchAllPersonalNotes } from '../lib/interactions';
+import { formatBenefitCardTag } from '../lib/benefits';
 import { colors, fonts, radii, spacing } from '../constants/theme';
+
+// המסך הראשי - יש מסך-בית אחד בלבד (בקשת המשתמש 2026-09-12: "יש למחוק את מסך הבית 2, מעכשיו
+// יש רק מסך בית אחד"). קודם לכן היו שני מסכי-בית מקבילים (app/index.js ו-app/home2.js) שמוזגו
+// יחד לקובץ הזה בשלב קודם, ואז home2.js נמחק לגמרי - זה כל הסיפור, אין יותר מסך שני.
+
+// "☀️ בוקר טוב" וכו' - אלמנט-הקשר קטן, לא שולף את כינוי המשתמש בעצמו (Header.js כבר שולף
+// אותו פנימית לתפריט הנפתח, מועבר החוצה דרך onNicknameResolved - אין טעם לשכפל את השליפה).
+function greetingForNow() {
+  const h = new Date().getHours();
+  if (h < 5) return '🌙 לילה טוב';
+  if (h < 12) return '☀️ בוקר טוב';
+  if (h < 17) return '🌤️ צהריים טובים';
+  if (h < 21) return '🌆 ערב טוב';
+  return '🌙 לילה טוב';
+}
+
+const RECOMMENDATIONS_LIMIT = 8;
+
+const DISCOVERY_TILES = [
+  { id: 'nature', emoji: '🌳', label: 'טבע וטיולים', category: 'טבע' },
+  { id: 'museums', emoji: '🏛️', label: 'מוזיאונים לילדים', category: 'מוזיאון לילדים' },
+  { id: 'playgrounds', emoji: '🛝', label: 'פארקים וגנים', category: 'פארק' },
+  { id: 'animals', emoji: '🐾', label: 'חוות ובעלי חיים', category: 'חווה' },
+  { id: 'water', emoji: '💦', label: 'פעילויות מים', category: 'פעילות מים' },
+  { id: 'crafts', emoji: '🎨', label: 'יצירה וסדנאות', category: 'יצירה' },
+];
+
+// שורת שלד-כרטיס בזמן טעינת ההמלצות - בלי טקסט "טוען...", רק מלבנים אפורים בגובה/רוחב של
+// ActivityCard אמיתי כדי שהקרוסלה לא "קופצת" כשהנתונים מגיעים.
+function SkeletonCard() {
+  return (
+    <View style={styles.recCardWrap}>
+      <View style={styles.skeletonImage} />
+      <View style={styles.skeletonLineWide} />
+      <View style={styles.skeletonLineNarrow} />
+    </View>
+  );
+}
 
 // "🕐 חיפושים אחרונים" - מוחלף מ"💡 רעיונות לחיפוש" הקבוע (בקשת המשתמש): נשמר מקומית במכשיר
 // בלבד (AsyncStorage - שקול ל-localStorage בעברית שלה, אבל עובד גם ב-native, לא רק web), לא
@@ -28,12 +70,11 @@ import { colors, fonts, radii, spacing } from '../constants/theme';
 const RECENT_SEARCHES_KEY = 'turu_recent_searches';
 const RECENT_SEARCHES_MAX = 5;
 
-// יחס הרוחב/גובה של איור הדשא (assets/grass-footer.png) - אותו ערך בדיוק כמו
-// components/FeedbackButton.js (שם מוזכר גם הקשר: כפתור הדיווח צריך לשבת מעל הדשא הזה).
+// יחס הרוחב/גובה של איור הדשא (assets/grass-footer.png).
 const GRASS_ASPECT_RATIO = 939 / 148;
 
 // אובייקט-style גולמי (לא דרך StyleSheet.create) ל-<span> אמיתי בווב בלבד - ראו ההערה במקום
-// השימוש (app/index.js, JSX) להסבר המלא למה זה חייב להיות span+CSS ולא RN Text/SVG.
+// השימוש למטה (JSX) להסבר המלא למה זה חייב להיות span+CSS ולא RN Text/SVG.
 const TAGLINE_GRADIENT_SPAN_STYLE = {
   display: 'block', textAlign: 'center', fontFamily: 'Assistant_800ExtraBold', fontSize: 19,
   fontWeight: '800', marginTop: -2, marginBottom: 16,
@@ -222,6 +263,9 @@ export default function HomeScreen() {
   // מדידה אמיתית (onLayout) של שורת ה-Header, כדי ש-SunMascot (position:absolute, מחוץ ל-
   // ScrollView) יתיישר איתה בכל פלטפורמה/מכשיר - ראו הערה מלאה ליד SunMascot למעלה.
   const [headerLayout, setHeaderLayout] = useState(null);
+  // כינוי המשתמש לברכת "צהריים טובים <שם>" - מגיע מ-Header (onNicknameResolved), לא נשלף כאן
+  // בנפרד, כדי לא לשכפל את קריאת ה-profile שכבר קורית שם בכל מקרה.
+  const [nickname, setNickname] = useState('');
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
   const [deviceCoords, setDeviceCoords] = useState(null);
   const [categoryQuickOpen, setCategoryQuickOpen] = useState(false);
@@ -243,11 +287,45 @@ export default function HomeScreen() {
   const [recentSearches, setRecentSearches] = useState([]);
   const [recentSearchesOpen, setRecentSearchesOpen] = useState(false);
 
+  // ✨ המלצות מותאמות - excludedCategories/excludedCities/benefitClubs זהים בדיוק למה
+  // ש-app/activities.js טוען, כדי שהקרוסלה כאן תתאים לאותם חוקי-דירוג/הסתרה בדיוק כמו עמוד
+  // התוצאות.
+  const [recActivities, setRecActivities] = useState([]);
+  const [recLoading, setRecLoading] = useState(true);
+  const [recError, setRecError] = useState(null);
+  const [recFavoriteIds, setRecFavoriteIds] = useState(new Set());
+  const [recVisitedIds, setRecVisitedIds] = useState(new Set());
+  const [recHiddenIds, setRecHiddenIds] = useState(new Set());
+  const [recNotes, setRecNotes] = useState([]);
+  const [excludedCategories, setExcludedCategories] = useState([]);
+  const [excludedCities, setExcludedCities] = useState([]);
+  const [benefitClubs, setBenefitClubs] = useState([]);
+
   useEffect(() => {
     AsyncStorage.getItem(RECENT_SEARCHES_KEY).then((raw) => {
       if (!raw) return;
       try { setRecentSearches(JSON.parse(raw)); } catch { /* ערך פגום - מתעלמים, לא קורסים */ }
     });
+  }, []);
+
+  // כל הפעילויות המאושרות - נטען פעם אחת בלבד ב-mount (לא ב-useFocusEffect כמו user/children
+  // למטה): payload כבד (אלפי פעילויות, ראו lib/activities.js) - טעינה חוזרת בכל חזרה למסך הבית
+  // תהיה מיותרת ויקרה. הדירוג עצמו (recommendations, useMemo למטה) עדיין מתעדכן חי ככל
+  // שהפילטרים/מיקום/מועדפים משתנים, בלי לדרוש fetch חדש.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setRecLoading(true);
+      try {
+        const data = await fetchApprovedActivities();
+        if (!cancelled) setRecActivities(data);
+      } catch (err) {
+        if (!cancelled) setRecError(err.message || 'לא הצלחנו לטעון המלצות');
+      } finally {
+        if (!cancelled) setRecLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
   }, []);
 
   const recordRecentSearch = (text) => {
@@ -277,17 +355,35 @@ export default function HomeScreen() {
           setUserId(null);
           setChildren([]);
           setSelectedChildIds(new Set());
+          setRecFavoriteIds(new Set());
+          setRecVisitedIds(new Set());
+          setRecHiddenIds(new Set());
+          setRecNotes([]);
+          setExcludedCategories([]);
+          setExcludedCities([]);
+          setBenefitClubs([]);
           return;
         }
         setUserId(session.user.id);
         try {
-          const prefs = await fetchUserPreferences(session.user.id);
+          const [prefs, flags, notes] = await Promise.all([
+            fetchUserPreferences(session.user.id),
+            fetchUserActivityFlags(session.user.id),
+            fetchAllPersonalNotes(session.user.id),
+          ]);
           if (cancelled) return;
           setVisibleHomeFilters(prefs.visibleHomeFilters);
           if (prefs.defaultHomeFilters) {
             setFilters(normalizeFilters(prefs.defaultHomeFilters));
             setHasSavedDefault(true);
           }
+          setExcludedCategories(prefs.excludedCategories);
+          setExcludedCities(prefs.excludedCities);
+          setBenefitClubs(prefs.benefitClubs);
+          setRecFavoriteIds(flags.favoriteIds);
+          setRecVisitedIds(flags.visitedIds);
+          setRecHiddenIds(flags.hiddenIds);
+          setRecNotes(notes);
           const kids = prefs.children || [];
           setChildren(kids);
           // ברירת מחדל: כל הילדים "נבחרים" ל"למי מחפשים היום?" - תואם בדיוק את מה שכבר קרה
@@ -295,8 +391,8 @@ export default function HomeScreen() {
           setSelectedChildIds(new Set(kids.map((c) => c.id)));
           // גיל ברירת המחדל מגיע מגילאי הילדים (מחושב טרי מתאריך לידה - ראו lib/children.js),
           // לא מ-default_home_filters.age שעלול "לקפוא" בערך ישן - גובר עליו כשיש ילדים.
-          // עדיין state מקומי בלבד: שינוי הגיל בחיפוש בודד לא נשמר בחזרה לפרופיל (ראו index.js
-          // בכללותו - setField רגיל, לא כותב ל-DB).
+          // עדיין state מקומי בלבד: שינוי הגיל בחיפוש בודד לא נשמר בחזרה לפרופיל - setField
+          // רגיל, לא כותב ל-DB.
           const ageDefaults = childrenToDefaultAgeFilter(kids);
           if (ageDefaults.length > 0) {
             setFilters((prev) => ({ ...prev, age: ageDefaults }));
@@ -325,6 +421,7 @@ export default function HomeScreen() {
   };
 
   const setField = (key, value) => setFilters((prev) => ({ ...prev, [key]: value }));
+  const clearAllFilters = () => setFilters(DEFAULT_FILTERS);
 
   const showDefaultNotice = (text) => {
     setDefaultNotice(text);
@@ -348,17 +445,27 @@ export default function HomeScreen() {
     }
   };
 
+  const hasSelectedCategory = filters.category.length > 0;
+  const hasChosenLocation = !!filters.location?.mode;
+  // ה-CTA של מסלול ההעדפות מוצג רק אחרי interaction אמיתי (לא רק ערכי-ברירת-מחדל) - category/
+  // location כבר מתחילים ב-[]/null ב-DEFAULT_FILTERS ורק בחירה בפועל של המשתמש (או ברירת-מחדל
+  // ששמר בעבר, ראו fetchUserPreferences למעלה - גם היא "בחירה" לגיטימית) הופכת אותם ל-truthy,
+  // אז אין צורך ב-state נפרד רק כדי להבדיל בין "ברירת מחדל" לבין "המשתמש בחר" - הדגלים active
+  // הקיימים כבר בדיוק זה. isPersonalized נשאר בהתנהגות הישנה (CTA תמיד מוצג) - מסלול נפרד
+  // ("למי מחפשים היום?") שלא חלק מהבקשה הזו.
+  const showPreferenceCTA = isPersonalized || hasSelectedCategory || hasChosenLocation;
+
   const PRIMARY_FILTERS = [
     {
       key: 'category', label: 'מה בא לנו?',
-      subtitle: filters.category.length > 0 ? categorySummary(filters.category) : 'כל סוגי הפעילויות',
-      active: filters.category.length > 0,
+      subtitle: hasSelectedCategory ? categorySummary(filters.category) : 'כל סוגי הפעילויות',
+      active: hasSelectedCategory,
       Icon: CategoryIcon, decorEmoji: '🌟', tint: '#fdf3d9', color: '#e8bf36', onPress: () => setCategoryQuickOpen(true),
     },
     {
       key: 'where', label: 'איפה נח לכם?',
-      subtitle: filters.location?.mode ? locationSummary(filters.location) : 'באיזור שלי',
-      active: !!filters.location?.mode,
+      subtitle: hasChosenLocation ? locationSummary(filters.location) : 'באיזור שלי',
+      active: hasChosenLocation,
       Icon: LocationIcon, decorEmoji: '🏡', tint: '#e2f5e7', color: '#3fb36d', onPress: () => setWhereQuickOpen(true),
     },
   ];
@@ -444,9 +551,9 @@ export default function HomeScreen() {
         setSmartSearchClarify({ message: data.needsClarification.message, pendingIntent: data.intent, mode: 'street' });
         return;
       }
-      // אין מיקום בכלל בחיפוש עצמו, ואין גם מיקום-ברירת-מחדל שמור - לא מנחשים (שלב 7/17
-      // בבקשה: "אם אין מיקום... הצג שאלה קצרה: באיזה אזור לחפש"). כשיש street זה כבר מטופל
-      // למעלה (needsClarification משרת) - זה המקרה השני, "בכלל לא הוזכר מיקום".
+      // אין מיקום בכלל בחיפוש עצמו, ואין גם מיקום-ברירת-מחדל שמור - לא מנחשים ("אם אין מיקום...
+      // הצג שאלה קצרה: באיזה אזור לחפש"). כשיש street זה כבר מטופל למעלה (needsClarification
+      // משרת) - זה המקרה השני, "בכלל לא הוזכר מיקום".
       const loc = data.intent.location;
       const hasAnyLocation = !!(loc.city || loc.region || loc.street || loc.coords);
       if (!hasAnyLocation && !filters.location?.mode) {
@@ -461,12 +568,12 @@ export default function HomeScreen() {
     }
   };
 
-  // סבב-הבהרה (שלב 8/9 בבקשה): רחוב הוזכר בלי עיר - לא מנחשים, מבקשים עיר ואז ממשיכים בלי
-  // קריאת AI נוספת (ה-Edge Function מדלגת על Claude כש-cityOverride+pendingIntent מגיעים יחד).
+  // סבב-הבהרה: רחוב הוזכר בלי עיר - לא מנחשים, מבקשים עיר ואז ממשיכים בלי קריאת AI נוספת
+  // (ה-Edge Function מדלגת על Claude כש-cityOverride+pendingIntent מגיעים יחד).
   const handleClarifyCity = async () => {
     if (!smartSearchClarify || !smartSearchClarifyCity.trim()) return;
     const city = smartSearchClarifyCity.trim();
-    // 'plain' (שלב 7/17) - אין רחוב לגאוקד, רק ממלאים עיר ישירות בקליינט, בלי קריאת שרת נוספת.
+    // 'plain' - אין רחוב לגאוקד, רק ממלאים עיר ישירות בקליינט, בלי קריאת שרת נוספת.
     if (smartSearchClarify.mode === 'plain') {
       setSmartSearchClarifyCity('');
       goToSmartSearchResults({ ...smartSearchClarify.pendingIntent, location: { ...smartSearchClarify.pendingIntent.location, city } });
@@ -491,6 +598,57 @@ export default function HomeScreen() {
     }
   };
 
+  // --- ✨ המלצות מותאמות (קרוסלה אופקית) ---
+  const recNotesByActivity = useMemo(() => new Map(recNotes.map((n) => [n.activity_id, n.note])), [recNotes]);
+
+  const recommendations = useMemo(() => (
+    rankActivities(recActivities, filters, deviceCoords, excludedCategories, benefitClubs, excludedCities)
+      .filter((a) => !recHiddenIds.has(a.id))
+      .slice(0, RECOMMENDATIONS_LIMIT)
+      .map((a) => ({
+        ...a,
+        distance: formatDistance(a, deviceCoords),
+        favorite: recFavoriteIds.has(a.id),
+        visited: recVisitedIds.has(a.id),
+        hasNote: recNotesByActivity.has(a.id),
+        benefitTag: formatBenefitCardTag(a.benefits, benefitClubs),
+      }))
+  ), [recActivities, filters, deviceCoords, excludedCategories, benefitClubs, excludedCities, recHiddenIds, recFavoriteIds, recVisitedIds, recNotesByActivity]);
+
+  const handleToggleRecFavorite = async (activityId) => {
+    if (!userId) { setShowLoginPrompt(true); return; }
+    const next = !recFavoriteIds.has(activityId);
+    setRecFavoriteIds((prev) => { const s = new Set(prev); next ? s.add(activityId) : s.delete(activityId); return s; });
+    try { await toggleFavorite(userId, activityId, next); }
+    catch { setRecFavoriteIds((prev) => { const s = new Set(prev); next ? s.delete(activityId) : s.add(activityId); return s; }); }
+  };
+
+  const handleToggleRecVisited = async (activityId) => {
+    if (!userId) { setShowLoginPrompt(true); return; }
+    const next = !recVisitedIds.has(activityId);
+    setRecVisitedIds((prev) => { const s = new Set(prev); next ? s.add(activityId) : s.delete(activityId); return s; });
+    try { await toggleVisited(userId, activityId, next); }
+    catch { setRecVisitedIds((prev) => { const s = new Set(prev); next ? s.delete(activityId) : s.add(activityId); return s; }); }
+  };
+
+  const handleHideRec = async (activityId) => {
+    if (!userId) { setShowLoginPrompt(true); return; }
+    setRecHiddenIds((prev) => new Set(prev).add(activityId));
+    try { await toggleHidden(userId, activityId, true); }
+    catch { setRecHiddenIds((prev) => { const s = new Set(prev); s.delete(activityId); return s; }); }
+  };
+
+  // הרחבת-חיפוש מהירה למצב "לא מצאנו כלום" - רק פעולות אמיתיות: מגדילים רדיוס נסיעה קיים (אם
+  // יש) או מנקים את כל הפילטרים, בלי להמציא "עוד תוצאות" שלא קיימות.
+  const handleWidenSearch = () => {
+    const loc = filters.location;
+    if (loc?.radiusKm) {
+      setField('location', { ...loc, radiusKm: null });
+      return;
+    }
+    clearAllFilters();
+  };
+
   return (
     <View style={styles.screen}>
       <LinearGradient colors={[colors.accentTint, colors.accentTintLight, colors.bg]} style={styles.topGradient} />
@@ -498,7 +656,12 @@ export default function HomeScreen() {
       <SunMascot headerLayout={headerLayout} />
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Header onMenuPress={() => {}} onHeaderLayout={setHeaderLayout} />
+        {/* "☀️ בוקר טוב <שם>" - אלמנט-הקשר קטן. השם מגיע מ-Header (onNicknameResolved) - אין
+            שליפת profile כפולה כאן. */}
+        <View style={styles.greetingRow}>
+          <Text style={styles.greetingText}>{greetingForNow()}{nickname ? `, ${nickname}` : ''}</Text>
+        </View>
+        <Header onMenuPress={() => {}} onHeaderLayout={setHeaderLayout} onNicknameResolved={setNickname} />
 
         {Platform.OS === 'web' ? (
           // גרדיאנט-טקסט אמיתי (צהוב חם→ירוק רענן) - חייב <span> גולמי, לא <Text> של RN: RN
@@ -514,7 +677,7 @@ export default function HomeScreen() {
         {/* 🔎 חיפוש חכם - תוספת, לא תחליף: הפילטרים הרגילים למטה (מה בא לנו/איפה נח לכם/סינון
             מתקדם) ממשיכים לעבוד זהה לגמרי, בלי שינוי. */}
         <View style={styles.smartSearchCard}>
-          <Text style={styles.smartSearchTitle}>🔎 מה בא לכם לעשות?</Text>
+          <Text style={styles.smartSearchTitle}>🔎 יודעים מה אתם מחפשים?</Text>
           <View style={isNarrowScreen ? styles.smartSearchInputRowStacked : styles.smartSearchInputRow}>
             <TextInput
               style={styles.smartSearchInput}
@@ -598,7 +761,7 @@ export default function HomeScreen() {
 
         <View style={styles.orDividerRow}>
           <View style={styles.orDividerLine} />
-          <Text style={styles.orDividerText}>או בחרו בעצמכם</Text>
+          <Text style={styles.orDividerText}>או תנו לנו למצוא בשבילכם ✨</Text>
           <View style={styles.orDividerLine} />
         </View>
 
@@ -627,6 +790,27 @@ export default function HomeScreen() {
           </View>
         ) : null}
 
+        {/* ה-CTA שייך למסלול ההעדפות בלבד (מה בא לנו/איפה נוח לכם) - מוצג רק אחרי interaction
+            אמיתי (showPreferenceCTA למעלה), ישר מתחת ל-selectors/extraFiltersWrap ובלי מרווח
+            גדול, כדי שייקרא ויזואלית כיחידה אחת איתם. כשלא מוצג - פשוט לא render, בלי placeholder
+            ובלי disabled state, כדי לא להשאיר מקום ריק ולא לרמוז שהוא חובה גם לחיפוש חופשי
+            (זה בדיוק היה הבלבול שהוביל לשינוי הזה - חיפוש חופשי מבצע את עצמו מיידית, ראו
+            handleSmartSearch, בלי תלות ב-CTA הזה בכלל). */}
+        {showPreferenceCTA ? (
+          <Pressable style={styles.searchBtnWrap} onPress={handleGo} disabled={locatingForSearch}>
+            <LinearGradient colors={['#1cb0e0', '#00647f']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.searchBtn}>
+              {locatingForSearch ? (
+                <ActivityIndicator color="#ffffff" size="small" />
+              ) : (
+                <>
+                  <Text style={styles.searchBtnText}>מצאו לי פעילויות</Text>
+                  <Text style={styles.searchBtnEmoji}>✨</Text>
+                </>
+              )}
+            </LinearGradient>
+          </Pressable>
+        ) : null}
+
         {userId ? (
           <Pressable style={styles.saveDefaultLink} onPress={handleSaveAsDefault} disabled={savingDefault} hitSlop={8}>
             <Text style={styles.saveDefaultText}>
@@ -636,25 +820,69 @@ export default function HomeScreen() {
         ) : null}
         {defaultNotice ? <Text style={styles.defaultNoticeText}>{defaultNotice}</Text> : null}
 
-        <Pressable style={styles.searchBtnWrap} onPress={handleGo} disabled={locatingForSearch}>
-          <LinearGradient colors={['#1cb0e0', '#00647f']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.searchBtn}>
-            {locatingForSearch ? (
-              <ActivityIndicator color="#ffffff" size="small" />
-            ) : (
-              <>
-                <Text style={styles.searchBtnText}>יאללה, יוצאים לדרך!</Text>
-                <Text style={styles.searchBtnEmoji}>🚀</Text>
-              </>
-            )}
-          </LinearGradient>
-        </Pressable>
-
         {/* "🎯 סינון מתקדם" הוסר מעמוד הבית (בקשת המשתמש - simplification: עמוד הבית = מתחילים
             חיפוש, עמוד התוצאות = מדייקים). handleAdvancedFilters עצמו נשאר בקוד בלי שינוי -
             עדיין משמש את הקישורים ב-visibleHomeFilters למעלה (פילטרים שהמשתמש עצמו בחר להציג
             בעמוד הבית, פיצ'ר נפרד). "🪄 ספונטני" עבר בפועל לעמוד התוצאות (app/activities.js) -
             לא רק "מוכן לעתיד" יותר, אלא כבר שם. הציטוט התדמיתי עבר ל"עלינו" (app/about.js) -
             עמוד הבית ממוקד בפעולה, לא בסיפור המותג. */}
+
+        {/* ✨ המלצות מותאמות - קרוסלה אופקית: כרטיס גדול + "הצצה" לכרטיס הבא, לא גריד. */}
+        <View style={styles.sectionHeaderRow}>
+          <Text style={styles.sectionTitle}>✨ רעיונות להיום לידכם</Text>
+          <Text style={styles.sectionSubtitle}>פעילויות שמתאימות לגיל, למיקום ולבחירות שלכם</Text>
+        </View>
+
+        {recLoading ? (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.recRow}>
+            <SkeletonCard /><SkeletonCard /><SkeletonCard />
+          </ScrollView>
+        ) : recError ? (
+          <Text style={styles.recErrorText}>לא הצלחנו לטעון המלצות כרגע</Text>
+        ) : recommendations.length === 0 ? (
+          <View style={styles.emptyRecState}>
+            <Text style={styles.emptyRecTitle}>קפצנו בכל האזור ולא מצאנו משהו שמתאים בדיוק 🦘</Text>
+            <Pressable onPress={handleWidenSearch} hitSlop={8}>
+              <Text style={styles.emptyRecAction}>
+                {filters.location?.radiusKm ? 'הרחיבו את מרחק הנסיעה' : 'נקו את הסינון'}
+              </Text>
+            </Pressable>
+          </View>
+        ) : (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.recRow}>
+            {recommendations.map((a) => (
+              <View key={a.id} style={styles.recCardWrap}>
+                <ActivityCard
+                  {...a}
+                  onToggleFavorite={() => handleToggleRecFavorite(a.id)}
+                  onToggleVisited={() => handleToggleRecVisited(a.id)}
+                  onOpenNote={() => router.push(`/activity/${a.id}`)}
+                  onHide={() => handleHideRec(a.id)}
+                />
+              </View>
+            ))}
+          </ScrollView>
+        )}
+
+        {/* 🌳 עוד לגלות - מתחת להמלצות, לא מתחרה עם החיפוש הראשי. */}
+        <View style={styles.sectionHeaderRow}>
+          <Text style={styles.sectionTitle}>מה עוד מעניין אתכם?</Text>
+        </View>
+        <View style={styles.discoveryGrid}>
+          {DISCOVERY_TILES.map((tile) => (
+            <Pressable
+              key={tile.id}
+              style={styles.discoveryTile}
+              onPress={() => router.push({
+                pathname: '/activities',
+                params: { homeFilters: JSON.stringify({ ...DEFAULT_FILTERS, category: [tile.category] }) },
+              })}
+            >
+              <Text style={styles.discoveryEmoji}>{tile.emoji}</Text>
+              <Text style={styles.discoveryLabel}>{tile.label}</Text>
+            </Pressable>
+          ))}
+        </View>
 
         <GrassFooter width={windowWidth} />
       </ScrollView>
@@ -685,6 +913,8 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   content: { padding: spacing.xl, paddingBottom: 40 },
+  greetingRow: { alignItems: 'flex-end', marginBottom: 2 },
+  greetingText: { fontFamily: fonts.semiBold, fontSize: 13, color: colors.textSecondary },
   topGradient: {
     position: 'absolute', top: 0, left: 0, right: 0, height: 320,
   },
@@ -809,4 +1039,34 @@ const styles = StyleSheet.create({
     borderRadius: radii.pill, paddingVertical: 7, paddingHorizontal: 13,
   },
   smartSearchIdeaChipText: { fontFamily: fonts.semiBold, fontSize: 12, color: colors.textSecondary },
+
+  sectionHeaderRow: { marginBottom: 12 },
+  sectionTitle: { fontFamily: fonts.extraBold, fontSize: 17, color: colors.textPrimary, textAlign: 'right' },
+  sectionSubtitle: { fontFamily: fonts.regular, fontSize: 12.5, color: colors.textSecondary, textAlign: 'right', marginTop: 2 },
+
+  // row רגיל (לא row-reverse) בכוונה - ה-אפליקציה מכבה forceRTL לגמרי (app/_layout.js), אז אין
+  // anchor-גלילה מה-RTL האמיתי ו-offset=0 תמיד מציג את הקצה הפיזי-שמאלי של התוכן - row-reverse
+  // רק היה מזיז את הכרטיס המדורג-ראשון (הכי רלוונטי) אל הקצה שדורש גלילה כדי לראות.
+  recRow: { flexDirection: 'row', gap: 12, paddingBottom: 6 },
+  recCardWrap: { width: 260 },
+  recErrorText: { fontFamily: fonts.semiBold, fontSize: 13, color: colors.textMuted, textAlign: 'center', marginBottom: 20 },
+
+  skeletonImage: { width: '100%', height: 158, borderRadius: radii.lg, backgroundColor: colors.borderLight },
+  skeletonLineWide: { width: '80%', height: 14, borderRadius: 7, backgroundColor: colors.borderLight, marginTop: 12 },
+  skeletonLineNarrow: { width: '50%', height: 12, borderRadius: 6, backgroundColor: colors.borderLight, marginTop: 8 },
+
+  emptyRecState: {
+    alignItems: 'center', paddingVertical: 26, paddingHorizontal: spacing.lg,
+    backgroundColor: colors.card, borderRadius: radii.lg, borderWidth: 1, borderColor: colors.borderLight, marginBottom: 8,
+  },
+  emptyRecTitle: { fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary, textAlign: 'center', marginBottom: 10 },
+  emptyRecAction: { fontFamily: fonts.bold, fontSize: 13, color: colors.accent },
+
+  discoveryGrid: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 10, marginBottom: 24 },
+  discoveryTile: {
+    width: '31%', aspectRatio: 1, backgroundColor: colors.card, borderRadius: radii.lg,
+    borderWidth: 1, borderColor: colors.borderLight, alignItems: 'center', justifyContent: 'center', gap: 6, padding: 6,
+  },
+  discoveryEmoji: { fontSize: 26 },
+  discoveryLabel: { fontFamily: fonts.semiBold, fontSize: 11.5, color: colors.textSecondary, textAlign: 'center' },
 });

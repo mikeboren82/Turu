@@ -428,7 +428,10 @@ async function geocodeAndFillLocation(client, locationId, { force = false } = {}
 // שקלוד מציע) - כדי לכסות יותר אתרים בלי להריץ עשרות חיפושים בתשלום על כל לחיצה.
 const DISCOVERY_PAGES_PER_QUERY = 3;
 const DISCOVERY_QUERY_VARIATIONS = 2; // בנוסף לשאילתה המקורית - עד 3 שאילתות סה"כ
-const DISCOVERY_EXCLUDED_DOMAINS = ['facebook.com', 'instagram.com', 'youtube.com', 'tiktok.com', 'x.com', 'twitter.com', 'linkedin.com'];
+// easy.co.il חסום ע"י Cloudflare על כל בקשה שאינה מדפדפן אמיתי (403 גם עם User-Agent/headers של
+// דפדפן) - כל ניסיון גירוד ממנו נכשל, אז לא שווה להציע אותו כמועמד לגירוד עד שיהיה פתרון (דפדפן
+// headless או שירות proxy חיצוני).
+const DISCOVERY_EXCLUDED_DOMAINS = ['facebook.com', 'instagram.com', 'youtube.com', 'tiktok.com', 'x.com', 'twitter.com', 'linkedin.com', 'easy.co.il'];
 
 const SEARCH_EXPANSION_PROMPT = `אתה עוזר שמרחיב שאילתת חיפוש של הורה שמחפש פעילויות לילדים בישראל, כדי שאפשר יהיה לחפש בגוגל גם ניסוחים קרובים ולמצוא עוד אתרים רלוונטיים שלא היו עולים בחיפוש המקורי.
 

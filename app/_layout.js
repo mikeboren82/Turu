@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { I18nManager } from 'react-native';
+import { I18nManager, View } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as SplashScreen from 'expo-splash-screen';
@@ -8,7 +8,7 @@ import { useFonts, Assistant_400Regular, Assistant_500Medium, Assistant_600SemiB
 import { Fredoka_600SemiBold, Fredoka_700Bold } from '@expo-google-fonts/fredoka';
 import { FrankRuhlLibre_600SemiBold, FrankRuhlLibre_700Bold } from '@expo-google-fonts/frank-ruhl-libre';
 import { colors } from '../constants/theme';
-import FeedbackButton from '../components/FeedbackButton';
+import BottomNav from '../components/BottomNav';
 import { completeOAuthRedirect } from '../lib/oauth';
 import { enforceNotBanned } from '../lib/checkBanned';
 import { recordLegalConsentIfNeeded } from '../lib/legal';
@@ -82,14 +82,16 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          contentStyle: { backgroundColor: colors.bg },
-          animation: 'slide_from_left',
-        }}
-      />
-      <FeedbackButton />
+      <View style={{ flex: 1 }}>
+        <Stack
+          screenOptions={{
+            headerShown: false,
+            contentStyle: { backgroundColor: colors.bg },
+            animation: 'slide_from_left',
+          }}
+        />
+        <BottomNav />
+      </View>
     </SafeAreaProvider>
   );
 }

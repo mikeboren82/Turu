@@ -2,8 +2,20 @@
 TuRu - Playground/park discovery via Google Places API (New) + grid search.
 
 DISCOVERY ONLY by default: writes CSV/JSONL files. Never touches Supabase
-unless --import-supabase is passed, and even then only ever INSERTs brand-new
-rows (NEW_CANDIDATE matches) - never updates/deletes an existing activity.
+unless --import-supabase is passed. Even then, never updates/deletes an
+existing activity - only ever INSERTs. Two different tables, by design
+(2026-09-11 fix - "if the source looks legit and there's an address, approve
+it automatically; otherwise it needs review"):
+  - public.activities (status='approved', live in the app immediately) -
+    ONLY for a "master" row (classify_and_bucket already required: real
+    playground-type place, has an address, quality>=70, no in-batch dup)
+    that ALSO comes back NEW_CANDIDATE against TuRu's existing catalog.
+  - public.incoming_activities (status='needs_review', same review queue
+    the site-scanning pipeline already uses) - everything that did NOT
+    clear that bar: STRONG_MATCH/NEEDS_REVIEW against an existing activity,
+    or classify_and_bucket's own review_rows (missing address, uncertain
+    type, possible duplicate, park-without-clear-playground). Never
+    auto-approved. A human resolves these through the existing admin tools.
 
 See README section in the chat report for exact run commands. Quick reference:
     python playground_discovery.py --dry-run --limit-grid-points 20
@@ -243,6 +255,18 @@ def write_csv(path: Path, rows: list[dict]) -> None:
             writer.writerow(row)
 
 
+def _row_extracted_data(row: dict) -> dict:
+    """Common jsonb payload for an incoming_activities row born from a Google
+    Places candidate - the same fields a human reviewer needs to judge it."""
+    return {
+        "name": row.get("name"), "formatted_address": row.get("formatted_address"),
+        "lat": row.get("latitude"), "lon": row.get("longitude"),
+        "google_place_id": row.get("google_place_id"), "google_maps_uri": row.get("google_maps_uri"),
+        "place_kind": row.get("place_kind"), "types": row.get("types"),
+        "discovery_methods": row.get("discovery_methods"),
+    }
+
+
 async def run_import_supabase(master_rows: list[dict], stats: dict) -> None:
     from supabase_client import SupabaseBotClient, load_import_tool_env
     load_import_tool_env()
@@ -250,17 +274,25 @@ async def run_import_supabase(master_rows: list[dict], stats: dict) -> None:
     existing = await client.fetch_activities_for_matching()
     logger.info("Loaded %d existing TuRu activities for matching", len(existing))
 
-    match_counts = {matching.MATCH_CONFIRMED: 0, matching.STRONG_MATCH: 0, matching.NEEDS_REVIEW: 0, matching.NEW_CANDIDATE: 0}
+    match_counts = {matching.MATCH_CONFIRMED: 0, matching.STRONG_MATCH: 0, matching.POSSIBLE_DUPLICATE: 0, matching.NEEDS_REVIEW: 0, matching.NEW_CANDIDATE: 0}
     imported = 0
+    queued_for_review = 0
     for row in master_rows:
         discovered = {
             "place_id": row["google_place_id"], "name": row["name"],
             "formatted_address": row["formatted_address"], "lat": row["latitude"], "lon": row["longitude"],
         }
-        outcome, _ = matching.match_against_existing(discovered, existing)
+        outcome, match, _match_name_score = matching.match_against_existing(discovered, existing)
         match_counts[outcome] += 1
         row["supabase_match"] = outcome
         if outcome == matching.NEW_CANDIDATE:
+            # "אם המקור נראה לגיטימי ויש כתובת - לאשר אוטומטית" (בקשת המשתמש, 2026-09-11) -
+            # master_rows כאן כבר עברו את כל הבדיקות האלה ב-classify_and_bucket (place_kind
+            # תקין, כתובת קיימת, quality>=70, בלי כפילות-בתוך-האצווה) ועדיין NEW_CANDIDATE
+            # אומר שגם לא נמצאה התאמה לפעילות קיימת ב-TuRu - זה בדיוק "לגיטימי + יש כתובת",
+            # אז זה נכנס ישר כ-approved בדיוק כמו קודם. הפער האמיתי שתוקן היום הוא במה
+            # שקורה ל-STRONG_MATCH/NEEDS_REVIEW למטה, ול-review_rows (push_review_rows_to_incoming) -
+            # אלה בעבר נעלמו בשקט/רק ל-CSV, עכשיו הם נכנסים לתור בדיקה אמיתי (incoming_activities).
             try:
                 new_id = await client.insert_new_playground(
                     name=row["name"] or "גן שעשועים", address=row["formatted_address"],
@@ -283,9 +315,53 @@ async def run_import_supabase(master_rows: list[dict], stats: dict) -> None:
                 logger.error("Insert failed for %s: %s", row["google_place_id"], exc)
                 row["status"] = "ERROR"
                 row["reason"] = str(exc)[:200]
+        elif outcome in (matching.STRONG_MATCH, matching.POSSIBLE_DUPLICATE, matching.NEEDS_REVIEW):
+            # לא בטוחים מספיק שזו בדיוק אותה פעילות קיימת (בניגוד ל-MATCH_CONFIRMED, שם
+            # place_id זהה - שם באמת אין מה לבדוק, ולכן לא נכתב לשום מקום) - לפני התיקון הזה
+            # התוצאה הזו פשוט נעלמה (רק נספרה ב-match_counts). עכשיו: שורת incoming_activities
+            # אמיתית, needs_review, עם existing_activity_id שמצביע על החשוד-שכבר-קיים.
+            try:
+                await client.insert_incoming_activity(
+                    page_url=row.get("google_maps_uri"), match_type="duplicate", status="needs_review",
+                    confidence_score=round((row.get("data_quality_score") or 0) / 100.0, 2),
+                    extracted_data=_row_extracted_data(row),
+                    validation_issues=[f"possible_duplicate_of_existing:{outcome}"],
+                    existing_activity_id=(match or {}).get("id"),
+                )
+                queued_for_review += 1
+            except Exception as exc:
+                logger.error("incoming_activities insert failed (%s) for %s: %s", outcome, row["google_place_id"], exc)
 
     stats["supabase_match_counts"] = match_counts
     stats["supabase_imported"] = imported
+    stats["supabase_queued_for_review"] = queued_for_review
+
+
+async def push_review_rows_to_incoming(review_rows: list[dict]) -> int:
+    """classify_and_bucket's review bucket (missing address / uncertain type /
+    possible in-batch duplicate / park-without-clear-playground) - previously
+    written ONLY to a local CSV nobody in the app could see. Now also queued
+    into incoming_activities (status='needs_review') so an admin can actually
+    resolve them through the review tooling that already exists for the
+    site-scanning pipeline. Never auto-approved - by definition these rows
+    did NOT pass the "legit source + has address" bar master_rows already
+    cleared (see run_import_supabase)."""
+    from supabase_client import SupabaseBotClient, load_import_tool_env
+    load_import_tool_env()
+    client = SupabaseBotClient()
+    queued = 0
+    for row in review_rows:
+        try:
+            await client.insert_incoming_activity(
+                page_url=row.get("google_maps_uri"), match_type="new", status="needs_review",
+                confidence_score=round((row.get("data_quality_score") or 0) / 100.0, 2),
+                extracted_data=_row_extracted_data(row),
+                validation_issues=[row.get("status") or "review", row.get("reason")] if row.get("reason") else [row.get("status") or "review"],
+            )
+            queued += 1
+        except Exception as exc:
+            logger.error("incoming_activities insert failed for review row %s: %s", row.get("google_place_id"), exc)
+    return queued
 
 
 async def main_async() -> None:
@@ -388,6 +464,7 @@ async def main_async() -> None:
     if args.import_supabase and not args.dry_run:
         await run_import_supabase(master_rows, stats)
         write_csv(THIS_DIR / f"israel_playgrounds_discovery_{timestamp}.csv", master_rows)  # rewrite with match/import outcome
+        stats["review_queued_for_incoming"] = await push_review_rows_to_incoming(review_rows)
     elif args.import_supabase and args.dry_run:
         logger.warning("--import-supabase ignored because --dry-run was also passed - no Supabase writes happen in dry-run.")
 

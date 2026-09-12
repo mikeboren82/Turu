@@ -10,9 +10,15 @@ SUPABASE_BOT_EMAIL, SUPABASE_BOT_PASSWORD) instead of asking for a second,
 parallel credentials file - one source of truth for "who is this script" as
 the existing Node scripts (section 18/30: reuse existing credentials).
 
-Read-only by default. insert_activity() is only ever called from
-playground_discovery.py behind --import-supabase, and only for NEW_CANDIDATE
-matches (see matching.py) - never for MATCH_CONFIRMED/STRONG_MATCH/NEEDS_REVIEW.
+Read-only by default. insert_new_playground() is only ever called from
+playground_discovery.py behind --import-supabase, and only for a "master"
+row (classify_and_bucket) that ALSO resolves to NEW_CANDIDATE against the
+existing TuRu catalog (matching.py) - i.e. legit source + has an address +
+genuinely not already in TuRu. Everything else that isn't a clear reject
+(STRONG_MATCH/NEEDS_REVIEW against an existing activity, or classify_and_bucket's
+own review_rows: missing address, uncertain type, possible in-batch duplicate,
+park-without-clear-playground) goes to insert_incoming_activity() instead -
+a real review queue a human can act on, not a CSV nobody in the app sees.
 """
 import os
 import re
@@ -357,3 +363,40 @@ class SupabaseBotClient:
             )
             act_resp.raise_for_status()
             return act_resp.json()[0]["id"]
+
+    async def insert_incoming_activity(
+        self, *, page_url: str | None, match_type: str, status: str,
+        confidence_score: float | None, extracted_data: dict, validation_issues: list[str],
+        existing_activity_id: str | None = None,
+    ) -> None:
+        """Writes ONE row to public.incoming_activities (supabase/0045_incoming_activities.sql) -
+        the SAME review-queue table the site-scanning pipeline (scan-source) already uses,
+        instead of a CSV nobody in the app can see. Added 2026-09-11 to close a real gap:
+        run_import_supabase's NEEDS_REVIEW/STRONG_MATCH outcomes and classify_and_bucket's
+        review_rows were previously silently dropped (STRONG_MATCH/NEEDS_REVIEW) or written
+        only to a local CSV (review_rows) - a human could never actually act on them. The
+        "legit source + has an address" master/DISCOVERED rows keep auto-approving exactly
+        as before via insert_new_playground - this method is only for the rows that path
+        deliberately does NOT auto-approve.
+        source_id/scan_log_id are left null (this candidate came from Google Places, not a
+        registered `sources` row) - the column is nullable (on delete set null) precisely
+        for provenance outside that system."""
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            token = await self._ensure_session(client)
+            headers = {
+                "apikey": self.anon_key, "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json", "Prefer": "return=minimal",
+            }
+            resp = await client.post(
+                f"{self.url}/rest/v1/incoming_activities", headers=headers,
+                json={
+                    "page_url": page_url or "https://www.google.com/maps",
+                    "match_type": match_type,
+                    "existing_activity_id": existing_activity_id,
+                    "confidence_score": confidence_score,
+                    "extracted_data": extracted_data,
+                    "validation_issues": validation_issues,
+                    "status": status,
+                },
+            )
+            resp.raise_for_status()

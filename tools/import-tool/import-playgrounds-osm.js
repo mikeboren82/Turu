@@ -81,9 +81,13 @@ async function fetchOverpassRegion(region) {
   throw lastErr || new Error('כל הניסיונות נכשלו');
 }
 
-// סיווג-אזור גס לפי קואורדינטות (bounding boxes מקורבים, לא גבולות מדויקים) - הכרחי כי
-// locations.region הוא CHECK constraint סגור על 7 ערכים (0007_update_regions.sql), ו-OSM לא
-// מתייג "אזור ישראלי" ישירות. משמש רק כפילטר-פאסט משני, לא ליבת-התאמה - קירוב סביר, לא המצאה.
+// סיווג-אזור גס לפי קואורדינטות (bounding boxes מקורבים, לא גבולות מדויקים) - נמצא ב-2026-09-12
+// שהתיבות האלה שגויות בפועל בכמה מקומות (חיפה-והקריות מפספסת ערים כמו קריית אתא/רכסים בגלל
+// גבול-lng צר מדי; גוש-דן-והמרכז חופפת גיאוגרפית עם ערי שרון כמו כפר סבא/רעננה כי אין דרך להפריד
+// לפי lat בלבד) - וה-fallback הסופי (גוש דן והמרכז) הפך בפועל לסל-קלט לכל מה שלא נתפס נכון,
+// ניפח את האזור הזה ל-2,326 locations מתוך כלל המאגר. buildCityRegionLookup למטה (מבוסס על
+// public.settlements + אותם כללי-מיפוי שכבר מתועדים ב-buildExtractionSystemPrompt, server.js)
+// הוא עכשיו מקור-ההתאמה הראשי - זו הפכה ל-fallback אמיתי, לשימוש רק כשאין city מזוהה כלל.
 function classifyRegion(lat, lng) {
   if (lat >= 31.55 && lat <= 31.95 && lng >= 34.85 && lng <= 35.45) return 'ירושלים והסביבה';
   if (lng >= 35.15 && lat >= 31.30 && lat <= 32.35) return 'יו"ש והבנימין';
@@ -93,6 +97,67 @@ function classifyRegion(lat, lng) {
   if (lat >= 31.95 && lat <= 32.25 && lng <= 34.95) return 'גוש דן והמרכז';
   if (lat > 32.25 && lat <= 32.60) return 'השרון';
   return 'גוש דן והמרכז';
+}
+
+// מיפוי לשכה (רשות האוכלוסין/CBS, public.settlements.region) -> אזור TuRu (7 ערכים) - זהה
+// לכללים המפורשים כבר ב-buildExtractionSystemPrompt (server.js) ו-_shared/extraction.ts, ולאותו
+// מיפוי שהופעל ב-2026-09-12 כתיקון רטרואקטיבי ל-locations קיימות (ראו היסטוריית-שיחה/git).
+const LISHKA_TO_TURU_REGION = {
+  'אילת': 'השפלה והדרום', 'אריאל': 'יו"ש והבנימין', 'אשדוד': 'השפלה והדרום',
+  'אשקלון': 'השפלה והדרום', 'באר שבע': 'השפלה והדרום', 'בית שמש': 'ירושלים והסביבה',
+  'בני ברק': 'גוש דן והמרכז', 'הרצליה': 'גוש דן והמרכז', 'חדרה': 'השרון',
+  'חולון': 'גוש דן והמרכז', 'חיפה': 'חיפה והקריות', 'טבריה': 'הצפון והעמק',
+  'ירושלים': 'ירושלים והסביבה', 'כפר סבא': 'השרון', 'כרמיאל': 'הצפון והעמק',
+  'נוף הגליל': 'הצפון והעמק', 'נתניה': 'השרון', 'עכו': 'הצפון והעמק',
+  'עפולה': 'הצפון והעמק', 'פתח תקוה': 'גוש דן והמרכז', 'צפת': 'הצפון והעמק',
+  'קריות': 'חיפה והקריות', 'ראש העין': 'גוש דן והמרכז', 'ראשון לציון': 'גוש דן והמרכז',
+  'רחובות': 'השפלה והדרום', 'רמלה': 'השפלה והדרום', 'רמת גן': 'גוש דן והמרכז',
+  'ת"א - מרכז': 'גוש דן והמרכז',
+};
+
+// רשויות-מאוחדות שבהן addr:city של OSM לפעמים מכיל רק חצי מהשם הרשמי (זהה ל-CITY_ALIAS_GROUPS,
+// lib/filterActivities.js) - כל כינוי ממופה לשם ה-settlement הרשמי כדי שהוא ימצא ב-lookup.
+const CITY_ALIAS_TO_SETTLEMENT = {
+  'קדימה': 'קדימה-צורן', 'צורן': 'קדימה-צורן', 'קדימה צורן': 'קדימה-צורן',
+  'תל אביב': 'תל אביב - יפו', 'יפו': 'תל אביב - יפו', 'תל אביב יפו': 'תל אביב - יפו',
+  'בנימינה': 'בנימינה-גבעת עדה', 'גבעת עדה': 'בנימינה-גבעת עדה',
+  'פרדס חנה': 'פרדס חנה-כרכור', 'כרכור': 'פרדס חנה-כרכור',
+  'מכבים רעות': 'מודיעין-מכבים-רעות', 'רעות': 'מודיעין-מכבים-רעות', 'מודיעין': 'מודיעין-מכבים-רעות',
+  'עופרים': 'בית אריה',
+};
+
+// טוען פעם אחת (לא per-element) את מיפוי city/council -> אזור TuRu, מ-public.settlements
+// (supabase/0063_settlements.sql, 1,316 יישובים אמיתיים) - מקור-ההתאמה הראשי מעכשיו; classifyRegion
+// (lat/lng) נשאר fallback אחרון בלבד, לשורות בלי city מזוהה כלל.
+async function buildCityRegionLookup(client) {
+  const { data, error } = await client.from('settlements').select('name_he, council, region');
+  if (error) throw error;
+  const byCity = new Map();
+  const councilCounts = new Map();
+  for (const row of data || []) {
+    const turuRegion = LISHKA_TO_TURU_REGION[row.region];
+    if (turuRegion) byCity.set(normalizeCityName(row.name_he), turuRegion);
+    if (row.council) {
+      if (!councilCounts.has(row.council)) councilCounts.set(row.council, new Map());
+      const counts = councilCounts.get(row.council);
+      counts.set(row.region, (counts.get(row.region) || 0) + 1);
+    }
+  }
+  const byCouncil = new Map();
+  for (const [council, counts] of councilCounts) {
+    let bestLishka = null, bestN = -1;
+    for (const [lishka, n] of counts) if (n > bestN) { bestLishka = lishka; bestN = n; }
+    const turuRegion = LISHKA_TO_TURU_REGION[bestLishka];
+    if (turuRegion) byCouncil.set(`מועצה אזורית ${council}`, turuRegion);
+  }
+  return { byCity, byCouncil };
+}
+
+function regionForCity(city, cityRegionLookup) {
+  if (!city || !cityRegionLookup) return null;
+  const alias = CITY_ALIAS_TO_SETTLEMENT[city];
+  const key = normalizeCityName(alias || city);
+  return cityRegionLookup.byCity.get(key) || cityRegionLookup.byCouncil.get(city) || null;
 }
 
 function normalizeForMatch(s) {
@@ -122,14 +187,16 @@ function haversineKm(lat1, lng1, lat2, lng2) {
 const { generatePlaygroundDisplayName } = require('./playgroundNaming');
 const { normalizeCityName } = require('./cityNaming');
 
-function normalizeElement(el, region) {
+function normalizeElement(el, region, cityRegionLookup) {
   const tags = el.tags || {};
   const lat = el.type === 'node' ? el.lat : el.center?.lat;
   const lng = el.type === 'node' ? el.lon : el.center?.lon;
   if (lat == null || lng == null) return null;
-  const regionLabel = classifyRegion(lat, lng);
   const street = tags['addr:street'] ? `${tags['addr:street']}${tags['addr:housenumber'] ? ' ' + tags['addr:housenumber'] : ''}` : null;
   const city = normalizeCityName(tags['addr:city'] || tags['addr:place'] || null);
+  // עדיפות לשם-יישוב אמיתי (public.settlements) על פני תיבת lat/lng גסה - ראו ההערה המלאה
+  // ליד classifyRegion/buildCityRegionLookup למעלה. classifyRegion הוא fallback אחרון בלבד.
+  const regionLabel = regionForCity(city, cityRegionLookup) || classifyRegion(lat, lng);
   const officialName = tags.name || tags['name:he'] || tags['name:en'] || null;
   const address = [street, city].filter(Boolean).join(', ') || null;
   const hasName = !!officialName;
@@ -185,10 +252,13 @@ async function main() {
   }
 
   console.log('\nשלב 2: נרמול + הסרת כפילויות בתוך המאגר...');
+  const { client, userId } = await getClient();
+  const cityRegionLookup = await buildCityRegionLookup(client);
+  console.log(`  נטען מיפוי אזורים אמיתי מ-public.settlements (${cityRegionLookup.byCity.size} יישובים, ${cityRegionLookup.byCouncil.size} מועצות אזוריות)`);
   const byKey = new Map();
   for (const region of REGIONS) {
     for (const el of rawByRegion[region.key] || []) {
-      const norm = normalizeElement(el, region);
+      const norm = normalizeElement(el, region, cityRegionLookup);
       if (!norm) continue;
       const key = `${norm.osmType}/${norm.osmId}`;
       if (!byKey.has(key)) byKey.set(key, norm);
@@ -210,7 +280,8 @@ async function main() {
   console.log(`  אחרי dedup-קרבה פנימי (<25מ'): ${candidates.length} (${internalDupsRemoved} הוסרו)`);
 
   console.log('\nשלב 3: בדיקת כפילויות מול פעילויות קיימות ב-TuRu...');
-  const { client, userId } = await getClient();
+  // client/userId כבר נטענו למעלה (שלב 2, כדי לבנות את cityRegionLookup) - לא קוראים ל-getClient()
+  // פעם שנייה.
   // Supabase מגביל תגובת select ל-1000 שורות כברירת מחדל בשקט (בלי שגיאה!) - בלי pagination
   // מפורש כאן, בדיקת-הכפילויות הייתה "רואה" רק את 1000 הפעילויות הראשונות ומחשיבה הכל שאחרי
   // זה כ"חדש" בטעות (נמצא בפועל בהרצה שנייה: 4925 "מועמדים חדשים" במקום ~8 האמיתיים, כי המערכת
