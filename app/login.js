@@ -229,16 +229,16 @@ export default function LoginScreen() {
 
             <View style={styles.benefitsList}>
               <View style={styles.benefitRow}>
-                <Text style={styles.benefitTitle}>👶 פעילויות שמתאימות לילדים שלכם</Text>
-                <Text style={styles.benefitDesc}>הוסיפו את הילדים שלכם, ותורו תוכל להתאים לכם פעילויות לפי הגיל ותחומי העניין שלהם.</Text>
+                <Text style={styles.benefitTitle}>👶 פעילויות שבאמת מתאימות לילדים שלכם</Text>
+                <Text style={styles.benefitDesc}>שומרים את גילאי הילדים וההעדפות שלכם, כדי שתורו תוכל להציג לכם רעיונות רלוונטיים יותר בלי להתחיל מחדש בכל פעם.</Text>
+              </View>
+              <View style={styles.benefitRow}>
+                <Text style={styles.benefitTitle}>📍 תורו זוכרת מה מתאים לכם</Text>
+                <Text style={styles.benefitDesc}>האזור, המרחק וההעדפות שלכם נשמרים, כדי שבפעם הבאה יהיה הרבה יותר קל למצוא משהו שמתאים לכם.</Text>
               </View>
               <View style={styles.benefitRow}>
                 <Text style={styles.benefitTitle}>❤️ שומרים את מה שאהבתם</Text>
-                <Text style={styles.benefitDesc}>שמרו פעילויות שאתם רוצים לעשות, כדי שתוכלו לחזור אליהן בקלות מתי שתרצו.</Text>
-              </View>
-              <View style={styles.benefitRow}>
-                <Text style={styles.benefitTitle}>⚡ פחות לחפש, יותר למצוא</Text>
-                <Text style={styles.benefitDesc}>ההעדפות שלכם נשמרות, כך שתוכלו למצוא פעילויות שמתאימות לכם מהר יותר.</Text>
+                <Text style={styles.benefitDesc}>שמרו פעילויות ומקומות שמעניינים אתכם וחזרו אליהם בקלות כשתרצו.</Text>
               </View>
             </View>
 
