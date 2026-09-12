@@ -38,7 +38,7 @@
 // והמייל נשלח מתוך try/catch נפרד.
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
-import { classifyPlace, matchAgainstExisting, extractCityFromAddress, fetchAllPaginatedResults, type ExistingForMatch } from '../_shared/placesDiscovery.ts';
+import { classifyPlace, matchAgainstExisting, extractCityFromAddress, fetchAllPaginatedResults, findSameStreetReviewMatch, checkExactPlaceIdDuplicate, nextReviewCaseState, type ExistingForMatch } from '../_shared/placesDiscovery.ts';
 import { generatePlaygroundDisplayName, isGenericPlaygroundName } from '../_shared/playgroundNaming.ts';
 import { normalizeCityName } from '../_shared/cityNaming.ts';
 
@@ -234,7 +234,7 @@ Deno.serve(async (req: Request) => {
       'settlement_scan_daily_pro_budget', 'settlement_scan_gap_threshold', 'settlement_scan_radius_m',
       'settlement_scan_excluded_cities', 'settlement_scan_price_id_only_usd', 'settlement_scan_price_text_search_usd',
       'settlement_scan_price_nearby_search_usd', 'settlement_scan_price_place_details_usd',
-      'settlement_scan_max_batch_cost_usd',
+      'settlement_scan_max_batch_cost_usd', 'settlement_scan_same_street_ceiling_m',
     ]);
   const settings: Record<string, unknown> = {};
   for (const row of settingsRows || []) settings[(row as { key: string }).key] = (row as { value: unknown }).value;
@@ -252,6 +252,9 @@ Deno.serve(async (req: Request) => {
   const priceNearbySearch = Number(settings.settlement_scan_price_nearby_search_usd ?? 0.032);
   const pricePlaceDetails = Number(settings.settlement_scan_price_place_details_usd ?? 0.005);
   const maxBatchCostUsd = Number(settings.settlement_scan_max_batch_cost_usd ?? 2.0);
+  // SAME_STREET_REVIEW ceiling (0072, בקשת המשתמש המפורשת: "configurable so we can tune it later") -
+  // רק קובע כמה רחוק ה-advisory-check הזה מסתכל, לא נוגע בשלושת-האזורים (0-30/30-50/>50) בכלל.
+  const sameStreetCeilingM = Number(settings.settlement_scan_same_street_ceiling_m ?? 200);
   const stats = newRequestStats();
 
   // רשימת-יישובים אמיתית ועצמאית (supabase/0063_settlements.sql, 1,316 יישובים מ-data.gov.il/
@@ -277,6 +280,31 @@ Deno.serve(async (req: Request) => {
       offset += pageSize;
     } while (page.length === pageSize);
   }
+
+  // resolveSettlement (0072, בקשת המשתמש המפורשת post-Batch-10): פתרון-יישוב קנוני - קודם הרשימה
+  // הרשמית (settlementRows, כבר נטענה למעלה - אין query נוסף), אחר-כך כינויים מפורשים-בלבד
+  // (settlement_aliases, "שהם"->"שוהם" וכו') - לא fuzzy matching בכלל. כשלא נמצאת התאמה בטוחה -
+  // מחזיר null, וה-caller (cityMatchFlag/findSameStreetReviewMatch) נופל בחזרה להשוואת-מחרוזות
+  // רגילה - "אל תמציא התאמה" חל גם כאן.
+  const settlementNameToId = new Map<string, string>();
+  const settlementIdToName = new Map<string, string>();
+  for (const s of settlementRows) {
+    const normalized = normalizeCityName(s.name_he);
+    if (normalized) settlementNameToId.set(normalized, s.settlement_id);
+    settlementIdToName.set(s.settlement_id, normalizeCityName(s.name_he) || s.name_he);
+  }
+  {
+    const { data: aliasRows, error: aliasErr } = await client.from('settlement_aliases').select('alias_name, settlement_id');
+    if (aliasErr) console.error('Failed to load settlement_aliases:', aliasErr.message);
+    for (const a of (aliasRows || []) as { alias_name: string; settlement_id: string }[]) {
+      const normalized = normalizeCityName(a.alias_name);
+      if (normalized) settlementNameToId.set(normalized, a.settlement_id);
+    }
+  }
+  const resolveSettlement = (city: string | null | undefined): string | null => {
+    if (!city) return null;
+    return settlementNameToId.get(city) ?? null;
+  };
 
   // כמה גני-שעשועים כבר יש ב-TuRu, לפי שם-עיר מנורמל (locations.city) - נספר פעם אחת על כל
   // ה-activities, לא per-settlement (אותה עלות-שאילתה כמו הגישה הישנה, רק לא מגדירה יותר את
@@ -388,7 +416,7 @@ Deno.serve(async (req: Request) => {
   const PAGE_SIZE = 1000;
   for (let from = 0; ; from += PAGE_SIZE) {
     const { data: page, error: pageErr } = await client.from('activities')
-      .select('id, name, google_place_id, location:locations(lat, lng)')
+      .select('id, name, google_place_id, location:locations(lat, lng, address)')
       .in('category', PLAYGROUND_CATEGORIES)
       .range(from, from + PAGE_SIZE - 1);
     if (pageErr) { console.error('Failed to page existing activities:', pageErr.message); break; }
@@ -396,8 +424,11 @@ Deno.serve(async (req: Request) => {
     if (!page || page.length < PAGE_SIZE) break;
   }
   const existing: ExistingForMatch[] = (existingRows || []).map((r) => {
-    const loc = r.location as { lat: number | null; lng: number | null } | null;
-    return { id: r.id as string, name: r.name as string | null, google_place_id: r.google_place_id as string | null, lat: loc?.lat ?? null, lon: loc?.lng ?? null };
+    const loc = r.location as { lat: number | null; lng: number | null; address: string | null } | null;
+    return {
+      id: r.id as string, name: r.name as string | null, google_place_id: r.google_place_id as string | null,
+      lat: loc?.lat ?? null, lon: loc?.lng ?? null, address: loc?.address ?? null,
+    };
   });
 
   // 2026-09-11 fix - "אם המקור נראה לגיטימי ויש כתובת, לאשר אוטומטית; אחרת - לבדיקה" (בקשת
@@ -412,6 +443,12 @@ Deno.serve(async (req: Request) => {
     pageUrl: string | null; matchType: 'new' | 'duplicate'; existingActivityId: string | null;
     confidenceScore: number; issue: string; city: string; placeId: string; name: string | null;
     address: string | null; lat: number | null; lon: number | null; kind: string;
+    // רק POSSIBLE_DUPLICATE ממלא את אלה (evidence, לא סיווג) - 2026-09-12 pre/post-Batch-8
+    // hardening. streetSimilarity/houseNumberMatch/cityMatch/neighborhoodMatch (post-Batch-8):
+    // רכיבים ממוקדים יותר מ-addressSimilarity (כתובת מלאה) - ראו matchAgainstExisting.
+    nameSimilarity?: number | null; addressSimilarity?: number | null;
+    streetSimilarity?: number | null; houseNumberMatch?: number | null;
+    cityMatch?: boolean | null; neighborhoodMatch?: boolean | null;
   }) {
     const { error } = await client.from('incoming_activities').insert({
       page_url: params.pageUrl || 'https://www.google.com/maps',
@@ -423,6 +460,9 @@ Deno.serve(async (req: Request) => {
       extracted_data: {
         name: params.name, formatted_address: params.address, lat: params.lat, lon: params.lon,
         google_place_id: params.placeId, place_kind: params.kind, city: params.city,
+        name_similarity_score: params.nameSimilarity ?? null, address_similarity_score: params.addressSimilarity ?? null,
+        street_similarity_score: params.streetSimilarity ?? null, house_number_match: params.houseNumberMatch ?? null,
+        city_match: params.cityMatch ?? null, neighborhood_match: params.neighborhoodMatch ?? null,
       },
     });
     if (error) importErrors.push({ city: params.city, error: `incoming_activities insert failed: ${error.message}` });
@@ -449,6 +489,10 @@ Deno.serve(async (req: Request) => {
     address: string | null; lat: number | null; lon: number | null; kind: string | null;
     distanceM: number | null; page: number; outcome: string;
     matchedActivityId?: string | null; createdActivityId?: string | null;
+    nameSimilarity?: number | null; addressSimilarity?: number | null;
+    streetSimilarity?: number | null; houseNumberMatch?: number | null;
+    cityMatch?: boolean | null; neighborhoodMatch?: boolean | null;
+    sourceUrl?: string | null;
   }) {
     const { error } = await client.from('settlement_scan_candidates').insert({
       batch_id: runId, settlement_id: params.settlementId, settlement_name: params.settlementName,
@@ -457,8 +501,83 @@ Deno.serve(async (req: Request) => {
       distance_from_settlement_m: params.distanceM, page_number: params.page, outcome: params.outcome,
       matched_existing_activity_id: params.matchedActivityId ?? null,
       created_activity_id: params.createdActivityId ?? null,
+      name_similarity_score: params.nameSimilarity ?? null,
+      address_similarity_score: params.addressSimilarity ?? null,
+      street_similarity_score: params.streetSimilarity ?? null,
+      house_number_match: params.houseNumberMatch ?? null,
+      city_match: params.cityMatch ?? null,
+      neighborhood_match: params.neighborhoodMatch ?? null,
+      source_url: params.sourceUrl ?? null,
     });
     if (error) console.error('Failed to log settlement_scan_candidates row:', error.message);
+  }
+
+  // SAME_STREET_REVIEW (0072, בקשה מפורשת post-Batch-10) - טבלה נפרדת לגמרי מ-settlement_scan_
+  // candidates.outcome בכוונה: זה evidence *נוסף* לצד הסיווג הרגיל של המועמד (שממשיך בדיוק כרגיל -
+  // 'new'/'needs_review_uncertain_type'/וכו', לא מוחלף), לא outcome חדש. כשל בכתיבה - console.error
+  // בלבד, אותו עיקרון כמו logCandidate (תיעוד, לא לוגיקה - אף פעם לא חוסם/עוצר את הסריקה עצמה).
+  async function logSameStreetReview(params: {
+    settlementId: string; settlementName: string; placeId: string | null; name: string | null;
+    address: string | null; lat: number | null; lon: number | null;
+    existingActivityId: string; existingHouseNumber: string | null; candidateHouseNumber: string | null;
+    canonicalSettlementId: string | null; normalizedStreet: string; distanceM: number;
+    nameSimilarity: number | null; streetSimilarity: number | null; ceilingM: number;
+  }) {
+    const { error } = await client.from('settlement_scan_same_street_reviews').insert({
+      batch_id: runId, candidate_settlement_id: params.settlementId, candidate_settlement_name: params.settlementName,
+      google_place_id: params.placeId, candidate_name: params.name, candidate_address: params.address,
+      candidate_lat: params.lat, candidate_lon: params.lon, candidate_house_number: params.candidateHouseNumber,
+      existing_activity_id: params.existingActivityId, existing_house_number: params.existingHouseNumber,
+      canonical_settlement_id: params.canonicalSettlementId,
+      canonical_settlement_name: params.canonicalSettlementId ? settlementIdToName.get(params.canonicalSettlementId) ?? null : null,
+      normalized_street: params.normalizedStreet, distance_m: params.distanceM,
+      name_similarity_score: params.nameSimilarity, street_similarity_score: params.streetSimilarity,
+      ceiling_m: params.ceilingM,
+    });
+    if (error) console.error('Failed to log settlement_scan_same_street_reviews row:', error.message);
+  }
+
+  // recordReviewCase (0073, בקשה מפורשת post-Batch-11) - dedup rollup על (google_place_id,
+  // existing_activity_id), לא מחליף שום דבר: settlement_scan_candidates/settlement_scan_
+  // same_street_reviews ממשיכים לרשום שורה מלאה בכל זיהוי חוזר בדיוק כמו קודם - זו רק "תצוגה
+  // מרוכזת" מעל ההיסטוריה השלמה שכבר נשמרת. read-then-write (לא upsert אטומי בודד) כי supabase-js
+  // לא נותן שליטה על אילו עמודות מתעדכנות ב-ON CONFLICT - בכוונה, כדי ש-first_seen_at/
+  // first_batch_id/status לעולם לא יידרסו בזיהוי חוזר (nextReviewCaseState, _shared/
+  // placesDiscovery.ts, קובע רק את ה-counter, אף פעם לא מאפס/סוגר case קיים). לא מציג race
+  // אמיתי בפועל - ה-Edge Function הזו לא רצה concurrent-ית עם עצמה (cron בודד, ראו הערת הקובץ
+  // למעלה), אותה רמת-פשטות כמו שאר הפרויקט. כשל בכתיבה - console.error בלבד, לא חוסם את הסריקה.
+  async function recordReviewCase(params: {
+    placeId: string; existingActivityId: string; caseType: string; name: string | null; address: string | null;
+    distanceM: number | null; nameSimilarity: number | null; streetSimilarity: number | null; addressSimilarity: number | null;
+  }) {
+    const { data: existingCase, error: findErr } = await client.from('settlement_scan_review_cases')
+      .select('id, detection_count')
+      .eq('google_place_id', params.placeId).eq('existing_activity_id', params.existingActivityId)
+      .maybeSingle();
+    if (findErr) { console.error('Failed to look up settlement_scan_review_cases row:', findErr.message); return; }
+
+    const prevCount = (existingCase as { detection_count: number } | null)?.detection_count ?? null;
+    const { detectionCount } = nextReviewCaseState(prevCount);
+    const sharedFields = {
+      case_type: params.caseType, candidate_name: params.name, candidate_address: params.address,
+      last_batch_id: runId, last_seen_at: new Date().toISOString(),
+      latest_distance_m: params.distanceM, latest_name_similarity_score: params.nameSimilarity,
+      latest_street_similarity_score: params.streetSimilarity, latest_address_similarity_score: params.addressSimilarity,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (existingCase) {
+      const { error } = await client.from('settlement_scan_review_cases')
+        .update({ ...sharedFields, detection_count: detectionCount })
+        .eq('id', (existingCase as { id: string }).id);
+      if (error) console.error('Failed to update settlement_scan_review_cases row:', error.message);
+    } else {
+      const { error } = await client.from('settlement_scan_review_cases').insert({
+        google_place_id: params.placeId, existing_activity_id: params.existingActivityId,
+        first_batch_id: runId, detection_count: detectionCount, ...sharedFields,
+      });
+      if (error) console.error('Failed to insert settlement_scan_review_cases row:', error.message);
+    }
   }
 
   for (const s of toFill) {
@@ -474,7 +593,7 @@ Deno.serve(async (req: Request) => {
       const page = p._page ?? 1;
       if (!placeId) {
         stats.rejected++;
-        await logCandidate({ settlementId: s.settlementId, settlementName: s.city, placeId: null, name: (p.displayName || {}).text ?? null, address: p.formattedAddress ?? null, lat: null, lon: null, kind: null, distanceM: null, page, outcome: 'rejected_missing_place_id' });
+        await logCandidate({ settlementId: s.settlementId, settlementName: s.city, placeId: null, name: (p.displayName || {}).text ?? null, address: p.formattedAddress ?? null, lat: null, lon: null, kind: null, distanceM: null, page, outcome: 'rejected_missing_place_id', sourceUrl: p.googleMapsUri ?? null });
         continue;
       }
       seenPlaceIds.add(placeId);
@@ -485,7 +604,7 @@ Deno.serve(async (req: Request) => {
       const distanceM = lat != null && lon != null ? Math.round(haversineKm(s.lat, s.lng, lat, lon) * 1000) : null;
       if (!isInBounds(lat, lon)) {
         stats.rejected++;
-        await logCandidate({ settlementId: s.settlementId, settlementName: s.city, placeId, name, address, lat, lon, kind: null, distanceM, page, outcome: 'rejected_out_of_bounds' });
+        await logCandidate({ settlementId: s.settlementId, settlementName: s.city, placeId, name, address, lat, lon, kind: null, distanceM, page, outcome: 'rejected_out_of_bounds', sourceUrl: p.googleMapsUri ?? null });
         continue;
       }
       // 2026-09-12 fix - נמצא בפועל ב-Batch 1 הראשון: places:searchText עם locationBias (לא
@@ -499,22 +618,23 @@ Deno.serve(async (req: Request) => {
       // לאי-דיוק גיאוקוד של מרכז-היישוב עצמו, לא ניחוש שרירותי.
       if (haversineKm(s.lat, s.lng, lat, lon) > (radiusM / 1000) * 2) {
         stats.rejected++;
-        await logCandidate({ settlementId: s.settlementId, settlementName: s.city, placeId, name, address, lat, lon, kind: null, distanceM, page, outcome: 'rejected_distance' });
+        await logCandidate({ settlementId: s.settlementId, settlementName: s.city, placeId, name, address, lat, lon, kind: null, distanceM, page, outcome: 'rejected_distance', sourceUrl: p.googleMapsUri ?? null });
         continue;
       }
       candidatesAfterDistanceFilter++;
       const kind = classifyPlace({ primaryType: p.primaryType ?? null, types: p.types || [], name });
       if (kind === 'NOT_RELEVANT') {
         stats.rejected++; // טעות-סוג ברורה (למשל חנות/בית ספר) - לא גבולי, אין מה לבדוק
-        await logCandidate({ settlementId: s.settlementId, settlementName: s.city, placeId, name, address, lat, lon, kind, distanceM, page, outcome: 'rejected_not_relevant' });
+        await logCandidate({ settlementId: s.settlementId, settlementName: s.city, placeId, name, address, lat, lon, kind, distanceM, page, outcome: 'rejected_not_relevant', sourceUrl: p.googleMapsUri ?? null });
         continue;
       }
       candidatesAfterTypeFilter++;
 
-      const { outcome, match } = matchAgainstExisting({ place_id: placeId, name, lat, lon }, existing);
+      const { outcome, match, nameScore, addressScore, streetScore, houseNumberScore, cityMatch, neighborhoodMatch } =
+        matchAgainstExisting({ place_id: placeId, name, lat, lon, address }, existing, { resolveSettlement });
       if (outcome === 'MATCH_CONFIRMED') {
         stats.duplicates++; // ודאי כבר קיים - אין מה לבדוק, אין מה לייבא
-        await logCandidate({ settlementId: s.settlementId, settlementName: s.city, placeId, name, address, lat, lon, kind, distanceM, page, outcome: 'duplicate_confirmed', matchedActivityId: match?.id !== 'pending' ? match?.id : null });
+        await logCandidate({ settlementId: s.settlementId, settlementName: s.city, placeId, name, address, lat, lon, kind, distanceM, page, outcome: 'duplicate_confirmed', matchedActivityId: match?.id !== 'pending' ? match?.id : null, sourceUrl: p.googleMapsUri ?? null });
         continue;
       }
 
@@ -522,19 +642,69 @@ Deno.serve(async (req: Request) => {
         // 2026-09-12 (post-Batch-6 three-zone model): POSSIBLE_DUPLICATE gets its own confidence
         // tier (between STRONG_MATCH's 0.6 and the weak NEEDS_REVIEW's 0.3) and its own distinct
         // validation_issues tag - per explicit instruction, it must stay visible as its own
-        // reviewer-facing category, not folded into STRONG_MATCH's wording or count.
+        // reviewer-facing category, not folded into STRONG_MATCH's wording or count. All evidence
+        // fields (nameScore/addressScore/streetScore/houseNumberScore/cityMatch/neighborhoodMatch)
+        // are only populated by matchAgainstExisting for POSSIBLE_DUPLICATE - undefined for the
+        // other two outcomes, which logs/queues as null, not 0/false (those would wrongly imply
+        // "computed and found no match" instead of "not applicable to this outcome").
         const confidenceScore = outcome === 'STRONG_MATCH' ? 0.6 : outcome === 'POSSIBLE_DUPLICATE' ? 0.45 : 0.3;
         await queueForReview({
           pageUrl: p.googleMapsUri ?? null, matchType: 'duplicate',
           existingActivityId: match && match.id !== 'pending' ? match.id : null,
           confidenceScore,
           issue: `possible_duplicate_of_existing:${outcome}`, city: s.city, placeId, name, address, lat, lon, kind,
+          nameSimilarity: nameScore ?? null, addressSimilarity: addressScore ?? null,
+          streetSimilarity: streetScore ?? null, houseNumberMatch: houseNumberScore ?? null,
+          cityMatch: cityMatch ?? null, neighborhoodMatch: neighborhoodMatch ?? null,
         });
         const candidateOutcome = outcome === 'STRONG_MATCH' ? 'strong_match' : outcome === 'POSSIBLE_DUPLICATE' ? 'possible_duplicate' : 'needs_review_possible_duplicate';
-        await logCandidate({ settlementId: s.settlementId, settlementName: s.city, placeId, name, address, lat, lon, kind, distanceM, page, outcome: candidateOutcome, matchedActivityId: match?.id !== 'pending' ? match?.id : null });
+        await logCandidate({
+          settlementId: s.settlementId, settlementName: s.city, placeId, name, address, lat, lon, kind, distanceM, page,
+          outcome: candidateOutcome, matchedActivityId: match?.id !== 'pending' ? match?.id : null,
+          nameSimilarity: nameScore ?? null, addressSimilarity: addressScore ?? null,
+          streetSimilarity: streetScore ?? null, houseNumberMatch: houseNumberScore ?? null,
+          cityMatch: cityMatch ?? null, neighborhoodMatch: neighborhoodMatch ?? null,
+          sourceUrl: p.googleMapsUri ?? null,
+        });
+        // 0073 - 'pending' (existing-entry מאותה הרצה) שוב לא נכתב, אותו עיקרון בדיוק כמו
+        // matchedActivityId למעלה - אין לו ID אמיתי להצביע עליו ב-review_cases.
+        if (match && match.id !== 'pending') {
+          await recordReviewCase({
+            placeId, existingActivityId: match.id, caseType: candidateOutcome, name, address, distanceM,
+            nameSimilarity: nameScore ?? null, streetSimilarity: streetScore ?? null, addressSimilarity: addressScore ?? null,
+          });
+        }
         continue;
       }
       candidatesAfterDuplicateFilter++;
+
+      // SAME_STREET_REVIEW (0072) - רק מגיע לכאן מועמד ש-matchAgainstExisting כבר קבע NEW_CANDIDATE
+      // (כלומר: שום existing לא נמצא בטווח 0-50m בכלל) - אז אין צורך לבדוק ">50m" כאן שוב, זה
+      // כבר מובטח מבנית. בדיקה advisory-בלבד: לא חוסמת/משנה את מה שקורה למועמד הזה מיד אחר-כך
+      // (עדיין הופך 'new' אם legit+יש כתובת, או 'needs_review_uncertain_type'/'needs_review_
+      // missing_address' בדיוק כמו קודם) - רק מוסיפה שורת-evidence נפרדת אם רלוונטי.
+      const sameStreetMatch = findSameStreetReviewMatch(
+        { name, lat, lon, address }, existing, { ceilingMeters: sameStreetCeilingM, resolveSettlement },
+      );
+      // 'pending' = existing-entry שנוצר קודם באותה הרצה ממש (ראו הערה ליד existing.push למטה) -
+      // אין לו עדיין ID אמיתי בהיקף המשתנה הזה, ו-existing_activity_id בטבלה הוא NOT NULL
+      // (referenced אמיתי, לא placeholder) - אותו עיקרון בדיוק כמו matchedActivityId בכל שאר
+      // ה-outcomes למעלה (STRONG_MATCH/POSSIBLE_DUPLICATE/duplicate_confirmed: 'pending' -> null,
+      // לא נכתב). כאן, בלי ID תקין לכתוב - פשוט מדלגים על השורה, לא כותבים חצי-רשומה.
+      if (sameStreetMatch && sameStreetMatch.match.id !== 'pending') {
+        await logSameStreetReview({
+          settlementId: s.settlementId, settlementName: s.city, placeId, name, address, lat, lon,
+          existingActivityId: sameStreetMatch.match.id,
+          existingHouseNumber: sameStreetMatch.existingHouseNumber, candidateHouseNumber: sameStreetMatch.candidateHouseNumber,
+          canonicalSettlementId: sameStreetMatch.canonicalSettlementId, normalizedStreet: sameStreetMatch.street,
+          distanceM: sameStreetMatch.distanceM, nameSimilarity: sameStreetMatch.nameScore,
+          streetSimilarity: 1, ceilingM: sameStreetCeilingM,
+        });
+        await recordReviewCase({
+          placeId, existingActivityId: sameStreetMatch.match.id, caseType: 'same_street_review', name, address,
+          distanceM: Math.round(sameStreetMatch.distanceM), nameSimilarity: sameStreetMatch.nameScore, streetSimilarity: 1, addressSimilarity: null,
+        });
+      }
 
       // outcome === 'NEW_CANDIDATE' מכאן - "לגיטימי" = סוג-מקום ברור (לא PARK/UNCERTAIN,
       // שדורשים עין אדם: פארק בלי סימן-משחקים מובהק, או סוג לא-חד-משמעי) + יש כתובת בפועל.
@@ -545,7 +715,35 @@ Deno.serve(async (req: Request) => {
           confidenceScore: !legitType ? 0.4 : 0.5,
           issue: !legitType ? `uncertain_type:${kind}` : 'missing_address', city: s.city, placeId, name, address, lat, lon, kind,
         });
-        await logCandidate({ settlementId: s.settlementId, settlementName: s.city, placeId, name, address, lat, lon, kind, distanceM, page, outcome: !legitType ? 'needs_review_uncertain_type' : 'needs_review_missing_address' });
+        await logCandidate({ settlementId: s.settlementId, settlementName: s.city, placeId, name, address, lat, lon, kind, distanceM, page, outcome: !legitType ? 'needs_review_uncertain_type' : 'needs_review_missing_address', sourceUrl: p.googleMapsUri ?? null });
+        continue;
+      }
+
+      // 0073 (בקשה מפורשת post-Batch-11): בדיקה טרייה וסמכותית לפי google_place_id, ממש לפני
+      // ה-INSERT - לא סומכים רק על ה-snapshot הזיכרוני של existing (שיכול להיות מיושן/לפספס
+      // שורה, בדיוק מה שקרה ב-Batch 11: idx_activities_google_place_id דחה insert אחד). זו בדיקת
+      // מזהה-מדויק, לא שינוי כלשהו לסף מרחק/שם - סמכותית ללא תלות במה ש-matchAgainstExisting כבר
+      // קבע. אילוץ-הייחודיות ב-DB נשאר קיים ולא נגעתי בו - זו עדיין רשת-הביטחון האחרונה אם
+      // הבדיקה הזו עצמה נכשלת (למשל תקלת-רשת) - ראו הטיפול-בשגיאה למטה, שממשיך ל-insert הרגיל
+      // ולא חוסם את הסריקה.
+      let exactMatchId: string | null = null;
+      {
+        const { data: exactMatchRow, error: exactMatchErr } = await client.from('activities')
+          .select('id, google_place_id').eq('google_place_id', placeId).maybeSingle();
+        if (exactMatchErr) {
+          console.error('Exact place_id pre-check failed (falling through to insert; the DB unique constraint remains the final safety net):', exactMatchErr.message);
+        } else {
+          const check = checkExactPlaceIdDuplicate(placeId, exactMatchRow as { id: string; google_place_id: string | null } | null);
+          if (check.isDuplicate) exactMatchId = check.existingActivityId;
+        }
+      }
+      if (exactMatchId) {
+        stats.duplicates++;
+        await logCandidate({ settlementId: s.settlementId, settlementName: s.city, placeId, name, address, lat, lon, kind, distanceM, page, outcome: 'duplicate_exact_place_id', matchedActivityId: exactMatchId, sourceUrl: p.googleMapsUri ?? null });
+        await recordReviewCase({
+          placeId, existingActivityId: exactMatchId, caseType: 'duplicate_exact_place_id', name, address, distanceM,
+          nameSimilarity: null, streetSimilarity: null, addressSimilarity: null,
+        });
         continue;
       }
 
@@ -573,8 +771,8 @@ Deno.serve(async (req: Request) => {
 
       imported++;
       importedNames.push(`${finalName} (${s.city})`);
-      existing.push({ id: 'pending', name: finalName, google_place_id: placeId, lat, lon }); // מונע כפילות תוך-ריצה
-      await logCandidate({ settlementId: s.settlementId, settlementName: s.city, placeId, name: finalName, address, lat, lon, kind, distanceM, page, outcome: 'new', createdActivityId: (actRow as { id: string }).id });
+      existing.push({ id: 'pending', name: finalName, google_place_id: placeId, lat, lon, address }); // מונע כפילות תוך-ריצה
+      await logCandidate({ settlementId: s.settlementId, settlementName: s.city, placeId, name: finalName, address, lat, lon, kind, distanceM, page, outcome: 'new', createdActivityId: (actRow as { id: string }).id, sourceUrl: p.googleMapsUri ?? null });
 
       // תמונה אמיתית מיד, לא רק שם/כתובת - קריאת Place Details נוספת (photos בלבד) פר-גן-חדש,
       // מוגבל טבעית ל-daily_pro_budget מקומות/יום (אותו גבול-תקציב כמו החיפוש עצמו) - לא עלות

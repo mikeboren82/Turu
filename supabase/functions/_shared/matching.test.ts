@@ -53,6 +53,12 @@ Deno.test("32m, 0% name similarity -> POSSIBLE_DUPLICATE (the actual Batch 6 cas
   assertEquals(result.nameScore, 0);
 });
 
+Deno.test("49m, 0% name similarity -> POSSIBLE_DUPLICATE", () => {
+  const { discovered, existing } = makePair(49);
+  const { outcome } = matchAgainstExisting(discovered, existing);
+  assertEquals(outcome, "POSSIBLE_DUPLICATE");
+});
+
 Deno.test("exactly 50m, 0% name similarity -> POSSIBLE_DUPLICATE (inclusive boundary)", () => {
   const { discovered, existing } = makePair(50);
   const { outcome } = matchAgainstExisting(discovered, existing);

@@ -64,7 +64,91 @@ function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): nu
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-export interface ExistingForMatch { id: string; name: string | null; google_place_id: string | null; lat: number | null; lon: number | null }
+// 2026-09-12 (post-Batch-8, user's explicit instruction): הציון הישן היחיד (wordOverlapScoreDropStopwords
+// על הכתובת המלאה) יכול להיראות "גבוה" רק כי שני הצדדים חולקים את שם-העיר - לא הוכחה לרחוב זהה
+// בכלל (נצפה בפועל ב-Batch 8: "פארק החורשות" בלי רחוב כלל קיבל addressScore=0.75 מול "לבון,
+// תל־אביב–יפו" רק כי "תל אביב יפו" חזר בשני הצדדים). לא הוסר (עדיין מוחזר כ-addressScore, "אל
+// תסיר את המדד הקיים") - אבל עכשיו יש גם פירוק לרכיבים נפרדים כדי שרחוב/מספר-בית (אות חזקה בהרבה)
+// לא יתערבבו עם חפיפת-עיר-בלבד (אות חלשה) באותו מספר יחיד.
+export interface AddressComponents { street: string | null; houseNumber: string | null; city: string | null; neighborhood: string | null }
+
+// כתובות Google/locations בפרויקט הזה הן ברוב המכריע "רחוב [מספר], עיר" (2 מקטעי-פסיק) - לפעמים
+// רק "עיר" (בלי רחוב כלל, למשל תוצאות שחסרות formattedAddress מפורט), ולעיתים נדירות 3+ מקטעים
+// (שכונה בין הרחוב לעיר). heuristic, לא פענוח-כתובות רשמי - בדיוק כמו extractCityFromAddress
+// הקיימת (אותה הנחת "מקטע-הפסיק האחרון = עיר").
+export function parseAddressComponents(address: string | null | undefined): AddressComponents {
+  if (!address) return { street: null, houseNumber: null, city: null, neighborhood: null };
+  const parts = address.split(',').map((p) => p.trim()).filter(Boolean);
+  if (parts.length === 0) return { street: null, houseNumber: null, city: null, neighborhood: null };
+  if (parts.length === 1) {
+    // מקטע יחיד - זו העיר עצמה (למשל "תל אביב-יפו" בלי רחוב בכלל), לא רחוב-בלי-עיר.
+    return { street: null, houseNumber: null, city: normalizeCityName(parts[0]), neighborhood: null };
+  }
+  const city = normalizeCityName(parts[parts.length - 1]);
+  const neighborhood = parts.length >= 3 ? parts.slice(1, parts.length - 1).join(', ') : null;
+  const streetPart = parts[0];
+  // מספר-בית = ספרות (עם אות-המשך אופציונלית, כמו "12א"/"12A") בסוף מקטע-הרחוב.
+  const m = streetPart.match(/^(.*?)\s+(\d+[א-תA-Za-z]?)$/u);
+  return m
+    ? { street: m[1].trim() || null, houseNumber: m[2], city, neighborhood }
+    : { street: streetPart || null, houseNumber: null, city, neighborhood };
+}
+
+// רחוב-מול-רחוב - אותו מנגנון word-overlap בדיוק (לא ממציא אלגוריתם שני), רק על הרכיב-רחוב-בלבד
+// אחרי parseAddressComponents, לא על הכתובת המלאה - כך ששני רחובות זהים בערים-שונות (מקרה נדיר
+// אבל אפשרי) לא "מקבלים קרדיט" על שם-העיר שבמקרה חופף.
+function streetSimilarity(streetA: string | null, streetB: string | null): number {
+  return wordOverlapScoreDropStopwords(streetA, streetB);
+}
+
+// 1 = זהה; 0.5 = "קרוב" (הפרש ≤2, בניינים סמוכים לפעמים נרשמים במספר זוגי/אי-זוגי שכן) - אות
+// חלקית, לא אפס; 0 = שונה משמעותית; null = לא ניתן להשוואה (אחד הצדדים חסר מספר-בית בכלל -
+// "לא ידוע" שונה מ"לא תואם", לא אותו דבר).
+function houseNumberMatchScore(numA: string | null, numB: string | null): number | null {
+  if (!numA || !numB) return null;
+  const a = parseInt(numA.replace(/\D/g, ''), 10);
+  const b = parseInt(numB.replace(/\D/g, ''), 10);
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return null;
+  if (a === b) return 1;
+  if (Math.abs(a - b) <= 2) return 0.5;
+  return 0;
+}
+
+// resolveSettlement - injected, לא נבנה כאן: placesDiscovery.ts נשאר טהור (בלי גישת-DB), ה-caller
+// (index.ts) בונה Map<normalized-name-or-alias, settlement_id> פעם אחת לכל batch מתוך
+// public.settlements (0063, כבר נטען ממילא לבניית רשימת-הבדיקה) + public.settlement_aliases
+// (0072, טבלת-כינויים קטנה ומפורשת - "שהם"->"שוהם" וכו', לא fuzzy matching). מחזיר settlement_id
+// אמיתי (בטוח) או null (לא הצלחנו לזהות בביטחון - שומר על "אל תמציא התאמה").
+export type SettlementResolver = (normalizedCity: string) => string | null;
+
+// city/neighborhood - כבר מנורמלים (normalizeCityName, ועל שכונה - אותה נורמליזציית-טקסט
+// הגנרית) - שוויון פשוט, לא word-overlap (אלה שמות-מקום בודדים, לא ביטויים מרובי-מילים).
+// null = לא ניתן להשוואה (אחד הצדדים חסר), לא "לא תואם" (boolean false היה מטעה כאן).
+//
+// 2026-09-12 (post-Batch-10, explicit instruction): "שוהם" מול "שהם" - אותו יישוב אמיתי, אבל
+// שתי מחרוזות שונות, אז ההשוואה המילולית הישנה (cityA === cityB) פספסה את זה. תיקון: כשיש
+// resolveSettlement, קודם מנסים לפתור את שני הצדדים ל-settlement_id קנוני אמיתי (מהרשימה
+// הרשמית + כינויים מפורשים בלבד - לא fuzzy) ולהשוות ID-ים; "מודיעין" מול "מודיעין עילית"/"גני
+// מודיעין" ממשיכים NOT to match כי הם settlement_id שונים באמת (יישובים שונים), לא נפילה בטעות
+// לאותו אחד. כשאחד הצדדים (או שניהם) לא נפתר בביטחון - נופל בחזרה להשוואת-המחרוזות הקיימת
+// (בדיוק ההתנהגות מלפני התיקון), לא מנחש.
+function cityMatchFlag(cityA: string | null, cityB: string | null, resolveSettlement?: SettlementResolver): boolean | null {
+  if (!cityA || !cityB) return null;
+  if (resolveSettlement) {
+    const idA = resolveSettlement(cityA);
+    const idB = resolveSettlement(cityB);
+    if (idA != null && idB != null) return idA === idB;
+  }
+  return cityA === cityB;
+}
+function neighborhoodMatchFlag(nA: string | null, nB: string | null): boolean | null {
+  if (!nA || !nB) return null;
+  return normalizeForMatch(nA) === normalizeForMatch(nB);
+}
+
+// address אופציונלי (לא required) בכוונה - matching.test.ts הקיים בונה ExistingForMatch בלי אותו
+// (לא רלוונטי לבדיקות-הניתוב שם) - undefined מתנהג זהה ל-null בתוך wordOverlapScoreDropStopwords.
+export interface ExistingForMatch { id: string; name: string | null; google_place_id: string | null; lat: number | null; lon: number | null; address?: string | null }
 export type MatchOutcome = 'MATCH_CONFIRMED' | 'STRONG_MATCH' | 'POSSIBLE_DUPLICATE' | 'NEEDS_REVIEW' | 'NEW_CANDIDATE';
 
 // 60m -> 100m (2026-09-12): Batch 1 found two real duplicates that fell just outside the old
@@ -102,7 +186,14 @@ const VERY_CLOSE_DISTANCE_METERS = 30;
 // distance+name logic unchanged (zone 3).
 const BORDERLINE_MAX_METERS = 50;
 
-export interface MatchResult { outcome: MatchOutcome; match: ExistingForMatch | null; nameScore?: number }
+// streetScore/houseNumberScore/cityMatch/neighborhoodMatch - רק POSSIBLE_DUPLICATE ממלא אותם
+// (ראו matchAgainstExisting) - "display the separate evidence" חל במפורש על אזור 30-50m בלבד,
+// לא על שאר ה-outcomes. addressScore (הישן, כתובת-מלאה) נשאר קיים במקביל - לא הוחלף, רק הצטרפו
+// אליו רכיבים ממוקדים יותר.
+export interface MatchResult {
+  outcome: MatchOutcome; match: ExistingForMatch | null; nameScore?: number; addressScore?: number;
+  streetScore?: number; houseNumberScore?: number | null; cityMatch?: boolean | null; neighborhoodMatch?: boolean | null;
+}
 
 // עותק מדויק של match_against_existing (matching.py) - לעולם לא ממציא התאמה: רק place_id
 // זהה נחשב MATCH_CONFIRMED ודאי; כל השאר שרק-אולי-דומה הופך STRONG_MATCH/POSSIBLE_DUPLICATE/
@@ -112,8 +203,9 @@ export interface MatchResult { outcome: MatchOutcome; match: ExistingForMatch | 
 // תיקון: קודם הוחזר outcome בלבד, וה-caller פשוט דילג/continue על שני הסוגים האלה, בלי שום
 // עקבה - התוצאה נעלמה בשקט, בדיוק כמו הבאג שכבר תוקן ב-tools/playground-discovery).
 export function matchAgainstExisting(
-  discovered: { place_id: string | null; name: string | null; lat: number | null; lon: number | null },
+  discovered: { place_id: string | null; name: string | null; lat: number | null; lon: number | null; address?: string | null },
   existing: ExistingForMatch[],
+  opts: { resolveSettlement?: SettlementResolver } = {},
 ): MatchResult {
   for (const e of existing) {
     if (e.google_place_id && e.google_place_id === discovered.place_id) return { outcome: 'MATCH_CONFIRMED', match: e };
@@ -122,7 +214,10 @@ export function matchAgainstExisting(
   let bestScore = 0;
   let bestMatch: ExistingForMatch | null = null;
   let closestVeryClose: { match: ExistingForMatch; distM: number } | null = null;
-  let closestBorderline: { match: ExistingForMatch; distM: number; nameScore: number } | null = null;
+  let closestBorderline: {
+    match: ExistingForMatch; distM: number; nameScore: number; addressScore: number;
+    streetScore: number; houseNumberScore: number | null; cityMatch: boolean | null; neighborhoodMatch: boolean | null;
+  } | null = null;
   for (const e of existing) {
     if (e.lat == null || e.lon == null || discovered.lat == null || discovered.lon == null) continue;
     const distM = haversineKm(e.lat, e.lon, discovered.lat, discovered.lon) * 1000;
@@ -135,11 +230,27 @@ export function matchAgainstExisting(
 
     const nameScore = wordOverlapScoreDropStopwords(e.name, discovered.name);
     if (distM <= BORDERLINE_MAX_METERS) {
-      // Zone 2 - deliberately does NOT check nameScore against a threshold to escalate to
-      // STRONG_MATCH (per explicit instruction: 45m + a highly similar name still stays
-      // POSSIBLE_DUPLICATE, not STRONG_MATCH). nameScore is still captured as evidence for the
-      // reviewer (attached to MatchResult below), not used to change the routing decision.
-      if (!closestBorderline || distM < closestBorderline.distM) closestBorderline = { match: e, distM, nameScore };
+      // Zone 2 - deliberately does NOT check any of this evidence against a threshold to escalate
+      // to STRONG_MATCH (per explicit instruction: 45m + a highly similar name/street still stays
+      // POSSIBLE_DUPLICATE, not STRONG_MATCH). Every score here is purely advisory evidence for
+      // the human reviewer (attached to MatchResult below, persisted by the caller) - none of it
+      // ever changes the routing decision. addressScore (full-address word-overlap, 2026-09-12
+      // pre-Batch-8) stays as-is; street/houseNumber/city/neighborhood (2026-09-12 post-Batch-8,
+      // explicit instruction) exist *because* addressScore alone can look deceptively high when
+      // the only real overlap is the city name (observed in Batch 8: a candidate with no street
+      // at all still scored 0.75 against an existing address that only shared the city token) -
+      // street-level and house-number agreement are much stronger signals than city-only overlap,
+      // so they're now visible as their own fields instead of being averaged into one number.
+      const addressScore = wordOverlapScoreDropStopwords(e.address, discovered.address);
+      const existingParts = parseAddressComponents(e.address);
+      const discoveredParts = parseAddressComponents(discovered.address);
+      const streetScore = streetSimilarity(existingParts.street, discoveredParts.street);
+      const houseNumberScore = houseNumberMatchScore(existingParts.houseNumber, discoveredParts.houseNumber);
+      const cityMatch = cityMatchFlag(existingParts.city, discoveredParts.city, opts.resolveSettlement);
+      const neighborhoodMatch = neighborhoodMatchFlag(existingParts.neighborhood, discoveredParts.neighborhood);
+      if (!closestBorderline || distM < closestBorderline.distM) {
+        closestBorderline = { match: e, distM, nameScore, addressScore, streetScore, houseNumberScore, cityMatch, neighborhoodMatch };
+      }
       continue;
     }
 
@@ -152,10 +263,111 @@ export function matchAgainstExisting(
   // מרחק-קרוב-מאוד לבדו, בלי קשר לשם - נבדק אחרי הלולאה (לא early-return בתוכה) כדי לבחור את
   // הקרוב-ביותר אם כמה existing נופלים בטווח, לא סתם את הראשון שנתקלים בו לפי סדר-שרירותי.
   if (closestVeryClose) return { outcome: 'STRONG_MATCH', match: closestVeryClose.match };
-  if (closestBorderline) return { outcome: 'POSSIBLE_DUPLICATE', match: closestBorderline.match, nameScore: closestBorderline.nameScore };
+  if (closestBorderline) {
+    return {
+      outcome: 'POSSIBLE_DUPLICATE', match: closestBorderline.match,
+      nameScore: closestBorderline.nameScore, addressScore: closestBorderline.addressScore,
+      streetScore: closestBorderline.streetScore, houseNumberScore: closestBorderline.houseNumberScore,
+      cityMatch: closestBorderline.cityMatch, neighborhoodMatch: closestBorderline.neighborhoodMatch,
+    };
+  }
 
   if (bestMatch && bestScore >= 0.3) return { outcome: 'NEEDS_REVIEW', match: bestMatch };
   return { outcome: 'NEW_CANDIDATE', match: null };
+}
+
+// SAME_STREET_REVIEW - סיגנל advisory נפרד לגמרי (2026-09-12, post-Batch-10, בקשה מפורשת):
+// "This must NOT mean DUPLICATE". רץ רק על מועמדים שכבר קיבלו NEW_CANDIDATE מ-matchAgainstExisting
+// (כלומר: לא נופלים לאף אחד משלושת-האזורים - matchAgainstExisting כבר קבע שאין שום existing
+// בטווח 0-50m, אז אין צורך לבדוק ">50m" כאן שוב, זה כבר מובטח מבנית). לא נוגע/מחליף את outcome
+// של המועמד באף דרך - זו רשומת-evidence *נוספת* (ראו index.ts: נשמרת בטבלה נפרדת לגמרי,
+// settlement_scan_same_street_reviews), לא outcome value חדש ולא חסימה של ייבוא/סיווג רגיל.
+// "אותו רחוב" = חפיפת-מילים מושלמת (streetSimilarity===1) אחרי parseAddressComponents (מספר-
+// בית כבר הוסר) - לא fuzzy, זהות מלאה בין שני שמות-הרחוב המנורמלים. "אותו יישוב" מעדיף
+// canonical settlement_id (אם resolveSettlement פותר את שני הצדדים בביטחון), אחרת נופל בחזרה
+// להשוואת-מחרוזות פשוטה - בדיוק אותו עיקרון כמו cityMatchFlag למעלה.
+export interface SameStreetReviewResult {
+  match: ExistingForMatch; distanceM: number; canonicalSettlementId: string | null;
+  street: string; nameScore: number; candidateHouseNumber: string | null; existingHouseNumber: string | null;
+}
+
+export function findSameStreetReviewMatch(
+  discovered: { name: string | null; lat: number | null; lon: number | null; address?: string | null },
+  existing: ExistingForMatch[],
+  opts: { ceilingMeters: number; resolveSettlement?: SettlementResolver },
+): SameStreetReviewResult | null {
+  if (discovered.lat == null || discovered.lon == null) return null;
+  const dParts = parseAddressComponents(discovered.address);
+  if (!dParts.street) return null; // אין רחוב-מועמד בכלל - אין "אותו רחוב" להשוות מולו
+
+  let best: SameStreetReviewResult | null = null;
+  for (const e of existing) {
+    if (e.lat == null || e.lon == null) continue;
+    const distM = haversineKm(e.lat, e.lon, discovered.lat, discovered.lon) * 1000;
+    if (distM > opts.ceilingMeters) continue;
+    const eParts = parseAddressComponents(e.address);
+    if (!eParts.street) continue;
+    if (streetSimilarity(dParts.street, eParts.street) < 1) continue;
+
+    const dCanon = dParts.city && opts.resolveSettlement ? opts.resolveSettlement(dParts.city) : null;
+    const eCanon = eParts.city && opts.resolveSettlement ? opts.resolveSettlement(eParts.city) : null;
+    const sameSettlement = dCanon != null && eCanon != null
+      ? dCanon === eCanon
+      : (dParts.city != null && dParts.city === eParts.city);
+    if (!sameSettlement) continue;
+
+    if (!best || distM < best.distanceM) {
+      best = {
+        match: e, distanceM: distM, canonicalSettlementId: dCanon ?? eCanon ?? null,
+        street: dParts.street, nameScore: wordOverlapScoreDropStopwords(e.name, discovered.name),
+        candidateHouseNumber: dParts.houseNumber, existingHouseNumber: eParts.houseNumber,
+      };
+    }
+  }
+  return best;
+}
+
+// 2026-09-12 (post-Batch-11, explicit instruction): Batch 11 hit "duplicate key value violates
+// unique constraint idx_activities_google_place_id" - matchAgainstExisting's MATCH_CONFIRMED
+// check already does an exact place_id comparison, but only against the `existing` snapshot
+// loaded once at the start of the batch, which can miss a real row (stale snapshot, a category
+// filter mismatch, or a race with another process). Fix: index.ts now also does a FRESH,
+// authoritative lookup by google_place_id immediately before the INSERT (not a new fuzzy/
+// distance rule - an exact-identifier check that is authoritative regardless of what distance/
+// name matching concluded). This function is the pure decision on top of that lookup's result,
+// so the logic itself is unit-testable without touching Deno.serve/a real DB - the DB round trip
+// stays a thin caller in index.ts, same split as everywhere else in this file. The database's
+// own unique constraint remains untouched and is still the final safety net if this check is
+// ever somehow bypassed (e.g. its own query fails) - see index.ts's error handling around it.
+export interface ExactPlaceIdCheckResult { isDuplicate: boolean; existingActivityId: string | null }
+export function checkExactPlaceIdDuplicate(
+  discoveredPlaceId: string,
+  existingRow: { id: string; google_place_id: string | null } | null,
+): ExactPlaceIdCheckResult {
+  if (existingRow && existingRow.google_place_id === discoveredPlaceId) {
+    return { isDuplicate: true, existingActivityId: existingRow.id };
+  }
+  return { isDuplicate: false, existingActivityId: null };
+}
+
+// 2026-09-12 (post-Batch-11, explicit instruction): "פארק החורשות" vs "...לבון, ת"א-יפו" was
+// independently rediscovered and logged as a brand-new, disconnected review item in both Batch 9
+// and Batch 11 - the admin has no way to tell "this is the third time we've flagged this exact
+// pair" from "here's yet another unrelated case". Fix (index.ts's recordReviewCase): a rollup
+// table keyed on (google_place_id, existing_activity_id) that increments detection_count and
+// bumps last_seen_at on repeat detection, while first_seen_at/first_batch_id/status are never
+// touched on a repeat (index.ts's UPDATE payload deliberately excludes them) - so a case an admin
+// already triaged doesn't silently reopen, and the original detection timestamp is never lost.
+// settlement_scan_candidates keeps logging a full row on every single detection exactly as
+// before (unchanged) - this rollup is a dedup VIEW on top of that already-complete history, not
+// a replacement for it, so no historical evidence is ever discarded. This function is the pure
+// counting decision (given the previous count, if any, what should the new state be) - trivially
+// provable to only ever produce a counter increment or a fresh count of 1, never anything that
+// could merge/delete/overwrite an activity (it doesn't even receive an activity as input).
+export interface ReviewCaseState { detectionCount: number; isFirstDetection: boolean }
+export function nextReviewCaseState(previousDetectionCount: number | null | undefined): ReviewCaseState {
+  if (previousDetectionCount == null) return { detectionCount: 1, isFirstDetection: true };
+  return { detectionCount: previousDetectionCount + 1, isFirstDetection: false };
 }
 
 // 2026-09-12 (batch-3 validation, part 4 of the batch-4-follow-up audit): הוצא מ-index.ts ל-
