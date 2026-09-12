@@ -197,6 +197,10 @@ export const DEFAULT_FILTERS = {
   category: [],
   excludeCategory: [],
   excludeCity: [],
+  // "⛔ לאן לא תרצו להגיע?" (components/ExcludeAreasPicker.js) - מקביל ל-excludeCity, אבל
+  // ערכים הם מזהי REGION_OPTIONS (לא שמות עיר) - מסונן ב-lib/filterActivities.js מול
+  // activity.region ישירות, בלי שום מיפוי עיר→אזור.
+  excludeRegion: [],
   when: { options: [], date: null },
   hour: { option: null, custom: null },
   placeType: [],

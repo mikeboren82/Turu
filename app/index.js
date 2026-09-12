@@ -187,16 +187,17 @@ function PersonalPicker({ kids, selectedChildIds, onToggleChild }) {
   );
 }
 
-// "✨ מה עושים היום?" - discovery prompt קומפקטי, לא error/permission/registration wall (סעיף 4
-// בבקשה) - מוצג בתוך אותו אזור-בעמוד שבו הייתה אמורה להופיע קרוסלת "רעיונות להיום לידכם", רק
-// כש-locationKnown===false. שתי הפעולות: "השתמשו במיקום שלי" מפעילה ישירות את אותו geolocation
-// flow (בלי לפתוח modal ביניים - "אל תדרוש page reload", סעיף 5), "בחרו עיר או אזור" פותחת את
-// אותו LocationQuickPicker בדיוק כמו "איפה נוח לכם?" (onPickCity, לא modal חדש).
+// "📍 איפה אתם מחפשים?" - prompt קומפקטי בתוך section "✨ רעיונות לידכם היום" עצמו (לא section
+// נפרד עם כותרת משלו) - מוצג מעל locked-הקרוסלה (LockedRecommendationCard למטה) כש-
+// locationKnown===false, כדי שהפעולה כאן תיראה כ"פותחת" את מה שמתחתיה. שתי הפעולות: "השתמשו
+// במיקום שלי" מפעילה ישירות את אותו geolocation flow (בלי לפתוח modal ביניים - אין page reload),
+// "בחרו עיר או אזור" פותחת את אותו LocationQuickPicker בדיוק כמו "איפה נוח לכם?" (onPickCity,
+// לא modal חדש).
 function RecommendationsLocationPrompt({ busy, denied, onUseLocation, onPickCity }) {
   return (
     <View style={styles.recPromptCard}>
-      <Text style={styles.recPromptTitle}>✨ מה עושים היום?</Text>
-      <Text style={styles.recPromptSubtitle}>ספרו לנו איפה אתם ונמצא רעיונות שבאמת קרובים אליכם</Text>
+      <Text style={styles.recPromptTitle}>📍 איפה אתם מחפשים?</Text>
+      <Text style={styles.recPromptSubtitle}>כדי להציג לכם פעילויות שמתאימות להיום באזור שלכם, ספרו לנו איפה לחפש.</Text>
       <View style={styles.recPromptActions}>
         <Pressable style={styles.recPromptPrimaryBtn} onPress={onUseLocation} disabled={busy}>
           {busy ? (
@@ -211,6 +212,23 @@ function RecommendationsLocationPrompt({ busy, denied, onUseLocation, onPickCity
       </View>
       {denied ? <Text style={styles.recPromptDeniedText}>לא הצלחנו לקבל את המיקום. אפשר לבחור עיר במקום.</Text> : null}
     </View>
+  );
+}
+
+// כרטיסי-פלייסהולדר "נעולים" - מציגים ל-locationKnown===false שיש המלצות אמיתיות מחכות, בלי
+// לטעון/להציג nationwide activities אמיתיות (סעיף 3/4 בבקשה) ובלי query נוסף - אין כאן שום
+// data fetching, רק Views סטטיים. שונה במכוון מ-SkeletonCard (למעלה): זה state מכוון (locked,
+// ממתין לבחירת מיקום), לא loading - לכן אייקון 📍 קבוע במקום shimmer/אנימציה, כדי שלא יראה כמו
+// "עוד רגע נטען" (סעיף 5/14 בבקשה). לחיצה פותחת את אותו location picker כמו "בחרו עיר או אזור".
+function LockedRecommendationCard({ onPress }) {
+  return (
+    <Pressable style={styles.recCardWrap} onPress={onPress} accessibilityRole="button" accessibilityLabel="בחרו עיר או אזור כדי לראות את הפעילויות כאן">
+      <View style={styles.lockedImage}>
+        <Text style={styles.lockedImageIcon}>📍</Text>
+      </View>
+      <View style={styles.lockedLineWide} />
+      <View style={styles.lockedLineNarrow} />
+    </Pressable>
   );
 }
 
@@ -341,8 +359,9 @@ export default function HomeScreen() {
   const [recNotes, setRecNotes] = useState([]);
   const [excludedCategories, setExcludedCategories] = useState([]);
   const [excludedCities, setExcludedCities] = useState([]);
+  const [excludedRegions, setExcludedRegions] = useState([]);
   const [benefitClubs, setBenefitClubs] = useState([]);
-  // "✨ מה עושים היום?" - מצב-onboarding כשאין locationKnown (ראו למטה) לפני "רעיונות להיום".
+  // "📍 איפה אתם מחפשים?" - מצב-onboarding בתוך section "רעיונות לידכם היום" כשאין locationKnown.
   const [recLocationBusy, setRecLocationBusy] = useState(false);
   const [recLocationDenied, setRecLocationDenied] = useState(false);
 
@@ -452,6 +471,7 @@ export default function HomeScreen() {
           setRecNotes([]);
           setExcludedCategories([]);
           setExcludedCities([]);
+          setExcludedRegions([]);
           setBenefitClubs([]);
           return;
         }
@@ -470,6 +490,7 @@ export default function HomeScreen() {
           }
           setExcludedCategories(prefs.excludedCategories);
           setExcludedCities(prefs.excludedCities);
+          setExcludedRegions(prefs.excludedRegions);
           setBenefitClubs(prefs.benefitClubs);
           setRecFavoriteIds(flags.favoriteIds);
           setRecVisitedIds(flags.visitedIds);
@@ -537,10 +558,15 @@ export default function HomeScreen() {
     ? `רעיונות להיום ליד ${filters.location.city}`
     : filters.location?.mode === 'address' && (filters.location.addressLabel || filters.location.city)
       ? `רעיונות להיום ליד ${filters.location.addressLabel || filters.location.city}`
-      : 'רעיונות להיום לידכם';
-  const recHeaderSubtitle = isPersonalized
-    ? 'פעילויות שוות באזור שלכם, מותאמות לגיל הילדים'
-    : 'פעילויות שוות באזור שלכם להיום';
+      : 'רעיונות לידכם היום';
+  // locationKnown===false: תת-כותרת קבועה (סעיף 11 בבקשה) - "באזור שלכם" עדיין לא אמיתי (אין
+  // location), זו הבטחה למה שמחכה אחרי שיספקו אחד, לא תיאור-מצב. isPersonalized (גיל הילדים)
+  // רלוונטי רק כשיש בפועל אזור-חיפוש להתאים אליו.
+  const recHeaderSubtitle = !locationKnown
+    ? 'פעילויות שוות להיום, ממש באזור שלכם'
+    : isPersonalized
+      ? 'פעילויות שוות באזור שלכם, מותאמות לגיל הילדים'
+      : 'פעילויות שוות באזור שלכם להיום';
 
   const toggleChild = (childId) => {
     setSelectedChildIds((prev) => {
@@ -788,7 +814,7 @@ export default function HomeScreen() {
   const recNotesByActivity = useMemo(() => new Map(recNotes.map((n) => [n.activity_id, n.note])), [recNotes]);
 
   const recommendations = useMemo(() => (
-    rankActivities(recActivities, filters, deviceCoords, excludedCategories, benefitClubs, excludedCities)
+    rankActivities(recActivities, filters, deviceCoords, excludedCategories, benefitClubs, excludedCities, null, null, excludedRegions)
       .filter((a) => !recHiddenIds.has(a.id))
       .slice(0, RECOMMENDATIONS_LIMIT)
       .map((a) => ({
@@ -799,7 +825,7 @@ export default function HomeScreen() {
         hasNote: recNotesByActivity.has(a.id),
         benefitTag: formatBenefitCardTag(a.benefits, benefitClubs),
       }))
-  ), [recActivities, filters, deviceCoords, excludedCategories, benefitClubs, excludedCities, recHiddenIds, recFavoriteIds, recVisitedIds, recNotesByActivity]);
+  ), [recActivities, filters, deviceCoords, excludedCategories, benefitClubs, excludedCities, excludedRegions, recHiddenIds, recFavoriteIds, recVisitedIds, recNotesByActivity]);
 
   const handleToggleRecFavorite = async (activityId) => {
     if (!userId) { setShowLoginPrompt(true); return; }
@@ -1013,18 +1039,16 @@ export default function HomeScreen() {
             לא רק "מוכן לעתיד" יותר, אלא כבר שם. הציטוט התדמיתי עבר ל"עלינו" (app/about.js) -
             עמוד הבית ממוקד בפעולה, לא בסיפור המותג. */}
 
-        {/* ✨ המלצות מותאמות - קרוסלה אופקית: כרטיס גדול + "הצצה" לכרטיס הבא, לא גריד.
-            locationKnown===false: onboarding prompt קומפקטי במקום כותרת שמטעה ("לידכם" בלי שום
-            location signal, סעיף 1/9 בבקשה) + אותה קרוסלה בדיוק מוצגת תחתיו בכנות בתור "שווה
-            להכיר" (nationwide, לא "קרוב אליכם") - reuse מלא של recommendations הקיים, בלי מנוע
-            דירוג/query חדש (סעיף 10: filters.location.mode===null ממילא מאפס את ניקוד-המרחק,
-            אז recommendations כבר "nationwide by quality" מאליו במצב הזה). */}
-        {locationKnown ? (
-          <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionTitle}>✨ {recHeaderTitle}</Text>
-            <Text style={styles.sectionSubtitle}>{recHeaderSubtitle}</Text>
-          </View>
-        ) : (
+        {/* ✨ המלצות מותאמות - קרוסלה אופקית: כרטיס גדול + "הצצה" לכרטיס הבא, לא גריד. section
+            אחד קבוע (כותרת+תת-כותרת תמיד "✨ רעיונות...", לא section/כותרת נפרדים) -
+            locationKnown קובע רק מה מוצג *בתוכו*: prompt+locked-cards כשאין מיקום (בלי לטעון
+            nationwide activities אמיתיות בכלל, סעיף 3/4/15 בבקשת השדרוג), אחרת הקרוסלה הרגילה. */}
+        <View style={styles.sectionHeaderRow}>
+          <Text style={styles.sectionTitle}>✨ {recHeaderTitle}</Text>
+          <Text style={styles.sectionSubtitle}>{recHeaderSubtitle}</Text>
+        </View>
+
+        {!locationKnown ? (
           <>
             <RecommendationsLocationPrompt
               busy={recLocationBusy}
@@ -1032,14 +1056,23 @@ export default function HomeScreen() {
               onUseLocation={handleUseLocationForRecommendations}
               onPickCity={() => setWhereQuickOpen(true)}
             />
-            <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionTitle}>✨ שווה להכיר</Text>
-              <Text style={styles.sectionSubtitle}>פעילויות איכותיות מכל הארץ</Text>
-            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.recRow}>
+              {[0, 1, 2, 3].map((i) => (
+                <LockedRecommendationCard key={i} onPress={() => setWhereQuickOpen(true)} />
+              ))}
+            </ScrollView>
+            {/* הרשמה היא תוספת אופציונלית (persistence/personalization), לא תנאי לראות המלצות
+                מקומיות - זה כבר קיים ברגע שיש location, גם ל-guest (סעיף 7/10 בבקשה). לכן ניווט
+                ישיר ל-/login (אותו flow קיים שכבר יודע להציג הרשמה/כניסה לפי המכשיר) ולא
+                LoginRequiredModal המשותף - זה נועד ל"חייבים להתחבר כדי..." (מועדפים/ביקרתי/וכו'),
+                וההודעה שלו לא מתאימה כאן. */}
+            <Pressable onPress={() => router.push('/login')} hitSlop={8} style={styles.recRegisterHintRow}>
+              <Text style={styles.recRegisterHintText}>
+                או <Text style={styles.recRegisterHintLink}>הירשמו</Text> כדי שתורו תכיר ותזכור אתכם
+              </Text>
+            </Pressable>
           </>
-        )}
-
-        {recLoading ? (
+        ) : recLoading ? (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.recRow}>
             <SkeletonCard /><SkeletonCard /><SkeletonCard />
           </ScrollView>
@@ -1186,8 +1219,8 @@ const styles = StyleSheet.create({
   personalChipText: { fontFamily: fonts.semiBold, fontSize: 13.5, color: colors.textSecondary },
   personalChipTextSelected: { color: colors.accent, fontFamily: fonts.bold },
   personalHint: { fontFamily: fonts.regular, fontSize: 11.5, color: colors.textMuted, textAlign: 'right', marginTop: 10 },
-  // "✨ מה עושים היום?" - אותה שפה עיצובית בדיוק כמו personalCard למעלה (card+borderLight+xl),
-  // כדי שירגיש כמו חלק טבעי מהעמוד, לא כמו חסימה/אזהרה (סעיף 4/16 בבקשה: קומפקטי, לא card ענק).
+  // "📍 איפה אתם מחפשים?" - אותה שפה עיצובית בדיוק כמו personalCard למעלה (card+borderLight+xl),
+  // כדי שירגיש כמו חלק טבעי מהעמוד, לא כמו חסימה/אזהרה (קומפקטי, לא card ענק).
   recPromptCard: {
     backgroundColor: colors.card, borderRadius: radii.xl, borderWidth: 1, borderColor: colors.borderLight,
     padding: 16, marginBottom: 18,
@@ -1202,6 +1235,19 @@ const styles = StyleSheet.create({
   recPromptPrimaryBtnText: { fontFamily: fonts.bold, fontSize: 13.5, color: '#fff' },
   recPromptSecondaryText: { fontFamily: fonts.semiBold, fontSize: 12.5, color: colors.textSecondary, textDecorationLine: 'underline' },
   recPromptDeniedText: { fontFamily: fonts.regular, fontSize: 11.5, color: colors.textMuted, textAlign: 'right', marginTop: 10 },
+  // LockedRecommendationCard - אותם מידות/רדיוס בדיוק כמו SkeletonCard (skeletonImage/Line*
+  // למעלה) כדי לשמור על אותו horizontal carousel affordance, אבל opacity מופחת + אייקון 📍 קבוע
+  // (לא shimmer) כדי שלא ירגיש כמו loading state (סעיף 5/14 בבקשת השדרוג).
+  lockedImage: {
+    width: '100%', height: 158, borderRadius: radii.lg, backgroundColor: colors.borderLight,
+    alignItems: 'center', justifyContent: 'center', opacity: 0.7,
+  },
+  lockedImageIcon: { fontSize: 26, opacity: 0.6 },
+  lockedLineWide: { width: '80%', height: 14, borderRadius: 7, backgroundColor: colors.borderLight, marginTop: 12, opacity: 0.7 },
+  lockedLineNarrow: { width: '50%', height: 12, borderRadius: 6, backgroundColor: colors.borderLight, marginTop: 8, opacity: 0.7 },
+  recRegisterHintRow: { alignItems: 'center', marginTop: 14 },
+  recRegisterHintText: { fontFamily: fonts.regular, fontSize: 12, color: colors.textMuted, textAlign: 'center' },
+  recRegisterHintLink: { fontFamily: fonts.bold, color: colors.accent, textDecorationLine: 'underline' },
   filterRow: {
     flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between',
     paddingVertical: 13, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: colors.borderLight,

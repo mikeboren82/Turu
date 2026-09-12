@@ -9,6 +9,7 @@ import ActivityCard from '../components/ActivityCard';
 import ActivitiesMap from '../components/ActivitiesMap';
 import FiltersSheet from '../components/FiltersSheet';
 import QuickPicker from '../components/QuickPicker';
+import ExcludeAreasPicker from '../components/ExcludeAreasPicker';
 import LocationQuickPicker, { locationSummary } from '../components/LocationQuickPicker';
 import CityAutocomplete from '../components/CityAutocomplete';
 import { ageSummary } from '../components/AgeQuickPicker';
@@ -16,10 +17,10 @@ import { ChevronDownIcon } from '../components/icons';
 import { colors, fonts, radii, spacing } from '../constants/theme';
 import { fetchApprovedActivities, formatSearchDistance, fetchSettlementCoords } from '../lib/activities';
 import { fetchUserActivityFlags, toggleFavorite, toggleVisited, toggleHidden, savePersonalNote, fetchAllPersonalNotes } from '../lib/interactions';
-import { fetchUserPreferences, saveExcludedCategories, saveExcludedCities } from '../lib/preferences';
+import { fetchUserPreferences, saveExcludedCategories, saveExcludedCities, saveExcludedRegions } from '../lib/preferences';
 import { supabase } from '../lib/supabase';
 import {
-  DEFAULT_FILTERS, CATEGORY_FILTER_OPTIONS, CITY_OPTIONS, PRICE_OPTIONS, PLACE_TYPE_OPTIONS, BOOKING_OPTIONS, DURATION_OPTIONS, AMENITY_COMFORT_OPTIONS, HOUR_OPTIONS, BENEFIT_FILTER_OPTIONS,
+  DEFAULT_FILTERS, CATEGORY_FILTER_OPTIONS, PRICE_OPTIONS, PLACE_TYPE_OPTIONS, BOOKING_OPTIONS, DURATION_OPTIONS, AMENITY_COMFORT_OPTIONS, HOUR_OPTIONS, BENEFIT_FILTER_OPTIONS,
 } from '../constants/filterSchema';
 import { categorySummary, whenSummary, hebrewJoin } from '../lib/filterSummaries';
 import { rankActivitiesWithSmartRadius, countActiveFilters, normalizeFilters, getOpenNowInfo, haversineKm, locationWithDrivingTime } from '../lib/filterActivities';
@@ -114,6 +115,7 @@ export default function ActivitiesScreen() {
   const [savingNote, setSavingNote] = useState(false);
   const [excludedCategories, setExcludedCategories] = useState([]);
   const [excludedCities, setExcludedCities] = useState([]);
+  const [excludedRegions, setExcludedRegions] = useState([]);
   const [benefitClubs, setBenefitClubs] = useState([]);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   // 🚫 "הסר פעילויות" - hideDraft הוא state נפרד מ-filters.excludeCategory בכוונה: הבחירה בפיקר
@@ -123,9 +125,11 @@ export default function ActivitiesScreen() {
   const [hideDraft, setHideDraft] = useState([]);
   const [saveAsDefault, setSaveAsDefault] = useState(false);
   const [showRegisterPromptForHide, setShowRegisterPromptForHide] = useState(false);
-  // ⛔ "אזורים שלא להציג" - מקביל מבני מלא ל"הסר פעילויות" למעלה, על ערים במקום קטגוריות.
+  // ⛔ "לאן לא תרצו להגיע?" - מקביל מבני מלא ל"הסר פעילויות" למעלה, על אזורים+ערים במקום
+  // קטגוריות. draft אחד דו-ממדי ({regions, cities}) כי ExcludeAreasPicker מנהל את שני המישורים
+  // יחד (ראו components/ExcludeAreasPicker.js).
   const [hideLocationsModalOpen, setHideLocationsModalOpen] = useState(false);
-  const [hideCityDraft, setHideCityDraft] = useState([]);
+  const [hideAreasDraft, setHideAreasDraft] = useState({ regions: [], cities: [] });
   const [saveCityAsDefault, setSaveCityAsDefault] = useState(false);
   const [showRegisterPromptForHideCities, setShowRegisterPromptForHideCities] = useState(false);
   // "שער" כניסה - הקוד/ה-Modal נשארים (ראו שימוש למטה, gateCategoryOpen/gateLocationOpen עדיין
@@ -203,6 +207,7 @@ export default function ActivitiesScreen() {
             setHiddenIds(flags.hiddenIds);
             setExcludedCategories(prefs.excludedCategories);
             setExcludedCities(prefs.excludedCities);
+            setExcludedRegions(prefs.excludedRegions);
             setBenefitClubs(prefs.benefitClubs);
             setNotes(userNotes);
             // אם הגענו בלי homeFilters (למשל דרך "🎪 פעילויות" בתפריט, לא דרך עמוד הבית) -
@@ -255,23 +260,32 @@ export default function ActivitiesScreen() {
   };
 
   const openHideLocationsModal = () => {
-    setHideCityDraft([...new Set([...excludedCities, ...(filters.excludeCity || [])])]);
+    setHideAreasDraft({
+      regions: [...new Set([...excludedRegions, ...(filters.excludeRegion || [])])],
+      cities: [...new Set([...excludedCities, ...(filters.excludeCity || [])])],
+    });
     setSaveCityAsDefault(false);
     setHideLocationsModalOpen(true);
   };
 
   const handleConfirmHideCities = async () => {
     setHideLocationsModalOpen(false);
-    setField('excludeCity', hideCityDraft);
+    setField('excludeCity', hideAreasDraft.cities);
+    setField('excludeRegion', hideAreasDraft.regions);
     if (!saveCityAsDefault) return;
     if (!userId) {
       setShowRegisterPromptForHideCities(true);
       return;
     }
     try {
-      await saveExcludedCities(userId, hideCityDraft);
-      setExcludedCities(hideCityDraft);
+      await Promise.all([
+        saveExcludedCities(userId, hideAreasDraft.cities),
+        saveExcludedRegions(userId, hideAreasDraft.regions),
+      ]);
+      setExcludedCities(hideAreasDraft.cities);
+      setExcludedRegions(hideAreasDraft.regions);
       setField('excludeCity', []);
+      setField('excludeRegion', []);
     } catch {
       // ההסתרה הזמנית כבר הוחלה למעלה - כישלון שמירה קבועה לא משאיר את המשתמש בלי שום סינון.
     }
@@ -459,9 +473,9 @@ export default function ActivitiesScreen() {
   const rankedResult = useMemo(
     () => rankActivitiesWithSmartRadius(
       activities, filters, deviceCoords, excludedCategories, benefitClubs, excludedCities,
-      spontaneousActive ? spontaneousCoords : null, searchOriginCoords
+      spontaneousActive ? spontaneousCoords : null, searchOriginCoords, excludedRegions
     ),
-    [activities, filters, deviceCoords, excludedCategories, benefitClubs, excludedCities, spontaneousActive, spontaneousCoords, searchOriginCoords]
+    [activities, filters, deviceCoords, excludedCategories, benefitClubs, excludedCities, spontaneousActive, spontaneousCoords, searchOriginCoords, excludedRegions]
   );
   const searchMetadata = useMemo(() => ({
     ...rankedResult,
@@ -516,16 +530,18 @@ export default function ActivitiesScreen() {
     for (const [key, relaxed] of Object.entries(candidates)) {
       if (!relaxed) continue;
       counts[key] = rankActivitiesWithSmartRadius(
-        activities, relaxed, deviceCoords, excludedCategories, benefitClubs, excludedCities, null, searchOriginCoords
+        activities, relaxed, deviceCoords, excludedCategories, benefitClubs, excludedCities, null, searchOriginCoords, excludedRegions
       ).resultCount;
     }
     return counts;
-  }, [filteredActivities.length, filters, activities, deviceCoords, excludedCategories, benefitClubs, excludedCities, searchOriginCoords]);
+  }, [filteredActivities.length, filters, activities, deviceCoords, excludedCategories, benefitClubs, excludedCities, searchOriginCoords, excludedRegions]);
 
   const activeCount = countActiveFilters(filters);
   const activeChips = useMemo(() => buildActiveChips(filters), [filters]);
   const hiddenCategoryCount = new Set([...excludedCategories, ...(filters.excludeCategory || [])]).size;
   const hiddenCityCount = new Set([...excludedCities, ...(filters.excludeCity || [])]).size;
+  const hiddenRegionCount = new Set([...excludedRegions, ...(filters.excludeRegion || [])]).size;
+  const hiddenAreaCount = hiddenCityCount + hiddenRegionCount;
   // Discovery Mode (סעיפים 1/3/10/19 בבקשה): אין פילטרים פעילים, אין חיפוש-חופשי, אין ספונטני -
   // כותרת-המשנה מרגישה כמו הזמנה-לגלות, לא כמו ספירת-שורות של מסד-נתונים.
   const isDiscoveryMode = activeCount === 0 && !filters.q?.trim() && !spontaneousActive;
@@ -666,12 +682,12 @@ export default function ActivitiesScreen() {
         <View style={styles.hideBtnsRow}>
           <Pressable style={styles.hideCategoriesBtn} onPress={openHideCategoriesModal}>
             <Text style={styles.hideCategoriesBtnText}>
-              {hiddenCategoryCount > 0 ? `🚫 ${hiddenCategoryCount} קטגוריות מוסתרות` : '🚫 הסר פעילויות'}
+              {hiddenCategoryCount > 0 ? `🚫 ${hiddenCategoryCount} קטגוריות מוסתרות` : '🚫 הסר פעילויות מהחיפוש'}
             </Text>
           </Pressable>
           <Pressable style={styles.hideCategoriesBtn} onPress={openHideLocationsModal}>
             <Text style={styles.hideCategoriesBtnText}>
-              {hiddenCityCount > 0 ? `⛔ ${hiddenCityCount} אזורים מוסתרים` : '⛔ אזורים שלא להציג'}
+              {hiddenAreaCount > 0 ? `⛔ ${hiddenAreaCount} אזורים מוסתרים` : '⛔ הסר אזורים מהחיפוש'}
             </Text>
           </Pressable>
         </View>
@@ -848,7 +864,7 @@ export default function ActivitiesScreen() {
 
       <QuickPicker
         visible={hideCategoriesModalOpen}
-        title="🚫 אילו פעילויות לא מעניינות אתכם?"
+        title="🚫 הסר פעילויות מהחיפוש"
         subtitle="בחרו דברים שאתם מעדיפים לא לראות בתוצאות."
         options={CATEGORY_FILTER_OPTIONS}
         value={hideDraft}
@@ -879,18 +895,13 @@ export default function ActivitiesScreen() {
         onSecondary={() => setShowRegisterPromptForHide(false)}
       />
 
-      <QuickPicker
+      <ExcludeAreasPicker
         visible={hideLocationsModalOpen}
-        title="⛔ אילו אזורים תרצו להסתיר?"
-        subtitle="בחרו אזורים שבהם אתם מעדיפים לא לראות פעילויות."
-        options={CITY_OPTIONS}
-        value={hideCityDraft}
-        multiple
-        searchable
-        onChange={setHideCityDraft}
+        value={hideAreasDraft}
+        onChange={setHideAreasDraft}
         onClose={handleConfirmHideCities}
         doneLabel="החלת הסינון"
-        onReset={() => setHideCityDraft([])}
+        onReset={() => setHideAreasDraft({ regions: [], cities: [] })}
         footer={(
           <View>
             <Pressable style={styles.hideFooterRow} onPress={() => setSaveCityAsDefault((v) => !v)}>

@@ -5,11 +5,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Svg, { Path, Circle, Line } from 'react-native-svg';
 import Header from '../components/Header';
 import QuickPicker from '../components/QuickPicker';
+import ExcludeAreasPicker from '../components/ExcludeAreasPicker';
 import LocationQuickPicker, { locationSummary } from '../components/LocationQuickPicker';
 import { StarIcon, ChatIcon, CheckIcon, ChevronLeftIcon, ChevronDownIcon, CalendarIcon } from '../components/icons';
 import { colors, fonts, radii, spacing } from '../constants/theme';
 import {
-  CATEGORY_OPTIONS, CITY_OPTIONS, PRICE_OPTIONS, PLACE_TYPE_OPTIONS, WHEN_OPTIONS, FILTER_SCHEMA,
+  CATEGORY_OPTIONS, PRICE_OPTIONS, PLACE_TYPE_OPTIONS, WHEN_OPTIONS, FILTER_SCHEMA, REGION_OPTIONS,
   BOOKING_OPTIONS, DURATION_OPTIONS, AMENITY_COMFORT_OPTIONS, BENEFIT_PROVIDER_OPTIONS,
 } from '../constants/filterSchema';
 import { categorySummary, hebrewJoin } from '../lib/filterSummaries';
@@ -17,7 +18,7 @@ import { supabase } from '../lib/supabase';
 import { clearPin } from '../lib/pin';
 import { normalizeFilters } from '../lib/filterActivities';
 import {
-  fetchUserPreferences, saveExcludedCategories, saveExcludedCities, saveChildren,
+  fetchUserPreferences, saveExcludedCategories, saveExcludedCities, saveExcludedRegions, saveChildren,
   saveVisibleHomeFilters, saveDefaultHomeFilters, saveBenefitClubs,
 } from '../lib/preferences';
 import { formatChildAge } from '../lib/children';
@@ -120,7 +121,9 @@ export default function ProfileScreen() {
   const [excludedPickerOpen, setExcludedPickerOpen] = useState(false);
   const [savingExcluded, setSavingExcluded] = useState(false);
   const [excludedCities, setExcludedCities] = useState([]);
-  const [excludedCitiesDraft, setExcludedCitiesDraft] = useState([]);
+  const [excludedRegions, setExcludedRegions] = useState([]);
+  // "⛔ לאן לא תרצו להגיע?" - draft דו-ממדי אחד ({regions, cities}), ראו components/ExcludeAreasPicker.js.
+  const [excludedAreasDraft, setExcludedAreasDraft] = useState({ regions: [], cities: [] });
   const [excludedCitiesPickerOpen, setExcludedCitiesPickerOpen] = useState(false);
   const [savingExcludedCities, setSavingExcludedCities] = useState(false);
   const [benefitClubs, setBenefitClubs] = useState([]);
@@ -202,6 +205,7 @@ export default function ProfileScreen() {
       const prefs = await fetchUserPreferences(userId);
       setExcludedCategories(prefs.excludedCategories);
       setExcludedCities(prefs.excludedCities);
+      setExcludedRegions(prefs.excludedRegions);
       setBenefitClubs(prefs.benefitClubs);
       setBenefitClubsOther(prefs.benefitClubsOther);
       setChildren(prefs.children);
@@ -389,19 +393,26 @@ export default function ProfileScreen() {
     }
   };
 
-  // ⛔ "אזורים שלא להציג" - מקביל מדויק ל-openExcludedPicker/closeExcludedPicker למעלה.
+  // ⛔ "לאן לא תרצו להגיע?" - מקביל מדויק ל-openExcludedPicker/closeExcludedPicker למעלה, על
+  // draft דו-ממדי (אזורים+ערים, ראו components/ExcludeAreasPicker.js).
   const openExcludedCitiesPicker = () => {
-    setExcludedCitiesDraft(excludedCities);
+    setExcludedAreasDraft({ regions: excludedRegions, cities: excludedCities });
     setExcludedCitiesPickerOpen(true);
   };
 
   const closeExcludedCitiesPicker = async () => {
     setExcludedCitiesPickerOpen(false);
-    if (JSON.stringify(excludedCitiesDraft) === JSON.stringify(excludedCities)) return;
+    const unchanged = JSON.stringify(excludedAreasDraft.cities) === JSON.stringify(excludedCities)
+      && JSON.stringify(excludedAreasDraft.regions) === JSON.stringify(excludedRegions);
+    if (unchanged) return;
     setSavingExcludedCities(true);
     try {
-      await saveExcludedCities(session.user.id, excludedCitiesDraft);
-      setExcludedCities(excludedCitiesDraft);
+      await Promise.all([
+        saveExcludedCities(session.user.id, excludedAreasDraft.cities),
+        saveExcludedRegions(session.user.id, excludedAreasDraft.regions),
+      ]);
+      setExcludedCities(excludedAreasDraft.cities);
+      setExcludedRegions(excludedAreasDraft.regions);
     } catch (err) {
       showNotice(`שגיאה בשמירת ההעדפות: ${err.message}`);
     } finally {
@@ -417,9 +428,11 @@ export default function ProfileScreen() {
       await Promise.all([
         saveExcludedCategories(session.user.id, []),
         saveExcludedCities(session.user.id, []),
+        saveExcludedRegions(session.user.id, []),
       ]);
       setExcludedCategories([]);
       setExcludedCities([]);
+      setExcludedRegions([]);
     } catch (err) {
       showNotice(`שגיאה באיפוס ההעדפות: ${err.message}`);
     } finally {
@@ -715,17 +728,19 @@ export default function ProfileScreen() {
                   </View>
                 </Pressable>
                 <Pressable style={[styles.settingRow, styles.settingRowLast]} onPress={openExcludedCitiesPicker} disabled={savingExcludedCities}>
-                  <Text style={styles.settingLabel}>⛔ אזורים שלא להציג</Text>
+                  <Text style={styles.settingLabel}>⛔ הסר אזורים מהחיפוש</Text>
                   <View style={styles.badgeSetup}>
                     <Text style={styles.badgeSetupText} numberOfLines={1}>
-                      {savingExcludedCities ? 'שומר...' : excludedCities.length > 0 ? excludedCities.join(' · ') : 'בחירה'}
+                      {savingExcludedCities ? 'שומר...' : (excludedRegions.length + excludedCities.length) > 0
+                        ? [...excludedRegions.map((id) => REGION_OPTIONS.find((r) => r.id === id)?.label || id), ...excludedCities].join(' · ')
+                        : 'בחירה'}
                     </Text>
                     <ChevronLeftIcon size={12} />
                   </View>
                 </Pressable>
               </View>
 
-              {(excludedCategories.length > 0 || excludedCities.length > 0) && (
+              {(excludedCategories.length > 0 || excludedCities.length > 0 || excludedRegions.length > 0) && (
                 <Pressable style={styles.resetAllPrefsBtn} onPress={resetAllSearchPreferences}>
                   <Text style={styles.resetAllPrefsBtnText}>איפוס כל העדפות החיפוש</Text>
                 </Pressable>
@@ -1254,17 +1269,12 @@ export default function ProfileScreen() {
         onReset={() => setExcludedDraft([])}
       />
 
-      <QuickPicker
+      <ExcludeAreasPicker
         visible={excludedCitiesPickerOpen}
-        title="⛔ אילו אזורים תרצו להסתיר?"
-        subtitle="פעילויות בערים שתבחרו לא יופיעו לכם באפליקציה, גם אם הן תואמות לפילטרים אחרים"
-        options={CITY_OPTIONS}
-        value={excludedCitiesDraft}
-        multiple
-        searchable
-        onChange={setExcludedCitiesDraft}
+        value={excludedAreasDraft}
+        onChange={setExcludedAreasDraft}
         onClose={closeExcludedCitiesPicker}
-        onReset={() => setExcludedCitiesDraft([])}
+        onReset={() => setExcludedAreasDraft({ regions: [], cities: [] })}
       />
 
       <QuickPicker
