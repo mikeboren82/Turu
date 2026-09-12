@@ -580,7 +580,7 @@ export default function MyThingsScreen() {
                       <View style={styles.actionsRow}>
                         <Pressable
                           style={styles.navBtn}
-                          onPress={stop(() => openNavigationTo({ title: a.name, locationName: a.location?.name, city: cityLabel }))}
+                          onPress={stop(() => openNavigationTo({ title: a.name, locationName: a.location?.name, city: cityLabel, lat: a.location?.lat, lng: a.location?.lng }))}
                         >
                           <Text style={styles.navBtnText}>🗺️ ניווט</Text>
                         </Pressable>

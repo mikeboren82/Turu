@@ -58,6 +58,16 @@ export const RADIUS_OPTIONS = [
   { id: '50', label: 'עד 50 ק"מ', km: 50 },
 ];
 
+// "🚶 במרחק הליכה" (components/LocationQuickPicker.js) - טווח קבוע בשלב הזה (לא מחושב מזמן
+// הליכה אמיתי, אין ל-TuRu מנוע ניווט/routing - ראו ההערה המקבילה ב-app/activities.js ליד
+// buildSpontaneousBadge). מוגדר כאן במקום hardcoded בקומפוננטה כדי שהיום שנחליף את זה בחישוב
+// זמן-הליכה אמיתי, נצטרך לשנות ערך אחד, לא לחפש "0.75" מפוזר בקוד.
+export const WALKING_RADIUS_KM = 0.75;
+// רדיוס ברירת המחדל למיקום מדויק (GPS/כתובת) כשלא בוחרים הליכה - אותו ערך בדיוק שכבר היה קבוע
+// ב-useCurrentLocation לפני התכונה הזו; מיוצא כאן כדי ש-lib/filterActivities.js (locationWithDrivingTime)
+// יוכל לחזור אליו כשעוזבים מצב הליכה, בלי לשכפל את המספר.
+export const DEFAULT_PRECISE_RADIUS_KM = 10;
+
 export const DURATION_OPTIONS = [
   { id: 'short', label: 'עד 30 דקות', min: 0, max: 30 },
   { id: 'medium', label: '30–60 דקות', min: 30, max: 60 },

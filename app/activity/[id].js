@@ -478,7 +478,7 @@ export default function ActivityScreen() {
   const placeLabel = [activity.locationName, activity.city].filter(Boolean).join(' · ');
 
   const openNavigation = () => {
-    openNavigationTo({ title: activity.title, locationName: activity.locationName, city: activity.city });
+    openNavigationTo({ title: activity.title, locationName: activity.locationName, city: activity.city, lat: activity.lat, lng: activity.lng });
   };
 
   const findSimilarNearby = () => {

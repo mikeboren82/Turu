@@ -14,7 +14,7 @@ import CityAutocomplete from '../components/CityAutocomplete';
 import { ageSummary } from '../components/AgeQuickPicker';
 import { ChevronDownIcon } from '../components/icons';
 import { colors, fonts, radii, spacing } from '../constants/theme';
-import { fetchApprovedActivities, formatDistance } from '../lib/activities';
+import { fetchApprovedActivities, formatSearchDistance, fetchSettlementCoords } from '../lib/activities';
 import { fetchUserActivityFlags, toggleFavorite, toggleVisited, toggleHidden, savePersonalNote, fetchAllPersonalNotes } from '../lib/interactions';
 import { fetchUserPreferences, saveExcludedCategories, saveExcludedCities } from '../lib/preferences';
 import { supabase } from '../lib/supabase';
@@ -22,7 +22,7 @@ import {
   DEFAULT_FILTERS, CATEGORY_FILTER_OPTIONS, CITY_OPTIONS, PRICE_OPTIONS, PLACE_TYPE_OPTIONS, BOOKING_OPTIONS, DURATION_OPTIONS, AMENITY_COMFORT_OPTIONS, HOUR_OPTIONS, BENEFIT_FILTER_OPTIONS,
 } from '../constants/filterSchema';
 import { categorySummary, whenSummary, hebrewJoin } from '../lib/filterSummaries';
-import { rankActivities, countActiveFilters, normalizeFilters, getOpenNowInfo, haversineKm } from '../lib/filterActivities';
+import { rankActivitiesWithSmartRadius, countActiveFilters, normalizeFilters, getOpenNowInfo, haversineKm, locationWithDrivingTime } from '../lib/filterActivities';
 import { formatBenefitCardTag } from '../lib/benefits';
 import { parseSmartSearchQuery, intentToFilters } from '../lib/smartSearch';
 
@@ -153,6 +153,35 @@ export default function ActivitiesScreen() {
   const [freeSearchError, setFreeSearchError] = useState('');
   const [freeSearchClarify, setFreeSearchClarify] = useState(null); // { message, pendingIntent, mode }
   const [freeSearchClarifyCity, setFreeSearchClarifyCity] = useState('');
+
+  // 🚗 Smart Radius Expansion - נקודת-הייחוס למצב 'city' דורשת שליפה מ-DB (טבלת settlements,
+  // ראו fetchSettlementCoords), אז זה state+effect נפרד, לא חישוב סינכרוני כמו deviceCoords/
+  // location.coords. משתנה מחדש בכל שינוי עיר (ולא נשאר "תקוע" מהעיר הקודמת - סעיף 10 בבקשה:
+  // "שינוי מיקום מבצע search חדש, לא משתמש ברדיוס הקודם בטעות").
+  const [settlementCoords, setSettlementCoords] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    if (filters.location?.mode !== 'city' || !filters.location?.city) {
+      setSettlementCoords(null);
+      return undefined;
+    }
+    fetchSettlementCoords(filters.location.city).then((coords) => {
+      if (!cancelled) setSettlementCoords(coords);
+    });
+    return () => { cancelled = true; };
+  }, [filters.location?.mode, filters.location?.city]);
+
+  // מקור אחיד לנקודת-הייחוס של Smart Radius Expansion (ולניקוד-מרחק ב-city, ראו distanceScore) -
+  // 'current'/'address' כבר יש להם קואורדינטות קיימות בפרויקט (deviceCoords/location.coords),
+  // 'city' משתמש ב-settlementCoords שנפתר למעלה. שאר המצבים (null/'region') - אין נקודת-ייחוס,
+  // ואין הרחבה.
+  const searchOriginCoords = useMemo(() => {
+    const mode = filters.location?.mode;
+    if (mode === 'current') return deviceCoords ? { lat: deviceCoords.latitude, lng: deviceCoords.longitude } : null;
+    if (mode === 'address') return filters.location.coords || null;
+    if (mode === 'city') return settlementCoords;
+    return null;
+  }, [filters.location?.mode, filters.location?.coords, deviceCoords, settlementCoords]);
 
   useEffect(() => {
     let cancelled = false;
@@ -422,11 +451,28 @@ export default function ActivitiesScreen() {
 
   const [showAllSpontaneous, setShowAllSpontaneous] = useState(false);
 
-  const filteredActivities = useMemo(
-    () => rankActivities(
+  // Smart Radius Expansion - ראו lib/filterActivities.js (rankActivitiesWithSmartRadius) לפירוט
+  // המנגנון. searchMetadata מרכיב את מבנה ה-metadata המלא שה-UI צריך (resultCount/radiusExpanded/
+  // effectiveRadiusKm מגיעים כבר מוכנים מה-lib; searchOriginType/searchOriginLabel מתווספים כאן
+  // כי רק השכבה הזו מכירה את filters.location ברמת UI - lib/filterActivities.js נשאר "טהור",
+  // בלי לדעת איך מציגים סוג-מיקום למשתמש).
+  const rankedResult = useMemo(
+    () => rankActivitiesWithSmartRadius(
       activities, filters, deviceCoords, excludedCategories, benefitClubs, excludedCities,
-      spontaneousActive ? spontaneousCoords : null
-    )
+      spontaneousActive ? spontaneousCoords : null, searchOriginCoords
+    ),
+    [activities, filters, deviceCoords, excludedCategories, benefitClubs, excludedCities, spontaneousActive, spontaneousCoords, searchOriginCoords]
+  );
+  const searchMetadata = useMemo(() => ({
+    ...rankedResult,
+    searchOriginType: filters.location?.mode || null,
+    searchOriginLabel: filters.location?.mode === 'city' ? filters.location.city
+      : filters.location?.mode === 'address' ? (filters.location.addressLabel || filters.location.city || null)
+      : null,
+  }), [rankedResult, filters.location]);
+
+  const filteredActivities = useMemo(
+    () => rankedResult.activities
       .filter((a) => !hiddenIds.has(a.id))
       .map((a) => {
         // ספונטני פעיל: מרחק אמיתי (ק"מ) מהמיקום החי, לא שם-העיר הכללי (סעיף 11 בבקשה) - רק
@@ -436,9 +482,12 @@ export default function ActivitiesScreen() {
           : null;
         return {
           ...a,
+          // formatSearchDistance (לא formatDistance הישן) - משתמש ב-searchOriginCoords, שמכסה
+          // גם city (מרכז-יישוב) ו-address, לא רק current+deviceCoords; "ממך" מוצג רק כש-mode
+          // הוא 'current' בפועל (סעיף L בבקשה), אחרת "מאזור החיפוש".
           distance: spontaneousKm != null
             ? `${spontaneousKm < 10 ? spontaneousKm.toFixed(1) : Math.round(spontaneousKm)} ק"מ ממך`
-            : formatDistance(a, deviceCoords),
+            : formatSearchDistance(a, searchOriginCoords, filters.location?.mode === 'current'),
           favorite: favoriteIds.has(a.id),
           visited: visitedIds.has(a.id),
           hasNote: notesByActivity.has(a.id),
@@ -446,8 +495,33 @@ export default function ActivitiesScreen() {
           spontaneousBadge: spontaneousActive ? buildSpontaneousBadge(a) : null,
         };
       }),
-    [activities, filters, deviceCoords, hiddenIds, favoriteIds, visitedIds, notesByActivity, excludedCategories, benefitClubs, excludedCities, spontaneousActive, spontaneousCoords]
+    [rankedResult, hiddenIds, favoriteIds, visitedIds, notesByActivity, benefitClubs, spontaneousActive, spontaneousCoords, searchOriginCoords, filters.location?.mode]
   );
+
+  // סעיף N בבקשה: "יש הבדל בין 'לא מצאנו מספיק תוצאות באזור' לבין 'הפילטרים מגבילים מאוד'" -
+  // כשאין שום תוצאה (גם אחרי Smart Radius Expansion), מציגים לצד כל צ'יפ-הרחבה קיים כמה תוצאות
+  // היו מתקבלות אילו הוסר *רק* הפילטר הזה - כדי שהמשתמש ידע מראש אם שווה ללחוץ, בלי לשנות שום
+  // constraint בשקט (השינוי עצמו עדיין קורה רק בלחיצה מפורשת על הצ'יפ, בדיוק כמו היום). מחושב
+  // אך ורק כשבאמת אין תוצאות (לא בכל render) - אותה תשתית בדיוק (rankActivitiesWithSmartRadius),
+  // לא מנוע-סינון מקביל.
+  const widenPreviewCounts = useMemo(() => {
+    if (filteredActivities.length !== 0) return {};
+    const candidates = {
+      location: filters.location?.mode ? { ...filters, location: DEFAULT_FILTERS.location } : null,
+      hour: (filters.hour?.option || filters.hour?.custom) ? { ...filters, hour: DEFAULT_FILTERS.hour } : null,
+      category: filters.category?.length > 0 ? { ...filters, category: DEFAULT_FILTERS.category } : null,
+      when: filters.when?.options?.length > 0 ? { ...filters, when: DEFAULT_FILTERS.when } : null,
+    };
+    const counts = {};
+    for (const [key, relaxed] of Object.entries(candidates)) {
+      if (!relaxed) continue;
+      counts[key] = rankActivitiesWithSmartRadius(
+        activities, relaxed, deviceCoords, excludedCategories, benefitClubs, excludedCities, null, searchOriginCoords
+      ).resultCount;
+    }
+    return counts;
+  }, [filteredActivities.length, filters, activities, deviceCoords, excludedCategories, benefitClubs, excludedCities, searchOriginCoords]);
+
   const activeCount = countActiveFilters(filters);
   const activeChips = useMemo(() => buildActiveChips(filters), [filters]);
   const hiddenCategoryCount = new Set([...excludedCategories, ...(filters.excludeCategory || [])]).size;
@@ -602,6 +676,18 @@ export default function ActivitiesScreen() {
           </Pressable>
         </View>
 
+        {/* 🚗 Smart Radius Expansion - חיווי משני, לא modal ולא warning (סעיף M בבקשה): מוצג רק
+            כשבאמת הורחב הרדיוס (searchMetadata.radiusExpanded), נעלם לגמרי אם לא היה צורך. */}
+        {!loading && !loadError && searchMetadata.radiusExpanded ? (
+          <View style={styles.radiusExpandedBanner}>
+            <Text style={styles.radiusExpandedBannerText}>
+              {searchMetadata.effectiveRadiusKm === 10
+                ? 'הרחבנו קצת את החיפוש כדי למצוא לכם עוד פעילויות ✨'
+                : 'הרחבנו את החיפוש עד 15 ק״מ כדי למצוא לכם עוד פעילויות ✨'}
+            </Text>
+          </View>
+        ) : null}
+
         {loading ? (
           <View style={styles.emptyState}>
             <ActivityIndicator color={colors.accent} />
@@ -612,26 +698,48 @@ export default function ActivitiesScreen() {
           </View>
         ) : filteredActivities.length === 0 ? (
           <View style={styles.emptyState}>
-            <Text style={styles.emptyTitle}>😕 לא מצאנו פעילות שמתאימה בדיוק לחיפוש שלכם.</Text>
+            <Text style={styles.emptyTitle}>
+              {filters.location?.travelMode === 'walking'
+                ? 'לא מצאנו פעילויות ממש במרחק הליכה 🚶'
+                : '😕 לא מצאנו פעילות שמתאימה בדיוק לחיפוש שלכם.'}
+            </Text>
             <View style={styles.emptyWidenRow}>
+              {/* "הליכה" הוא explicit constraint של המשתמש (בקשת המשתמש: "אל תרחיב את החיפוש ללא
+                  ידיעת המשתמש") - לא מרחיבים רדיוס אוטומטית, רק מציעים כאן פעולה מפורשת שהמשתמש
+                  צריך ללחוץ עליה. locationWithDrivingTime (lib/filterActivities.js) היא אותה
+                  טרנספורמציה בדיוק שגם components/LocationQuickPicker.js משתמש בה כשעוזבים
+                  הליכה - לא לוגיקה כפולה. */}
+              {filters.location?.travelMode === 'walking' && (
+                <Pressable style={styles.emptyWidenChip} onPress={() => setField('location', locationWithDrivingTime(filters.location, 10))}>
+                  <Text style={styles.emptyWidenChipText}>🚗 חפשו עד 10 דק' נסיעה</Text>
+                </Pressable>
+              )}
               {filters.location?.mode && (
                 <Pressable style={styles.emptyWidenChip} onPress={() => setField('location', DEFAULT_FILTERS.location)}>
-                  <Text style={styles.emptyWidenChipText}>📍 הראה בכל הארץ</Text>
+                  <Text style={styles.emptyWidenChipText}>
+                    📍 הראה בכל הארץ{widenPreviewCounts.location != null ? ` (${widenPreviewCounts.location})` : ''}
+                  </Text>
                 </Pressable>
               )}
               {(filters.hour?.option || filters.hour?.custom) && (
                 <Pressable style={styles.emptyWidenChip} onPress={() => setField('hour', DEFAULT_FILTERS.hour)}>
-                  <Text style={styles.emptyWidenChipText}>🕐 הרחבת שעות</Text>
+                  <Text style={styles.emptyWidenChipText}>
+                    🕐 הרחבת שעות{widenPreviewCounts.hour != null ? ` (${widenPreviewCounts.hour})` : ''}
+                  </Text>
                 </Pressable>
               )}
               {filters.category?.length > 0 && (
                 <Pressable style={styles.emptyWidenChip} onPress={() => setField('category', DEFAULT_FILTERS.category)}>
-                  <Text style={styles.emptyWidenChipText}>🎯 הצגת כל הפעילויות</Text>
+                  <Text style={styles.emptyWidenChipText}>
+                    🎯 הצגת כל הפעילויות{widenPreviewCounts.category != null ? ` (${widenPreviewCounts.category})` : ''}
+                  </Text>
                 </Pressable>
               )}
               {filters.when?.options?.length > 0 && (
                 <Pressable style={styles.emptyWidenChip} onPress={() => setField('when', DEFAULT_FILTERS.when)}>
-                  <Text style={styles.emptyWidenChipText}>📅 בדיקת כל יום</Text>
+                  <Text style={styles.emptyWidenChipText}>
+                    📅 בדיקת כל יום{widenPreviewCounts.when != null ? ` (${widenPreviewCounts.when})` : ''}
+                  </Text>
                 </Pressable>
               )}
             </View>
@@ -876,6 +984,7 @@ export default function ActivitiesScreen() {
         onChange={(v) => setField('location', v)}
         onCoordsResolved={setDeviceCoords}
         onClose={() => setGateLocationOpen(false)}
+        deviceCoords={deviceCoords}
       />
 
       {/* "סינון מתקדם" - נפתח כחלון צף (bottom sheet) מעל התוכן במקום להתרחב inline ולדחוף
@@ -1024,6 +1133,11 @@ const styles = StyleSheet.create({
   viewToggleBtnActive: { borderColor: colors.accent, backgroundColor: colors.accent },
   viewToggleText: { fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary },
   viewToggleTextActive: { color: '#fff' },
+
+  radiusExpandedBanner: {
+    backgroundColor: colors.accentTintLight, borderRadius: radii.md, paddingVertical: 9, paddingHorizontal: 14, marginBottom: 12,
+  },
+  radiusExpandedBannerText: { fontFamily: fonts.semiBold, fontSize: 12.5, color: colors.accent, textAlign: 'center' },
 
   emptyState: { alignItems: 'center', paddingVertical: 30, paddingHorizontal: 10 },
   emptyTitle: { fontFamily: fonts.semiBold, fontSize: 14, color: colors.textSecondary, textAlign: 'center', marginBottom: 14 },

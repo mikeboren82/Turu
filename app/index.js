@@ -37,7 +37,7 @@ function greetingForNow() {
   if (h < 5) return '🌙 לילה טוב';
   if (h < 12) return '☀️ בוקר טוב';
   if (h < 17) return '🌤️ צהריים טובים';
-  if (h < 21) return '🌆 ערב טוב';
+  if (h < 21) return '🌛 ערב טוב';
   return '🌙 לילה טוב';
 }
 
@@ -69,6 +69,14 @@ function SkeletonCard() {
 // ב-DB ולא קשור לחשבון המשתמש.
 const RECENT_SEARCHES_KEY = 'turu_recent_searches';
 const RECENT_SEARCHES_MAX = 5;
+
+// "✨ רעיונות להיום" - מיקום-אורח (guest) שנשמר מקומית בלבד (AsyncStorage, אותו דפוס בדיוק כמו
+// RECENT_SEARCHES_KEY למעלה - לא ארכיטקטורת-persistence מקבילה). רק city/address (לא 'current') -
+// GPS לא נשמר כאן בכוונה, כי קואורדינטות ישנות מתיישנות; "current" נגזר מחדש בכל טעינה מבדיקת
+// הרשאה שקטה (getForegroundPermissionsAsync, ראו למטה), לא מ-storage. משתמש מחובר לא כותב לכאן
+// בכלל - יש לו כבר default_home_filters אמיתי ב-DB (saveDefaultHomeFilters), שני מקורות-אמת
+// יריבים לאותו דבר היו רק מבלבלים.
+const GUEST_HOME_LOCATION_KEY = 'turu_guest_home_location';
 
 // יחס הרוחב/גובה של איור הדשא (assets/grass-footer.png).
 const GRASS_ASPECT_RATIO = 939 / 148;
@@ -179,6 +187,33 @@ function PersonalPicker({ kids, selectedChildIds, onToggleChild }) {
   );
 }
 
+// "✨ מה עושים היום?" - discovery prompt קומפקטי, לא error/permission/registration wall (סעיף 4
+// בבקשה) - מוצג בתוך אותו אזור-בעמוד שבו הייתה אמורה להופיע קרוסלת "רעיונות להיום לידכם", רק
+// כש-locationKnown===false. שתי הפעולות: "השתמשו במיקום שלי" מפעילה ישירות את אותו geolocation
+// flow (בלי לפתוח modal ביניים - "אל תדרוש page reload", סעיף 5), "בחרו עיר או אזור" פותחת את
+// אותו LocationQuickPicker בדיוק כמו "איפה נוח לכם?" (onPickCity, לא modal חדש).
+function RecommendationsLocationPrompt({ busy, denied, onUseLocation, onPickCity }) {
+  return (
+    <View style={styles.recPromptCard}>
+      <Text style={styles.recPromptTitle}>✨ מה עושים היום?</Text>
+      <Text style={styles.recPromptSubtitle}>ספרו לנו איפה אתם ונמצא רעיונות שבאמת קרובים אליכם</Text>
+      <View style={styles.recPromptActions}>
+        <Pressable style={styles.recPromptPrimaryBtn} onPress={onUseLocation} disabled={busy}>
+          {busy ? (
+            <ActivityIndicator color="#fff" size="small" />
+          ) : (
+            <Text style={styles.recPromptPrimaryBtnText}>📍 השתמשו במיקום שלי</Text>
+          )}
+        </Pressable>
+        <Pressable onPress={onPickCity} hitSlop={8}>
+          <Text style={styles.recPromptSecondaryText}>בחרו עיר או אזור</Text>
+        </Pressable>
+      </View>
+      {denied ? <Text style={styles.recPromptDeniedText}>לא הצלחנו לקבל את המיקום. אפשר לבחור עיר במקום.</Text> : null}
+    </View>
+  );
+}
+
 function Cloud({ x, y, scale = 1, opacity = 0.6 }) {
   return (
     <G transform={`translate(${x}, ${y}) scale(${scale})`} opacity={opacity}>
@@ -270,6 +305,13 @@ export default function HomeScreen() {
   const [deviceCoords, setDeviceCoords] = useState(null);
   const [categoryQuickOpen, setCategoryQuickOpen] = useState(false);
   const [whereQuickOpen, setWhereQuickOpen] = useState(false);
+  // "מה עוד מעניין אתכם?" (discovery shortcuts) - allCategoriesOpen פותח את אותו QuickPicker
+  // שכבר קיים ל"מה בא לנו?" (לא מסך/modal חדש), רק ב-multiple=false כדי שבחירה תסגור ותחזיר
+  // מיד (ראו toggle ב-components/QuickPicker.js - זו כבר ההתנהגות המובנית שלו). pendingCategory
+  // שומר את הקטגוריה שנלחצה כשעדיין אין location ידוע, כדי לבצע את החיפוש מיד אחרי שהמיקום
+  // נבחר - בלי לזרוק את המשתמש בחזרה למסך הבית (ראו handleWhereQuickClose למטה).
+  const [allCategoriesOpen, setAllCategoriesOpen] = useState(false);
+  const [pendingCategory, setPendingCategory] = useState(null);
   const [userId, setUserId] = useState(null);
   const [hasSavedDefault, setHasSavedDefault] = useState(false);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
@@ -300,6 +342,9 @@ export default function HomeScreen() {
   const [excludedCategories, setExcludedCategories] = useState([]);
   const [excludedCities, setExcludedCities] = useState([]);
   const [benefitClubs, setBenefitClubs] = useState([]);
+  // "✨ מה עושים היום?" - מצב-onboarding כשאין locationKnown (ראו למטה) לפני "רעיונות להיום".
+  const [recLocationBusy, setRecLocationBusy] = useState(false);
+  const [recLocationDenied, setRecLocationDenied] = useState(false);
 
   useEffect(() => {
     AsyncStorage.getItem(RECENT_SEARCHES_KEY).then((raw) => {
@@ -327,6 +372,52 @@ export default function HomeScreen() {
     })();
     return () => { cancelled = true; };
   }, []);
+
+  // locationKnown bootstrap (ראו הערה מלאה ליד isPersonalized/locationKnown למטה) - רץ פעם אחת
+  // ב-mount, לפני שיודעים בכלל אם יש session מחובר. אם מתברר מאוחר יותר (ה-useFocusEffect למטה)
+  // שיש session עם default_home_filters משלו - הוא ידרוס את זה, וזה בסדר (last-write-wins, בלי
+  // מרוץ אמיתי כי אף אחד מהם לא כותב ל-storage/DB של הצד השני).
+  // שלב 1: הרשאת מיקום כבר קיימת? getForegroundPermissionsAsync (לא request!) רק *קורא* סטטוס -
+  // לעולם לא מציג פרומפט מערכת (סעיף 5 בבקשה: "אל תבקש permission אוטומטית ב-page load"). אם
+  // המשתמש כבר אישר בעבר, זה "Priority 2" (סעיף 2) - fetch שקט, בלי ליפול חזרה על עיר-שמורה.
+  // שלב 2 (רק אם אין הרשאה): עיר ששמר guest בביקור קודם (GUEST_HOME_LOCATION_KEY) - "Priority 3".
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { status } = await Location.getForegroundPermissionsAsync();
+        if (!cancelled && status === 'granted') {
+          const pos = await Location.getCurrentPositionAsync({});
+          if (!cancelled) {
+            setDeviceCoords({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
+            setFilters((prev) => (prev.location?.mode
+              ? prev
+              : { ...prev, location: { ...prev.location, mode: 'current', radiusKm: prev.location.radiusKm || 10 } }));
+          }
+          return;
+        }
+      } catch { /* אין הרשאה בפועל/GPS לא זמין - נופלים בחזרה לעיר שמורה (guest) למטה */ }
+      if (cancelled) return;
+      const raw = await AsyncStorage.getItem(GUEST_HOME_LOCATION_KEY);
+      if (cancelled || !raw) return;
+      try {
+        const saved = JSON.parse(raw);
+        if (saved?.mode === 'city' && saved.city) {
+          setFilters((prev) => (prev.location?.mode ? prev : { ...prev, location: { ...prev.location, ...saved } }));
+        }
+      } catch { /* ערך פגום - מתעלמים */ }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  // שמירת guest location - רק city (לא 'current', ראו הערה ליד GUEST_HOME_LOCATION_KEY למעלה),
+  // ורק כשאין session (משתמש מחובר כבר כותב ל-DB דרך handleSaveAsDefault, לא לכאן). לא כותב
+  // כשעדיין אין בחירה אמיתית (mode ריק) - כדי לא לדרוס עיר שמורה קודמת בברירת-המחדל החולפת
+  // של הרינדור הראשון.
+  useEffect(() => {
+    if (userId || filters.location?.mode !== 'city' || !filters.location?.city) return;
+    AsyncStorage.setItem(GUEST_HOME_LOCATION_KEY, JSON.stringify(filters.location));
+  }, [userId, filters.location]);
 
   const recordRecentSearch = (text) => {
     setRecentSearches((prev) => {
@@ -409,6 +500,47 @@ export default function HomeScreen() {
   // (לא מחוברים, מחוברים בלי ילדים, מחוברים שהסירו את כל הילדים) חייבים לראות בדיוק את מסך
   // הבית הרגיל בלי שום שינוי.
   const isPersonalized = !!userId && children.length > 0;
+
+  // "✨ רעיונות להיום" - locationKnown קובע האם מציגים את הקרוסלה כ"קרוב אליכם" (מסונן/מדורג
+  // לפי מיקום אמיתי) או את onboarding-prompt במקומה. מוגדר אך ורק לפי filters.location.mode -
+  // אותו source-of-truth שכבר משמש את "איפה נוח לכם?" (סעיף 13 בבקשה: לא state נפרד) - ולא לפי
+  // account status: guest יכול להיות עם location ידוע (GPS/עיר שמורה), מחובר יכול להיות בלי
+  // (סעיף 2). 'region' לא נחשב "ידוע" מספיק לצורך הקרוסלה - זה בחירה גסה (7 אזורי-ארץ), לא
+  // "רעיונות ליד" אמיתיים; לא ניתן לבחירה מהמסך הזה בלאו הכי.
+  const locationKnown = filters.location?.mode === 'current' || filters.location?.mode === 'city' || filters.location?.mode === 'address';
+
+  // "בחרו עיר או אזור" (onboarding prompt) פותח את אותו LocationQuickPicker בדיוק כמו "איפה נוח
+  // לכם?" - לא modal חדש (סעיף 3/7 בבקשה).
+  const handleUseLocationForRecommendations = async () => {
+    setRecLocationBusy(true);
+    setRecLocationDenied(false);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        setRecLocationDenied(true);
+        setRecLocationBusy(false);
+        return;
+      }
+      const pos = await Location.getCurrentPositionAsync({});
+      setDeviceCoords({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
+      setFilters((prev) => ({ ...prev, location: { ...prev.location, mode: 'current', radiusKm: prev.location.radiusKm || 10 } }));
+    } catch {
+      setRecLocationDenied(true);
+    }
+    setRecLocationBusy(false);
+  };
+
+  // כותרת/תת-כותרת אמיתיות ביחס לאלגוריתם בפועל (סעיף 9 בבקשה) - לא טוענות "מותאם לגיל" סתם:
+  // רק אם isPersonalized (יש בפועל age-matching אמיתי מגילאי הילדים, ראו scoreActivity).
+  // display name קיים בלבד (filters.location.city) - לא hardcoded ערים (סעיף 8).
+  const recHeaderTitle = filters.location?.mode === 'city' && filters.location.city
+    ? `רעיונות להיום ליד ${filters.location.city}`
+    : filters.location?.mode === 'address' && (filters.location.addressLabel || filters.location.city)
+      ? `רעיונות להיום ליד ${filters.location.addressLabel || filters.location.city}`
+      : 'רעיונות להיום לידכם';
+  const recHeaderSubtitle = isPersonalized
+    ? 'פעילויות שוות באזור שלכם, מותאמות לגיל הילדים'
+    : 'פעילויות שוות באזור שלכם להיום';
 
   const toggleChild = (childId) => {
     setSelectedChildIds((prev) => {
@@ -516,6 +648,60 @@ export default function HomeScreen() {
         openFilters: 'true',
       },
     });
+  };
+
+  // "מה עוד מעניין אתכם?" (discovery shortcuts) - SEE→TAP→RESULTS: אותו מנגנון ניווט/מסך-תוצאות
+  // בדיוק כמו handleAdvancedFilters/handleGo למעלה (homeFilters+homeCoords ל-/activities), לא
+  // search engine נפרד. location (אם ידוע) עובר יחד עם הקטגוריה - Smart Radius Expansion הקיים
+  // ב-app/activities.js לוקח את זה משם והלאה, כולל אם יש מעט תוצאות (סעיף 3 בבקשה). שאר
+  // הפילטרים (גיל/מחיר/וכו') מתאפסים בכוונה - זה shortcut ל"גלו קטגוריה", לא המשך של שאר
+  // הבחירות שאולי כבר קיימות ב-filters.
+  const navigateToCategoryResults = (category) => {
+    router.push({
+      pathname: '/activities',
+      params: {
+        homeFilters: JSON.stringify({ ...DEFAULT_FILTERS, category: [category], location: filters.location }),
+        homeCoords: deviceCoords ? JSON.stringify(deviceCoords) : '',
+      },
+    });
+  };
+
+  // locationKnown (מוגדר למטה, זהה למנגנון "רעיונות להיום") כבר מכסה את כל סדר-העדיפויות
+  // המבוקש (location שנבחר בסשן > saved/default > current-location שכבר אושר) - אין צורך
+  // בלוגיקת-עדיפות נפרדת כאן, זו בדיוק המשמעות של locationKnown. אם לא ידוע - פותחים את אותו
+  // LocationQuickPicker כמו "איפה נוח לכם?" (לא modal חדש) ושומרים את הקטגוריה הממתינה.
+  const handleDiscoveryTilePress = (category) => {
+    if (locationKnown) {
+      navigateToCategoryResults(category);
+    } else {
+      setPendingCategory(category);
+      setWhereQuickOpen(true);
+    }
+  };
+
+  // סוגר את LocationQuickPicker; אם היה pendingCategory (המשתמש לחץ קודם על shortcut בלי
+  // location ידוע) וממש נבחר מיקום בפועל - ממשיכים ישר לתוצאות, בלי לחזור למסך הבית ובלי לדרוש
+  // לחיצה חוזרת על הקטגוריה (בדיוק ה-flow המבוקש: CATEGORY TAP → ASK → SELECTED → RESULTS).
+  // אם המשתמש סגר בלי לבחור (backdrop/החלטה לוותר) - הקטגוריה הממתינה פשוט מתבטלת בשקט.
+  const handleWhereQuickCloseFromDiscovery = () => {
+    setWhereQuickOpen(false);
+    if (pendingCategory) {
+      const category = pendingCategory;
+      setPendingCategory(null);
+      if (filters.location?.mode) navigateToCategoryResults(category);
+    }
+  };
+
+  const handleAllCategoriesSelect = (ids) => {
+    setAllCategoriesOpen(false);
+    const category = ids[0];
+    if (!category) return;
+    if (locationKnown) {
+      navigateToCategoryResults(category);
+    } else {
+      setPendingCategory(category);
+      setWhereQuickOpen(true);
+    }
   };
 
   // 🔎 חיפוש חכם - טקסט חופשי → Edge Function (ניתוח-שפה) → intentToFilters (טהור, קליינט,
@@ -827,11 +1013,31 @@ export default function HomeScreen() {
             לא רק "מוכן לעתיד" יותר, אלא כבר שם. הציטוט התדמיתי עבר ל"עלינו" (app/about.js) -
             עמוד הבית ממוקד בפעולה, לא בסיפור המותג. */}
 
-        {/* ✨ המלצות מותאמות - קרוסלה אופקית: כרטיס גדול + "הצצה" לכרטיס הבא, לא גריד. */}
-        <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionTitle}>✨ רעיונות להיום לידכם</Text>
-          <Text style={styles.sectionSubtitle}>פעילויות שמתאימות לגיל, למיקום ולבחירות שלכם</Text>
-        </View>
+        {/* ✨ המלצות מותאמות - קרוסלה אופקית: כרטיס גדול + "הצצה" לכרטיס הבא, לא גריד.
+            locationKnown===false: onboarding prompt קומפקטי במקום כותרת שמטעה ("לידכם" בלי שום
+            location signal, סעיף 1/9 בבקשה) + אותה קרוסלה בדיוק מוצגת תחתיו בכנות בתור "שווה
+            להכיר" (nationwide, לא "קרוב אליכם") - reuse מלא של recommendations הקיים, בלי מנוע
+            דירוג/query חדש (סעיף 10: filters.location.mode===null ממילא מאפס את ניקוד-המרחק,
+            אז recommendations כבר "nationwide by quality" מאליו במצב הזה). */}
+        {locationKnown ? (
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.sectionTitle}>✨ {recHeaderTitle}</Text>
+            <Text style={styles.sectionSubtitle}>{recHeaderSubtitle}</Text>
+          </View>
+        ) : (
+          <>
+            <RecommendationsLocationPrompt
+              busy={recLocationBusy}
+              denied={recLocationDenied}
+              onUseLocation={handleUseLocationForRecommendations}
+              onPickCity={() => setWhereQuickOpen(true)}
+            />
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionTitle}>✨ שווה להכיר</Text>
+              <Text style={styles.sectionSubtitle}>פעילויות איכותיות מכל הארץ</Text>
+            </View>
+          </>
+        )}
 
         {recLoading ? (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.recRow}>
@@ -864,25 +1070,29 @@ export default function HomeScreen() {
           </ScrollView>
         )}
 
-        {/* 🌳 עוד לגלות - מתחת להמלצות, לא מתחרה עם החיפוש הראשי. */}
+        {/* 🌳 עוד לגלות - discovery shortcuts: SEE→TAP→RESULTS, לא עוד filter-flow (בקשת
+            המשתמש). לא selected state קבוע - לחיצה היא navigation, לא בחירת-filter. */}
         <View style={styles.sectionHeaderRow}>
           <Text style={styles.sectionTitle}>מה עוד מעניין אתכם?</Text>
+          <Text style={styles.sectionSubtitle}>קפצו ישר לפעילויות שאולי תאהבו</Text>
         </View>
         <View style={styles.discoveryGrid}>
           {DISCOVERY_TILES.map((tile) => (
             <Pressable
               key={tile.id}
-              style={styles.discoveryTile}
-              onPress={() => router.push({
-                pathname: '/activities',
-                params: { homeFilters: JSON.stringify({ ...DEFAULT_FILTERS, category: [tile.category] }) },
-              })}
+              style={({ pressed }) => [styles.discoveryTile, pressed && styles.discoveryTilePressed]}
+              onPress={() => handleDiscoveryTilePress(tile.category)}
             >
               <Text style={styles.discoveryEmoji}>{tile.emoji}</Text>
               <Text style={styles.discoveryLabel}>{tile.label}</Text>
             </Pressable>
           ))}
         </View>
+        {/* "לכל הקטגוריות ←" - פותח את אותו QuickPicker הקיים (מה-בא-לנו), רק multiple=false כדי
+            שבחירה תסגור ותחזיר מיד (ראו toggle ב-components/QuickPicker.js) - לא מסך חדש. */}
+        <Pressable style={styles.allCategoriesLink} onPress={() => setAllCategoriesOpen(true)} hitSlop={8}>
+          <Text style={styles.allCategoriesLinkText}>לכל הקטגוריות ←</Text>
+        </Pressable>
 
         <GrassFooter width={windowWidth} />
       </ScrollView>
@@ -898,12 +1108,27 @@ export default function HomeScreen() {
         onChange={(v) => setField('category', v)}
         onClose={() => setCategoryQuickOpen(false)}
       />
+      {/* "לכל הקטגוריות" (מ"מה עוד מעניין אתכם?") - אותה קומפוננטה בדיוק כמו QuickPicker למעלה,
+          מופע נפרד כי ההתנהגות-אחרי-בחירה שונה לגמרי: כאן זו navigation מיידית לתוצאות
+          (multiple=false, ראו handleAllCategoriesSelect), לא עדכון filters.category ממתין
+          ל-CTA. value={[]} - זה תמיד "בחירה טרייה", לא ממשיך בחירה קודמת מ"מה בא לנו?". */}
+      <QuickPicker
+        visible={allCategoriesOpen}
+        title="כל הקטגוריות"
+        subtitle="בחרו קטגוריה ועברו ישר לתוצאות"
+        options={CATEGORY_FILTER_OPTIONS}
+        value={[]}
+        multiple={false}
+        onChange={handleAllCategoriesSelect}
+        onClose={() => setAllCategoriesOpen(false)}
+      />
       <LocationQuickPicker
         visible={whereQuickOpen}
         value={filters.location}
         onChange={(v) => setField('location', v)}
         onCoordsResolved={setDeviceCoords}
-        onClose={() => setWhereQuickOpen(false)}
+        onClose={handleWhereQuickCloseFromDiscovery}
+        deviceCoords={deviceCoords}
       />
       <LoginRequiredModal visible={showLoginPrompt} onClose={() => setShowLoginPrompt(false)} />
     </View>
@@ -961,6 +1186,22 @@ const styles = StyleSheet.create({
   personalChipText: { fontFamily: fonts.semiBold, fontSize: 13.5, color: colors.textSecondary },
   personalChipTextSelected: { color: colors.accent, fontFamily: fonts.bold },
   personalHint: { fontFamily: fonts.regular, fontSize: 11.5, color: colors.textMuted, textAlign: 'right', marginTop: 10 },
+  // "✨ מה עושים היום?" - אותה שפה עיצובית בדיוק כמו personalCard למעלה (card+borderLight+xl),
+  // כדי שירגיש כמו חלק טבעי מהעמוד, לא כמו חסימה/אזהרה (סעיף 4/16 בבקשה: קומפקטי, לא card ענק).
+  recPromptCard: {
+    backgroundColor: colors.card, borderRadius: radii.xl, borderWidth: 1, borderColor: colors.borderLight,
+    padding: 16, marginBottom: 18,
+  },
+  recPromptTitle: { fontFamily: fonts.extraBold, fontSize: 15.5, color: colors.textPrimary, textAlign: 'right', marginBottom: 4 },
+  recPromptSubtitle: { fontFamily: fonts.regular, fontSize: 12.5, color: colors.textSecondary, textAlign: 'right', marginBottom: 14 },
+  recPromptActions: { flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' },
+  recPromptPrimaryBtn: {
+    backgroundColor: colors.accent, borderRadius: radii.pill, paddingVertical: 11, paddingHorizontal: 18,
+    alignItems: 'center', justifyContent: 'center', flexGrow: 1,
+  },
+  recPromptPrimaryBtnText: { fontFamily: fonts.bold, fontSize: 13.5, color: '#fff' },
+  recPromptSecondaryText: { fontFamily: fonts.semiBold, fontSize: 12.5, color: colors.textSecondary, textDecorationLine: 'underline' },
+  recPromptDeniedText: { fontFamily: fonts.regular, fontSize: 11.5, color: colors.textMuted, textAlign: 'right', marginTop: 10 },
   filterRow: {
     flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between',
     paddingVertical: 13, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: colors.borderLight,
@@ -1062,11 +1303,17 @@ const styles = StyleSheet.create({
   emptyRecTitle: { fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary, textAlign: 'center', marginBottom: 10 },
   emptyRecAction: { fontFamily: fonts.bold, fontSize: 13, color: colors.accent },
 
-  discoveryGrid: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 10, marginBottom: 24 },
+  discoveryGrid: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 10, marginBottom: 14 },
   discoveryTile: {
     width: '31%', aspectRatio: 1, backgroundColor: colors.card, borderRadius: radii.lg,
     borderWidth: 1, borderColor: colors.borderLight, alignItems: 'center', justifyContent: 'center', gap: 6, padding: 6,
   },
   discoveryEmoji: { fontSize: 26 },
   discoveryLabel: { fontFamily: fonts.semiBold, fontSize: 11.5, color: colors.textSecondary, textAlign: 'center' },
+  // pressed state עדין בלבד (רקע קליל, בלי scale/אנימציה) - "tap feedback מיידי, לא מוגזם"
+  // (בקשת המשתמש). לא selected state קבוע - זה נעלם ברגע שמרימים את האצבע, כי הלחיצה היא
+  // navigation, לא בחירת filter (סעיף 7 בבקשה).
+  discoveryTilePressed: { backgroundColor: colors.accentTintLight, borderColor: colors.accentTint },
+  allCategoriesLink: { alignSelf: 'center', marginBottom: 24 },
+  allCategoriesLinkText: { fontFamily: fonts.semiBold, fontSize: 12.5, color: colors.accent },
 });
