@@ -18,7 +18,7 @@ import * as cheerio from 'npm:cheerio@1.0.0';
 import {
   buildExtractionSystemPrompt, extractCandidateImages, parseExtractionResponse,
   filterPastOneTimeActivities, isPlausibleEventDate, looksLikeStaleRepost, fetchHtml, pageTextForExtraction,
-  assessChildRelevance, AUDIENCE_VALUES,
+  assessChildRelevance, AUDIENCE_VALUES, cheapPageText, cheapDiscoverLinks, HEAVY_HTML_BYTES,
   EXTRACTION_MODEL, EXTRACTION_MAX_TOKENS,
   CATEGORY_VALUES, REGION_VALUES, WEATHER_VALUES, AMENITIES_VALUES,
   FAMILY_FIT_VALUES, ENTITY_TYPE_VALUES, PRICE_TYPE_VALUES, INDOOR_OUTDOOR_VALUES, BOOKING_VALUES,
@@ -425,8 +425,10 @@ Deno.serve(async (req: Request) => {
     const seedRes = relayPages ? { ok: false } as Awaited<ReturnType<typeof fetchHtml>> : await fetchHtml(source.seed_url, { timeoutMs: fetchTimeoutMs, retries: retryCount });
     let pageUrls = relayPages ? relayPages.slice(0, maxPages).map((p) => p.url) : [source.seed_url];
     if (!relayPages && seedRes.ok && seedRes.html) {
-      const $seed = cheerio.load(seedRes.html);
-      const extra = discoverListingLinks($seed, source.seed_url, maxPages - 1);
+      // heavy seed pages take the DOM-free path too (see the CPU-guard note in the page loop)
+      const extra = seedRes.html.length > HEAVY_HTML_BYTES
+        ? cheapDiscoverLinks(seedRes.html, source.seed_url, maxPages - 1)
+        : discoverListingLinks(cheerio.load(seedRes.html), source.seed_url, maxPages - 1);
       pageUrls = [source.seed_url, ...extra];
     }
 
@@ -461,9 +463,15 @@ Deno.serve(async (req: Request) => {
           // document left scans stuck in 'running' forever. Cap the HTML and hash the extracted TEXT
           // instead (content changes <=> text changes; tracking attributes never mattered for that).
           const html = res.html.length > MAX_HTML_BYTES ? res.html.slice(0, MAX_HTML_BYTES) : res.html;
-          const $ = cheerio.load(html);
-          candidateImages = extractCandidateImages($, pageUrl);
-          text = pageTextForExtraction($);
+          if (html.length > HEAVY_HTML_BYTES) {
+            // DOM-free path: no images (they would need the DOM), text via regex stripping
+            candidateImages = [];
+            text = cheapPageText(html);
+          } else {
+            const $ = cheerio.load(html);
+            candidateImages = extractCandidateImages($, pageUrl);
+            text = pageTextForExtraction($);
+          }
           hash = await computeContentHash(text);
         }
 

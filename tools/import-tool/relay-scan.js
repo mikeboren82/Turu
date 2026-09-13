@@ -59,13 +59,36 @@ function extractCandidateImages($, baseUrl) {
 }
 function pageTextForExtraction($) { $('script, style, noscript, nav, footer, header, svg, form').remove(); return $('body').text().replace(/[ \t]+/g, ' ').replace(/\n{2,}/g, '\n').trim().slice(0, 18000); }
 
-async function fetchHtml(url) {
-  const res = await fetch(url, { headers: { 'User-Agent': UA, 'Accept': 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.8', 'Accept-Language': 'he-IL,he;q=0.9,en;q=0.5' }, signal: AbortSignal.timeout(45000), redirect: 'follow' });
-  const buf = Buffer.from(await res.arrayBuffer());
+const { execFileSync } = require('child_process');
+
+function decodeBuf(buf, contentType) {
   const head = buf.slice(0, 4096).toString('latin1');
-  const charset = ((/charset=([\w-]+)/i.exec(res.headers.get('content-type') || '') || /<meta[^>]+charset=["']?([\w-]+)/i.exec(head) || [])[1] || 'utf-8').toLowerCase();
-  let html; try { html = new TextDecoder(charset === 'iso-8859-8-i' ? 'iso-8859-8' : charset).decode(buf); } catch { html = buf.toString('utf8'); }
-  return { ok: res.ok, status: res.status, html };
+  const charset = ((/charset=([\w-]+)/i.exec(contentType || '') || /<meta[^>]+charset=["']?([\w-]+)/i.exec(head) || [])[1] || 'utf-8').toLowerCase();
+  try { return new TextDecoder(charset === 'iso-8859-8-i' ? 'iso-8859-8' : charset).decode(buf); } catch { return buf.toString('utf8'); }
+}
+
+// Node's fetch (undici) fails the TLS handshake against a few Israeli hosts that curl negotiates
+// fine (observed: azrielimalls.co.il -> "fetch failed"). curl is the fallback, not the default.
+function curlFetch(url) {
+  // the plain bot UA is what worked against these hosts in the manual probes; -f is NOT used so a
+  // non-2xx still returns the body and the status marker
+  const out = execFileSync('curl', ['-sL', '-A', 'Mozilla/5.0 (compatible; TuruBot/1.0)', '--max-time', '90', '-H', 'Accept-Language: he-IL,he;q=0.9', '-w', '\n__STATUS__%{http_code}', url], { maxBuffer: 30 * 1024 * 1024 });
+  const s = out.toString('latin1');
+  const m = /__STATUS__(\d+)\s*$/.exec(s);
+  const status = m ? Number(m[1]) : 0;
+  const body = out.slice(0, out.length - (m ? m[0].length + 1 : 0));
+  return { ok: status >= 200 && status < 400, status, html: decodeBuf(body, null) };
+}
+
+async function fetchHtml(url) {
+  try {
+    const res = await fetch(url, { headers: { 'User-Agent': UA, 'Accept': 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.8', 'Accept-Language': 'he-IL,he;q=0.9,en;q=0.5' }, signal: AbortSignal.timeout(45000), redirect: 'follow' });
+    const buf = Buffer.from(await res.arrayBuffer());
+    return { ok: res.ok, status: res.status, html: decodeBuf(buf, res.headers.get('content-type')) };
+  } catch (e) {
+    if (!/fetch failed|ECONNRESET|certificate|TLS|socket/i.test(e.message || '')) throw e;
+    return curlFetch(url);
+  }
 }
 
 async function buildPages(seedUrl) {

@@ -25,10 +25,11 @@ const tally = (arr, fn) => { const m = {}; arr.forEach((x) => { const k = fn(x) 
     all(client, 'venues', 'id, name_he, venue_type, city, region, is_active, facebook_url, instagram_url, website_url, events_url'),
     all(client, 'activities', 'id, status, category, venue_id, source_id, created_at, last_seen_at, location:locations(region, city), activity_schedules(schedule_type)'),
     all(client, 'source_scan_logs', 'source_id, started_at, status, activities_found, new_count, updated_count, duplicate_count, auto_approved_count, failure_kind', (q) => q.gte('started_at', new Date(Date.now() - 30 * 86400000).toISOString())),
-    all(client, 'incoming_activities', 'source_id, status, match_type, found_at, extracted_data', (q) => q.gte('found_at', new Date(Date.now() - 30 * 86400000).toISOString())),
+    // only the JSON keys we need - pulling whole extracted_data blobs for ~1.5k rows timed out PostgREST
+    all(client, 'incoming_activities', 'source_id, status, match_type, found_at, location_name:extracted_data->>location_name, city:extracted_data->>city, venue_id:extracted_data->>venue_id', (q) => q.gte('found_at', new Date(Date.now() - 30 * 86400000).toISOString())),
   ]);
   // venue-normalization backlog: location labels the scanner keeps seeing but cannot link to a venue
-  const unresolvedVenueLabels = tally(incoming.filter((i) => i.extracted_data?.location_name && !i.extracted_data?.venue_id), (i) => `${i.extracted_data.location_name} | ${i.extracted_data.city || '?'}`);
+  const unresolvedVenueLabels = tally(incoming.filter((i) => i.location_name && !i.venue_id), (i) => `${i.location_name} | ${i.city || '?'}`);
 
   const familyOf = (s) => {
     const byMeta = FAMILY_OF_KIND[s.source_kind] || FAMILY_OF_PUBLISHER[s.publisher_type] || FAMILY_OF_VENUE_TYPE[s.venue?.venue_type];

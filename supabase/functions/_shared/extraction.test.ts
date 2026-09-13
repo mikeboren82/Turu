@@ -7,7 +7,23 @@ import {
   repairHebrewGershayim, repairUnescapedQuotes, parseExtractionResponse, filterPastOneTimeActivities, isPlausibleEventDate, looksLikeStaleRepost,
 } from "./extraction.ts";
 
-import { assessChildRelevance } from "./extraction.ts";
+import { assessChildRelevance, cheapPageText, cheapDiscoverLinks } from "./extraction.ts";
+
+Deno.test("cheapPageText strips scripts/tags/entities without a DOM", () => {
+  const html = '<html><head><script>var x = "<b>no</b>";</script><style>.a{}</style></head><body><nav>x</nav><h1>פסטיבל הקוסם</h1><p>27.09 &amp; 28.09 &nbsp; ב-<a href="/x">קניון</a></p><!-- c --></body></html>';
+  const t = cheapPageText(html);
+  assertEquals(t.includes("var x"), false);
+  assertEquals(t.includes("פסטיבל הקוסם"), true);
+  assertEquals(t.includes("27.09 & 28.09"), true);
+  assertEquals(t.includes("<"), false);
+});
+
+Deno.test("cheapDiscoverLinks keeps same-host event links only", () => {
+  const html = '<a href="/אירועים/4/x/">כל האירועים</a> <a href="https://other.com/events">events</a> <a href="/about">אודות</a> <a href="/calendar?page=2">2</a>';
+  const links = cheapDiscoverLinks(html, "https://www.azrielimalls.co.il/אירועים/", 5);
+  assertEquals(links.length, 2);
+  assertEquals(links.every((l) => l.includes("azrielimalls.co.il")), true);
+});
 Deno.test("assessChildRelevance: adult events from mixed municipal calendars are rejected, kids pass, unclear reviewed", () => {
   assertEquals(assessChildRelevance({ audience: "adults", name: "קפה עסקי בימי שני" }), "reject");
   assertEquals(assessChildRelevance({ audience: "unknown", name: "סדרת הסיקסטיז - מנוי" }), "reject");

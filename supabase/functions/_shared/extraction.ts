@@ -379,3 +379,47 @@ export function pageTextForExtraction($: any): string {
   $('script, style, noscript, nav, footer, header, svg, form').remove();
   return $('body').text().replace(/[ \t]+/g, ' ').replace(/\n{2,}/g, '\n').trim().slice(0, PAGE_TEXT_CHAR_LIMIT);
 }
+
+// ---- Cheap path for very heavy pages (no DOM). The edge runtime's CPU budget is small; parsing a
+// 2MB mall page with cheerio (observed: azrielimalls.co.il event pages) kills the invocation before
+// the scan can finish. Regex-based stripping costs a fraction of that and the model only ever sees
+// the first PAGE_TEXT_CHAR_LIMIT chars anyway.
+export const HEAVY_HTML_BYTES = 400_000;
+const ENTITIES: Record<string, string> = { '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&#39;': "'", '&nbsp;': ' ', '&apos;': "'" };
+export function cheapPageText(html: string): string {
+  let s = html.replace(/<(script|style|noscript|svg|template)\b[\s\S]*?<\/\1>/gi, ' ');
+  s = s.replace(/<!--[\s\S]*?-->/g, ' ');
+  const bodyStart = s.search(/<body\b/i);
+  if (bodyStart > 0) s = s.slice(bodyStart);
+  s = s.replace(/<(br|\/p|\/div|\/li|\/h[1-6]|\/tr|\/section|\/article)\b[^>]*>/gi, '\n');
+  s = s.replace(/<[^>]+>/g, ' ');
+  s = s.replace(/&(amp|lt|gt|quot|#39|nbsp|apos);/g, (m) => ENTITIES[m] ?? m).replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)));
+  return s.replace(/[ \t]+/g, ' ').replace(/\s*\n\s*/g, '\n').replace(/\n{2,}/g, '\n').trim().slice(0, PAGE_TEXT_CHAR_LIMIT);
+}
+
+// Same heuristic as discovery.ts (same host, event/calendar/pagination keywords, depth 1) without a DOM.
+const CHEAP_LINK_KEYWORDS = ['אירוע', 'פעילויות', 'פעילות', 'event', 'calendar', 'activities', 'page=', '/page/'];
+export function cheapDiscoverLinks(html: string, baseUrl: string, maxExtra: number): string[] {
+  const base = new URL(baseUrl);
+  const norm = (h: string) => h.replace(/^www\./, '');
+  const seen = new Set<string>([base.toString()]);
+  const out: string[] = [];
+  const re = /<a\b[^>]*href=["']([^"'#]+)["'][^>]*>([\s\S]{0,200}?)<\/a>/gi;
+  let m: RegExpExecArray | null;
+  let scanned = 0;
+  while ((m = re.exec(html)) && scanned < 400 && out.length < maxExtra) {
+    scanned++;
+    let abs: URL;
+    try { abs = new URL(m[1], base); } catch { continue; }
+    if (!['http:', 'https:'].includes(abs.protocol) || norm(abs.hostname) !== norm(base.hostname)) continue;
+    abs.hash = '';
+    const key = abs.toString();
+    if (seen.has(key)) continue;
+    const text = m[2].replace(/<[^>]+>/g, ' ').toLowerCase();
+    const href = m[1].toLowerCase();
+    if (!CHEAP_LINK_KEYWORDS.some((k) => text.includes(k) || href.includes(k))) continue;
+    seen.add(key);
+    out.push(key);
+  }
+  return out;
+}
