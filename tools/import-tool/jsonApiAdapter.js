@@ -61,8 +61,27 @@ async function fetchJsonApiText(cfg, seedUrl) {
     const json = await res.json();
     const items = getPath(json, cfg.items_path);
     if (!Array.isArray(items)) return { ok: false, error: `items_path "${cfg.items_path || ''}" did not resolve to an array` };
-    return { ok: true, text: renderJsonItems(items, cfg), count: items.length };
+    return { ok: true, text: renderJsonItems(items, cfg), count: items.length, images: extractItemImages(items, cfg, url) };
   } catch (e) { return { ok: false, error: e.message || String(e) }; } finally { clearTimeout(timer); }
 }
 
-module.exports = { fillDateTemplates, getPath, renderJsonItems, fetchJsonApiText };
+// Image URLs carried by items (fields named *image*/*picture*/*photo*, or values that are image
+// URLs / <img> tags) with the item title as context, in the shape scan-source's candidateImages
+// expects - so an api_json source yields event-specific images like an HTML page would.
+function extractItemImages(items, cfg, baseUrl) {
+  const out = []; const seen = new Set();
+  const titleKey = (cfg.fields || []).find((f) => /title|name|שם/i.test(f)) || 'Title';
+  for (const item of items.slice(0, cfg.max_items ?? 300)) {
+    const rec = itemToRecord(item, cfg.fields_mode || 'object');
+    const title = rec[titleKey] || rec.Title || rec.name || '';
+    for (const [k, v] of Object.entries(rec)) {
+      const candidates = [];
+      if (/image|picture|photo|img|thumb/i.test(k)) { const m = /src=["']([^"']+)["']/.exec(v); candidates.push(m ? m[1] : v); }
+      else if (/^https?:\/\/[^\s"']+\.(jpe?g|png|webp)(\?[^\s"']*)?$/i.test(v)) candidates.push(v);
+      for (const c of candidates) { let abs; try { abs = new URL(c, baseUrl).toString(); } catch { continue; } if (seen.has(abs)) continue; seen.add(abs); out.push({ url: abs, alt: stripHtml(title).slice(0, 120), context: stripHtml(title).slice(0, 200) }); }
+    }
+  }
+  return out.slice(0, 40);
+}
+
+module.exports = { fillDateTemplates, getPath, renderJsonItems, fetchJsonApiText, extractItemImages };

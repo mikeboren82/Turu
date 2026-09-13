@@ -47,6 +47,25 @@ async function resolveImage(client, subject, opts = {}) {
         const rel = Math.max(wordOverlapScore(im.alt, subject.name), wordOverlapScore(im.context, subject.name));
         if (rel >= 0.4) push(im.url, 'event_specific', subject.page_url);
       }
+      // listing page (municipal calendar, mall events): the card that names THIS event carries its
+      // picture and links to a detail page whose og:image / JSON-LD image is the event's own
+      if (!single || !aboutThisEvent) {
+        const card = findEventCard(r.html, subject.page_url, subject.name);
+        for (const u of card.images) push(u, 'event_specific', subject.page_url);
+        const detail = card.detailUrl;
+        if (detail && budget.pages > 0) {
+          tried.push('detail_page'); budget.pages--;
+          const r2 = await fetchHtml(detail);
+          if (r2.ok && r2.html) {
+            const ld2 = extractJsonLd(r2.html);
+            ld2.events.forEach((e) => e.images.forEach((u) => push(abs(u, detail), 'event_specific', detail)));
+            const title2 = (/<title[^>]*>([^<]*)<\/title>/i.exec(r2.html) || [])[1] || '';
+            const about = wordOverlapScore(title2, subject.name) >= 0.4 || ld2.events.some((e) => wordOverlapScore(e.name, subject.name) >= 0.5);
+            extractMetaImages(r2.html).forEach((u) => push(abs(u, detail), about ? 'event_specific' : 'generic_fallback', detail));
+            for (const im of extractPageImages(r2.html, detail)) { if (about || Math.max(wordOverlapScore(im.alt, subject.name), wordOverlapScore(im.context, subject.name)) >= 0.4) push(im.url, 'event_specific', detail); }
+          }
+        }
+      }
     }
   }
 
@@ -80,5 +99,37 @@ async function resolveImage(client, subject, opts = {}) {
   return { found: null, tried, rejected, candidates: candidates.length };
 }
 function abs(u, base) { try { return new URL(u, base).toString(); } catch { return null; } }
+
+// fraction of the event name's words that appear in a text (a long card text must not dilute it)
+function containsScore(text, name) {
+  const norm = (s) => (s || '').toLowerCase().replace(/[^֐-׿a-z0-9\s]/g, '').replace(/\s+/g, ' ').trim();
+  const wn = [...new Set(norm(name).split(' ').filter((w) => w.length > 1))];
+  if (!wn.length) return 0;
+  const wt = new Set(norm(text).split(' ').filter((w) => w.length > 1));
+  return wn.filter((w) => wt.has(w)).length / wn.length;
+}
+
+// The card on a listing page that names THIS event: its images + the link to its detail page
+// (any host - municipal calendars link to matnas / ticketing sites).
+function findEventCard(html, baseUrl, name) {
+  const cheerio = require('cheerio');
+  const $ = cheerio.load(html);
+  let best = null, bestScore = 0;
+  $('a[href], h1, h2, h3, h4, .title, .name').each((_, el) => {
+    const own = ($(el).text() || '').replace(/\s+/g, ' ').trim().slice(0, 300);
+    const s = containsScore(own, name);
+    if (s > bestScore && s >= 0.8) { bestScore = s; best = $(el); }
+  });
+  if (!best) return { detailUrl: null, images: [] };
+  // the card = the smallest ancestor that also holds an image or a link (up to 4 levels)
+  let card = best; for (let i = 0; i < 4; i++) { if (card.find('img').length || card.find('a[href]').length || card.is('a')) break; if (!card.parent().length) break; card = card.parent(); }
+  const images = []; const push = (u) => { const a = abs(u, baseUrl); if (a && !/logo|icon|sprite|placeholder|\.svg/i.test(a) && !images.includes(a)) images.push(a); };
+  card.find('img[src], img[data-src]').each((_, im) => push($(im).attr('src') || $(im).attr('data-src')));
+  if (card.is('a')) { const bg = /url\(["']?([^"')]+)/.exec(card.attr('style') || ''); if (bg) push(bg[1]); }
+  let detailUrl = null;
+  const links = (card.is('a') ? [card] : []).concat(card.find('a[href]').toArray().map((a) => $(a)));
+  for (const a of links) { const href = a.attr('href'); if (!href || href.startsWith('#') || /^(mailto|tel|javascript):/i.test(href)) continue; const u = abs(href, baseUrl); if (u && u.split('#')[0] !== baseUrl.split('#')[0]) { detailUrl = u; break; } }
+  return { detailUrl, images: images.slice(0, 3) };
+}
 
 module.exports = { resolveImage };

@@ -147,7 +147,9 @@ async function buildPages(seedUrl) {
           }
           if (cur) parts.push(cur);
           console.log(`   json_api: ${api.count} items -> ${api.text.length} chars in ${parts.length} part(s)`);
-          return parts.map((text, i) => ({ url: `${s.seed_url}#part=${i + 1}`, text, hash: sha256(text), images: [] }));
+          // item images (with the item title as context) ride with the first part; the extractor
+          // matches them to events by context like page images
+          return parts.map((text, i) => ({ url: `${s.seed_url}#part=${i + 1}`, text, hash: sha256(text), images: i === 0 ? (api.images || []) : [] }));
         })()
         : await buildPages(s.seed_url);
       if (!pages.length) { console.log(`✗ ${s.name}: no usable pages`); continue; }
