@@ -61,3 +61,17 @@ test('lifecycle: backoff schedule and settings defaults', () => {
   assert.equal(ARCHIVE_REASON_BY_ISSUE.missing_location, 'missing_address_unresolved');
   assert.equal(ARCHIVE_REASON_BY_ISSUE.missing_image, 'image_unavailable_only');
 });
+
+test('listing-card image discovery: card image + detail link (Givatayim markup), cross-host detail link (Herzliya markup)', () => {
+  const { findEventCard, containsScore } = require('../cleaner/imageResolver');
+  const giv = '<base href="/"><div class="col"><a href="./events/10215/" class="event-promo"><div class="pic"><img src="https://org-images.coing.co/437/resources/d8d4.jpeg" alt="" loading="lazy"></div><div class="details"><h2 class="name mb-2"> סדנת רכיבה על אופניים </h2><div class="date">15/09/2026 17:00 גבעתיים פארק</div></div></a></div><a href="./events/1/">טורניר סטריטבול 3 על 3</a>';
+  const c1 = findEventCard(giv, 'https://www.givatayim.muni.il/events/', 'סדנת רכיבה על אופניים');
+  assert.equal(c1.detailUrl, 'https://www.givatayim.muni.il/events/10215/');
+  assert.deepEqual(c1.images, ['https://org-images.coing.co/437/resources/d8d4.jpeg']);
+  const her = '<div class="event"><a href="https://www.herzliya-matnasim.org.il/events/8464/"><img src="https://www.herzliya-matnasim.org.il/uploads/c-480/1788851804.png" class="img-fluid" alt=""></a><div class="h"><h2><a href="https://www.herzliya-matnasim.org.il/events/8464/" target="_blank"> סדנאת הכנת עוגיות לראש השנה </a></h2></div></div>';
+  const c2 = findEventCard(her, 'https://www.herzliya.muni.il/events/', 'סדנאת הכנת עוגיות לראש השנה');
+  assert.equal(c2.detailUrl, 'https://www.herzliya-matnasim.org.il/events/8464/');
+  assert.equal(c2.images.length, 1);
+  assert.equal(containsScore('סדנת רכיבה על אופניים 15/09/2026 17:00 גבעתיים', 'סדנת רכיבה על אופניים'), 1);
+  assert.equal(findEventCard(giv, 'https://x', 'הצגה שלא קיימת').detailUrl, null);
+});

@@ -114,6 +114,8 @@ function containsScore(text, name) {
 function findEventCard(html, baseUrl, name) {
   const cheerio = require('cheerio');
   const $ = cheerio.load(html);
+  // <base href> (municipal sites use relative './events/123/' links against it) - same rule as relay-scan's discovery
+  const baseHref = $('base[href]').first().attr('href'); if (baseHref) { try { baseUrl = new URL(baseHref, baseUrl).toString(); } catch { /* keep */ } }
   let best = null, bestScore = 0;
   $('a[href], h1, h2, h3, h4, .title, .name').each((_, el) => {
     const own = ($(el).text() || '').replace(/\s+/g, ' ').trim().slice(0, 300);
@@ -122,14 +124,14 @@ function findEventCard(html, baseUrl, name) {
   });
   if (!best) return { detailUrl: null, images: [] };
   // the card = the smallest ancestor that also holds an image or a link (up to 4 levels)
-  let card = best; for (let i = 0; i < 4; i++) { if (card.find('img').length || card.find('a[href]').length || card.is('a')) break; if (!card.parent().length) break; card = card.parent(); }
+  let card = best; for (let i = 0; i < 4; i++) { if (card.find('img').length) break; if (!card.parent().length || card.parent().is('body, html')) break; card = card.parent(); }
   const images = []; const push = (u) => { const a = abs(u, baseUrl); if (a && !/logo|icon|sprite|placeholder|\.svg/i.test(a) && !images.includes(a)) images.push(a); };
   card.find('img[src], img[data-src]').each((_, im) => push($(im).attr('src') || $(im).attr('data-src')));
   if (card.is('a')) { const bg = /url\(["']?([^"')]+)/.exec(card.attr('style') || ''); if (bg) push(bg[1]); }
   let detailUrl = null;
-  const links = (card.is('a') ? [card] : []).concat(card.find('a[href]').toArray().map((a) => $(a)));
+  const links = (best.is('a') ? [best] : []).concat(card.is('a') ? [card] : [], card.find('a[href]').toArray().map((a) => $(a)));
   for (const a of links) { const href = a.attr('href'); if (!href || href.startsWith('#') || /^(mailto|tel|javascript):/i.test(href)) continue; const u = abs(href, baseUrl); if (u && u.split('#')[0] !== baseUrl.split('#')[0]) { detailUrl = u; break; } }
   return { detailUrl, images: images.slice(0, 3) };
 }
 
-module.exports = { resolveImage };
+module.exports = { resolveImage, findEventCard, containsScore };
