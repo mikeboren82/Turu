@@ -33,7 +33,7 @@ async function main() {
   let archived = 0;
   let failed = 0;
   for (const a of unrecoverable) {
-    const { error } = await client.from('activities').update({ status: 'archived' }).eq('id', a.id);
+    const { error } = await client.from('activities').update({ status: 'archived', archive_reason: 'missing_address_unresolved', archived_at: new Date().toISOString() }).eq('id', a.id);
     if (error) { failed++; console.error(`נכשל: ${a.name} - ${error.message}`); }
     else archived++;
   }

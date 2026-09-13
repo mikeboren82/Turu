@@ -37,6 +37,7 @@ const PRIMARY_ITEMS = [
   { key: 'incoming', href: '/incoming', label: '🆕 פעילויות שנמצאו' },
   { key: 'venues', href: '/venues', label: '🏬 מקומות' },
   { key: 'archive', href: '/archive', label: '🗄️ ארכיון' },
+  { key: 'cleaner', href: '/cleaner', label: '🧹 THE CLEANER' },
 ];
 
 const USER_ITEMS = [

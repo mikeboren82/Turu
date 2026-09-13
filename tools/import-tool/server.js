@@ -13,6 +13,7 @@ const { renderDashboardPage } = require('./dashboard');
 const { renderSourcesPage } = require('./sources');
 const { renderIncomingPage } = require('./incoming');
 const { renderVenuesPage } = require('./venues');
+const { renderCleanerPage } = require('./cleaner-page');
 const { getClient } = require('./supabase');
 const { generatePlaygroundDisplayName, isGenericPlaygroundName } = require('./playgroundNaming');
 const { normalizeCityName } = require('./cityNaming');
@@ -1007,6 +1008,8 @@ async function saveNewActivity(client, userId, sourceUrl, activity, meta = {}) {
         amenities: activity.amenities || [],
         family_fit: activity.family_fit || [],
         status: archived ? 'archived' : 'approved',
+        archive_reason: archived ? 'commitment_policy' : null,
+        archived_at: archived ? new Date().toISOString() : null,
         source: 'scraped',
         source_url: sourceUrl || null,
         source_id: meta.sourceId || null,
@@ -1936,6 +1939,18 @@ app.post('/api/manage/update', async (req, res) => {
       }
     }
     if (locationId) safeFields.location_id = locationId;
+    // Restore-to-approved (archive page) goes through the same publish gate as every other path:
+    // a verified location (coordinates) and not a commitment activity. Found by the Cleaner audit
+    // 2026-09-13 - this was the only path that could publish without them.
+    if (safeFields.status === 'approved') {
+      const { data: cur } = await client.from('activities').select('entity_type, category, location_id, locations(lat, lng)').eq('id', id).maybeSingle();
+      if (cur && shouldArchiveForCommitment(cur)) return res.status(400).json({ error: 'פעילות הדורשת רישום/התחייבות נשארת בארכיון (מדיניות "בלי התחייבות")' });
+      if (cur && (cur.locations?.lat == null || cur.locations?.lng == null)) return res.status(400).json({ error: 'אי אפשר לפרסם בלי מיקום מאומת (קואורדינטות) - השלימו כתובת קודם' });
+      safeFields.archive_reason = null; safeFields.archived_at = null;
+    } else if (safeFields.status === 'archived') {
+      safeFields.archive_reason = safeFields.archive_reason || 'other';
+      safeFields.archived_at = new Date().toISOString();
+    }
     // עריכה נחשבת אימות - כל שמירה (גם אם רק שדה מיקום השתנה) "מגעת" בפעילות, אז מעדכנים
     // last_verified_at כדי שהיא תרד מרשימת "דורשות עדכון" בדשבורד בלי צורך בפעולה נפרדת.
     safeFields.last_verified_at = new Date().toISOString();
@@ -2717,7 +2732,7 @@ app.post('/api/incoming/:id/resolve-missing', async (req, res) => {
 
     if (item.existing_activity_id) {
       if (action === 'archive') {
-        const { error } = await client.from('activities').update({ status: 'archived' }).eq('id', item.existing_activity_id);
+        const { error } = await client.from('activities').update({ status: 'archived', archive_reason: 'missing_from_source', archived_at: new Date().toISOString() }).eq('id', item.existing_activity_id);
         if (error) throw error;
       } else {
         const { error } = await client.from('activities')
@@ -2729,6 +2744,9 @@ app.post('/api/incoming/:id/resolve-missing', async (req, res) => {
 
     const { error: updErr } = await client.from('incoming_activities').update({
       status: action === 'archive' ? 'archived_expired' : 'rejected',
+      // 'keep' is not a rejection of content - say so, so the queue history stays queryable
+      reject_reason: action === 'archive' ? null : 'הפעילות נשמרה למרות שנעלמה מהמקור (kept_by_admin)',
+      archive_reason: action === 'archive' ? 'missing_from_source' : 'kept_by_admin',
       reviewed_by: userId, reviewed_at: new Date().toISOString(),
     }).eq('id', id);
     if (updErr) throw updErr;
@@ -2737,6 +2755,48 @@ app.post('/api/incoming/:id/resolve-missing', async (req, res) => {
     console.error(err);
     res.status(500).json({ error: err.message || 'שגיאה בטיפול בפעילות שנעלמה' });
   }
+});
+
+// ---- THE CLEANER - observability only (the job itself is tools/import-tool/cleaner.js) ----
+app.get('/cleaner', (req, res) => { res.type('html').send(renderCleanerPage()); });
+
+app.get('/api/cleaner/summary', async (req, res) => {
+  try {
+    const { client } = await getClient();
+    const cases = await fetchAllRows(() => client.from('cleaner_cases').select('issue, status, archive_reason, next_attempt_at, created_at, attempts'));
+    const { data: runs } = await client.from('cleaner_runs').select('*').order('started_at', { ascending: false }).limit(1);
+    const { data: settingsRows } = await client.from('automation_settings').select('key, value').in('key', ['cleaner_backoff_hours']);
+    const backoff = (settingsRows?.[0]?.value && Array.isArray(settingsRows[0].value)) ? settingsRows[0].value : [6, 24, 72];
+    const windowMs = (backoff.reduce((a, b) => a + Number(b), 0) + 24) * 3600 * 1000;
+    const now = Date.now();
+    const byIssue = {}; const byArchiveReason = {};
+    let open = 0, resolved = 0, archived = 0, due = 0, stuck = 0;
+    for (const c of cases) {
+      (byIssue[c.issue] ||= { open: 0, resolved: 0, archived: 0 })[c.status]++;
+      if (c.status === 'open') { open++; if (new Date(c.next_attempt_at).getTime() <= now) due++; if (now - new Date(c.created_at).getTime() > windowMs) stuck++; }
+      else if (c.status === 'resolved') resolved++;
+      else { archived++; byArchiveReason[c.archive_reason || '(none)'] = (byArchiveReason[c.archive_reason || '(none)'] || 0) + 1; }
+    }
+    res.json({ open, due, resolved, archived, stuck, byIssue, byArchiveReason, lastRun: runs?.[0] || null });
+  } catch (err) { console.error(err); res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/cleaner/cases', async (req, res) => {
+  try {
+    const { client } = await getClient();
+    const status = ['open', 'resolved', 'archived'].includes(req.query.status) ? req.query.status : 'open';
+    const limit = Math.min(500, Math.max(10, Number(req.query.limit) || 100));
+    let q = client.from('cleaner_cases').select('*').eq('status', status).order('priority', { ascending: true }).order('updated_at', { ascending: false }).limit(limit);
+    if (req.query.issue) q = q.eq('issue', String(req.query.issue));
+    const { data, error } = await q;
+    if (error) throw error;
+    // human label for the subject (name) - chunked lookups, see fetchByIds
+    const actIds = data.filter((c) => c.subject_kind === 'activity').map((c) => c.subject_id);
+    const incIds = data.filter((c) => c.subject_kind === 'incoming').map((c) => c.subject_id);
+    const acts = new Map((await fetchByIds(client, 'activities', 'id, name', actIds)).map((a) => [a.id, a.name]));
+    const incs = new Map((await fetchByIds(client, 'incoming_activities', 'id, extracted_data->>name', incIds)).map((i) => [i.id, i.name]));
+    res.json({ items: data.map((c) => ({ ...c, subject_label: c.subject_kind === 'activity' ? acts.get(c.subject_id) : incs.get(c.subject_id) })) });
+  } catch (err) { console.error(err); res.status(500).json({ error: err.message }); }
 });
 
 // ---- Venues (WHERE) - minimum operable set: list / create / alias / merge. No rich UI. ----
