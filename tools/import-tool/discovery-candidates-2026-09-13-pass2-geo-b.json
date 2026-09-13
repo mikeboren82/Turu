@@ -1,0 +1,294 @@
+{
+  "generatedAt": "2026-09-13T17:13:37.420Z",
+  "queries": [],
+  "candidates": [
+    {
+      "url": "https://www.hamatnas.co.il/events/",
+      "title": "אירועים וכרטיסים",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 200,
+      "ms": 773,
+      "charset": "UTF-8",
+      "textChars": 8965,
+      "hebrewChars": 5894,
+      "keywordHits": 33,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://www.hamatnas.co.il/events/",
+      "verdict": "scrapable",
+      "family": "community_center",
+      "score": 85,
+      "approved": true,
+      "suggested": {
+        "source_kind": "events_page",
+        "publisher_type": "other",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 70
+      },
+      "name": "מתנ\"ס קריית אונו - אירועים",
+      "region": "גוש דן והמרכז",
+      "overrides": {
+        "source_kind": "events_page",
+        "publisher_type": "community_center_network",
+        "source_trust_score": 75,
+        "publisher_name": "מתנ\"ס קריית אונו",
+        "priority": 6
+      }
+    },
+    {
+      "url": "https://matnaskg.smarticket.co.il/",
+      "title": "דף הבית • החברה העירונית קריית גת",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 200,
+      "ms": 1466,
+      "charset": "UTF-8",
+      "textChars": 13351,
+      "hebrewChars": 9388,
+      "keywordHits": 68,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://matnaskg.smarticket.co.il/",
+      "verdict": "scrapable",
+      "family": "community_center",
+      "score": 85,
+      "approved": true,
+      "suggested": {
+        "source_kind": "events_page",
+        "publisher_type": "other",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 70
+      },
+      "name": "החברה העירונית קריית גת (כרטיסים)",
+      "region": "השפלה והדרום",
+      "overrides": {
+        "source_kind": "ticketing",
+        "publisher_type": "community_center_network",
+        "source_trust_score": 75,
+        "publisher_name": "החברה העירונית קריית גת",
+        "priority": 6
+      }
+    },
+    {
+      "url": "https://www.matnasny.org.il/page.php?type=events&ht=%D7%9C%D7%95%D7%97+%D7%90%D7%99%D7%A8%D7%95%D7%A2%D7%99%D7%9D",
+      "title": "לוח אירועים | מתנס נווה יוסף",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 200,
+      "ms": 893,
+      "charset": "UTF-8",
+      "textChars": 2205,
+      "hebrewChars": 1864,
+      "keywordHits": 27,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://www.matnasny.org.il/page.php?type=events&ht=%D7%9C%D7%95%D7%97+%D7%90%D7%99%D7%A8%D7%95%D7%A2%D7%99%D7%9D",
+      "verdict": "scrapable",
+      "family": "community_center",
+      "score": 82,
+      "approved": true,
+      "suggested": {
+        "source_kind": "events_page",
+        "publisher_type": "other",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 70
+      },
+      "name": "מתנ\"ס נווה יוסף חיפה - לוח אירועים",
+      "region": "חיפה והקריות",
+      "overrides": {
+        "source_kind": "events_page",
+        "publisher_type": "community_center_network",
+        "source_trust_score": 75,
+        "publisher_name": "מתנ\"ס נווה יוסף חיפה",
+        "priority": 6
+      }
+    },
+    {
+      "url": "https://www.herzliya-matnasim.org.il/events/",
+      "title": "אירועים",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 200,
+      "ms": 1226,
+      "charset": "UTF-8",
+      "textChars": 22318,
+      "hebrewChars": 13317,
+      "keywordHits": 26,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://www.herzliya-matnasim.org.il/events/",
+      "verdict": "scrapable",
+      "family": "community_center",
+      "score": 81,
+      "approved": true,
+      "suggested": {
+        "source_kind": "events_page",
+        "publisher_type": "other",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 70
+      },
+      "name": "רשת המתנ\"סים הרצליה - אירועים",
+      "region": "השרון",
+      "overrides": {
+        "source_kind": "events_page",
+        "publisher_type": "community_center_network",
+        "source_trust_score": 75,
+        "publisher_name": "רשת המתנ\"סים הרצליה",
+        "priority": 6
+      }
+    },
+    {
+      "url": "https://www.matnasyavne.co.il/",
+      "title": "רשת המתנסים יבנה",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 200,
+      "ms": 1537,
+      "charset": "UTF-8",
+      "textChars": 8436,
+      "hebrewChars": 6555,
+      "keywordHits": 22,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://www.matnasyavne.co.il/",
+      "verdict": "scrapable",
+      "family": "community_center",
+      "score": 77,
+      "approved": true,
+      "suggested": {
+        "source_kind": "events_page",
+        "publisher_type": "other",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 70
+      },
+      "name": "רשת המתנ\"סים יבנה",
+      "region": "השפלה והדרום",
+      "overrides": {
+        "source_kind": "events_page",
+        "publisher_type": "community_center_network",
+        "source_trust_score": 75,
+        "publisher_name": "רשת המתנ\"סים יבנה",
+        "priority": 6
+      }
+    },
+    {
+      "url": "https://www.matnasata.org.il/page.php?type=events&ht=%D7%90%D7%99%D7%A8%D7%95%D7%A2%D7%99%D7%9D",
+      "title": "אירועים | רשת המתנ\"סים קרית אתא",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 200,
+      "ms": 1248,
+      "charset": "UTF-8",
+      "textChars": 2273,
+      "hebrewChars": 1524,
+      "keywordHits": 13,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://www.matnasata.org.il/page.php?type=events&ht=%D7%90%D7%99%D7%A8%D7%95%D7%A2%D7%99%D7%9D",
+      "verdict": "scrapable",
+      "family": "community_center",
+      "score": 68,
+      "approved": true,
+      "suggested": {
+        "source_kind": "events_page",
+        "publisher_type": "other",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 70
+      },
+      "name": "רשת המתנ\"סים קריית אתא - אירועים",
+      "region": "חיפה והקריות",
+      "overrides": {
+        "source_kind": "events_page",
+        "publisher_type": "community_center_network",
+        "source_trust_score": 75,
+        "publisher_name": "רשת המתנ\"סים קריית אתא",
+        "priority": 6
+      }
+    },
+    {
+      "url": "https://www.mqb.org.il/page.php?type=events&ht=%D7%90%D7%99%D7%A8%D7%95%D7%A2%D7%99%D7%9D",
+      "title": "אירועים | רשת המתנ\"סים קרית ביאליק",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 200,
+      "ms": 1101,
+      "charset": "UTF-8",
+      "textChars": 2264,
+      "hebrewChars": 1578,
+      "keywordHits": 11,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://www.mqb.org.il/page.php?type=events&ht=%D7%90%D7%99%D7%A8%D7%95%D7%A2%D7%99%D7%9D",
+      "verdict": "scrapable",
+      "family": "community_center",
+      "score": 66,
+      "approved": true,
+      "suggested": {
+        "source_kind": "events_page",
+        "publisher_type": "other",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 70
+      },
+      "name": "רשת המתנ\"סים קריית ביאליק - אירועים",
+      "region": "חיפה והקריות",
+      "overrides": {
+        "source_kind": "events_page",
+        "publisher_type": "community_center_network",
+        "source_trust_score": 75,
+        "publisher_name": "רשת המתנ\"סים קריית ביאליק",
+        "priority": 6
+      }
+    },
+    {
+      "url": "https://www.matnasky.com/",
+      "title": "רשת המתנסים קרית ים",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 200,
+      "ms": 2151,
+      "charset": "UTF-8",
+      "textChars": 1207,
+      "hebrewChars": 950,
+      "keywordHits": 8,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://www.matnasky.com/index.php",
+      "verdict": "scrapable",
+      "family": "community_center",
+      "score": 63,
+      "approved": true,
+      "suggested": {
+        "source_kind": "events_page",
+        "publisher_type": "other",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 70
+      },
+      "name": "רשת המתנ\"סים קריית ים",
+      "region": "חיפה והקריות",
+      "overrides": {
+        "source_kind": "events_page",
+        "publisher_type": "community_center_network",
+        "source_trust_score": 75,
+        "publisher_name": "רשת המתנ\"סים קריית ים",
+        "priority": 6
+      }
+    }
+  ]
+}

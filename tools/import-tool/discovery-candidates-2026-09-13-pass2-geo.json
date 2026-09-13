@@ -1,0 +1,456 @@
+{
+  "generatedAt": "2026-09-13T17:12:53.231Z",
+  "queries": [],
+  "candidates": [
+    {
+      "url": "https://www.matnasetzion.com/page.php?type=events&ht=%D7%90%D7%99%D7%A8%D7%95%D7%A2%D7%99%D7%9D",
+      "title": "אירועים | מרכז קהילתי גוש עציון - יחד בונים קהילה",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 200,
+      "ms": 2219,
+      "charset": "UTF-8",
+      "textChars": 13321,
+      "hebrewChars": 8062,
+      "keywordHits": 56,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://www.matnasetzion.com/page.php?type=events&ht=%D7%90%D7%99%D7%A8%D7%95%D7%A2%D7%99%D7%9D",
+      "verdict": "scrapable",
+      "family": "community_center",
+      "score": 85,
+      "approved": true,
+      "suggested": {
+        "source_kind": "events_page",
+        "publisher_type": "other",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 70
+      },
+      "name": "מרכז קהילתי גוש עציון - אירועים",
+      "region": "יו\"ש והבנימין",
+      "overrides": {
+        "source_kind": "events_page",
+        "publisher_type": "community_center_network",
+        "source_trust_score": 75,
+        "publisher_name": "מרכז קהילתי גוש עציון",
+        "priority": 8
+      }
+    },
+    {
+      "url": "https://mozkin.smarticket.co.il/",
+      "title": "דף הבית • היכל התרבות קריית מוצקין",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 200,
+      "ms": 775,
+      "charset": "UTF-8",
+      "textChars": 21062,
+      "hebrewChars": 14424,
+      "keywordHits": 103,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://mozkin.smarticket.co.il/",
+      "verdict": "scrapable",
+      "family": "theater",
+      "score": 85,
+      "approved": true,
+      "suggested": {
+        "source_kind": "events_page",
+        "publisher_type": "other",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 70
+      },
+      "name": "היכל התרבות קריית מוצקין (כרטיסים)",
+      "region": "חיפה והקריות",
+      "overrides": {
+        "source_kind": "ticketing",
+        "publisher_type": "venue_operator",
+        "source_trust_score": 75,
+        "publisher_name": "היכל התרבות קריית מוצקין",
+        "priority": 6
+      }
+    },
+    {
+      "url": "https://www.qbialik.org.il/",
+      "title": "עיריית קרית ביאליק  – האתר הרשמי",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 200,
+      "ms": 4858,
+      "charset": "UTF-8",
+      "textChars": 60367,
+      "hebrewChars": 42496,
+      "keywordHits": 120,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://qbialik.org.il/",
+      "verdict": "scrapable",
+      "family": "municipality",
+      "score": 85,
+      "approved": true,
+      "suggested": {
+        "source_kind": "municipality_calendar",
+        "publisher_type": "municipality",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 85
+      },
+      "name": "עיריית קריית ביאליק",
+      "region": "חיפה והקריות",
+      "overrides": {
+        "source_kind": "municipality_calendar",
+        "publisher_type": "municipality",
+        "source_trust_score": 85,
+        "publisher_name": "עיריית קריית ביאליק",
+        "priority": 6
+      }
+    },
+    {
+      "url": "https://live.tickchak.co.il/childrens-shows",
+      "title": "הצגות ילדים 2026 • לוח הופעות וכרטיסים • טיקצ'אק LIVE",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 200,
+      "ms": 2952,
+      "charset": "utf-8",
+      "textChars": 9292,
+      "hebrewChars": 6810,
+      "keywordHits": 85,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://live.tickchak.co.il/childrens-shows",
+      "verdict": "scrapable",
+      "family": "theater",
+      "score": 85,
+      "approved": true,
+      "suggested": {
+        "source_kind": "events_page",
+        "publisher_type": "other",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 70
+      },
+      "name": "טיקצ׳אק LIVE - הצגות ילדים (אגרגטור כרטיסים)",
+      "region": null,
+      "overrides": {
+        "source_kind": "aggregator",
+        "publisher_type": "aggregator",
+        "source_trust_score": 55,
+        "publisher_name": "טיקצ׳אק LIVE",
+        "priority": 6
+      }
+    },
+    {
+      "url": "https://www.kiryat-motzkin.muni.il/events/",
+      "title": "אירועי תרבות",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 200,
+      "ms": 1301,
+      "charset": "UTF-8",
+      "textChars": 22714,
+      "hebrewChars": 15837,
+      "keywordHits": 28,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://www.kiryat-motzkin.muni.il/events/",
+      "verdict": "scrapable",
+      "family": "municipality",
+      "score": 83,
+      "approved": true,
+      "suggested": {
+        "source_kind": "municipality_calendar",
+        "publisher_type": "municipality",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 85
+      },
+      "name": "עיריית קריית מוצקין - אירועי תרבות",
+      "region": "חיפה והקריות",
+      "overrides": {
+        "source_kind": "municipality_calendar",
+        "publisher_type": "municipality",
+        "source_trust_score": 85,
+        "publisher_name": "עיריית קריית מוצקין",
+        "priority": 6
+      }
+    },
+    {
+      "url": "https://nesher-matnasim.smarticket.co.il/",
+      "title": "דף הבית • יחד - מרכזים קהילתיים נשר",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 200,
+      "ms": 757,
+      "charset": "UTF-8",
+      "textChars": 7496,
+      "hebrewChars": 5045,
+      "keywordHits": 26,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://nesher-matnasim.smarticket.co.il/",
+      "verdict": "scrapable",
+      "family": "community_center",
+      "score": 81,
+      "approved": true,
+      "suggested": {
+        "source_kind": "events_page",
+        "publisher_type": "other",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 70
+      },
+      "name": "רשת המתנ\"סים נשר (כרטיסים)",
+      "region": "חיפה והקריות",
+      "overrides": {
+        "source_kind": "ticketing",
+        "publisher_type": "community_center_network",
+        "source_trust_score": 75,
+        "publisher_name": "רשת המתנ\"סים נשר",
+        "priority": 6
+      }
+    },
+    {
+      "url": "https://www.ariel.muni.il/events/",
+      "title": "אירועים",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 200,
+      "ms": 1439,
+      "charset": "UTF-8",
+      "textChars": 14235,
+      "hebrewChars": 10482,
+      "keywordHits": 21,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://www.ariel.muni.il/events/",
+      "verdict": "scrapable",
+      "family": "municipality",
+      "score": 76,
+      "approved": true,
+      "suggested": {
+        "source_kind": "municipality_calendar",
+        "publisher_type": "municipality",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 85
+      },
+      "name": "עיריית אריאל - אירועים",
+      "region": "יו\"ש והבנימין",
+      "overrides": {
+        "source_kind": "municipality_calendar",
+        "publisher_type": "municipality",
+        "source_trust_score": 85,
+        "publisher_name": "עיריית אריאל",
+        "priority": 8
+      }
+    },
+    {
+      "url": "https://www.nesher.muni.il/events/",
+      "title": "אירועים בעיריית נשר",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 200,
+      "ms": 1084,
+      "charset": "UTF-8",
+      "textChars": 7197,
+      "hebrewChars": 5536,
+      "keywordHits": 15,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://www.nesher.muni.il/events/",
+      "verdict": "scrapable",
+      "family": "municipality",
+      "score": 70,
+      "approved": true,
+      "suggested": {
+        "source_kind": "municipality_calendar",
+        "publisher_type": "municipality",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 85
+      },
+      "name": "עיריית נשר - אירועים",
+      "region": "חיפה והקריות",
+      "overrides": {
+        "source_kind": "municipality_calendar",
+        "publisher_type": "municipality",
+        "source_trust_score": 85,
+        "publisher_name": "עיריית נשר",
+        "priority": 6
+      }
+    },
+    {
+      "url": "https://efrat.muni.il/he/events/",
+      "title": "אירועים",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 200,
+      "ms": 482,
+      "charset": "UTF-8",
+      "textChars": 2976,
+      "hebrewChars": 2249,
+      "keywordHits": 11,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://efrat.muni.il/he/events/",
+      "verdict": "scrapable",
+      "family": "municipality",
+      "score": 66,
+      "approved": true,
+      "suggested": {
+        "source_kind": "municipality_calendar",
+        "publisher_type": "municipality",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 85
+      },
+      "name": "מועצה מקומית אפרת - אירועים",
+      "region": "יו\"ש והבנימין",
+      "overrides": {
+        "source_kind": "municipality_calendar",
+        "publisher_type": "local_council",
+        "source_trust_score": 85,
+        "publisher_name": "מועצה מקומית אפרת",
+        "priority": 8
+      }
+    },
+    {
+      "url": "https://www.binyamin.org.il/events/",
+      "title": "אירועים",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 200,
+      "ms": 1335,
+      "charset": "UTF-8",
+      "textChars": 10396,
+      "hebrewChars": 8335,
+      "keywordHits": 15,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://www.binyamin.org.il/events/",
+      "verdict": "scrapable",
+      "family": "other",
+      "score": 65,
+      "approved": true,
+      "suggested": {
+        "source_kind": "events_page",
+        "publisher_type": "other",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 70
+      },
+      "name": "מועצה אזורית מטה בנימין - אירועים",
+      "region": "יו\"ש והבנימין",
+      "overrides": {
+        "source_kind": "municipality_calendar",
+        "publisher_type": "regional_council",
+        "source_trust_score": 85,
+        "publisher_name": "מועצה אזורית מטה בנימין",
+        "priority": 8
+      }
+    },
+    {
+      "url": "https://www.mozkin.org.il/page.php?type=events&ht=%D7%90%D7%99%D7%A8%D7%95%D7%A2%D7%99%D7%9D",
+      "title": "אירועים | מתנ\"ס קרית מוצקין",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 200,
+      "ms": 2273,
+      "charset": "UTF-8",
+      "textChars": 2270,
+      "hebrewChars": 1634,
+      "keywordHits": 4,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://www.mozkin.org.il/page.php?type=events&ht=%D7%90%D7%99%D7%A8%D7%95%D7%A2%D7%99%D7%9D",
+      "verdict": "scrapable",
+      "family": "community_center",
+      "score": 59,
+      "approved": true,
+      "suggested": {
+        "source_kind": "events_page",
+        "publisher_type": "other",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 70
+      },
+      "name": "מתנ\"ס קריית מוצקין - אירועים",
+      "region": "חיפה והקריות",
+      "overrides": {
+        "source_kind": "events_page",
+        "publisher_type": "community_center_network",
+        "source_trust_score": 75,
+        "publisher_name": "מתנ\"ס קריית מוצקין",
+        "priority": 6
+      }
+    },
+    {
+      "url": "https://www.mks.org.il/%D7%90%D7%99%D7%A8%D7%95%D7%A2%D7%99%D7%9D-2",
+      "title": "מתנ\"ס קרני שומרון - האתר הרשמי",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 404,
+      "ms": 658,
+      "charset": "UTF-8",
+      "textChars": 482,
+      "hebrewChars": 400,
+      "keywordHits": 2,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://www.mks.org.il/%D7%90%D7%99%D7%A8%D7%95%D7%A2%D7%99%D7%9D-2",
+      "verdict": "http_error",
+      "family": "community_center",
+      "score": 7,
+      "approved": false,
+      "suggested": {
+        "source_kind": "events_page",
+        "publisher_type": "other",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 70
+      }
+    },
+    {
+      "url": "https://matnasnesher.org.il/page.php?ht=%D7%90%D7%99%D7%A8%D7%95%D7%A2%D7%99%D7%9D&type=events",
+      "title": "העמוד לא נמצא",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 404,
+      "ms": 1114,
+      "charset": "UTF-8",
+      "textChars": 32,
+      "hebrewChars": 25,
+      "keywordHits": 0,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://matnasnesher.org.il/page.php/?ht=%D7%90%D7%99%D7%A8%D7%95%D7%A2%D7%99%D7%9D&type=events",
+      "verdict": "http_error",
+      "family": "community_center",
+      "score": 5,
+      "approved": false,
+      "suggested": {
+        "source_kind": "events_page",
+        "publisher_type": "other",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 70
+      }
+    }
+  ]
+}

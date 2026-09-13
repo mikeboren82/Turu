@@ -94,7 +94,9 @@ async function main() {
       adapter_config: s.adapter_config || null, // api_json request/shape (migration 0082); null for html strategies
       is_active: !inactiveReason, disabled_reason: inactiveReason ? (s.disabled_reason || inactiveReason) : null,
       health_status: inactiveReason ? 'auto_paused' : 'healthy',
-      discovery_batch: BATCH || s.discovery_batch || null,
+      // --batch labels NEW rows only; an existing row keeps its own provenance label (2026-09-13:
+      // a re-seed with --batch relabelled all 135 rows and a "scan the batch" loop hit every source)
+      discovery_batch: s.discovery_batch || null,
     };
     const existing = byUrl.get(s.seed_url.replace(/\/$/, ''));
     if (existing) {
@@ -110,7 +112,7 @@ async function main() {
     } else {
       sCreated++;
       if (APPLY) {
-        const { error } = await client.from('sources').insert({ ...row, created_by: userId, next_scan_at: new Date().toISOString() });
+        const { error } = await client.from('sources').insert({ ...row, discovery_batch: BATCH || row.discovery_batch, created_by: userId, next_scan_at: new Date().toISOString() });
         if (error) console.error('source insert failed', s.name, error.message);
       }
     }

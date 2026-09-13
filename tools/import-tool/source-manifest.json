@@ -487,7 +487,12 @@
       "aliases": [
         "מוזיאון ארץ-ישראל",
         "מוזאון ארץ ישראל",
-        "מוזיאון א״י"
+        "מוזיאון א״י",
+        "מוזיאום ארץ ישראל",
+        "מוז״א - מוזיאום ארץ ישראל",
+        "מוז״א",
+        "מוזא",
+        "MUZA"
       ]
     },
     {
@@ -745,6 +750,195 @@
       "aliases": [
         "המשכן לאמנויות הבמה",
         "משכן באר שבע"
+      ]
+    },
+    {
+      "key": "mediatheque_holon",
+      "name_he": "מדיטק חולון",
+      "venue_type": "cultural_center",
+      "city": "חולון",
+      "region": "גוש דן והמרכז",
+      "website_url": "https://www.mediatheque.org.il/",
+      "aliases": [
+        "מדיטק חולון - מתחם תרבות יוצר",
+        "מדיטק",
+        "המדיטק",
+        "תיאטרון המדיטק",
+        "ספריית המדיטק",
+        "תיאטרון חולון"
+      ]
+    },
+    {
+      "key": "heichal_tarbut_lod",
+      "name_he": "היכל התרבות לוד",
+      "venue_type": "theater",
+      "city": "לוד",
+      "region": "השפלה והדרום",
+      "aliases": [
+        "היכל התרבות",
+        "היכל התרבות העירוני לוד"
+      ]
+    },
+    {
+      "key": "heichal_tarbut_kiryat_gat",
+      "name_he": "היכל התרבות קריית גת",
+      "venue_type": "theater",
+      "city": "קריית גת",
+      "region": "השפלה והדרום",
+      "aliases": [
+        "היכל התרבות קרית גת",
+        "היכל התרבות",
+        "היכל התרבות העירוני"
+      ]
+    },
+    {
+      "key": "beit_polak_kiryat_gat",
+      "name_he": "בית רחל וישראל פולק",
+      "venue_type": "cultural_center",
+      "city": "קריית גת",
+      "region": "השפלה והדרום",
+      "aliases": [
+        "בית פולק",
+        "מרכז פולק"
+      ]
+    },
+    {
+      "key": "merkaz_enav",
+      "name_he": "מרכז ענב לתרבות",
+      "venue_type": "cultural_center",
+      "city": "תל אביב יפו",
+      "region": "גוש דן והמרכז",
+      "website_url": "https://www.enav.org.il/",
+      "aliases": [
+        "מרכז ענב",
+        "ענב לתרבות",
+        "מרכז ענב לתרבות - גן העיר"
+      ]
+    },
+    {
+      "key": "salon_dubnov",
+      "name_he": "סלון דובנוב",
+      "venue_type": "cultural_center",
+      "city": "תל אביב יפו",
+      "region": "גוש דן והמרכז",
+      "aliases": [
+        "בית יד לבנים",
+        "בית יד לבנים תל אביב",
+        "סלון דובנוב - בית יד לבנים"
+      ]
+    },
+    {
+      "key": "beit_liebling",
+      "name_he": "בית ליבלינג",
+      "venue_type": "cultural_center",
+      "city": "תל אביב יפו",
+      "region": "גוש דן והמרכז",
+      "aliases": [
+        "בית ליבלינג – מרכז העיר הלבנה",
+        "מרכז העיר הלבנה"
+      ]
+    },
+    {
+      "key": "la_park_holon",
+      "name_he": "לה פארק - פארק פרס חולון",
+      "venue_type": "park",
+      "city": "חולון",
+      "region": "גוש דן והמרכז",
+      "aliases": [
+        "לה פארק",
+        "פארק פרס",
+        "פארק פרס חולון"
+      ]
+    },
+    {
+      "key": "heichal_tarbut_yavne",
+      "name_he": "היכל התרבות יבנה",
+      "venue_type": "theater",
+      "city": "יבנה",
+      "region": "השפלה והדרום",
+      "aliases": [
+        "היכל התרבות",
+        "היכל התרבות העירוני יבנה"
+      ]
+    },
+    {
+      "key": "koter_yavne",
+      "name_he": "כותר - הספרייה העירונית יבנה",
+      "venue_type": "library",
+      "city": "יבנה",
+      "region": "השפלה והדרום",
+      "aliases": [
+        "כותר - הספריה",
+        "כותר",
+        "הספרייה העירונית יבנה",
+        "ספריית יבנה"
+      ]
+    },
+    {
+      "key": "migdal_shalom",
+      "name_he": "מגדל שלום",
+      "venue_type": "attraction",
+      "city": "תל אביב יפו",
+      "region": "גוש דן והמרכז",
+      "aliases": [
+        "מגדל שלום מאיר",
+        "מגדל שלום - קומת הגלריה"
+      ]
+    },
+    {
+      "key": "matnas_shazar_givatayim",
+      "name_he": "מרכז קהילתי שז״ר גבעתיים",
+      "venue_type": "community_center",
+      "city": "גבעתיים",
+      "region": "גוש דן והמרכז",
+      "aliases": [
+        "מרכז קהילתי שז״ר",
+        "מרכז קהילתי שזר",
+        "מתנ״ס שז״ר"
+      ]
+    },
+    {
+      "key": "biruka_mall_kiryat_shmona",
+      "name_he": "קניון בירוקה קריית שמונה",
+      "venue_type": "mall",
+      "city": "קריית שמונה",
+      "region": "הצפון והעמק",
+      "aliases": [
+        "קניון בירוקה",
+        "בירוקה"
+      ]
+    },
+    {
+      "key": "eshkol_hapayis_beit_hashmonai",
+      "name_he": "אשכול הפיס בית חשמונאי",
+      "venue_type": "community_center",
+      "city": "בית חשמונאי",
+      "region": "השפלה והדרום",
+      "aliases": [
+        "אשכול הפיס",
+        "אשכול פיס בית חשמונאי"
+      ]
+    },
+    {
+      "key": "ben_yehuda_library_holon",
+      "name_he": "ספריית בן-יהודה חולון",
+      "venue_type": "library",
+      "city": "חולון",
+      "region": "גוש דן והמרכז",
+      "aliases": [
+        "ספריית בן-יהודה",
+        "ספריית בן יהודה"
+      ]
+    },
+    {
+      "key": "youth_center_holon_jessica",
+      "name_he": "ג׳סיקה - מרכז הצעירים חולון",
+      "venue_type": "community_center",
+      "city": "חולון",
+      "region": "גוש דן והמרכז",
+      "aliases": [
+        "ג׳סיקה - מרכז הצעירים",
+        "מרכז הצעירים ג׳סיקה"
       ]
     }
   ],
@@ -2546,7 +2740,7 @@
       "publisher_type": "mall_chain",
       "scan_frequency_hours": 72,
       "priority": 6,
-      "source_trust_score": 75,
+      "source_trust_score": 80,
       "publisher_name": "קניוני עזריאלי"
     },
     {
@@ -2860,6 +3054,310 @@
       "priority": 8,
       "source_trust_score": 85,
       "publisher_name": "עיריית אשדוד - אגף אירועים"
+    },
+    {
+      "name": "מרכז קהילתי גוש עציון - אירועים",
+      "seed_url": "https://www.matnasetzion.com/page.php?type=events&ht=%D7%90%D7%99%D7%A8%D7%95%D7%A2%D7%99%D7%9D",
+      "status": "verified",
+      "region": "יו\"ש והבנימין",
+      "categories": [],
+      "venue": null,
+      "discovery_batch": "phase2-geo",
+      "notes": "discovered via: (manual)",
+      "source_kind": "events_page",
+      "publisher_type": "community_center_network",
+      "scan_frequency_hours": 72,
+      "priority": 8,
+      "source_trust_score": 75,
+      "publisher_name": "מרכז קהילתי גוש עציון"
+    },
+    {
+      "name": "היכל התרבות קריית מוצקין (כרטיסים)",
+      "seed_url": "https://mozkin.smarticket.co.il/",
+      "status": "verified",
+      "region": "חיפה והקריות",
+      "categories": [],
+      "venue": null,
+      "discovery_batch": "phase2-geo",
+      "notes": "discovered via: (manual)",
+      "source_kind": "ticketing",
+      "publisher_type": "venue_operator",
+      "scan_frequency_hours": 72,
+      "priority": 6,
+      "source_trust_score": 75,
+      "publisher_name": "היכל התרבות קריית מוצקין"
+    },
+    {
+      "name": "עיריית קריית ביאליק",
+      "seed_url": "https://www.qbialik.org.il/",
+      "status": "verified",
+      "region": "חיפה והקריות",
+      "categories": [],
+      "venue": null,
+      "discovery_batch": "phase2-geo",
+      "notes": "discovered via: (manual)",
+      "source_kind": "municipality_calendar",
+      "publisher_type": "municipality",
+      "scan_frequency_hours": 72,
+      "priority": 6,
+      "source_trust_score": 85,
+      "publisher_name": "עיריית קריית ביאליק"
+    },
+    {
+      "name": "טיקצ׳אק LIVE - הצגות ילדים (אגרגטור כרטיסים)",
+      "seed_url": "https://live.tickchak.co.il/childrens-shows",
+      "status": "verified",
+      "region": null,
+      "categories": [],
+      "venue": null,
+      "discovery_batch": "phase2-geo",
+      "notes": "discovered via: (manual)",
+      "source_kind": "aggregator",
+      "publisher_type": "aggregator",
+      "scan_frequency_hours": 72,
+      "priority": 6,
+      "source_trust_score": 55,
+      "publisher_name": "טיקצ׳אק LIVE"
+    },
+    {
+      "name": "עיריית קריית מוצקין - אירועי תרבות",
+      "seed_url": "https://www.kiryat-motzkin.muni.il/events/",
+      "status": "verified",
+      "region": "חיפה והקריות",
+      "categories": [],
+      "venue": null,
+      "discovery_batch": "phase2-geo",
+      "notes": "discovered via: (manual)",
+      "source_kind": "municipality_calendar",
+      "publisher_type": "municipality",
+      "scan_frequency_hours": 72,
+      "priority": 6,
+      "source_trust_score": 85,
+      "publisher_name": "עיריית קריית מוצקין"
+    },
+    {
+      "name": "רשת המתנ\"סים נשר (כרטיסים)",
+      "seed_url": "https://nesher-matnasim.smarticket.co.il/",
+      "status": "verified",
+      "region": "חיפה והקריות",
+      "categories": [],
+      "venue": null,
+      "discovery_batch": "phase2-geo",
+      "notes": "discovered via: (manual)",
+      "source_kind": "ticketing",
+      "publisher_type": "community_center_network",
+      "scan_frequency_hours": 72,
+      "priority": 6,
+      "source_trust_score": 75,
+      "publisher_name": "רשת המתנ\"סים נשר"
+    },
+    {
+      "name": "עיריית אריאל - אירועים",
+      "seed_url": "https://www.ariel.muni.il/events/",
+      "status": "verified",
+      "region": "יו\"ש והבנימין",
+      "categories": [],
+      "venue": null,
+      "discovery_batch": "phase2-geo",
+      "notes": "discovered via: (manual)",
+      "source_kind": "municipality_calendar",
+      "publisher_type": "municipality",
+      "scan_frequency_hours": 72,
+      "priority": 8,
+      "source_trust_score": 85,
+      "publisher_name": "עיריית אריאל"
+    },
+    {
+      "name": "עיריית נשר - אירועים",
+      "seed_url": "https://www.nesher.muni.il/events/",
+      "status": "verified",
+      "region": "חיפה והקריות",
+      "categories": [],
+      "venue": null,
+      "discovery_batch": "phase2-geo",
+      "notes": "discovered via: (manual)",
+      "source_kind": "municipality_calendar",
+      "publisher_type": "municipality",
+      "scan_frequency_hours": 72,
+      "priority": 6,
+      "source_trust_score": 85,
+      "publisher_name": "עיריית נשר"
+    },
+    {
+      "name": "מועצה מקומית אפרת - אירועים",
+      "seed_url": "https://efrat.muni.il/he/events/",
+      "status": "verified",
+      "region": "יו\"ש והבנימין",
+      "categories": [],
+      "venue": null,
+      "discovery_batch": "phase2-geo",
+      "notes": "discovered via: (manual)",
+      "source_kind": "municipality_calendar",
+      "publisher_type": "local_council",
+      "scan_frequency_hours": 72,
+      "priority": 8,
+      "source_trust_score": 85,
+      "publisher_name": "מועצה מקומית אפרת"
+    },
+    {
+      "name": "מועצה אזורית מטה בנימין - אירועים",
+      "seed_url": "https://www.binyamin.org.il/events/",
+      "status": "verified",
+      "region": "יו\"ש והבנימין",
+      "categories": [],
+      "venue": null,
+      "discovery_batch": "phase2-geo",
+      "notes": "discovered via: (manual)",
+      "source_kind": "municipality_calendar",
+      "publisher_type": "regional_council",
+      "scan_frequency_hours": 72,
+      "priority": 8,
+      "source_trust_score": 85,
+      "publisher_name": "מועצה אזורית מטה בנימין"
+    },
+    {
+      "name": "מתנ\"ס קריית מוצקין - אירועים",
+      "seed_url": "https://www.mozkin.org.il/page.php?type=events&ht=%D7%90%D7%99%D7%A8%D7%95%D7%A2%D7%99%D7%9D",
+      "status": "verified",
+      "region": "חיפה והקריות",
+      "categories": [],
+      "venue": null,
+      "discovery_batch": "phase2-geo",
+      "notes": "discovered via: (manual)",
+      "source_kind": "events_page",
+      "publisher_type": "community_center_network",
+      "scan_frequency_hours": 72,
+      "priority": 6,
+      "source_trust_score": 75,
+      "publisher_name": "מתנ\"ס קריית מוצקין"
+    },
+    {
+      "name": "מתנ\"ס קריית אונו - אירועים",
+      "seed_url": "https://www.hamatnas.co.il/events/",
+      "status": "verified",
+      "region": "גוש דן והמרכז",
+      "categories": [],
+      "venue": null,
+      "discovery_batch": "phase2-geo",
+      "notes": "discovered via: (manual)",
+      "source_kind": "events_page",
+      "publisher_type": "community_center_network",
+      "scan_frequency_hours": 72,
+      "priority": 6,
+      "source_trust_score": 75,
+      "publisher_name": "מתנ\"ס קריית אונו"
+    },
+    {
+      "name": "החברה העירונית קריית גת (כרטיסים)",
+      "seed_url": "https://matnaskg.smarticket.co.il/",
+      "status": "verified",
+      "region": "השפלה והדרום",
+      "categories": [],
+      "venue": null,
+      "discovery_batch": "phase2-geo",
+      "notes": "discovered via: (manual)",
+      "source_kind": "ticketing",
+      "publisher_type": "community_center_network",
+      "scan_frequency_hours": 72,
+      "priority": 6,
+      "source_trust_score": 75,
+      "publisher_name": "החברה העירונית קריית גת"
+    },
+    {
+      "name": "מתנ\"ס נווה יוסף חיפה - לוח אירועים",
+      "seed_url": "https://www.matnasny.org.il/page.php?type=events&ht=%D7%9C%D7%95%D7%97+%D7%90%D7%99%D7%A8%D7%95%D7%A2%D7%99%D7%9D",
+      "status": "verified",
+      "region": "חיפה והקריות",
+      "categories": [],
+      "venue": null,
+      "discovery_batch": "phase2-geo",
+      "notes": "discovered via: (manual)",
+      "source_kind": "events_page",
+      "publisher_type": "community_center_network",
+      "scan_frequency_hours": 72,
+      "priority": 6,
+      "source_trust_score": 75,
+      "publisher_name": "מתנ\"ס נווה יוסף חיפה"
+    },
+    {
+      "name": "רשת המתנ\"סים הרצליה - אירועים",
+      "seed_url": "https://www.herzliya-matnasim.org.il/events/",
+      "status": "verified",
+      "region": "השרון",
+      "categories": [],
+      "venue": null,
+      "discovery_batch": "phase2-geo",
+      "notes": "discovered via: (manual)",
+      "source_kind": "events_page",
+      "publisher_type": "community_center_network",
+      "scan_frequency_hours": 72,
+      "priority": 6,
+      "source_trust_score": 75,
+      "publisher_name": "רשת המתנ\"סים הרצליה"
+    },
+    {
+      "name": "רשת המתנ\"סים יבנה",
+      "seed_url": "https://www.matnasyavne.co.il/",
+      "status": "verified",
+      "region": "השפלה והדרום",
+      "categories": [],
+      "venue": null,
+      "discovery_batch": "phase2-geo",
+      "notes": "discovered via: (manual)",
+      "source_kind": "events_page",
+      "publisher_type": "community_center_network",
+      "scan_frequency_hours": 72,
+      "priority": 6,
+      "source_trust_score": 75,
+      "publisher_name": "רשת המתנ\"סים יבנה"
+    },
+    {
+      "name": "רשת המתנ\"סים קריית אתא - אירועים",
+      "seed_url": "https://www.matnasata.org.il/page.php?type=events&ht=%D7%90%D7%99%D7%A8%D7%95%D7%A2%D7%99%D7%9D",
+      "status": "verified",
+      "region": "חיפה והקריות",
+      "categories": [],
+      "venue": null,
+      "discovery_batch": "phase2-geo",
+      "notes": "discovered via: (manual)",
+      "source_kind": "events_page",
+      "publisher_type": "community_center_network",
+      "scan_frequency_hours": 72,
+      "priority": 6,
+      "source_trust_score": 75,
+      "publisher_name": "רשת המתנ\"סים קריית אתא"
+    },
+    {
+      "name": "רשת המתנ\"סים קריית ביאליק - אירועים",
+      "seed_url": "https://www.mqb.org.il/page.php?type=events&ht=%D7%90%D7%99%D7%A8%D7%95%D7%A2%D7%99%D7%9D",
+      "status": "verified",
+      "region": "חיפה והקריות",
+      "categories": [],
+      "venue": null,
+      "discovery_batch": "phase2-geo",
+      "notes": "discovered via: (manual)",
+      "source_kind": "events_page",
+      "publisher_type": "community_center_network",
+      "scan_frequency_hours": 72,
+      "priority": 6,
+      "source_trust_score": 75,
+      "publisher_name": "רשת המתנ\"סים קריית ביאליק"
+    },
+    {
+      "name": "רשת המתנ\"סים קריית ים",
+      "seed_url": "https://www.matnasky.com/",
+      "status": "verified",
+      "region": "חיפה והקריות",
+      "categories": [],
+      "venue": null,
+      "discovery_batch": "phase2-geo",
+      "notes": "discovered via: (manual)",
+      "source_kind": "events_page",
+      "publisher_type": "community_center_network",
+      "scan_frequency_hours": 72,
+      "priority": 6,
+      "source_trust_score": 75,
+      "publisher_name": "רשת המתנ\"סים קריית ים"
     }
   ]
 }

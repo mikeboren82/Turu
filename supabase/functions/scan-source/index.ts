@@ -600,6 +600,9 @@ Deno.serve(async (req: Request) => {
           if (venue) {
             if (!candidate.city && venue.city) candidate.city = normalizeCityName(venue.city);
             candidate.lat = venue.lat; candidate.lng = venue.lng;
+            // the 'עיר' issue was pushed by sanitize before the venue could supply the city
+            // (24 Ramot-mall items sat in review with a valid city because of it, 2026-09-13)
+            if (candidate.city) { const i = issues.indexOf('עיר'); if (i >= 0) issues.splice(i, 1); }
           }
           candidate.event_fingerprint = computeEventFingerprint({
             name: candidate.name, venueId: candidate.venue_id, city: candidate.city, scheduleType: candidate.schedule_type,
