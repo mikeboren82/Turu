@@ -1,0 +1,91 @@
+{
+  "generatedAt": "2026-09-13T18:33:43.955Z",
+  "queries": [],
+  "candidates": [
+    {
+      "url": "https://matnasgan.org.il/",
+      "title": "מרכז קהילתי מזרח נתניה",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 200,
+      "ms": 1239,
+      "charset": "UTF-8",
+      "textChars": 5374,
+      "hebrewChars": 4200,
+      "keywordHits": 34,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://matnasgan.org.il/",
+      "verdict": "scrapable",
+      "family": "community_center",
+      "score": 85,
+      "approved": true,
+      "suggested": {
+        "source_kind": "events_page",
+        "publisher_type": "other",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 70
+      },
+      "name": "מרכז קהילתי מזרח נתניה",
+      "region": "השרון",
+      "overrides": {
+        "source_kind": "events_page",
+        "publisher_type": "community_center_network",
+        "source_trust_score": 75,
+        "publisher_name": "מרכז קהילתי מזרח נתניה",
+        "priority": 6,
+        "scan_frequency_hours": 72
+      }
+    },
+    {
+      "url": "https://www.matnasdn.co.il/",
+      "title": "",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 0,
+      "ms": 509,
+      "error": "TypeError: fetch failed",
+      "verdict": "blocked",
+      "family": "community_center",
+      "score": 5,
+      "approved": false,
+      "suggested": {
+        "source_kind": "events_page",
+        "publisher_type": "other",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 70
+      }
+    },
+    {
+      "url": "https://holonet.co.il/",
+      "title": "",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 200,
+      "ms": 519,
+      "charset": "UTF-8",
+      "textChars": 57,
+      "hebrewChars": 47,
+      "keywordHits": 0,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://holonet.co.il/",
+      "verdict": "js_only",
+      "family": "other",
+      "score": 0,
+      "approved": false,
+      "suggested": {
+        "source_kind": "events_page",
+        "publisher_type": "other",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 70
+      }
+    }
+  ]
+}

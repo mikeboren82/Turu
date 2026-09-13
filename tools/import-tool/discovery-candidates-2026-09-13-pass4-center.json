@@ -1,0 +1,203 @@
+{
+  "generatedAt": "2026-09-13T18:31:52.007Z",
+  "queries": [],
+  "candidates": [
+    {
+      "url": "https://makefet.smarticket.co.il/%D7%9E%D7%A8%D7%9B%D7%96%D7%99%D7%9D_%D7%A7%D7%94%D7%99%D7%9C%D7%AA%D7%99%D7%99%D7%9D",
+      "title": "מרכזים קהילתיים • מקפת - מרכזים קהילתיים פתח תקווה",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 200,
+      "ms": 663,
+      "charset": "UTF-8",
+      "textChars": 50257,
+      "hebrewChars": 36863,
+      "keywordHits": 224,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://makefet.smarticket.co.il/%D7%9E%D7%A8%D7%9B%D7%96%D7%99%D7%9D_%D7%A7%D7%94%D7%99%D7%9C%D7%AA%D7%99%D7%99%D7%9D",
+      "verdict": "scrapable",
+      "family": "community_center",
+      "score": 85,
+      "approved": true,
+      "suggested": {
+        "source_kind": "events_page",
+        "publisher_type": "other",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 70
+      },
+      "name": "מקפ״ת - מרכזים קהילתיים פתח תקווה (כרטיסים)",
+      "region": "גוש דן והמרכז",
+      "overrides": {
+        "source_kind": "ticketing",
+        "publisher_type": "community_center_network",
+        "source_trust_score": 75,
+        "publisher_name": "מקפ״ת",
+        "priority": 6,
+        "scan_frequency_hours": 72
+      }
+    },
+    {
+      "url": "https://www.haifa.muni.il/culture/municipal-libraries/",
+      "title": "ספריות עירוניות - עיריית חיפה\t\t :\t\tעיריית חיפה",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 200,
+      "ms": 1026,
+      "charset": "UTF-8",
+      "textChars": 16228,
+      "hebrewChars": 12309,
+      "keywordHits": 38,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://www.haifa.muni.il/culture/municipal-libraries/",
+      "verdict": "scrapable",
+      "family": "municipality",
+      "score": 85,
+      "approved": true,
+      "suggested": {
+        "source_kind": "municipality_calendar",
+        "publisher_type": "municipality",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 85
+      },
+      "name": "עיריית חיפה - ספריות עירוניות",
+      "region": "חיפה והקריות",
+      "overrides": {
+        "source_kind": "events_page",
+        "publisher_type": "municipality",
+        "source_trust_score": 85,
+        "publisher_name": "עיריית חיפה",
+        "priority": 6,
+        "scan_frequency_hours": 72,
+        "strategy": "local_relay"
+      }
+    },
+    {
+      "url": "https://www.hironit.org.il/",
+      "title": "החברה העירונית ראשון לציון, תרבות, ספורט, נופש",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 200,
+      "ms": 1795,
+      "charset": "UTF-8",
+      "textChars": 8180,
+      "hebrewChars": 6354,
+      "keywordHits": 46,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://www.hironit.org.il/",
+      "verdict": "scrapable",
+      "family": "other",
+      "score": 80,
+      "approved": true,
+      "suggested": {
+        "source_kind": "events_page",
+        "publisher_type": "other",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 70
+      },
+      "name": "החברה העירונית ראשון לציון - תרבות ופנאי",
+      "region": "גוש דן והמרכז",
+      "overrides": {
+        "source_kind": "events_page",
+        "publisher_type": "community_center_network",
+        "source_trust_score": 75,
+        "publisher_name": "החברה העירונית ראשון לציון",
+        "priority": 6,
+        "scan_frequency_hours": 72
+      }
+    },
+    {
+      "url": "https://makefet.com/",
+      "title": "ראשי - מקפ״ת | מרכזים קהילתיים פתח תקווה",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 200,
+      "ms": 974,
+      "charset": "UTF-8",
+      "textChars": 16032,
+      "hebrewChars": 5929,
+      "keywordHits": 16,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://makefet.com/",
+      "verdict": "scrapable",
+      "family": "community_center",
+      "score": 71,
+      "approved": true,
+      "suggested": {
+        "source_kind": "events_page",
+        "publisher_type": "other",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 70
+      },
+      "name": "מקפ״ת - מרכזים קהילתיים פתח תקווה",
+      "region": "גוש דן והמרכז",
+      "overrides": {
+        "source_kind": "events_page",
+        "publisher_type": "community_center_network",
+        "source_trust_score": 75,
+        "publisher_name": "מקפ״ת",
+        "priority": 6,
+        "scan_frequency_hours": 72
+      }
+    },
+    {
+      "url": "https://www.matnasmrl.co.il/",
+      "title": "",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 0,
+      "ms": 957,
+      "error": "TypeError: fetch failed",
+      "verdict": "blocked",
+      "family": "community_center",
+      "score": 5,
+      "approved": false,
+      "suggested": {
+        "source_kind": "events_page",
+        "publisher_type": "other",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 70
+      }
+    },
+    {
+      "url": "https://www.matnasim.org.il/?pg=alphone",
+      "title": "החברה למתנ\"סים | אדם, קהילה, חברה",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 200,
+      "ms": 2200,
+      "charset": "UTF-8",
+      "textChars": 1931,
+      "hebrewChars": 1477,
+      "keywordHits": 0,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://www.matnasim.org.il/?pg=alphone",
+      "verdict": "low_relevance",
+      "family": "community_center",
+      "score": 5,
+      "approved": false,
+      "suggested": {
+        "source_kind": "events_page",
+        "publisher_type": "other",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 70
+      }
+    }
+  ]
+}
