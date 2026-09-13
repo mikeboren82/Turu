@@ -751,7 +751,7 @@
   "sources": [
     {
       "name": "תיירות כפרית לב השרון",
-      "seed_url": "https://tour-levhasharon.org.il/business/category/70/",
+      "seed_url": "https://tour-levhasharon.org.il/business/category/70/events/",
       "status": "verified",
       "source_kind": "website",
       "publisher_type": "regional_council",
@@ -759,11 +759,12 @@
       "region": "השרון",
       "scan_frequency_hours": 168,
       "priority": 4,
-      "source_trust_score": 100
+      "source_trust_score": 100,
+      "strategy": "local_relay"
     },
     {
       "name": "מוזיאון הילדים חולון",
-      "seed_url": "https://www.childrensmuseum.org.il/",
+      "seed_url": "https://www.childrensmuseum.org.il/%d7%a4%d7%a2%d7%99%d7%9c%d7%95%d7%99%d7%95%d7%aa-%d7%9c%d7%99%d7%9c%d7%93%d7%99%d7%9d-%d7%91%d7%9e%d7%95%d7%96%d7%99%d7%90%d7%95%d7%9f/",
       "status": "verified",
       "source_kind": "website",
       "publisher_type": "venue_operator",
@@ -859,7 +860,7 @@
     },
     {
       "name": "ממלכת הילדים - מוזיאון הכט אוניברסיטת חיפה",
-      "seed_url": "https://mushecht.haifa.ac.il/kingdom/",
+      "seed_url": "https://mushecht.haifa.ac.il/events/",
       "status": "verified",
       "source_kind": "website",
       "publisher_type": "venue_operator",
@@ -996,7 +997,7 @@
     },
     {
       "name": "קניון שבעת הכוכבים הרצליה",
-      "seed_url": "https://www.7stars.co.il/",
+      "seed_url": "https://www.7stars.co.il/%D7%AA%D7%A8%D7%91%D7%95%D7%AA-%D7%95%D7%A4%D7%A0%D7%90%D7%99",
       "status": "verified",
       "source_kind": "website",
       "publisher_type": "venue_operator",
@@ -1361,7 +1362,124 @@
       "region": "גוש דן והמרכז",
       "scan_frequency_hours": 72,
       "priority": 9,
-      "source_trust_score": 85
+      "source_trust_score": 85,
+      "strategy": "local_relay",
+      "adapter_config": {
+        "url": "https://www.tel-aviv.gov.il/_vti_bin/TlvSP2013PublicSite/TlvListUtils.svc/getEventsList",
+        "body": {
+          "EndDate": "{{today+60}}",
+          "pageUrl": "/Pages/MainItemPage.aspx",
+          "StartDate": "{{today}}",
+          "isDigitaf": "False",
+          "AudienceId": 0,
+          "CategoryId": 0,
+          "NumOfItems": 200,
+          "displayMap": "False",
+          "numOfWeeks": 8,
+          "filtersList": [
+            {
+              "Name": "אירועים מיוחדים:",
+              "Type": "SpecialEvent",
+              "Field": "TlvSpecialEvent",
+              "Items": null,
+              "ListDS": {
+                "WebId": "3af57d92-807c-43c5-8d5f-6fd455eb2776",
+                "Fields": null,
+                "ListId": "4558158b-3370-43b6-ab5c-a0e80801b004",
+                "SiteId": "24aa409e-01ed-482e-b0ed-1956972addb1",
+                "ViewId": "6a975182-ceb2-46e6-8286-da2040a9545c",
+                "ItemdIds": null,
+                "ListContentTypes": [
+                  "סוג תוכן למועדים מיוחדים"
+                ]
+              },
+              "Display": false,
+              "ListUrl": null,
+              "DefaultValue": "בחירה"
+            },
+            {
+              "Name": "קהל יעד:",
+              "Type": "Audiences",
+              "Field": "TlvAudiences",
+              "Items": null,
+              "ListDS": {
+                "WebId": "3af57d92-807c-43c5-8d5f-6fd455eb2776",
+                "Fields": null,
+                "ListId": "6c6204c6-69ce-4cc4-992d-ea4c96213c38",
+                "SiteId": "24aa409e-01ed-482e-b0ed-1956972addb1",
+                "ViewId": "222072e9-c43d-4a99-a0b8-248608860a61",
+                "ItemdIds": null,
+                "ListContentTypes": [
+                  "סוג תוכן לקהל יעד"
+                ]
+              },
+              "Display": false,
+              "ListUrl": null,
+              "DefaultValue": "הכל"
+            }
+          ],
+          "OrderByField": "TlvStartDate",
+          "displayDates": "True",
+          "displayTable": "False",
+          "displayTiles": "True",
+          "listPageSize": 20,
+          "SearchListsCT": "סוג תוכן לאירועים;סוג תוכן אירוע TimeOut",
+          "SpecialEventId": 0,
+          "defaultDisplay": "Tiles",
+          "eventLinkTitle": "למידע נוסף",
+          "freeEventTitle": "חינם",
+          "filterForMobile": "SpecialEvent",
+          "isDefaultEvents": false,
+          "SpecialEventTitle": "",
+          "ManagedPropertiesDS": {
+            "WebId": "3af57d92-807c-43c5-8d5f-6fd455eb2776",
+            "Fields": null,
+            "ListId": "7f58f48c-0d59-434c-b647-5b7a213ba5ab",
+            "SiteId": "24aa409e-01ed-482e-b0ed-1956972addb1",
+            "ViewId": "afb5ff01-6de9-47c4-88aa-b42a45c53795",
+            "ItemdIds": null,
+            "ListContentTypes": [
+              "סוג תוכן ניהול מאפיינים"
+            ]
+          },
+          "audiencesNotForDisplay": ""
+        },
+        "fields": [
+          "Title",
+          "TlvStartDate",
+          "TlvEndDate",
+          "TlvCityLocation",
+          "TlvAddress1",
+          "TlvSummary",
+          "TlvPaymentRequired",
+          "TlvEventScope",
+          "TlvLongURL"
+        ],
+        "labels": {
+          "Title": "שם האירוע",
+          "Comments": "פרטים",
+          "TlvEndDate": "תאריך ושעת סיום",
+          "TlvLongURL": "קישור חיצוני",
+          "TlvSummary": "תקציר",
+          "TlvAddress1": "כתובת (רחוב) בתל אביב-יפו",
+          "TlvStartDate": "תאריך ושעת התחלה (יום.חודש.שנה, שעה)",
+          "TlvEventScope": "סוג אירוע",
+          "TlvMainPicture": "תמונה",
+          "TlvCityLocation": "מקום",
+          "TlvPaymentRequired": "תשלום",
+          "TlvFieldsOfInterests": "תחומי עניין"
+        },
+        "method": "POST",
+        "headers": {
+          "Referer": "https://www.tel-aviv.gov.il/Visitors/Events/Pages/Events.aspx",
+          "Content-Type": "application/json; charset=utf-8",
+          "X-Requested-With": "XMLHttpRequest"
+        },
+        "max_items": 200,
+        "items_path": "",
+        "timeout_ms": 40000,
+        "fields_mode": "sharepoint_fields"
+      }
     },
     {
       "name": "עיריית גבעתיים - אירועים",
@@ -1390,26 +1508,29 @@
     {
       "name": "עיריית ראשון לציון - אירועים ומופעים",
       "seed_url": "https://www.rishonlezion.muni.il/RecreationalAndLeisure/Pages/Events.aspx",
-      "status": "verified",
+      "status": "js_only",
       "source_kind": "municipality_calendar",
       "publisher_type": "municipality",
       "publisher_name": "עיריית ראשון לציון",
       "region": "גוש דן והמרכז",
       "scan_frequency_hours": 72,
       "priority": 8,
-      "source_trust_score": 85
+      "source_trust_score": 85,
+      "strategy": "local_relay",
+      "disabled_reason": "js_only: SharePoint events list is loaded client-side via loadMoreEvents (page text has no events)"
     },
     {
       "name": "עיריית פתח תקווה - כל האירועים",
       "seed_url": "https://www.petah-tikva.muni.il/events/all-events",
-      "status": "verified",
+      "status": "js_only",
       "source_kind": "municipality_calendar",
       "publisher_type": "municipality",
       "publisher_name": "עיריית פתח תקווה",
       "region": "גוש דן והמרכז",
       "scan_frequency_hours": 72,
       "priority": 8,
-      "source_trust_score": 85
+      "source_trust_score": 85,
+      "disabled_reason": "js_only: Next.js app loads events from a client API not present in the HTML"
     },
     {
       "name": "עיריית חולון - לוח אירועים",
@@ -1421,19 +1542,22 @@
       "region": "גוש דן והמרכז",
       "scan_frequency_hours": 72,
       "priority": 8,
-      "source_trust_score": 85
+      "source_trust_score": 85,
+      "strategy": "local_relay"
     },
     {
       "name": "עיריית באר שבע - אירועים",
       "seed_url": "https://www.beer-sheva.muni.il/Pages/Events.aspx",
-      "status": "verified",
+      "status": "js_only",
       "source_kind": "municipality_calendar",
       "publisher_type": "municipality",
       "publisher_name": "עיריית באר שבע",
       "region": "השפלה והדרום",
       "scan_frequency_hours": 72,
       "priority": 9,
-      "source_trust_score": 85
+      "source_trust_score": 85,
+      "strategy": "local_relay",
+      "disabled_reason": "js_only: SharePoint events list is loaded client-side (page text has no events)"
     },
     {
       "name": "עיריית רעננה - אירועי ילדים ומשפחה (כרטיסים)",
@@ -1514,8 +1638,8 @@
     },
     {
       "name": "עיריית נוף הגליל",
-      "seed_url": "https://www.nof-hagalil.muni.il/",
-      "status": "verified",
+      "seed_url": "https://www.nof-hagalil.muni.il/events/",
+      "status": "js_only",
       "source_kind": "website",
       "publisher_type": "municipality",
       "publisher_name": "עיריית נוף הגליל",
@@ -1523,7 +1647,9 @@
       "scan_frequency_hours": 168,
       "priority": 6,
       "source_trust_score": 85,
-      "notes": "homepage - the events sub-page was not found in discovery; low yield expected until refined"
+      "notes": "homepage - the events sub-page was not found in discovery; low yield expected until refined",
+      "strategy": "local_relay",
+      "disabled_reason": "js_only: /events/ is a calendar shell - the day listings are loaded client-side"
     },
     {
       "name": "מועצה אזורית לב השרון - כל מה שקורה במועצה",
@@ -1741,7 +1867,7 @@
     },
     {
       "name": "עיריית כרמיאל - מינהלת התרבות",
-      "seed_url": "https://www.karmiel.muni.il/city/culture/",
+      "seed_url": "https://www.karmiel.muni.il/events/",
       "status": "verified",
       "region": "הצפון והעמק",
       "categories": [],
@@ -1753,7 +1879,8 @@
       "scan_frequency_hours": 72,
       "priority": 8,
       "source_trust_score": 85,
-      "publisher_name": "עיריית כרמיאל"
+      "publisher_name": "עיריית כרמיאל",
+      "strategy": "local_relay"
     },
     {
       "name": "היכל התרבות כרמיאל",
@@ -2005,7 +2132,7 @@
     },
     {
       "name": "עיריית לוד",
-      "seed_url": "https://www.lod.muni.il/",
+      "seed_url": "https://www.lod.muni.il/he/events/",
       "status": "verified",
       "region": "השפלה והדרום",
       "categories": [],
@@ -2101,7 +2228,7 @@
     },
     {
       "name": "קניון סי מול אשדוד - אירועים",
-      "seed_url": "https://seamall.co.il/events/",
+      "seed_url": "https://seamall.co.il/%D7%90%D7%99%D7%A8%D7%95%D7%A2%D7%99%D7%9D/",
       "status": "verified",
       "region": "השפלה והדרום",
       "categories": [],
@@ -2112,7 +2239,8 @@
       "publisher_type": "venue_operator",
       "scan_frequency_hours": 72,
       "priority": 7,
-      "source_trust_score": 80
+      "source_trust_score": 80,
+      "strategy": "local_relay"
     },
     {
       "name": "החברה העירונית אשקלון - אירועים",
@@ -2180,7 +2308,7 @@
     },
     {
       "name": "עיריית טבריה",
-      "seed_url": "https://www.tiberias.muni.il/",
+      "seed_url": "https://www.tiberias.muni.il/events/",
       "status": "verified",
       "region": "הצפון והעמק",
       "categories": [],
@@ -2556,7 +2684,7 @@
     },
     {
       "name": "החברה למרכזים קהילתיים צפת",
-      "seed_url": "https://matnas-zefat.co.il/",
+      "seed_url": "https://matnas-zefat.co.il/events/",
       "status": "verified",
       "region": "הצפון והעמק",
       "categories": [],
@@ -2588,7 +2716,7 @@
     },
     {
       "name": "מתנ\"ס טירת כרמל",
-      "seed_url": "http://www.matnastc.co.il/",
+      "seed_url": "http://www.matnastc.co.il/events/",
       "status": "verified",
       "region": "חיפה והקריות",
       "categories": [],

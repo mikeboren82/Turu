@@ -1,0 +1,23 @@
+-- 0082: per-source adapter configuration (additive).
+-- Phase 2 pass 1 (2026-09-13): several large municipalities (Tel Aviv first) render their event
+-- listings client-side from a JSON service. Rather than a bespoke scraper per city, a source can
+-- declare strategy = 'api_json' and describe the request + item shape here; scan-source renders the
+-- items to text and runs the SAME extraction/dedup/provenance pipeline as HTML pages.
+--
+-- adapter_config shape (api_json):
+-- {
+--   "url": "https://.../service",            -- request URL (defaults to seed_url)
+--   "method": "POST",                        -- GET | POST
+--   "headers": { "Content-Type": "application/json" },
+--   "body": { ... },                         -- JSON body; string values may use {{today}} and {{today+N}} (ISO dates)
+--   "items_path": "",                        -- dot path to the array in the response ("" = the response itself)
+--   "fields_mode": "sharepoint_fields" | "object",
+--       -- sharepoint_fields: each item has Fields:[{InternalName, Value}] (Tel Aviv TlvListUtils)
+--       -- object: each item is a flat/nested object; `fields` lists which keys to render
+--   "fields": ["Title", "TlvStartDate", ...],  -- keys to render, in order (others ignored)
+--   "labels": { "Title": "שם" },             -- optional Hebrew labels for the rendered lines
+--   "item_url": { "field": "ListItemID", "template": "https://.../Pages/MainItemPage.aspx?ItemId={value}" },
+--   "max_items": 300
+-- }
+alter table public.sources add column if not exists adapter_config jsonb;
+comment on column public.sources.adapter_config is 'strategy-specific configuration (api_json: request + item shape); null for generic_html/local_relay';

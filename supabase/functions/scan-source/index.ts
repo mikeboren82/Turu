@@ -19,12 +19,13 @@ import {
   buildExtractionSystemPrompt, extractCandidateImages, parseExtractionResponse,
   filterPastOneTimeActivities, isPlausibleEventDate, looksLikeStaleRepost, fetchHtml, pageTextForExtraction,
   assessChildRelevance, AUDIENCE_VALUES, cheapPageText, cheapDiscoverLinks, HEAVY_HTML_BYTES,
-  EXTRACTION_MODEL, EXTRACTION_MAX_TOKENS,
+  EXTRACTION_MODEL, EXTRACTION_MAX_TOKENS, PAGE_TEXT_CHAR_LIMIT, MAX_TEXT_CHUNKS, splitTextForExtraction,
   CATEGORY_VALUES, REGION_VALUES, WEATHER_VALUES, AMENITIES_VALUES,
   FAMILY_FIT_VALUES, ENTITY_TYPE_VALUES, PRICE_TYPE_VALUES, INDOOR_OUTDOOR_VALUES, BOOKING_VALUES,
   ARCHIVE_CATEGORIES,
 } from '../_shared/extraction.ts';
 import { discoverListingLinks } from '../_shared/discovery.ts';
+import { fetchJsonApiText, type JsonApiConfig } from '../_shared/adapters.ts';
 import { computeContentHash } from '../_shared/hashing.ts';
 
 // Largest HTML document we are willing to parse per page (see the CPU-guard note in the page loop).
@@ -381,7 +382,11 @@ Deno.serve(async (req: Request) => {
   const seenFingerprints = new Set<string>();
 
   const scanStartedAt = Date.now();
-  const SCAN_TIME_BUDGET_MS = 100_000;
+  // Budget after which no NEW page/window is started. One extraction call on a dense listing window
+  // can itself take ~60s (dozens of events => long output), and the edge runtime kills invocations
+  // near 150s wall-clock (observed 2026-09-13: Holon's 4-window page left the log stuck 'running').
+  // 60s + one in-flight call stays under that; whatever is deferred runs on the next scan.
+  const SCAN_TIME_BUDGET_MS = 60_000;
 
   async function persistProgress() {
     await client.from('source_scan_logs').update({
@@ -425,9 +430,27 @@ Deno.serve(async (req: Request) => {
 
   try {
     const relayMap = new Map((relayPages || []).map((p) => [p.url, p]));
-    const seedRes = relayPages ? { ok: false } as Awaited<ReturnType<typeof fetchHtml>> : await fetchHtml(source.seed_url, { timeoutMs: fetchTimeoutMs, retries: retryCount });
-    let pageUrls = relayPages ? relayPages.slice(0, maxPages).map((p) => p.url) : [source.seed_url];
-    if (!relayPages && seedRes.ok && seedRes.html) {
+    // api_json adapter (sources.adapter_config): the listing comes from a JSON service, rendered to
+    // text and handed to the page loop exactly like a relayed page (same extraction/dedup/provenance).
+    const isJsonApi = source.strategy === 'api_json' && !relayPages;
+    if (isJsonApi) {
+      const cfg = (source.adapter_config || {}) as JsonApiConfig;
+      const api = await fetchJsonApiText(cfg, source.seed_url);
+      if (api.ok) {
+        relayMap.set(source.seed_url, { url: source.seed_url, text: api.text, hash: await computeContentHash(api.text), images: [] });
+        console.log(`json_api: ${api.count} items -> ${api.text.length} chars`);
+      } else {
+        counters.errorCount++;
+        errorType = 'network';
+        errorMessage = `json_api: ${api.error}`;
+        failureKinds.push(api.status === 404 ? 'gone_404' : api.status === 403 ? 'access_403_waf' : /abort|timeout/i.test(api.error) ? 'timeout_network' : 'unknown');
+      }
+    }
+    const seedRes = (relayPages || isJsonApi) ? { ok: false } as Awaited<ReturnType<typeof fetchHtml>> : await fetchHtml(source.seed_url, { timeoutMs: fetchTimeoutMs, retries: retryCount });
+    // relayed pages arrive as <=18k parts (relay-scan.js splits long listings), so allow more of
+    // them than discovered HTML pages - unchanged parts cost one hash compare and are skipped.
+    let pageUrls = relayPages ? relayPages.slice(0, maxPages * 4).map((p) => p.url) : isJsonApi ? (relayMap.has(source.seed_url) ? [source.seed_url] : []) : [source.seed_url];
+    if (!relayPages && !isJsonApi && seedRes.ok && seedRes.html) {
       // heavy seed pages take the DOM-free path too (see the CPU-guard note in the page loop)
       const extra = seedRes.html.length > HEAVY_HTML_BYTES
         ? cheapDiscoverLinks(seedRes.html, source.seed_url, maxPages - 1)
@@ -450,7 +473,7 @@ Deno.serve(async (req: Request) => {
         let hash: string;
         if (relayPage) {
           candidateImages = (relayPage.images || []).slice(0, 40);
-          text = relayPage.text.slice(0, 18000);
+          text = relayPage.text.slice(0, PAGE_TEXT_CHAR_LIMIT * MAX_TEXT_CHUNKS);
           hash = relayPage.hash;
         } else {
           const res = pageUrl === source.seed_url ? seedRes : await fetchHtml(pageUrl, { timeoutMs: fetchTimeoutMs, retries: retryCount });
@@ -466,14 +489,17 @@ Deno.serve(async (req: Request) => {
           // document left scans stuck in 'running' forever. Cap the HTML and hash the extracted TEXT
           // instead (content changes <=> text changes; tracking attributes never mattered for that).
           const html = res.html.length > MAX_HTML_BYTES ? res.html.slice(0, MAX_HTML_BYTES) : res.html;
+          // Long listing pages are extracted in up to MAX_TEXT_CHUNKS windows (see below), so keep
+          // that much text instead of one window - Holon's calendar alone is ~97k chars of events.
+          const textBudget = PAGE_TEXT_CHAR_LIMIT * MAX_TEXT_CHUNKS;
           if (html.length > HEAVY_HTML_BYTES) {
             // DOM-free path: no images (they would need the DOM), text via regex stripping
             candidateImages = [];
-            text = cheapPageText(html);
+            text = cheapPageText(html, textBudget);
           } else {
             const $ = cheerio.load(html);
             candidateImages = extractCandidateImages($, pageUrl);
-            text = pageTextForExtraction($);
+            text = pageTextForExtraction($, textBudget);
           }
           hash = await computeContentHash(text);
         }
@@ -505,22 +531,35 @@ Deno.serve(async (req: Request) => {
         }
 
         let extracted: unknown[];
+        let pageTruncated = false;
         try {
           const anthropic = new Anthropic({ apiKey: Deno.env.get('ANTHROPIC_API_KEY') });
-          const message = await anthropic.messages.create({
-            model: EXTRACTION_MODEL,
-            max_tokens: EXTRACTION_MAX_TOKENS,
-            system: buildExtractionSystemPrompt(),
-            messages: [{
-              role: 'user',
-              content: `כתובת המקור: ${pageUrl}\n\nתוכן הדף:\n${text}\n\nרשימת תמונות מהעמוד:\n${JSON.stringify(candidateImages)}`,
-            }],
-          });
-          counters.aiCalls++;
-          const raw = message.content.map((b) => (b.type === 'text' ? b.text : '')).join('');
-          const parsed = parseExtractionResponse(raw);
-          if (parsed.repaired) counters.repairedResponses++;
-          extracted = filterPastOneTimeActivities(parsed.activities as never[], todayStr);
+          // One extraction per text window; a long calendar yields several windows, each a separate
+          // (bounded) AI call. Windows after the first stop early when the AI budget is exhausted.
+          const windows = splitTextForExtraction(text);
+          extracted = [];
+          for (let w = 0; w < windows.length; w++) {
+            if (w > 0 && (counters.aiCalls >= maxAiRequests || Date.now() - scanStartedAt > SCAN_TIME_BUDGET_MS)) {
+              // partial page: the snapshot is NOT saved below, so the next scan re-extracts it
+              // (dedup absorbs the repeats) instead of silently losing the remaining windows
+              pageTruncated = true;
+              break;
+            }
+            const message = await anthropic.messages.create({
+              model: EXTRACTION_MODEL,
+              max_tokens: EXTRACTION_MAX_TOKENS,
+              system: buildExtractionSystemPrompt(),
+              messages: [{
+                role: 'user',
+                content: `כתובת המקור: ${pageUrl}\n\nתוכן הדף${windows.length > 1 ? ` (חלק ${w + 1} מתוך ${windows.length})` : ''}:\n${windows[w]}\n\nרשימת תמונות מהעמוד:\n${JSON.stringify(w === 0 ? candidateImages : [])}`,
+              }],
+            });
+            counters.aiCalls++;
+            const raw = message.content.map((b) => (b.type === 'text' ? b.text : '')).join('');
+            const parsed = parseExtractionResponse(raw);
+            if (parsed.repaired) counters.repairedResponses++;
+            extracted = extracted.concat(filterPastOneTimeActivities(parsed.activities as never[], todayStr));
+          }
         } catch (aiErr) {
           counters.errorCount++;
           errorType = errorType ?? 'ai';
@@ -529,10 +568,14 @@ Deno.serve(async (req: Request) => {
           continue;
         }
 
-        await client.from('source_page_snapshots').upsert({
-          source_id: source.id, url: pageUrl, content_hash: hash,
-          last_fetched_at: new Date().toISOString(), last_changed_at: new Date().toISOString(),
-        }, { onConflict: 'source_id,url' });
+        if (!pageTruncated) {
+          await client.from('source_page_snapshots').upsert({
+            source_id: source.id, url: pageUrl, content_hash: hash,
+            last_fetched_at: new Date().toISOString(), last_changed_at: new Date().toISOString(),
+          }, { onConflict: 'source_id,url' });
+        } else {
+          errorType = errorType ?? 'rate_limited';
+        }
 
         for (const rawCandidate of extracted) {
           if (counters.found >= maxActivitiesPerScan) break;

@@ -91,6 +91,7 @@ async function main() {
       source_kind: s.source_kind || 'website', publisher_type: s.publisher_type || null, publisher_name: s.publisher_name || null,
       venue_id: s.venue ? (venueIdByKey[s.venue] && !String(venueIdByKey[s.venue]).startsWith('(new') ? venueIdByKey[s.venue] : null) : null,
       priority: s.priority || 5, strategy: s.strategy || 'generic_html',
+      adapter_config: s.adapter_config || null, // api_json request/shape (migration 0082); null for html strategies
       is_active: !inactiveReason, disabled_reason: inactiveReason ? (s.disabled_reason || inactiveReason) : null,
       health_status: inactiveReason ? 'auto_paused' : 'healthy',
       discovery_batch: BATCH || s.discovery_batch || null,

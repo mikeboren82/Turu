@@ -538,7 +538,8 @@ async function scrapeAndExtract(urlString) {
 
   const $ = cheerio.load(html);
   const candidateImages = extractCandidateImages($, parsedUrl.toString());
-  $('script, style, noscript, nav, footer, header, svg, form').remove();
+  // <form> itself is kept (SharePoint/WebForms sites wrap the whole body in one) - only controls go.
+  $('script, style, noscript, nav, footer, header, svg, input, select, textarea, button').remove();
   const text = $('body').text().replace(/[ \t]+/g, ' ').replace(/\n{2,}/g, '\n').trim().slice(0, 18000);
 
   if (!text) {
@@ -652,7 +653,8 @@ async function fetchPageTextForExtraction(pageUrl) {
   if (!pageRes.ok) return null;
   const html = await pageRes.text();
   const $ = cheerio.load(html);
-  $('script, style, noscript, nav, footer, header, svg, form').remove();
+  // <form> itself is kept (SharePoint/WebForms sites wrap the whole body in one) - only controls go.
+  $('script, style, noscript, nav, footer, header, svg, input, select, textarea, button').remove();
   const text = $('body').text().replace(/[ \t]+/g, ' ').replace(/\n{2,}/g, '\n').trim().slice(0, 10000);
   return text || null;
 }

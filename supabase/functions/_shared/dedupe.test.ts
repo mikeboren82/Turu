@@ -74,3 +74,24 @@ Deno.test("missing price stays unknown in the diff (never invented)", () => {
   assertEquals("price_type" in diff, false);
   assertEquals("price_amount" in diff, false);
 });
+
+Deno.test("shared LISTING page url is not identity: different event from the same listing page stays below review threshold", () => {
+  // every activity created from a listing page carries that page as source_url; the next candidate
+  // from the same page must not become an "update" of it (2026-09-13: 226 false updates in the queue)
+  const candidate = {
+    name: "סדנת גיבורי על - איור לילדים", city: "רעננה", venue_id: null, pageUrl: "https://venue.example/events",
+    one_time_date: "2026-10-05", start_time: "10:00", recurring_days: [],
+  };
+  const c = computeConfidence(candidate, { ...existingBase, venue_id: null }, thresholds);
+  assertEquals(c.breakdown.exact_url_match, 1);
+  assert(c.score < thresholds.needsReview, `score ${c.score} must stay below needsReview ${thresholds.needsReview}`);
+});
+
+Deno.test("same page url + same date => still identity (per-item page or genuine re-detection)", () => {
+  const candidate = {
+    name: "הקוסם מארץ עוץ", city: "רעננה", venue_id: null, pageUrl: "https://venue.example/events",
+    one_time_date: "2026-09-27", start_time: "17:00", recurring_days: [],
+  };
+  const c = computeConfidence(candidate, { ...existingBase, venue_id: null }, thresholds);
+  assertEquals(c.score, 0.95);
+});

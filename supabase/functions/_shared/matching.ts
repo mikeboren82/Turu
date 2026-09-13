@@ -181,7 +181,12 @@ export function computeConfidence(candidate: any, existing: ExistingActivity, th
   }
 
   let score: number;
-  if (breakdown.exact_url_match >= 1 || breakdown.fingerprint_match >= 1) {
+  // exact_url_match is identity only for a per-item page. Activities created from a LISTING page
+  // all carry that listing URL as source_url, so on its own the signal made every later candidate
+  // from the same page an "update" of the first one (2026-09-13: 226 of 261 queued updates, 21
+  // activities). It now decides only together with a name or schedule agreement.
+  const urlIdentity = breakdown.exact_url_match >= 1 && (breakdown.name_overlap >= 0.5 || breakdown.schedule_match >= 1);
+  if (breakdown.fingerprint_match >= 1 || urlIdentity) {
     score = 0.95;
   } else if (breakdown.venue_match >= 1) {
     // same canonical venue: the date/time carries the decision, the title matters less
@@ -189,7 +194,8 @@ export function computeConfidence(candidate: any, existing: ExistingActivity, th
     if (breakdown.schedule_match >= 1 && breakdown.name_overlap >= 0.2) score = Math.max(score, 0.92);
   } else {
     score = (breakdown.name_overlap * 0.4) + (breakdown.city_match * 0.15)
-      + (breakdown.proximity * 0.25) + (breakdown.schedule_match * 0.2);
+      + (breakdown.proximity * 0.25) + (breakdown.schedule_match * 0.2)
+      + (breakdown.exact_url_match * 0.1); // same page: a hint, never identity
   }
 
   return { score: Math.min(1, Math.round(score * 1000) / 1000), breakdown };

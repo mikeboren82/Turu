@@ -375,9 +375,30 @@ export async function fetchHtml(url: string, opts: { timeoutMs: number; retries:
 
 // Text preparation shared by both callers - strips chrome/scripts and caps size for the model.
 // deno-lint-ignore no-explicit-any
-export function pageTextForExtraction($: any): string {
-  $('script, style, noscript, nav, footer, header, svg, form').remove();
-  return $('body').text().replace(/[ \t]+/g, ' ').replace(/\n{2,}/g, '\n').trim().slice(0, PAGE_TEXT_CHAR_LIMIT);
+export function pageTextForExtraction($: any, limit = PAGE_TEXT_CHAR_LIMIT): string {
+  // Never remove <form> itself: ASP.NET WebForms / SharePoint sites (Holon, Rishon, Beer Sheva,
+  // Netanya, Herzliya...) wrap the ENTIRE page body in one <form>, so dropping it left ~300 chars of
+  // accessibility menu and every such municipality scanned as "HTTP 200, 0 events" (found 2026-09-13).
+  // Only the controls go.
+  $('script, style, noscript, nav, footer, header, svg, input, select, textarea, button').remove();
+  return $('body').text().replace(/[ \t]+/g, ' ').replace(/\n{2,}/g, '\n').trim().slice(0, limit);
+}
+
+// Long listing pages (municipal calendars: Holon's is ~97k chars with ~460 dates) carry far more
+// than PAGE_TEXT_CHAR_LIMIT; a single window sees only the first screen. Split on line boundaries
+// into at most maxChunks windows so the scanner can run one extraction per window.
+export const MAX_TEXT_CHUNKS = 4;
+export function splitTextForExtraction(text: string, limit = PAGE_TEXT_CHAR_LIMIT, maxChunks = MAX_TEXT_CHUNKS): string[] {
+  const chunks: string[] = [];
+  let rest = text;
+  while (rest.length > 0 && chunks.length < maxChunks) {
+    if (rest.length <= limit) { chunks.push(rest); break; }
+    let cut = rest.lastIndexOf('\n', limit);
+    if (cut < limit * 0.5) cut = limit;
+    chunks.push(rest.slice(0, cut));
+    rest = rest.slice(cut).trimStart();
+  }
+  return chunks;
 }
 
 // ---- Cheap path for very heavy pages (no DOM). The edge runtime's CPU budget is small; parsing a
@@ -386,15 +407,18 @@ export function pageTextForExtraction($: any): string {
 // the first PAGE_TEXT_CHAR_LIMIT chars anyway.
 export const HEAVY_HTML_BYTES = 400_000;
 const ENTITIES: Record<string, string> = { '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&#39;': "'", '&nbsp;': ' ', '&apos;': "'" };
-export function cheapPageText(html: string): string {
+export function cheapPageText(html: string, limit = PAGE_TEXT_CHAR_LIMIT): string {
   let s = html.replace(/<(script|style|noscript|svg|template)\b[\s\S]*?<\/\1>/gi, ' ');
   s = s.replace(/<!--[\s\S]*?-->/g, ' ');
   const bodyStart = s.search(/<body\b/i);
   if (bodyStart > 0) s = s.slice(bodyStart);
+  // same boilerplate the DOM path drops (menus/footers on heavy municipal pages run to 15k+ chars
+  // and used to consume the whole extraction window before the first event)
+  s = s.replace(/<(header|nav|footer)\b[\s\S]*?<\/\1>/gi, ' ');
   s = s.replace(/<(br|\/p|\/div|\/li|\/h[1-6]|\/tr|\/section|\/article)\b[^>]*>/gi, '\n');
   s = s.replace(/<[^>]+>/g, ' ');
   s = s.replace(/&(amp|lt|gt|quot|#39|nbsp|apos);/g, (m) => ENTITIES[m] ?? m).replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)));
-  return s.replace(/[ \t]+/g, ' ').replace(/\s*\n\s*/g, '\n').replace(/\n{2,}/g, '\n').trim().slice(0, PAGE_TEXT_CHAR_LIMIT);
+  return s.replace(/[ \t]+/g, ' ').replace(/\s*\n\s*/g, '\n').replace(/\n{2,}/g, '\n').trim().slice(0, limit);
 }
 
 // Same heuristic as discovery.ts (same host, event/calendar/pagination keywords, depth 1) without a DOM.
