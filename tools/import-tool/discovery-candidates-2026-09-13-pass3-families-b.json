@@ -1,0 +1,212 @@
+{
+  "generatedAt": "2026-09-13T17:22:49.629Z",
+  "queries": [],
+  "candidates": [
+    {
+      "url": "https://www.porat-theater.co.il/%D7%94%D7%A6%D7%92%D7%95%D7%AA_%D7%94%D7%AA%D7%99%D7%90%D7%98%D7%A8%D7%95%D7%9F",
+      "title": "הצגות התיאטרון | תיאטרון אורנה פורת - הצגות ילדים",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 200,
+      "ms": 1799,
+      "charset": "UTF-8",
+      "textChars": 7471,
+      "hebrewChars": 4800,
+      "keywordHits": 61,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://www.porat-theater.co.il/%D7%94%D7%A6%D7%92%D7%95%D7%AA_%D7%94%D7%AA%D7%99%D7%90%D7%98%D7%A8%D7%95%D7%9F",
+      "verdict": "scrapable",
+      "family": "theater",
+      "score": 85,
+      "approved": true,
+      "suggested": {
+        "source_kind": "events_page",
+        "publisher_type": "other",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 70
+      },
+      "name": "תיאטרון אורנה פורת - הצגות התיאטרון",
+      "region": null,
+      "overrides": {
+        "source_kind": "events_page",
+        "publisher_type": "organizer",
+        "source_trust_score": 75,
+        "publisher_name": "תיאטרון אורנה פורת",
+        "priority": 6,
+        "scan_frequency_hours": 120
+      }
+    },
+    {
+      "url": "https://traintheater.smarticket.co.il/",
+      "title": "דף הבית • תיאטרון הקרון",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 200,
+      "ms": 1290,
+      "charset": "UTF-8",
+      "textChars": 5840,
+      "hebrewChars": 4117,
+      "keywordHits": 25,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://traintheater.smarticket.co.il/",
+      "verdict": "scrapable",
+      "family": "theater",
+      "score": 80,
+      "approved": true,
+      "suggested": {
+        "source_kind": "events_page",
+        "publisher_type": "other",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 70
+      },
+      "name": "תיאטרון הקרון ירושלים (כרטיסים)",
+      "region": "ירושלים והסביבה",
+      "overrides": {
+        "source_kind": "ticketing",
+        "publisher_type": "venue_operator",
+        "source_trust_score": 80,
+        "publisher_name": "תיאטרון הקרון ירושלים",
+        "priority": 6,
+        "scan_frequency_hours": 120
+      }
+    },
+    {
+      "url": "https://www.traintheater.co.il/he/repertoire/%D7%94%D7%A6%D7%92%D7%95%D7%AA-%D7%99%D7%9C%D7%93%D7%99%D7%9D",
+      "title": "הצגות ילדים, תיאטרון ילדים, הצגות ילדים בירושלים, תיאטרון הקרון",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 200,
+      "ms": 1051,
+      "charset": "utf-8",
+      "textChars": 2828,
+      "hebrewChars": 2142,
+      "keywordHits": 20,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://www.traintheater.co.il/he/repertoire/%D7%94%D7%A6%D7%92%D7%95%D7%AA-%D7%99%D7%9C%D7%93%D7%99%D7%9D",
+      "verdict": "scrapable",
+      "family": "theater",
+      "score": 75,
+      "approved": true,
+      "suggested": {
+        "source_kind": "events_page",
+        "publisher_type": "other",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 70
+      },
+      "name": "תיאטרון הקרון ירושלים - רפרטואר",
+      "region": "ירושלים והסביבה",
+      "overrides": {
+        "source_kind": "events_page",
+        "publisher_type": "venue_operator",
+        "source_trust_score": 80,
+        "publisher_name": "תיאטרון הקרון ירושלים",
+        "priority": 6,
+        "scan_frequency_hours": 120
+      }
+    },
+    {
+      "url": "https://www.haifakids.co.il/",
+      "title": "תיאטרון חיפה",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 200,
+      "ms": 1511,
+      "charset": "utf-8",
+      "textChars": 2418,
+      "hebrewChars": 1831,
+      "keywordHits": 17,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://www.ht1.co.il/ContentPage?Id=115",
+      "verdict": "scrapable",
+      "family": "theater",
+      "score": 72,
+      "approved": true,
+      "suggested": {
+        "source_kind": "events_page",
+        "publisher_type": "other",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 70
+      },
+      "name": "תיאטרון חיפה - הצגות ילדים",
+      "region": "חיפה והקריות",
+      "overrides": {
+        "source_kind": "events_page",
+        "publisher_type": "venue_operator",
+        "source_trust_score": 80,
+        "publisher_name": "תיאטרון חיפה",
+        "priority": 6,
+        "scan_frequency_hours": 120
+      }
+    },
+    {
+      "url": "https://www.ht1.co.il/Category?Id=680",
+      "title": "הצגת ילדים",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 200,
+      "ms": 212,
+      "charset": "utf-8",
+      "textChars": 854,
+      "hebrewChars": 652,
+      "keywordHits": 4,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://www.ht1.co.il/Category?Id=680",
+      "verdict": "scrapable",
+      "family": "theater",
+      "score": 59,
+      "approved": true,
+      "suggested": {
+        "source_kind": "events_page",
+        "publisher_type": "other",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 70
+      },
+      "name": "תיאטרון חיפה - הצגת ילדים (כרטיסים)",
+      "region": "חיפה והקריות",
+      "overrides": {
+        "source_kind": "ticketing",
+        "publisher_type": "venue_operator",
+        "source_trust_score": 80,
+        "publisher_name": "תיאטרון חיפה",
+        "priority": 6,
+        "scan_frequency_hours": 120
+      }
+    },
+    {
+      "url": "https://www.tgoshen.com/shows/",
+      "title": "",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 0,
+      "ms": 130,
+      "error": "TypeError: fetch failed",
+      "verdict": "blocked",
+      "family": "other",
+      "score": 0,
+      "approved": false,
+      "suggested": {
+        "source_kind": "events_page",
+        "publisher_type": "other",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 70
+      }
+    }
+  ]
+}

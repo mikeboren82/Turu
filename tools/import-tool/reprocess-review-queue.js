@@ -71,10 +71,11 @@ const SOFT = new Set(['מחיר']);
   console.log('approve sample:', plan.approve.slice(0, 8).map((a) => `${a.name} [${a.src}]`).join(' | '));
   if (!APPLY) return;
 
-  let ok = 0, dup = 0, fail = 0, batchDup = 0;
-  const approvedFp = new Set(); // within-batch: two queue rows for the same event => approve one, leave the other
+  let ok = 0, dup = 0, fail = 0;
+  // within-batch twins (two queue rows, same fingerprint) are NOT skipped: the approve endpoint's
+  // fingerprint guard turns the second one into a linked duplicate (409 + provenance) instead of
+  // leaving it in the queue
   for (const a of plan.approve.slice(0, LIMIT)) {
-    if (a.fp) { if (approvedFp.has(a.fp)) { batchDup++; continue; } approvedFp.add(a.fp); }
     try {
       const res = await fetch(`${BASE}/api/incoming/${a.id}/approve`, { method: 'POST', headers: { 'Content-Type': 'application/json' } });
       if (res.status === 409) dup++; else if (!res.ok) { fail++; console.log('  approve failed:', a.name, (await res.json()).error); } else ok++;
@@ -85,5 +86,5 @@ const SOFT = new Set(['מחיר']);
     const { error } = await client.from('incoming_activities').update({ status: 'rejected', reject_reason: rj.reason + ' (סבב חוזר של תור הבדיקה)', reviewed_by: userId, reviewed_at: new Date().toISOString() }).eq('id', rj.id);
     if (!error) rej++;
   }
-  console.log(`applied: approved ${ok}, duplicates ${dup}, same-batch duplicates left for review ${batchDup}, failed ${fail}, rejected ${rej}`);
+  console.log(`applied: approved ${ok}, duplicates linked ${dup}, failed ${fail}, rejected ${rej}`);
 })().catch((e) => { console.error(e); process.exit(1); });

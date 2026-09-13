@@ -1,0 +1,269 @@
+{
+  "generatedAt": "2026-09-13T17:22:06.429Z",
+  "queries": [],
+  "candidates": [
+    {
+      "url": "https://www.jerusalem-theatre.co.il/%D7%90%D7%99%D7%A8%D7%95%D7%A2%D7%99%D7%9D/eventGrp|fwsa|children/%D7%99%D7%9C%D7%93%D7%99%D7%9D_%D7%95%D7%9E%D7%A9%D7%A4%D7%97%D7%94",
+      "title": "תיאטרון ירושלים",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 200,
+      "ms": 1091,
+      "charset": "UTF-8",
+      "textChars": 3059,
+      "hebrewChars": 2277,
+      "keywordHits": 39,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://www.jerusalem-theatre.co.il/%D7%90%D7%99%D7%A8%D7%95%D7%A2%D7%99%D7%9D/eventGrp|fwsa|children/%D7%99%D7%9C%D7%93%D7%99%D7%9D_%D7%95%D7%9E%D7%A9%D7%A4%D7%97%D7%94",
+      "verdict": "scrapable",
+      "family": "theater",
+      "score": 85,
+      "approved": true,
+      "suggested": {
+        "source_kind": "events_page",
+        "publisher_type": "other",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 70
+      },
+      "name": "תיאטרון ירושלים - ילדים ומשפחה",
+      "region": "ירושלים והסביבה",
+      "overrides": {
+        "source_kind": "events_page",
+        "publisher_type": "venue_operator",
+        "source_trust_score": 80,
+        "publisher_name": "תיאטרון ירושלים",
+        "priority": 6,
+        "scan_frequency_hours": 120
+      }
+    },
+    {
+      "url": "https://www.mevalim.co.il/kids-shows/",
+      "title": "הצגות ילדים 2026 (הרשימה המלאה) עד 80% הנחה | מבלים",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 200,
+      "ms": 812,
+      "charset": "UTF-8",
+      "textChars": 14869,
+      "hebrewChars": 10774,
+      "keywordHits": 109,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://www.mevalim.co.il/kids-shows/",
+      "verdict": "scrapable",
+      "family": "theater",
+      "score": 85,
+      "approved": true,
+      "suggested": {
+        "source_kind": "events_page",
+        "publisher_type": "other",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 70
+      },
+      "name": "מבלים - הצגות ילדים (אגרגטור כרטיסים)",
+      "region": null,
+      "overrides": {
+        "source_kind": "aggregator",
+        "publisher_type": "aggregator",
+        "source_trust_score": 55,
+        "publisher_name": "מבלים",
+        "priority": 6,
+        "scan_frequency_hours": 72
+      }
+    },
+    {
+      "url": "https://www.kkl.org.il/events/",
+      "title": "גיליתם פינת חמד שאינה קיימת - קרן קימת לישראל - קק\"ל",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 404,
+      "ms": 737,
+      "charset": "utf-8",
+      "textChars": 8676,
+      "hebrewChars": 6874,
+      "keywordHits": 20,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://www.kkl.org.il/events/",
+      "verdict": "http_error",
+      "family": "other",
+      "score": 20,
+      "approved": false,
+      "suggested": {
+        "source_kind": "events_page",
+        "publisher_type": "other",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 70
+      }
+    },
+    {
+      "url": "https://www.teva.org.il/events",
+      "title": "עמוד לא נמצא | החברה להגנת הטבע",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 404,
+      "ms": 3387,
+      "charset": "UTF-8",
+      "textChars": 3788,
+      "hebrewChars": 2978,
+      "keywordHits": 2,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://www.teva.org.il/events",
+      "verdict": "http_error",
+      "family": "farm_nature",
+      "score": 7,
+      "approved": false,
+      "suggested": {
+        "source_kind": "events_page",
+        "publisher_type": "other",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 70
+      }
+    },
+    {
+      "url": "https://www.porat-theater.co.il/%D7%9C%D7%95%D7%97_%D7%94%D7%A6%D7%92%D7%95%D7%AA",
+      "title": "תיאטרון אורנה פורת - הצגות ילדים",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 200,
+      "ms": 3732,
+      "charset": "UTF-8",
+      "textChars": 860,
+      "hebrewChars": 346,
+      "keywordHits": 0,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://www.porat-theater.co.il/%D7%9C%D7%95%D7%97_%D7%94%D7%A6%D7%92%D7%95%D7%AA",
+      "verdict": "low_relevance",
+      "family": "theater",
+      "score": 5,
+      "approved": false,
+      "suggested": {
+        "source_kind": "events_page",
+        "publisher_type": "other",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 70
+      }
+    },
+    {
+      "url": "https://www.jerusalem.muni.il/he/experience/publiclibrary/",
+      "title": "Access Denied",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 403,
+      "ms": 154,
+      "charset": "utf-8",
+      "textChars": 229,
+      "hebrewChars": 0,
+      "keywordHits": 0,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://www.jerusalem.muni.il/he/experience/publiclibrary/",
+      "verdict": "blocked",
+      "family": "municipality",
+      "score": 5,
+      "approved": false,
+      "suggested": {
+        "source_kind": "municipality_calendar",
+        "publisher_type": "municipality",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 85
+      }
+    },
+    {
+      "url": "https://kinderland.co.il/events/",
+      "title": "",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 200,
+      "ms": 933,
+      "charset": "utf-8",
+      "textChars": 0,
+      "hebrewChars": 0,
+      "keywordHits": 0,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://kinderland.co.il/events/",
+      "verdict": "js_only",
+      "family": "other",
+      "score": 0,
+      "approved": false,
+      "suggested": {
+        "source_kind": "events_page",
+        "publisher_type": "other",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 70
+      }
+    },
+    {
+      "url": "https://allaboutjerusalem.com/he/event/%D7%99%D7%9C%D7%93%D7%99%D7%9D-%D7%91%D7%99%D7%A8%D7%95%D7%A9%D7%9C%D7%99%D7%9D-%D7%90%D7%99%D7%A8%D7%95%D7%A2%D7%99-%D7%94%D7%97%D7%95%D7%93%D7%A9/",
+      "title": "403 - Forbidden",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 403,
+      "ms": 1906,
+      "charset": "utf-8",
+      "textChars": 49,
+      "hebrewChars": 0,
+      "keywordHits": 0,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://allaboutjerusalem.com/he/event/%D7%99%D7%9C%D7%93%D7%99%D7%9D-%D7%91%D7%99%D7%A8%D7%95%D7%A9%D7%9C%D7%99%D7%9D-%D7%90%D7%99%D7%A8%D7%95%D7%A2%D7%99-%D7%94%D7%97%D7%95%D7%93%D7%A9/",
+      "verdict": "blocked",
+      "family": "other",
+      "score": 0,
+      "approved": false,
+      "suggested": {
+        "source_kind": "events_page",
+        "publisher_type": "other",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 70
+      }
+    },
+    {
+      "url": "https://modiinapp.com/en/page/1296/story-time-at-the-public-libraries",
+      "title": "Story Time at the Public Libraries - ModiinApp",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 200,
+      "ms": 1715,
+      "charset": "UTF-8",
+      "textChars": 3890,
+      "hebrewChars": 5,
+      "keywordHits": 0,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://modiinapp.com/en/page/1296/story-time-at-the-public-libraries",
+      "verdict": "js_only",
+      "family": "other",
+      "score": 0,
+      "approved": false,
+      "suggested": {
+        "source_kind": "events_page",
+        "publisher_type": "other",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 70
+      }
+    }
+  ]
+}

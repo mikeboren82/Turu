@@ -46,3 +46,12 @@ Deno.test('splitTextForExtraction: short text is one window; long text splits on
   assert(windows[0].endsWith('x'), 'cut on a line boundary, no dangling newline');
   assertEquals(windows.join('').replace(/\n/g, '').length, 4 * 18 * 999);
 });
+
+import { cheapPageText } from './extraction.ts';
+
+Deno.test('page text keeps content wrapped in <form> (SharePoint/WebForms sites) and drops only controls/boilerplate', () => {
+  const html = '<html><body><header>תפריט</header><form id="aspnetForm"><input type="hidden" name="__VIEWSTATE"><div>שעת סיפור 15/09/2026 מדיטק חולון</div><select><option>x</option></select><button>שלח</button></form><footer>פוטר</footer></body></html>';
+  // the DOM path uses the same selector list (input/select/textarea/button, never form) - see extraction.ts
+  const cheap = cheapPageText(html);
+  assert(cheap.includes('שעת סיפור 15/09/2026 מדיטק חולון') && !cheap.includes('תפריט') && !cheap.includes('פוטר'), `cheap path: ${cheap}`);
+});

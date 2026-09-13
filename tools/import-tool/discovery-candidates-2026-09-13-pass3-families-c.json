@@ -1,0 +1,144 @@
+{
+  "generatedAt": "2026-09-13T17:23:19.526Z",
+  "queries": [],
+  "candidates": [
+    {
+      "url": "https://www.kkl.org.il/education/travels/kkl-events/",
+      "title": "חינוך וקהילה – אתר קק\"ל למחנכים, ילדים ונוער - אירועי קק\"ל",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 200,
+      "ms": 1150,
+      "charset": "utf-8",
+      "textChars": 13920,
+      "hebrewChars": 10948,
+      "keywordHits": 31,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://www.kkl.org.il/education/travels/kkl-events/",
+      "verdict": "scrapable",
+      "family": "other",
+      "score": 80,
+      "approved": true,
+      "suggested": {
+        "source_kind": "events_page",
+        "publisher_type": "other",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 70
+      },
+      "name": "קק\"ל - אירועי קק\"ל למשפחות",
+      "region": null,
+      "overrides": {
+        "source_kind": "events_page",
+        "publisher_type": "organizer",
+        "source_trust_score": 80,
+        "publisher_name": "קק\"ל",
+        "priority": 6,
+        "scan_frequency_hours": 120
+      }
+    },
+    {
+      "url": "https://www.teva.org.il/open-festival",
+      "title": "הולכים על פתוח: סיורים מודרכים ללא תשלום בחוה\"מ! | החברה להגנת הטבע",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 200,
+      "ms": 1049,
+      "charset": "UTF-8",
+      "textChars": 5564,
+      "hebrewChars": 4339,
+      "keywordHits": 8,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://www.teva.org.il/open-festival",
+      "verdict": "scrapable",
+      "family": "farm_nature",
+      "score": 63,
+      "approved": true,
+      "suggested": {
+        "source_kind": "events_page",
+        "publisher_type": "other",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 70
+      },
+      "name": "החברה להגנת הטבע - הולכים על פתוח (סיורים)",
+      "region": null,
+      "overrides": {
+        "source_kind": "events_page",
+        "publisher_type": "organizer",
+        "source_trust_score": 80,
+        "publisher_name": "החברה להגנת הטבע",
+        "priority": 6,
+        "scan_frequency_hours": 120
+      }
+    },
+    {
+      "url": "https://www.teva.org.il/?CategoryID=11889",
+      "title": "החברה להגנת הטבע - שומרים על הטבע והוא שומר עלינו",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 200,
+      "ms": 2766,
+      "charset": "UTF-8",
+      "textChars": 7842,
+      "hebrewChars": 6170,
+      "keywordHits": 4,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://www.teva.org.il/?CategoryID=11889",
+      "verdict": "scrapable",
+      "family": "farm_nature",
+      "score": 59,
+      "approved": true,
+      "suggested": {
+        "source_kind": "events_page",
+        "publisher_type": "other",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 70
+      },
+      "name": "החברה להגנת הטבע - לוח אירועים ופעילויות",
+      "region": null,
+      "overrides": {
+        "source_kind": "events_page",
+        "publisher_type": "organizer",
+        "source_trust_score": 80,
+        "publisher_name": "החברה להגנת הטבע",
+        "priority": 6,
+        "scan_frequency_hours": 120
+      }
+    },
+    {
+      "url": "https://www.teva.org.il/nature/tracks",
+      "title": "עמוד לא נמצא | החברה להגנת הטבע",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 404,
+      "ms": 781,
+      "charset": "UTF-8",
+      "textChars": 3788,
+      "hebrewChars": 2978,
+      "keywordHits": 2,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://www.teva.org.il/nature/tracks",
+      "verdict": "http_error",
+      "family": "farm_nature",
+      "score": 7,
+      "approved": false,
+      "suggested": {
+        "source_kind": "events_page",
+        "publisher_type": "other",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 70
+      }
+    }
+  ]
+}
