@@ -52,3 +52,26 @@ the source registry, validation (`sanitize`/gating issues), and the approve path
 **Lifecycle**: attempts with backoff per case; expired one-time events archived first (`activity_expired_before_resolution`); max attempts ⇒ archive with reason; `cleaner reopen` re-queues archived cases whose evidence changed (new venue/alias resolves the label, source page changed, same fingerprint reappears); reopening never creates a second activity (dedup runs again).
 
 **Metrics**: `cleaner_runs.counters` + `report-cleaner.js` (backlog by issue/reason/source family, stuck-beyond-window, success rates) + minimal admin page `/cleaner`.
+
+## Operating it
+
+```
+cd tools/import-tool
+node cleaner.js                      # one cycle: discover + reopen + process cleaner_batch_size due cases
+node cleaner.js --loop=30 --max=250  # continuous: every 30 min (this is how the backfill runs)
+node cleaner.js --issue=missing_image --max=20 --dry-run
+node report-cleaner.js               # backlog / reasons / success by issue and family / stuck cases
+```
+- Runs on the admin machine (page fetches need a local IP like the relay; publishing needs the admin server on :4321). **One Cleaner process at a time** - due cases are not locked.
+- Settings (admin → automation): `cleaner_enabled`, `cleaner_max_attempts` (3), `cleaner_backoff_hours` ([6,24,72]), `cleaner_batch_size` (40).
+- Scheduling is a machine-level decision (Task Scheduler entry for `node cleaner.js --loop=30`, alongside `relay-scan.js`) - not registered by the implementation.
+- Nominatim is throttled to 1 request/1.1 s per process; a missing-location case costs ~10-25 s (page fetches + geocodes), address strings ~1.5 s, images ~5-10 s.
+
+## Status at first backfill (2026-09-13 evening)
+
+Backlog discovered: 2,527 issues — missing_location 296 (blocking, incoming), missing_required_metadata 292, incomplete_address 642 (live, coords without street), missing_image 443, missing_venue 408, missing_region 403, missing_schedule 43. Unexplained backlog: 0 (every case carries `opened_reason`). Stuck beyond retry window: 0.
+Measured on the first batches: address strings 20/20 filled (reverse geocode, MEDIUM, provenance stored); missing_location ≈ 27% resolved per first attempt (8 of 60 merged into existing activities by the ingestion matcher, 7 located but held by the trust policy, 1 flagged as a possible update; the rest scheduled for attempt 2 with the venue-site stage, attempt 3 with place lookup, then archive); images 9 of 15 attached after listing-card discovery (all `event_specific`, provenance + rights flag by host). Venues: all 74 lacked coordinates — the Cleaner now derives them from Turu's own linked verified locations (HIGH) or the venue's address/name and writes them back, so later cases resolve from stage 1.
+The backfill loop keeps running; `report-cleaner.js` is the source of truth for the current numbers.
+
+## Acceptance criteria (brief §31) — where each is satisfied
+1 revisit rejected/blocked missing-address items — `discover.js` (missing_location on every open/failed incoming row; rejected rows with a reopenable `archive_reason` via `reopen`). 2 multiple source types — `locationResolver.js` stages. 3 normal pipeline — `apply.js` → `POST /api/incoming/:id/approve`. 4 enrich, never duplicate — `matching.js` (`bestMatch`) + `enrichExistingFromCandidate`. 5 images — `imageResolver.js` + `imageProbe.js`. 6 image provenance — `activity_images.image_kind/image_page_url/retrieved_at/image_source_*`. 7 no weaker-over-stronger — fill-null merges in `apply.js`, LOW never written. 8 retry/backoff — `lifecycle.js` (`STAGES_BY_ATTEMPT`, `nextAttemptAt`), tested. 9 terminal archives with reasons — `archiveCase` + `archive_reason` on cases/incoming/activities, tested. 10 reopen — `reopenWhereEvidenceChanged`, tested. 11 repeatable — `--loop`, `cleaner_runs`. 12 measurable — `report-cleaner.js`, `/cleaner`. 13 backlog processed — running (see status). 14 no unexplained state — `opened_reason` on every case, `unexplainedBacklog` metric. 15 shared core — cityNaming/venueNaming/eventFingerprint/matching mirror, `activity_sources`, thresholds from `automation_settings`, the same approve path.
