@@ -2,7 +2,6 @@ import { useState, useMemo, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Modal, TextInput } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as Location from 'expo-location';
-import { LinearGradient } from 'expo-linear-gradient';
 import Header from '../components/Header';
 import LoginRequiredModal from '../components/LoginRequiredModal';
 import ActivityCard from '../components/ActivityCard';
@@ -163,6 +162,10 @@ export default function ActivitiesScreen() {
   // שומרת העדפת-מיון בשום מקום אחר היום, אז לא ממציאים persistence חדש כאן.
   const [sortMode, setSortMode] = useState('recommended');
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
+  // 🚫 "הסרה" - dropdown יחיד שמאחד את שתי פעולות ההסרה (קטגוריות/אזורים) שהיו קודם שני כפתורים
+  // נפרדים על המסך - אותו טכניקת-דרופדאון בדיוק כמו SortControl ממש לידו (position:relative
+  // + absolute עם top:'100%'), לא Modal חדש.
+  const [hideMenuOpen, setHideMenuOpen] = useState(false);
   const [activities, setActivities] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
@@ -742,40 +745,59 @@ export default function ActivitiesScreen() {
           </View>
         </Pressable>
 
-        {/* 🪄 ספונטני - "מצב" מתמשך (Active State), לא פעולה חד-פעמית: לא מנווט, לא בוחר פעילות
-            אקראית, רק מוסיף בונוס-קרבה-למיקום-חי לדירוג הקיים מעל הפילטרים הפעילים כפי שהם
-            (ראו toggleSpontaneous/spontaneousProximityScore). עיצוב שונה במכוון (גרדיאנט כתום,
-            לא המסגרת/רקע התכולים של "סינון") כדי שיורגש כפעולה מיוחדת - ומצב-פעיל ברור (מסגרת
-            לבנה + ✓) כשהוא דלוק. */}
-        <Pressable
-          style={[styles.spontaneousBtnWrap, spontaneousActive && styles.spontaneousBtnWrapActive]}
-          onPress={toggleSpontaneous}
-          disabled={spontaneousLoading}
-        >
-          <LinearGradient colors={['#ffbb4d', '#ff8a3d']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.spontaneousBtn}>
-            {spontaneousLoading ? (
-              <ActivityIndicator color="#ffffff" size="small" />
-            ) : (
-              <>
-                <Text style={styles.spontaneousEmoji}>🪄</Text>
-                <Text style={styles.spontaneousBtnText}>ספונטני - מה אפשר לעשות עכשיו?{spontaneousActive ? ' ✓' : ''}</Text>
-              </>
-            )}
-          </LinearGradient>
-        </Pressable>
-        {spontaneousError ? <Text style={styles.spontaneousErrorText}>{spontaneousError}</Text> : null}
+        {/* RESULT CONTROLS - "↕️ מיון" בצד ימין, "🚫 הסרה" (dropdown המאחד את שתי פעולות ההסרה
+            הקודמות) בצד שמאל, באותה שורה - לפי בקשת המשתמש. כפתור "⚡ פעילויות עכשיו" הוסר
+            מהמסך (לוגיקת הספונטני עצמה - toggleSpontaneous/spontaneousProximityScore/הדירוג -
+            נשארה בקוד בלי שינוי, פשוט אין עוד טריגר UI שמפעיל אותה מהמסך הזה). */}
+        <View style={styles.resultControlsRow}>
+          {!loading && !loadError && filteredActivities.length > 0 && (
+            <SortControl
+              sortMode={sortMode}
+              menuOpen={sortMenuOpen}
+              onToggleMenu={() => { setSortMenuOpen((v) => !v); setHideMenuOpen(false); }}
+              onSelect={(mode) => { setSortMode(mode); setSortMenuOpen(false); }}
+            />
+          )}
 
-        <View style={styles.hideBtnsRow}>
-          <Pressable style={styles.hideCategoriesBtn} onPress={openHideCategoriesModal}>
-            <Text style={styles.hideCategoriesBtnText}>
-              {hiddenCategoryCount > 0 ? `🚫 ${hiddenCategoryCount} קטגוריות מוסתרות` : '🚫 הסר פעילויות מהחיפוש'}
-            </Text>
-          </Pressable>
-          <Pressable style={styles.hideCategoriesBtn} onPress={openHideLocationsModal}>
-            <Text style={styles.hideCategoriesBtnText}>
-              {hiddenAreaCount > 0 ? `⛔ ${hiddenAreaCount} אזורים מוסתרים` : '⛔ הסר אזורים מהחיפוש'}
-            </Text>
-          </Pressable>
+          <View style={styles.hideMenuWrap}>
+            <Pressable
+              style={styles.hideMenuChip}
+              onPress={() => { setHideMenuOpen((v) => !v); setSortMenuOpen(false); }}
+              accessibilityRole="button"
+              accessibilityState={{ expanded: hideMenuOpen }}
+              accessibilityLabel={`הסרה מהחיפוש${hiddenAreaCount + hiddenCategoryCount > 0 ? `, ${hiddenAreaCount + hiddenCategoryCount} פעילים` : ''}`}
+            >
+              <Text style={styles.hideMenuChipIcon}>🚫</Text>
+              <Text style={styles.hideMenuChipText} numberOfLines={1}>
+                הסרה{hiddenAreaCount + hiddenCategoryCount > 0 ? ` · ${hiddenAreaCount + hiddenCategoryCount}` : ''}
+              </Text>
+              <View style={{ transform: [{ rotate: hideMenuOpen ? '180deg' : '0deg' }] }}>
+                <ChevronDownIcon size={11} />
+              </View>
+            </Pressable>
+            {hideMenuOpen && (
+              <View style={styles.hideMenu} accessibilityRole="menu">
+                <Pressable
+                  style={styles.hideMenuItem}
+                  onPress={() => { setHideMenuOpen(false); openHideCategoriesModal(); }}
+                  accessibilityRole="menuitem"
+                >
+                  <Text style={styles.hideMenuItemText}>
+                    {hiddenCategoryCount > 0 ? `🚫 ${hiddenCategoryCount} קטגוריות מוסתרות` : '🚫 הסר פעילויות מהחיפוש'}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  style={styles.hideMenuItem}
+                  onPress={() => { setHideMenuOpen(false); openHideLocationsModal(); }}
+                  accessibilityRole="menuitem"
+                >
+                  <Text style={styles.hideMenuItemText}>
+                    {hiddenAreaCount > 0 ? `⛔ ${hiddenAreaCount} אזורים מוסתרים` : '⛔ הסר אזורים מהחיפוש'}
+                  </Text>
+                </Pressable>
+              </View>
+            )}
+          </View>
         </View>
 
         {/* 🚗 Smart Radius Expansion - חיווי משני, לא modal ולא warning (סעיף M בבקשה): מוצג רק
@@ -851,27 +873,23 @@ export default function ActivitiesScreen() {
           </View>
         ) : (
           <>
-            {/* ↕️ מיון - לא רלוונטי במצב ספונטני (יש לו כבר דירוג-קרבה משלו, spontaneousProximityScore
-                למעלה) - מוסתר שם לגמרי במקום להציג control שלא עושה כלום/מתנגש. */}
-            {!spontaneousActive && (
-              <SortControl
-                sortMode={sortMode}
-                menuOpen={sortMenuOpen}
-                onToggleMenu={() => setSortMenuOpen((v) => !v)}
-                onSelect={(mode) => { setSortMode(mode); setSortMenuOpen(false); }}
-              />
-            )}
-
-            <View style={styles.viewToggleRow}>
+            {/* VIEW - רשימה/מפה כ-segmented control ויזואלי אחד (track יחיד עם border, כל
+                Pressable הוא "חצי" פנימי בלי מסגרת עצמאית) - אותו behavior/state בדיוק
+                (viewMode), רק restyling. */}
+            <View style={styles.viewToggleRow} accessibilityRole="tablist">
               <Pressable
                 style={[styles.viewToggleBtn, viewMode === 'list' && styles.viewToggleBtnActive]}
                 onPress={() => setViewMode('list')}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: viewMode === 'list' }}
               >
                 <Text style={[styles.viewToggleText, viewMode === 'list' && styles.viewToggleTextActive]}>📋 רשימה</Text>
               </Pressable>
               <Pressable
                 style={[styles.viewToggleBtn, viewMode === 'map' && styles.viewToggleBtnActive]}
                 onPress={() => setViewMode('map')}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: viewMode === 'map' }}
               >
                 <Text style={[styles.viewToggleText, viewMode === 'map' && styles.viewToggleTextActive]}>🗺️ מפה</Text>
               </Pressable>
@@ -1151,7 +1169,7 @@ const styles = StyleSheet.create({
   freeSearchToggle: {
     flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'center', gap: 6,
     borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card,
-    borderRadius: radii.pill, paddingVertical: 10, marginBottom: 10,
+    borderRadius: radii.pill, paddingVertical: 9, marginBottom: 8,
   },
   freeSearchToggleIcon: { fontSize: 13 },
   freeSearchToggleText: { fontFamily: fonts.semiBold, fontSize: 13, color: colors.textSecondary },
@@ -1177,25 +1195,17 @@ const styles = StyleSheet.create({
   advToggle: {
     flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'center', gap: 6,
     borderWidth: 1.5, borderColor: colors.accent, backgroundColor: colors.accentTintLight,
-    borderRadius: radii.pill, paddingVertical: 11, marginBottom: 14,
+    borderRadius: radii.pill, paddingVertical: 10, marginBottom: 10,
   },
   advToggleIcon: { fontSize: 14 },
   advToggleText: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.accent },
-  // 🪄 ספונטני - אותם ערכי-צבע בדיוק כמו שהיו בעמוד הבית (app/index.js, לפני ההסרה) - "בלי
-  // צבע חדש" כמו שהתבקש. גודל/paddingVertical תואם ל-advToggle ממש מעליו (11), לא גדול יותר.
-  spontaneousBtnWrap: {
-    borderRadius: radii.pill, overflow: 'hidden', marginBottom: 8,
-    shadowColor: '#ff8a3d', shadowOpacity: 0.3, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 2,
+
+  // RESULT CONTROLS - "↕️ מיון" בצד ימין, "🚫 הסרה" בצד שמאל, באותה שורה. flexWrap כדי שאם
+  // התוויות הארוכות לא נכנסות ברוחב-מסך צר מאוד, הן יורדות לשורה חדשה במקום overflow אופקי.
+  resultControlsRow: {
+    flexDirection: 'row-reverse', flexWrap: 'wrap', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8,
+    marginBottom: 10, zIndex: 15,
   },
-  // מצב פעיל - טבעת בצבע ה-accent הקיים (לא לבן - על רקע colors.bg הבהיר-כמעט-לבן זה לא היה
-  // נראה) סביב הכפתור, בנוסף ל-✓ בטקסט - ניגוד ברור גם מול הרקע וגם מול הגרדיאנט הכתום.
-  spontaneousBtnWrapActive: { borderWidth: 2, borderColor: colors.accent },
-  spontaneousBtn: {
-    flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 11,
-  },
-  spontaneousEmoji: { fontSize: 15, marginTop: -1 },
-  spontaneousBtnText: { fontFamily: fonts.bold, fontSize: 13.5, color: '#ffffff' },
-  spontaneousErrorText: { fontFamily: fonts.semiBold, fontSize: 12, color: colors.danger, textAlign: 'center', marginBottom: 10 },
   spontaneousTopTitle: { fontFamily: fonts.extraBold, fontSize: 15, color: colors.textPrimary, textAlign: 'right', marginBottom: 10 },
   spontaneousSoonTitle: { fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary, textAlign: 'center', marginTop: 4, marginBottom: 14 },
   showMoreBtn: { alignItems: 'center', paddingVertical: 12, marginTop: 4 },
@@ -1220,9 +1230,27 @@ const styles = StyleSheet.create({
   // כפתורי "🚫 הסר פעילויות" / "⛔ אזורים שלא להציג" - במכוון שקטים/משניים (טקסט בלבד, בלי
   // מסגרת/רקע), בניגוד ל-advToggle הבולט למעלה - אלה פעולות מתקדמות, לא אמורות להתחרות עם
   // "סינון מתקדם". שני הכפתורים באותה שורה כדי לא לתפוס עוד שורה אנכית מיותרת בעמוד.
-  hideBtnsRow: { flexDirection: 'row-reverse', justifyContent: 'center', gap: 18, marginBottom: 14 },
-  hideCategoriesBtn: { alignItems: 'center', paddingVertical: 8 },
-  hideCategoriesBtnText: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.textSecondary },
+  // 🚫 "הסרה" - dropdown באותה משפחת-עיצוב בדיוק כמו sortChip/sortMenu (chip + תפריט-נפתח
+  // absolute) - ה-chip הזה יושב בצד שמאל של השורה (בקשת המשתמש), אז התפריט מוצמד ל-left:0
+  // (לא right:0 כמו sortMenu) כדי לא "לברוח" מקצה המסך.
+  hideMenuWrap: { position: 'relative', zIndex: 15, alignItems: 'flex-start' },
+  hideMenuChip: {
+    flexDirection: 'row-reverse', alignItems: 'center', gap: 6,
+    borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card,
+    borderRadius: radii.pill, paddingVertical: 8, paddingHorizontal: 14, minHeight: 36,
+  },
+  hideMenuChipIcon: { fontSize: 13 },
+  hideMenuChipText: { fontFamily: fonts.semiBold, fontSize: 13, color: colors.textSecondary },
+  hideMenu: {
+    position: 'absolute', top: '100%', left: 0, marginTop: 4, minWidth: 220,
+    backgroundColor: colors.card, borderRadius: radii.md, borderWidth: 1, borderColor: colors.border,
+    shadowColor: '#000', shadowOpacity: 0.12, shadowOffset: { width: 0, height: 4 }, shadowRadius: 10,
+    elevation: 6, overflow: 'hidden', zIndex: 15,
+  },
+  hideMenuItem: {
+    paddingVertical: 12, paddingHorizontal: 14, borderBottomWidth: 1, borderBottomColor: colors.borderLight, minHeight: 44, justifyContent: 'center',
+  },
+  hideMenuItemText: { fontFamily: fonts.semiBold, fontSize: 13.5, color: colors.textPrimary, textAlign: 'right' },
 
   hideFooterRow: { flexDirection: 'row-reverse', alignItems: 'center', gap: 8, marginTop: 16 },
   hideFooterText: { fontFamily: fonts.semiBold, fontSize: 13, color: colors.textPrimary },
@@ -1237,7 +1265,7 @@ const styles = StyleSheet.create({
   // כפתורי רשימה/מפה מתחתיו - שורה נפרדת משלו, לא נדחס לאותה שורה (בקשת המשתמש: לא ליצור שורה
   // אופקית עמוסה ב-375px). zIndex גבוה כדי שהתפריט-הנפתח יופיע מעל viewToggleRow/כרטיסי-הפעילות
   // שמתחתיו, אותו עיקרון כמו CityAutocomplete הקיים.
-  sortWrap: { position: 'relative', zIndex: 15, marginBottom: 10, alignItems: 'flex-start' },
+  sortWrap: { position: 'relative', zIndex: 15, alignItems: 'flex-start' },
   sortChip: {
     flexDirection: 'row-reverse', alignItems: 'center', gap: 6,
     borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card,
@@ -1260,12 +1288,14 @@ const styles = StyleSheet.create({
   sortMenuItemTextSelected: { color: colors.accent, fontFamily: fonts.bold },
   sortMenuItemCheck: { fontFamily: fonts.bold, fontSize: 13, color: colors.accent },
 
-  viewToggleRow: { flexDirection: 'row-reverse', gap: 8, marginBottom: 14 },
-  viewToggleBtn: {
-    flex: 1, alignItems: 'center', paddingVertical: 9,
-    borderRadius: radii.pill, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.card,
+  // רשימה/מפה - segmented control ויזואלי אחד: track יחיד עם מסגרת+padding, וכל "חצי" פנימי
+  // בלי מסגרת עצמאית משלו (בניגוד לשני כפתורי-pill נפרדים כמו קודם).
+  viewToggleRow: {
+    flexDirection: 'row-reverse', gap: 4, marginBottom: 12, padding: 4,
+    borderRadius: radii.pill, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card,
   },
-  viewToggleBtnActive: { borderColor: colors.accent, backgroundColor: colors.accent },
+  viewToggleBtn: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: radii.pill },
+  viewToggleBtnActive: { backgroundColor: colors.accent },
   viewToggleText: { fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary },
   viewToggleTextActive: { color: '#fff' },
 
