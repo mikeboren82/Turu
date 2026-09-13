@@ -411,9 +411,16 @@ export async function fetchAllPaginatedResults<T>(
 // Google's formattedAddress ends with the locality (e.g. "עזר וייצמן 7, הוד השרון", or a bare
 // "נהריה" with no comma at all) - last comma-segment is a reliable-enough heuristic. עותק מדויק
 // של extract_city_from_address (tools/playground-discovery/supabase_client.py).
+// 2026-09-13: Google sometimes appends a postal code and/or the country ("רחוב, 3090000 זכרון
+// יעקב, ישראל" / "כרמיאל, 2198305") - 11 locations ended up with an all-digit city. Drop trailing
+// country/postal-code segments and strip a leading postal code inside the locality segment.
+const COUNTRY_TOKENS = new Set(['ישראל', 'israel']);
 export function extractCityFromAddress(address: string | null | undefined): string | null {
   if (!address) return null;
-  const parts = address.split(',').map((p) => p.trim()).filter(Boolean);
+  const parts = address.split(',').map((p) => p.trim()).filter(Boolean)
+    .filter((p) => !COUNTRY_TOKENS.has(p.toLowerCase()) && !/^\d{5,7}$/.test(p));
   if (!parts.length) return null;
-  return normalizeCityName(parts[parts.length - 1]);
+  const last = parts[parts.length - 1].replace(/^\d{5,7}\s+/, '').replace(/\s+\d{5,7}$/, '').trim();
+  if (!last || /^\d+$/.test(last)) return null;
+  return normalizeCityName(last);
 }

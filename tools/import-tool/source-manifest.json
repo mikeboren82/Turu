@@ -1,0 +1,2357 @@
+{
+  "_readme": "Registry seed for seed-venues-and-sources.js. status: verified = fetch-tested scrapable (status 200, Hebrew text, event keywords) on 2026-09-13; js_only / blocked / social = registered but is_active=false with an explicit disabled_reason so the gap stays visible. Grow this file via discover-sources.js --register.",
+  "venues": [
+    {
+      "key": "childrens_museum_holon",
+      "name_he": "מוזיאון הילדים חולון",
+      "venue_type": "museum",
+      "city": "חולון",
+      "region": "גוש דן והמרכז",
+      "website_url": "https://www.childrensmuseum.org.il/",
+      "aliases": [
+        "מוזיאון הילדים",
+        "המוזיאון הילדים בחולון"
+      ]
+    },
+    {
+      "key": "eretz_hatzvi",
+      "name_he": "פארק ארץ הצבי",
+      "venue_type": "petting_zoo",
+      "city": "בית זרע",
+      "region": "גוש דן והמרכז",
+      "website_url": "https://www.eretzhatzvi.co.il/",
+      "aliases": [
+        "ארץ הצבי",
+        "פינת חי ארץ הצבי"
+      ]
+    },
+    {
+      "key": "hanadiv_farm",
+      "name_he": "חוות הנדיב",
+      "venue_type": "farm",
+      "city": "זכרון יעקב",
+      "region": "חיפה והקריות",
+      "website_url": "https://hanadiv-farm.co.il/",
+      "aliases": [
+        "חוות הנדיב - פינת חי"
+      ]
+    },
+    {
+      "key": "jerusalem_zoo",
+      "name_he": "גן החיות התנ״כי",
+      "venue_type": "attraction",
+      "city": "ירושלים",
+      "region": "ירושלים והסביבה",
+      "website_url": "https://www.jerusalemzoo.org.il/",
+      "aliases": [
+        "גן החיות התנכי",
+        "גן החיות התנ\"כי ירושלים",
+        "גן החיות התנ״כי ואקווריום ישראל",
+        "הגן הזואולוגי התנכי"
+      ]
+    },
+    {
+      "key": "midbarium",
+      "name_he": "מדבריום",
+      "venue_type": "attraction",
+      "city": "מצפה רמון",
+      "region": "השפלה והדרום",
+      "website_url": "https://midbarium.co.il/",
+      "aliases": [
+        "מדבריום - פארק חיות מדבר",
+        "מדבריום פארק החיות"
+      ]
+    },
+    {
+      "key": "technoda",
+      "name_he": "טכנודע",
+      "venue_type": "museum",
+      "city": "חדרה",
+      "region": "השרון",
+      "website_url": "https://www.technoda.org.il/",
+      "aliases": [
+        "טכנודע חדרה",
+        "מוזיאון טכנודע"
+      ]
+    },
+    {
+      "key": "hecht_kingdom",
+      "name_he": "ממלכת הילדים - מוזיאון הכט",
+      "venue_type": "museum",
+      "city": "חיפה",
+      "region": "חיפה והקריות",
+      "website_url": "https://mushecht.haifa.ac.il/kingdom/",
+      "aliases": [
+        "מוזיאון הכט",
+        "ממלכת הילדים"
+      ]
+    },
+    {
+      "key": "deer_land",
+      "name_he": "חוות ארץ האיילים",
+      "venue_type": "farm",
+      "city": "גוש עציון",
+      "region": "ירושלים והסביבה",
+      "website_url": "http://www.deer-land.co.il/",
+      "aliases": [
+        "ארץ האיילים"
+      ]
+    },
+    {
+      "key": "davidson_garden",
+      "name_he": "גן המדע מכון דוידסון",
+      "venue_type": "museum",
+      "city": "רחובות",
+      "region": "השפלה והדרום",
+      "website_url": "https://davidson.org.il/gan-hamada/",
+      "aliases": [
+        "גן המדע",
+        "מכון דוידסון",
+        "מכון דוידסון לחינוך מדעי"
+      ]
+    },
+    {
+      "key": "safari",
+      "name_he": "ספארי רמת גן",
+      "venue_type": "attraction",
+      "city": "רמת גן",
+      "region": "גוש דן והמרכז",
+      "website_url": "https://www.safari.co.il/",
+      "aliases": [
+        "הספארי",
+        "ספארי",
+        "המרכז הזואולוגי תל אביב רמת גן"
+      ]
+    },
+    {
+      "key": "renanim",
+      "name_he": "קניון רננים",
+      "venue_type": "mall",
+      "city": "רעננה",
+      "region": "השרון",
+      "website_url": "https://www.renanim.co.il/",
+      "events_url": "https://www.renanim.co.il/events/",
+      "aliases": [
+        "רננים",
+        "קניון רננים רעננה"
+      ]
+    },
+    {
+      "key": "arena_herzliya",
+      "name_he": "קניון ארנה",
+      "venue_type": "mall",
+      "city": "הרצליה",
+      "region": "גוש דן והמרכז",
+      "website_url": "https://www.arenamall.co.il/",
+      "events_url": "https://www.arenamall.co.il/Events",
+      "aliases": [
+        "ארנה",
+        "ארנה הרצליה",
+        "מתחם ארנה",
+        "קניון ארנה הרצליה"
+      ]
+    },
+    {
+      "key": "ramot_mall",
+      "name_he": "קניון רמות",
+      "venue_type": "mall",
+      "city": "ירושלים",
+      "region": "ירושלים והסביבה",
+      "website_url": "https://ramot-mall.co.il/",
+      "events_url": "https://ramot-mall.co.il/אירועים/",
+      "aliases": [
+        "קניון רמות ירושלים"
+      ]
+    },
+    {
+      "key": "cinemall",
+      "name_he": "סינמול",
+      "venue_type": "mall",
+      "city": "חיפה",
+      "region": "חיפה והקריות",
+      "website_url": "https://cinemall.co.il/",
+      "events_url": "https://cinemall.co.il/אירועים/",
+      "aliases": [
+        "סינמול חיפה",
+        "cinemall",
+        "קניון סינמול"
+      ]
+    },
+    {
+      "key": "hayeruka_ks",
+      "name_he": "קניון כפר סבא הירוקה",
+      "venue_type": "mall",
+      "city": "כפר סבא",
+      "region": "השרון",
+      "website_url": "https://www.hayeruka-ks.co.il/",
+      "events_url": "https://www.hayeruka-ks.co.il/אירועים",
+      "aliases": [
+        "הירוקה",
+        "קניון הירוקה",
+        "כפר סבא הירוקה"
+      ]
+    },
+    {
+      "key": "dizengoff_center",
+      "name_he": "דיזנגוף סנטר",
+      "venue_type": "mall",
+      "city": "תל אביב יפו",
+      "region": "גוש דן והמרכז",
+      "website_url": "https://www.dizengof-center.co.il/",
+      "aliases": [
+        "דיזינגוף סנטר",
+        "דיזנגוף סנטר תל אביב"
+      ]
+    },
+    {
+      "key": "seven_stars",
+      "name_he": "קניון שבעת הכוכבים",
+      "venue_type": "mall",
+      "city": "הרצליה",
+      "region": "גוש דן והמרכז",
+      "website_url": "https://www.7stars.co.il/",
+      "aliases": [
+        "שבעת הכוכבים",
+        "7 הכוכבים"
+      ]
+    },
+    {
+      "key": "rotshtein_zoran",
+      "name_he": "מרכז רוטשטיין",
+      "venue_type": "shopping_center",
+      "city": "קדימה צורן",
+      "neighborhood": "רמת אמיר",
+      "region": "השרון",
+      "chain": "רוטשטיין",
+      "website_url": "https://www.rotshtein.co.il/business-projects/מרכז-מסחרי-rotshteins-קדימה-צורן/",
+      "facebook_url": "https://www.facebook.com/rotshteins/",
+      "instagram_url": "https://www.instagram.com/rotshteins.k/",
+      "aliases": [
+        "רוטשטיינס",
+        "רוטשטיינ'ס",
+        "Rotshtein's",
+        "מרכז רוטשטיין צורן",
+        "רוטשטיין רמת אמיר",
+        "מרכז מסחרי רוטשטיין",
+        "רוטשטיינס קדימה צורן",
+        "מתחם רוטשטיינס"
+      ],
+      "notes": "User's canonical example. Children's activities twice a week (free) are published on Facebook/Instagram only - the website is a static project page."
+    },
+    {
+      "key": "grand_beer_sheva",
+      "name_he": "גרנד קניון באר שבע",
+      "venue_type": "mall",
+      "city": "באר שבע",
+      "region": "השפלה והדרום",
+      "chain": "עופר",
+      "facebook_url": "https://www.facebook.com/grand.BeerSheva/",
+      "aliases": [
+        "גרנד קניון",
+        "קניון עופר גרנד באר שבע",
+        "גרנד באר שבע"
+      ],
+      "notes": "Event programming appears on Facebook; the Ofer chain site (myofer.co.il) is a JS SPA."
+    },
+    {
+      "key": "rotem_menashe",
+      "name_he": "מרכז קהילתי רותם",
+      "venue_type": "community_center",
+      "city": "מועצה אזורית מנשה",
+      "region": "חיפה והקריות",
+      "facebook_url": "https://www.facebook.com/rotem.c.m/",
+      "aliases": [
+        "רותם מרכז קהילתי",
+        "מרכז קהילתי רותם מנשה"
+      ]
+    },
+    {
+      "key": "amot_arim",
+      "name_he": "קניון ערים",
+      "venue_type": "mall",
+      "city": "קריית אונו",
+      "region": "גוש דן והמרכז",
+      "chain": "אמות",
+      "events_url": "https://malls.amot.co.il/mall-arim-mall/events/",
+      "aliases": [
+        "ערים",
+        "קניון ערים קריית אונו"
+      ]
+    },
+    {
+      "key": "amot_kiriat_ono",
+      "name_he": "קניון קריית אונו",
+      "venue_type": "mall",
+      "city": "קריית אונו",
+      "region": "גוש דן והמרכז",
+      "chain": "אמות",
+      "events_url": "https://malls.amot.co.il/mall-kiriat-ono-mall/events/",
+      "aliases": [
+        "קניון קרית אונו",
+        "אמות קריית אונו"
+      ]
+    },
+    {
+      "key": "amot_orot",
+      "name_he": "קניון אורות",
+      "venue_type": "mall",
+      "city": null,
+      "region": null,
+      "chain": "אמות",
+      "events_url": "https://malls.amot.co.il/mall-orot-mall/events/",
+      "aliases": [
+        "אורות",
+        "אמות אורות"
+      ],
+      "notes": "city to be confirmed from the venue page"
+    },
+    {
+      "key": "amot_neve_zeev",
+      "name_he": "אמות נווה זאב",
+      "venue_type": "shopping_center",
+      "city": "באר שבע",
+      "region": "השפלה והדרום",
+      "chain": "אמות",
+      "events_url": "https://malls.amot.co.il/mall-neve-zeev-mall/events/",
+      "aliases": [
+        "נווה זאב",
+        "מרכז נווה זאב"
+      ]
+    },
+    {
+      "key": "amot_b7",
+      "name_he": "אמות באר שבע (B7)",
+      "venue_type": "shopping_center",
+      "city": "באר שבע",
+      "region": "השפלה והדרום",
+      "chain": "אמות",
+      "events_url": "https://malls.amot.co.il/mall-amot-beer-sheva/events/",
+      "aliases": [
+        "מתחם אמות B7",
+        "אמות B7",
+        "B7"
+      ]
+    },
+    {
+      "key": "amot_mei_center",
+      "name_he": "מיי סנטר כרמיאל",
+      "venue_type": "shopping_center",
+      "city": "כרמיאל",
+      "region": "הצפון והעמק",
+      "chain": "אמות",
+      "events_url": "https://malls.amot.co.il/mall-mei-center/events/",
+      "aliases": [
+        "מיי סנטר",
+        "My Center כרמיאל"
+      ]
+    },
+    {
+      "key": "amot_center_galil",
+      "name_he": "סנטר הגליל",
+      "venue_type": "shopping_center",
+      "city": null,
+      "region": "הצפון והעמק",
+      "chain": "אמות",
+      "events_url": "https://malls.amot.co.il/mall-center-galil/events/",
+      "aliases": [
+        "אמות סנטר הגליל"
+      ],
+      "notes": "city to be confirmed from the venue page"
+    },
+    {
+      "key": "amot_huzot_alonim",
+      "name_he": "חוצות אלונים",
+      "venue_type": "shopping_center",
+      "city": "קריית טבעון",
+      "region": "חיפה והקריות",
+      "chain": "אמות",
+      "events_url": "https://malls.amot.co.il/mall-huzot_alonim/events/",
+      "aliases": [
+        "מרכז חוצות אלונים",
+        "אלונים"
+      ]
+    },
+    {
+      "key": "azrieli_ayalon",
+      "name_he": "עזריאלי אילון",
+      "venue_type": "mall",
+      "city": "רמת גן",
+      "region": "גוש דן והמרכז",
+      "chain": "עזריאלי",
+      "events_url": "https://www.azrielimalls.co.il/אירועים/3/עזריאלי-אילון/",
+      "aliases": [
+        "קניון איילון",
+        "קניון עזריאלי אילון",
+        "איילון"
+      ]
+    },
+    {
+      "key": "azrieli_jerusalem",
+      "name_he": "עזריאלי ירושלים",
+      "venue_type": "mall",
+      "city": "ירושלים",
+      "region": "ירושלים והסביבה",
+      "chain": "עזריאלי",
+      "events_url": "https://www.azrielimalls.co.il/אירועים/4/עזריאלי-ירושלים/",
+      "aliases": [
+        "קניון ירושלים",
+        "קניון מלחה",
+        "קניון עזריאלי מלחה",
+        "מלחה"
+      ]
+    },
+    {
+      "key": "azrieli_holon",
+      "name_he": "עזריאלי חולון",
+      "venue_type": "mall",
+      "city": "חולון",
+      "region": "גוש דן והמרכז",
+      "chain": "עזריאלי",
+      "events_url": "https://www.azrielimalls.co.il/אירועים/5/עזריאלי-חולון/",
+      "aliases": [
+        "קניון עזריאלי חולון"
+      ]
+    },
+    {
+      "key": "azrieli_outlet_or_yehuda",
+      "name_he": "עזריאלי אאוטלט אור יהודה",
+      "venue_type": "shopping_center",
+      "city": "אור יהודה",
+      "region": "גוש דן והמרכז",
+      "chain": "עזריאלי",
+      "events_url": "https://www.azrielimalls.co.il/אירועים/10/עזריאלי-אאוטלט-אור-יהודה/",
+      "aliases": [
+        "אאוטלט אור יהודה",
+        "עזריאלי אור יהודה"
+      ]
+    },
+    {
+      "key": "azrieli_negev",
+      "name_he": "עזריאלי הנגב",
+      "venue_type": "mall",
+      "city": "באר שבע",
+      "region": "השפלה והדרום",
+      "chain": "עזריאלי",
+      "events_url": "https://www.azrielimalls.co.il/אירועים/13/עזריאלי-הנגב/",
+      "aliases": [
+        "קניון הנגב",
+        "קניון עזריאלי הנגב"
+      ]
+    },
+    {
+      "key": "azrieli_rishonim",
+      "name_he": "עזריאלי ראשונים",
+      "venue_type": "mall",
+      "city": "ראשון לציון",
+      "region": "גוש דן והמרכז",
+      "chain": "עזריאלי",
+      "events_url": "https://www.azrielimalls.co.il/אירועים/18/עזריאלי-ראשונים/",
+      "aliases": [
+        "קניון ראשונים",
+        "קניון עזריאלי ראשונים"
+      ]
+    },
+    {
+      "key": "beit_ariela",
+      "name_he": "בית אריאלה",
+      "venue_type": "library",
+      "city": "תל אביב יפו",
+      "region": "גוש דן והמרכז",
+      "website_url": "https://ariela.today/",
+      "events_url": "https://ariela.today/events",
+      "aliases": [
+        "ספריית בית אריאלה",
+        "בית אריאלה תל אביב"
+      ]
+    },
+    {
+      "key": "ks_children_library",
+      "name_he": "ספריית הילדים והנוער כפר סבא",
+      "venue_type": "library",
+      "city": "כפר סבא",
+      "region": "השרון",
+      "events_url": "https://www.kfar-saba.muni.il/ספריית-הילדים-והנוער/",
+      "aliases": [
+        "ספריית הילדים כפר סבא",
+        "הספרייה העירונית כפר סבא"
+      ]
+    },
+    {
+      "key": "eretz_israel_museum",
+      "name_he": "מוזיאון ארץ ישראל",
+      "venue_type": "museum",
+      "city": "תל אביב יפו",
+      "region": "גוש דן והמרכז",
+      "website_url": "https://www.eretzmuseum.org.il/",
+      "events_url": "https://www.eretzmuseum.org.il/פעילויות-לקהל-הרחב/",
+      "aliases": [
+        "מוזיאון ארץ-ישראל",
+        "מוזאון ארץ ישראל",
+        "מוזיאון א״י"
+      ]
+    },
+    {
+      "key": "madatech",
+      "name_he": "מדעטק",
+      "venue_type": "museum",
+      "city": "חיפה",
+      "region": "חיפה והקריות",
+      "website_url": "https://www.madatech.org.il/",
+      "aliases": [
+        "המוזיאון הלאומי למדע",
+        "מדעטק חיפה",
+        "מוזיאון המדע חיפה"
+      ]
+    },
+    {
+      "key": "israel_museum",
+      "name_he": "מוזיאון ישראל",
+      "venue_type": "museum",
+      "city": "ירושלים",
+      "region": "ירושלים והסביבה",
+      "website_url": "https://www.imj.org.il/he",
+      "events_url": "https://www.imj.org.il/he/רשימת-אירועים",
+      "aliases": [
+        "מוזיאון ישראל ירושלים",
+        "אגף הנוער מוזיאון ישראל"
+      ]
+    },
+    {
+      "key": "bloomfield_science",
+      "name_he": "מוזיאון המדע ע״ש בלומפילד",
+      "venue_type": "museum",
+      "city": "ירושלים",
+      "region": "ירושלים והסביבה",
+      "website_url": "https://mada.org.il/",
+      "aliases": [
+        "מוזיאון המדע ירושלים",
+        "מוזיאון המדע בלומפילד",
+        "מוזיאון המדע"
+      ]
+    },
+    {
+      "key": "htk_karmiel",
+      "name_he": "היכל התרבות כרמיאל",
+      "venue_type": "theater",
+      "city": "כרמיאל",
+      "region": "הצפון והעמק",
+      "website_url": "https://www.htk.co.il/",
+      "aliases": [
+        "היכל התרבות בכרמיאל",
+        "היכל התרבות העירוני כרמיאל"
+      ]
+    },
+    {
+      "key": "htakko",
+      "name_he": "היכל התרבות עכו",
+      "venue_type": "theater",
+      "city": "עכו",
+      "region": "הצפון והעמק",
+      "website_url": "https://www.htakko.co.il/",
+      "aliases": [
+        "היכל התרבות בעכו",
+        "אודיטוריום עכו"
+      ]
+    },
+    {
+      "key": "seamall_ashdod",
+      "name_he": "קניון סי מול אשדוד",
+      "venue_type": "mall",
+      "city": "אשדוד",
+      "region": "השפלה והדרום",
+      "website_url": "https://seamall.co.il/",
+      "events_url": "https://seamall.co.il/events/",
+      "aliases": [
+        "סי מול",
+        "סימול",
+        "קניון סימול אשדוד",
+        "Sea Mall"
+      ]
+    },
+    {
+      "key": "htma",
+      "name_he": "היכל התרבות מעלה אדומים",
+      "venue_type": "theater",
+      "city": "מעלה אדומים",
+      "region": "ירושלים והסביבה",
+      "website_url": "https://htma.smarticket.co.il/",
+      "aliases": [
+        "היכל התרבות במעלה אדומים"
+      ]
+    },
+    {
+      "key": "giron_ashkelon",
+      "name_he": "קניון גירון אשקלון",
+      "venue_type": "mall",
+      "city": "אשקלון",
+      "region": "השפלה והדרום",
+      "facebook_url": "https://www.facebook.com/gironashkelon/",
+      "aliases": [
+        "גירון",
+        "קניון גירון"
+      ]
+    },
+    {
+      "key": "bigfashion_nazareth",
+      "name_he": "ביג פאשן נצרת",
+      "venue_type": "mall",
+      "city": "נצרת",
+      "region": "הצפון והעמק",
+      "chain": "BIG",
+      "website_url": "https://www.bigcenters.co.il/index.aspx?id=4038",
+      "instagram_url": "https://www.instagram.com/bigfashionnatzrat/",
+      "aliases": [
+        "BIG FASHION נצרת",
+        "ביג פאשן"
+      ]
+    },
+    {
+      "key": "ramat_hasharon_library",
+      "name_he": "הספרייה העירונית רמת השרון",
+      "venue_type": "library",
+      "city": "רמת השרון",
+      "region": "גוש דן והמרכז",
+      "aliases": [
+        "ספרייה",
+        "הספרייה",
+        "ספריית רמת השרון",
+        "הספרייה העירונית"
+      ]
+    },
+    {
+      "key": "yad_labanim_raanana",
+      "name_he": "היכל התרבות יד לבנים רעננה",
+      "venue_type": "theater",
+      "city": "רעננה",
+      "region": "השרון",
+      "aliases": [
+        "היכל התרבות יד-לבנים",
+        "יד לבנים רעננה",
+        "היכל התרבות רעננה",
+        "יד-לבנים"
+      ]
+    },
+    {
+      "key": "sde_boker_givatayim",
+      "name_he": "מרכז קהילתי שדה בוקר",
+      "venue_type": "community_center",
+      "city": "גבעתיים",
+      "region": "גוש דן והמרכז",
+      "aliases": [
+        "שדה בוקר",
+        "מתנ״ס שדה בוקר"
+      ]
+    },
+    {
+      "key": "plaim_ganei_tikva",
+      "name_he": "מרכז פלאים",
+      "venue_type": "community_center",
+      "city": "גני תקווה",
+      "region": "גוש דן והמרכז",
+      "aliases": [
+        "פלאים",
+        "מרכז פלאים גני תקווה"
+      ]
+    },
+    {
+      "key": "mishkan_raanana",
+      "name_he": "המשכן למוסיקה ואמנויות רעננה",
+      "venue_type": "cultural_center",
+      "city": "רעננה",
+      "region": "השרון",
+      "aliases": [
+        "המשכן למוסיקה ואמנויות",
+        "המשכן רעננה",
+        "המשכן"
+      ]
+    },
+    {
+      "key": "merkaz_habama_gt",
+      "name_he": "היכל התרבות מרכז הבמה",
+      "venue_type": "theater",
+      "city": "גני תקווה",
+      "region": "גוש דן והמרכז",
+      "aliases": [
+        "מרכז הבמה",
+        "היכל התרבות גני תקווה",
+        "מרכז הבמה גני תקווה"
+      ]
+    },
+    {
+      "key": "park_wald_ks",
+      "name_he": "פארק יצחק ולד",
+      "venue_type": "park",
+      "city": "כפר סבא",
+      "region": "השרון",
+      "aliases": [
+        "פארק ולד",
+        "פארק כפר סבא",
+        "הפארק העירוני כפר סבא"
+      ]
+    },
+    {
+      "key": "park_raanana",
+      "name_he": "פארק רעננה",
+      "venue_type": "park",
+      "city": "רעננה",
+      "region": "השרון",
+      "aliases": [
+        "הפארק העירוני רעננה"
+      ]
+    }
+  ],
+  "sources": [
+    {
+      "name": "תיירות כפרית לב השרון",
+      "seed_url": "https://tour-levhasharon.org.il/business/category/70/",
+      "status": "verified",
+      "source_kind": "website",
+      "publisher_type": "regional_council",
+      "publisher_name": "מועצה אזורית לב השרון",
+      "region": "השרון",
+      "scan_frequency_hours": 168,
+      "priority": 4,
+      "source_trust_score": 100
+    },
+    {
+      "name": "מוזיאון הילדים חולון",
+      "seed_url": "https://www.childrensmuseum.org.il/",
+      "status": "verified",
+      "source_kind": "website",
+      "publisher_type": "venue_operator",
+      "venue": "childrens_museum_holon",
+      "region": "גוש דן והמרכז",
+      "categories": [
+        "מוזיאון לילדים"
+      ],
+      "scan_frequency_hours": 168,
+      "priority": 8,
+      "source_trust_score": 90
+    },
+    {
+      "name": "פארק ארץ הצבי - פינת חי במרכז",
+      "seed_url": "https://www.eretzhatzvi.co.il/",
+      "status": "verified",
+      "source_kind": "website",
+      "publisher_type": "venue_operator",
+      "venue": "eretz_hatzvi",
+      "region": "גוש דן והמרכז",
+      "categories": [
+        "פינת חי",
+        "בעלי חיים"
+      ],
+      "scan_frequency_hours": 168,
+      "priority": 5,
+      "source_trust_score": 65
+    },
+    {
+      "name": "חוות הנדיב - פינת חי",
+      "seed_url": "https://hanadiv-farm.co.il/",
+      "status": "verified",
+      "source_kind": "website",
+      "publisher_type": "venue_operator",
+      "venue": "hanadiv_farm",
+      "region": "חיפה והקריות",
+      "categories": [
+        "פינת חי",
+        "חווה"
+      ],
+      "scan_frequency_hours": 168,
+      "priority": 5,
+      "source_trust_score": 65
+    },
+    {
+      "name": "גן החיות התנ\"כי ירושלים",
+      "seed_url": "https://www.jerusalemzoo.org.il/",
+      "status": "verified",
+      "source_kind": "website",
+      "publisher_type": "venue_operator",
+      "venue": "jerusalem_zoo",
+      "region": "ירושלים והסביבה",
+      "categories": [
+        "פינת חי",
+        "בעלי חיים"
+      ],
+      "scan_frequency_hours": 168,
+      "priority": 8,
+      "source_trust_score": 90
+    },
+    {
+      "name": "מדבריום - פארק חיות מדבר",
+      "seed_url": "https://midbarium.co.il/",
+      "status": "verified",
+      "source_kind": "website",
+      "publisher_type": "venue_operator",
+      "venue": "midbarium",
+      "region": "השפלה והדרום",
+      "categories": [
+        "פינת חי",
+        "בעלי חיים",
+        "חווה"
+      ],
+      "scan_frequency_hours": 168,
+      "priority": 8,
+      "source_trust_score": 90
+    },
+    {
+      "name": "טכנודע - מוזיאון למדע ורפואה חדרה",
+      "seed_url": "https://www.technoda.org.il/",
+      "status": "verified",
+      "source_kind": "website",
+      "publisher_type": "venue_operator",
+      "venue": "technoda",
+      "region": "השרון",
+      "categories": [
+        "מוזיאון לילדים",
+        "מדע"
+      ],
+      "scan_frequency_hours": 168,
+      "priority": 7,
+      "source_trust_score": 90
+    },
+    {
+      "name": "ממלכת הילדים - מוזיאון הכט אוניברסיטת חיפה",
+      "seed_url": "https://mushecht.haifa.ac.il/kingdom/",
+      "status": "verified",
+      "source_kind": "website",
+      "publisher_type": "venue_operator",
+      "venue": "hecht_kingdom",
+      "region": "חיפה והקריות",
+      "categories": [
+        "מוזיאון לילדים"
+      ],
+      "scan_frequency_hours": 168,
+      "priority": 5,
+      "source_trust_score": 85
+    },
+    {
+      "name": "חוות ארץ האיילים - גוש עציון",
+      "seed_url": "http://www.deer-land.co.il/",
+      "status": "verified",
+      "source_kind": "website",
+      "publisher_type": "venue_operator",
+      "venue": "deer_land",
+      "region": "ירושלים והסביבה",
+      "categories": [
+        "חווה",
+        "פינת חי",
+        "אטרקציה"
+      ],
+      "scan_frequency_hours": 168,
+      "priority": 5,
+      "source_trust_score": 75
+    },
+    {
+      "name": "גן המדע מכון דוידסון - רחובות",
+      "seed_url": "https://davidson.org.il/gan-hamada/",
+      "status": "verified",
+      "source_kind": "website",
+      "publisher_type": "venue_operator",
+      "venue": "davidson_garden",
+      "region": "השפלה והדרום",
+      "categories": [
+        "מוזיאון לילדים",
+        "מדע"
+      ],
+      "scan_frequency_hours": 168,
+      "priority": 8,
+      "source_trust_score": 90
+    },
+    {
+      "name": "ספארי רמת גן",
+      "seed_url": "https://www.safari.co.il/",
+      "status": "verified",
+      "source_kind": "website",
+      "publisher_type": "venue_operator",
+      "venue": "safari",
+      "region": "גוש דן והמרכז",
+      "categories": [
+        "פינת חי",
+        "בעלי חיים"
+      ],
+      "scan_frequency_hours": 168,
+      "priority": 8,
+      "source_trust_score": 85
+    },
+    {
+      "name": "קניון רננים - אירועים",
+      "seed_url": "https://www.renanim.co.il/events/",
+      "status": "verified",
+      "source_kind": "events_page",
+      "publisher_type": "venue_operator",
+      "venue": "renanim",
+      "region": "השרון",
+      "scan_frequency_hours": 72,
+      "priority": 8,
+      "source_trust_score": 80,
+      "notes": "kids event category also at /event-cat/kids/"
+    },
+    {
+      "name": "קניון ארנה הרצליה - אירועים",
+      "seed_url": "https://www.arenamall.co.il/Events",
+      "status": "verified",
+      "source_kind": "events_page",
+      "publisher_type": "venue_operator",
+      "venue": "arena_herzliya",
+      "region": "גוש דן והמרכז",
+      "scan_frequency_hours": 72,
+      "priority": 7,
+      "source_trust_score": 80
+    },
+    {
+      "name": "קניון רמות ירושלים - אירועים",
+      "seed_url": "https://ramot-mall.co.il/אירועים/",
+      "status": "verified",
+      "source_kind": "events_page",
+      "publisher_type": "venue_operator",
+      "venue": "ramot_mall",
+      "region": "ירושלים והסביבה",
+      "scan_frequency_hours": 72,
+      "priority": 7,
+      "source_trust_score": 80
+    },
+    {
+      "name": "סינמול חיפה - אירועים",
+      "seed_url": "https://cinemall.co.il/אירועים/",
+      "status": "verified",
+      "source_kind": "events_page",
+      "publisher_type": "venue_operator",
+      "venue": "cinemall",
+      "region": "חיפה והקריות",
+      "scan_frequency_hours": 72,
+      "priority": 7,
+      "source_trust_score": 80
+    },
+    {
+      "name": "קניון כפר סבא הירוקה - לוח אירועים",
+      "seed_url": "https://www.hayeruka-ks.co.il/אירועים",
+      "status": "verified",
+      "source_kind": "events_page",
+      "publisher_type": "venue_operator",
+      "venue": "hayeruka_ks",
+      "region": "השרון",
+      "scan_frequency_hours": 72,
+      "priority": 7,
+      "source_trust_score": 80
+    },
+    {
+      "name": "דיזנגוף סנטר",
+      "seed_url": "https://www.dizengof-center.co.il/",
+      "status": "verified",
+      "source_kind": "website",
+      "publisher_type": "venue_operator",
+      "venue": "dizengoff_center",
+      "region": "גוש דן והמרכז",
+      "scan_frequency_hours": 72,
+      "priority": 6,
+      "source_trust_score": 75
+    },
+    {
+      "name": "קניון שבעת הכוכבים הרצליה",
+      "seed_url": "https://www.7stars.co.il/",
+      "status": "verified",
+      "source_kind": "website",
+      "publisher_type": "venue_operator",
+      "venue": "seven_stars",
+      "region": "גוש דן והמרכז",
+      "scan_frequency_hours": 72,
+      "priority": 5,
+      "source_trust_score": 75
+    },
+    {
+      "name": "G סיטי - אירועים ופעילויות (רשת)",
+      "seed_url": "https://g-city.co.il/promotion/אירועים-ופעילויות/",
+      "status": "verified",
+      "source_kind": "chain_events_page",
+      "publisher_type": "mall_chain",
+      "publisher_name": "G סיטי",
+      "region": null,
+      "scan_frequency_hours": 72,
+      "priority": 7,
+      "source_trust_score": 75,
+      "notes": "chain-level page; branch (G ראשל״צ / G סינמה סיטי / G רוטשילד...) must come from the event text"
+    },
+    {
+      "name": "מרכז רוטשטיין קדימה-צורן - עמוד המרכז",
+      "seed_url": "https://www.rotshtein.co.il/business-projects/מרכז-מסחרי-rotshteins-קדימה-צורן/",
+      "status": "verified",
+      "source_kind": "website",
+      "publisher_type": "venue_operator",
+      "venue": "rotshtein_zoran",
+      "region": "השרון",
+      "scan_frequency_hours": 168,
+      "priority": 8,
+      "source_trust_score": 70,
+      "notes": "static project page - low yield expected; real programming is on FB/IG (see the two social rows)"
+    },
+    {
+      "name": "מרכז רוטשטיין - פייסבוק",
+      "seed_url": "https://www.facebook.com/rotshteins/",
+      "status": "social",
+      "source_kind": "facebook",
+      "publisher_type": "venue_operator",
+      "venue": "rotshtein_zoran",
+      "region": "השרון",
+      "scan_frequency_hours": 72,
+      "priority": 9,
+      "source_trust_score": 70
+    },
+    {
+      "name": "מרכז רוטשטיין - אינסטגרם",
+      "seed_url": "https://www.instagram.com/rotshteins.k/",
+      "status": "social",
+      "source_kind": "instagram",
+      "publisher_type": "venue_operator",
+      "venue": "rotshtein_zoran",
+      "region": "השרון",
+      "scan_frequency_hours": 72,
+      "priority": 9,
+      "source_trust_score": 70
+    },
+    {
+      "name": "גרנד קניון באר שבע - פייסבוק",
+      "seed_url": "https://www.facebook.com/grand.BeerSheva/",
+      "status": "social",
+      "source_kind": "facebook",
+      "publisher_type": "venue_operator",
+      "venue": "grand_beer_sheva",
+      "region": "השפלה והדרום",
+      "scan_frequency_hours": 72,
+      "priority": 8,
+      "source_trust_score": 70
+    },
+    {
+      "name": "מרכז קהילתי רותם (מ.א. מנשה) - פייסבוק",
+      "seed_url": "https://www.facebook.com/rotem.c.m/",
+      "status": "social",
+      "source_kind": "facebook",
+      "publisher_type": "regional_council",
+      "publisher_name": "מועצה אזורית מנשה",
+      "venue": "rotem_menashe",
+      "region": "חיפה והקריות",
+      "scan_frequency_hours": 72,
+      "priority": 6,
+      "source_trust_score": 75
+    },
+    {
+      "name": "אמות קניונים - קניון ערים",
+      "seed_url": "https://malls.amot.co.il/mall-arim-mall/events/",
+      "status": "verified",
+      "source_kind": "events_page",
+      "publisher_type": "mall_chain",
+      "publisher_name": "אמות קניונים",
+      "venue": "amot_arim",
+      "region": "גוש דן והמרכז",
+      "scan_frequency_hours": 72,
+      "priority": 7,
+      "source_trust_score": 80
+    },
+    {
+      "name": "אמות קניונים - קניון קריית אונו",
+      "seed_url": "https://malls.amot.co.il/mall-kiriat-ono-mall/events/",
+      "status": "verified",
+      "source_kind": "events_page",
+      "publisher_type": "mall_chain",
+      "publisher_name": "אמות קניונים",
+      "venue": "amot_kiriat_ono",
+      "region": "גוש דן והמרכז",
+      "scan_frequency_hours": 72,
+      "priority": 7,
+      "source_trust_score": 80
+    },
+    {
+      "name": "אמות קניונים - אורות",
+      "seed_url": "https://malls.amot.co.il/mall-orot-mall/events/",
+      "status": "verified",
+      "source_kind": "events_page",
+      "publisher_type": "mall_chain",
+      "publisher_name": "אמות קניונים",
+      "venue": "amot_orot",
+      "region": null,
+      "scan_frequency_hours": 72,
+      "priority": 6,
+      "source_trust_score": 80
+    },
+    {
+      "name": "אמות קניונים - נווה זאב באר שבע",
+      "seed_url": "https://malls.amot.co.il/mall-neve-zeev-mall/events/",
+      "status": "verified",
+      "source_kind": "events_page",
+      "publisher_type": "mall_chain",
+      "publisher_name": "אמות קניונים",
+      "venue": "amot_neve_zeev",
+      "region": "השפלה והדרום",
+      "scan_frequency_hours": 72,
+      "priority": 7,
+      "source_trust_score": 80
+    },
+    {
+      "name": "אמות קניונים - אמות באר שבע B7",
+      "seed_url": "https://malls.amot.co.il/mall-amot-beer-sheva/events/",
+      "status": "verified",
+      "source_kind": "events_page",
+      "publisher_type": "mall_chain",
+      "publisher_name": "אמות קניונים",
+      "venue": "amot_b7",
+      "region": "השפלה והדרום",
+      "scan_frequency_hours": 72,
+      "priority": 7,
+      "source_trust_score": 80
+    },
+    {
+      "name": "אמות קניונים - מיי סנטר כרמיאל",
+      "seed_url": "https://malls.amot.co.il/mall-mei-center/events/",
+      "status": "verified",
+      "source_kind": "events_page",
+      "publisher_type": "mall_chain",
+      "publisher_name": "אמות קניונים",
+      "venue": "amot_mei_center",
+      "region": "הצפון והעמק",
+      "scan_frequency_hours": 72,
+      "priority": 8,
+      "source_trust_score": 80
+    },
+    {
+      "name": "אמות קניונים - סנטר הגליל",
+      "seed_url": "https://malls.amot.co.il/mall-center-galil/events/",
+      "status": "verified",
+      "source_kind": "events_page",
+      "publisher_type": "mall_chain",
+      "publisher_name": "אמות קניונים",
+      "venue": "amot_center_galil",
+      "region": "הצפון והעמק",
+      "scan_frequency_hours": 72,
+      "priority": 8,
+      "source_trust_score": 80
+    },
+    {
+      "name": "אמות קניונים - חוצות אלונים",
+      "seed_url": "https://malls.amot.co.il/mall-huzot_alonim/events/",
+      "status": "verified",
+      "source_kind": "events_page",
+      "publisher_type": "mall_chain",
+      "publisher_name": "אמות קניונים",
+      "venue": "amot_huzot_alonim",
+      "region": "חיפה והקריות",
+      "scan_frequency_hours": 72,
+      "priority": 7,
+      "source_trust_score": 80
+    },
+    {
+      "name": "עזריאלי אילון - אירועים",
+      "seed_url": "https://www.azrielimalls.co.il/אירועים/3/עזריאלי-אילון/",
+      "status": "verified",
+      "source_kind": "events_page",
+      "publisher_type": "mall_chain",
+      "publisher_name": "קניוני עזריאלי",
+      "venue": "azrieli_ayalon",
+      "region": "גוש דן והמרכז",
+      "scan_frequency_hours": 72,
+      "priority": 7,
+      "source_trust_score": 80
+    },
+    {
+      "name": "עזריאלי ירושלים (מלחה) - אירועים",
+      "seed_url": "https://www.azrielimalls.co.il/אירועים/4/עזריאלי-ירושלים/",
+      "status": "verified",
+      "source_kind": "events_page",
+      "publisher_type": "mall_chain",
+      "publisher_name": "קניוני עזריאלי",
+      "venue": "azrieli_jerusalem",
+      "region": "ירושלים והסביבה",
+      "scan_frequency_hours": 72,
+      "priority": 8,
+      "source_trust_score": 80
+    },
+    {
+      "name": "עזריאלי חולון - אירועים",
+      "seed_url": "https://www.azrielimalls.co.il/אירועים/5/עזריאלי-חולון/",
+      "status": "verified",
+      "source_kind": "events_page",
+      "publisher_type": "mall_chain",
+      "publisher_name": "קניוני עזריאלי",
+      "venue": "azrieli_holon",
+      "region": "גוש דן והמרכז",
+      "scan_frequency_hours": 72,
+      "priority": 7,
+      "source_trust_score": 80
+    },
+    {
+      "name": "עזריאלי אאוטלט אור יהודה - אירועים",
+      "seed_url": "https://www.azrielimalls.co.il/אירועים/10/עזריאלי-אאוטלט-אור-יהודה/",
+      "status": "verified",
+      "source_kind": "events_page",
+      "publisher_type": "mall_chain",
+      "publisher_name": "קניוני עזריאלי",
+      "venue": "azrieli_outlet_or_yehuda",
+      "region": "גוש דן והמרכז",
+      "scan_frequency_hours": 72,
+      "priority": 6,
+      "source_trust_score": 80
+    },
+    {
+      "name": "עזריאלי הנגב באר שבע - אירועים",
+      "seed_url": "https://www.azrielimalls.co.il/אירועים/13/עזריאלי-הנגב/",
+      "status": "verified",
+      "source_kind": "events_page",
+      "publisher_type": "mall_chain",
+      "publisher_name": "קניוני עזריאלי",
+      "venue": "azrieli_negev",
+      "region": "השפלה והדרום",
+      "scan_frequency_hours": 72,
+      "priority": 8,
+      "source_trust_score": 80
+    },
+    {
+      "name": "עזריאלי ראשונים - אירועים",
+      "seed_url": "https://www.azrielimalls.co.il/אירועים/18/עזריאלי-ראשונים/",
+      "status": "verified",
+      "source_kind": "events_page",
+      "publisher_type": "mall_chain",
+      "publisher_name": "קניוני עזריאלי",
+      "venue": "azrieli_rishonim",
+      "region": "גוש דן והמרכז",
+      "scan_frequency_hours": 72,
+      "priority": 7,
+      "source_trust_score": 80
+    },
+    {
+      "name": "קניוני עזריאלי - כל האירועים (רשת)",
+      "seed_url": "https://www.azrielimalls.co.il/אירועים/16/קניוני-עזריאלי/",
+      "status": "verified",
+      "source_kind": "chain_events_page",
+      "publisher_type": "mall_chain",
+      "publisher_name": "קניוני עזריאלי",
+      "region": null,
+      "scan_frequency_hours": 72,
+      "priority": 6,
+      "source_trust_score": 75,
+      "notes": "chain-wide list; branch resolved from event text. Other Azrieli branches (חיפה, מודיעין, הרצליה, קריית אתא, גבעתיים, רמלה, עכו, כרמיאל, שרונים) still to be enumerated - only ids 3/4/5/10/13/18 answered 200 in the probe."
+    },
+    {
+      "name": "קניוני עופר (myofer.co.il) - רשת",
+      "seed_url": "https://myofer.co.il/malls",
+      "status": "js_only",
+      "source_kind": "chain_events_page",
+      "publisher_type": "mall_chain",
+      "publisher_name": "קניוני עופר",
+      "region": null,
+      "scan_frequency_hours": 72,
+      "priority": 9,
+      "source_trust_score": 80,
+      "notes": "~25 malls; per-mall pages like /malls/ramat-aviv/events render client-side (0 chars of HTML text). Needs a JSON/API adapter (Phase 2)."
+    },
+    {
+      "name": "BIG מרכזי קניות - רשת",
+      "seed_url": "https://www.big.co.il/",
+      "status": "js_only",
+      "source_kind": "chain_events_page",
+      "publisher_type": "mall_chain",
+      "publisher_name": "BIG",
+      "region": null,
+      "scan_frequency_hours": 72,
+      "priority": 9,
+      "source_trust_score": 75,
+      "notes": "SPA, 0 chars server HTML; events are announced per-center on Facebook/Instagram."
+    },
+    {
+      "name": "עזריאלי (azrieli.com) - אתר תאגידי",
+      "seed_url": "https://www.azrieli.com/malls",
+      "status": "blocked",
+      "source_kind": "website",
+      "publisher_type": "mall_chain",
+      "publisher_name": "עזריאלי",
+      "region": null,
+      "scan_frequency_hours": 168,
+      "priority": 3,
+      "source_trust_score": 75,
+      "notes": "connection refused/WAF for non-browser clients; covered via azrielimalls.co.il instead"
+    },
+    {
+      "name": "עיריית הרצליה - לוח אירועים",
+      "seed_url": "https://www.herzliya.muni.il/events/",
+      "status": "verified",
+      "source_kind": "municipality_calendar",
+      "publisher_type": "municipality",
+      "publisher_name": "עיריית הרצליה",
+      "region": "גוש דן והמרכז",
+      "scan_frequency_hours": 72,
+      "priority": 8,
+      "source_trust_score": 85
+    },
+    {
+      "name": "עיריית חיפה - אירועים בעיר",
+      "seed_url": "https://www.haifa.muni.il/culture/city-events/",
+      "status": "verified",
+      "source_kind": "municipality_calendar",
+      "publisher_type": "municipality",
+      "publisher_name": "עיריית חיפה",
+      "region": "חיפה והקריות",
+      "scan_frequency_hours": 72,
+      "priority": 9,
+      "source_trust_score": 85
+    },
+    {
+      "name": "עיריית מודיעין מכבים רעות - לוח אירועים",
+      "seed_url": "https://www.modiin.muni.il/modiinwebsite/EventBoard.aspx?PageID=439_385",
+      "status": "verified",
+      "source_kind": "municipality_calendar",
+      "publisher_type": "municipality",
+      "publisher_name": "עיריית מודיעין מכבים רעות",
+      "region": "השפלה והדרום",
+      "scan_frequency_hours": 72,
+      "priority": 8,
+      "source_trust_score": 85
+    },
+    {
+      "name": "עיריית תל אביב-יפו - אירועים ומופעים",
+      "seed_url": "https://www.tel-aviv.gov.il/Visitors/Events/Pages/Events.aspx",
+      "status": "verified",
+      "source_kind": "municipality_calendar",
+      "publisher_type": "municipality",
+      "publisher_name": "עיריית תל אביב-יפו",
+      "region": "גוש דן והמרכז",
+      "scan_frequency_hours": 72,
+      "priority": 9,
+      "source_trust_score": 85
+    },
+    {
+      "name": "עיריית גבעתיים - אירועים",
+      "seed_url": "https://www.givatayim.muni.il/events/",
+      "status": "verified",
+      "source_kind": "municipality_calendar",
+      "publisher_type": "municipality",
+      "publisher_name": "עיריית גבעתיים",
+      "region": "גוש דן והמרכז",
+      "scan_frequency_hours": 72,
+      "priority": 7,
+      "source_trust_score": 85
+    },
+    {
+      "name": "עיריית רמת השרון - תרבות ואירועים",
+      "seed_url": "https://ramat-hasharon.muni.il/תרבות-ואירועים/",
+      "status": "verified",
+      "source_kind": "municipality_calendar",
+      "publisher_type": "municipality",
+      "publisher_name": "עיריית רמת השרון",
+      "region": "גוש דן והמרכז",
+      "scan_frequency_hours": 72,
+      "priority": 7,
+      "source_trust_score": 85
+    },
+    {
+      "name": "עיריית ראשון לציון - אירועים ומופעים",
+      "seed_url": "https://www.rishonlezion.muni.il/RecreationalAndLeisure/Pages/Events.aspx",
+      "status": "verified",
+      "source_kind": "municipality_calendar",
+      "publisher_type": "municipality",
+      "publisher_name": "עיריית ראשון לציון",
+      "region": "גוש דן והמרכז",
+      "scan_frequency_hours": 72,
+      "priority": 8,
+      "source_trust_score": 85
+    },
+    {
+      "name": "עיריית פתח תקווה - כל האירועים",
+      "seed_url": "https://www.petah-tikva.muni.il/events/all-events",
+      "status": "verified",
+      "source_kind": "municipality_calendar",
+      "publisher_type": "municipality",
+      "publisher_name": "עיריית פתח תקווה",
+      "region": "גוש דן והמרכז",
+      "scan_frequency_hours": 72,
+      "priority": 8,
+      "source_trust_score": 85
+    },
+    {
+      "name": "עיריית חולון - לוח אירועים",
+      "seed_url": "https://www.holon.muni.il/Havingfun/pages/allevents.aspx",
+      "status": "verified",
+      "source_kind": "municipality_calendar",
+      "publisher_type": "municipality",
+      "publisher_name": "עיריית חולון",
+      "region": "גוש דן והמרכז",
+      "scan_frequency_hours": 72,
+      "priority": 8,
+      "source_trust_score": 85
+    },
+    {
+      "name": "עיריית באר שבע - אירועים",
+      "seed_url": "https://www.beer-sheva.muni.il/Pages/Events.aspx",
+      "status": "verified",
+      "source_kind": "municipality_calendar",
+      "publisher_type": "municipality",
+      "publisher_name": "עיריית באר שבע",
+      "region": "השפלה והדרום",
+      "scan_frequency_hours": 72,
+      "priority": 9,
+      "source_trust_score": 85
+    },
+    {
+      "name": "עיריית רעננה - אירועי ילדים ומשפחה (כרטיסים)",
+      "seed_url": "https://tickets.raanana.muni.il/ילדים_ומשפחה",
+      "status": "verified",
+      "source_kind": "ticketing",
+      "publisher_type": "municipality",
+      "publisher_name": "עיריית רעננה",
+      "region": "השרון",
+      "scan_frequency_hours": 72,
+      "priority": 8,
+      "source_trust_score": 85
+    },
+    {
+      "name": "עיריית רעננה - קטנטנים (גיל הרך)",
+      "seed_url": "https://raanana-ktantanim.webflow.io/home-tab",
+      "status": "verified",
+      "source_kind": "website",
+      "publisher_type": "municipality",
+      "publisher_name": "עיריית רעננה - המדור לגיל הרך",
+      "region": "השרון",
+      "scan_frequency_hours": 168,
+      "priority": 5,
+      "source_trust_score": 85
+    },
+    {
+      "name": "ספריית הילדים והנוער כפר סבא",
+      "seed_url": "https://www.kfar-saba.muni.il/ספריית-הילדים-והנוער/",
+      "status": "verified",
+      "source_kind": "website",
+      "publisher_type": "municipality",
+      "publisher_name": "עיריית כפר סבא",
+      "venue": "ks_children_library",
+      "region": "השרון",
+      "categories": [
+        "ספרייה",
+        "שעת סיפור"
+      ],
+      "scan_frequency_hours": 168,
+      "priority": 6,
+      "source_trust_score": 85
+    },
+    {
+      "name": "חמש שוהם - לוח אירועים",
+      "seed_url": "https://hamesh.co.il/לוח-אירועים/",
+      "status": "verified",
+      "source_kind": "municipality_calendar",
+      "publisher_type": "local_council",
+      "publisher_name": "מועצה מקומית שוהם (חמש)",
+      "region": "השפלה והדרום",
+      "scan_frequency_hours": 72,
+      "priority": 7,
+      "source_trust_score": 85
+    },
+    {
+      "name": "מועצה מקומית אבן יהודה - אירועים",
+      "seed_url": "https://www.even-yehuda.muni.il/events/",
+      "status": "verified",
+      "source_kind": "municipality_calendar",
+      "publisher_type": "local_council",
+      "publisher_name": "מועצה מקומית אבן יהודה",
+      "region": "השרון",
+      "scan_frequency_hours": 72,
+      "priority": 7,
+      "source_trust_score": 85
+    },
+    {
+      "name": "עיריית גני תקווה - אירועים",
+      "seed_url": "https://www.ganeytikva.org.il/events/",
+      "status": "verified",
+      "source_kind": "municipality_calendar",
+      "publisher_type": "municipality",
+      "publisher_name": "עיריית גני תקווה",
+      "region": "גוש דן והמרכז",
+      "scan_frequency_hours": 72,
+      "priority": 6,
+      "source_trust_score": 85
+    },
+    {
+      "name": "עיריית נוף הגליל",
+      "seed_url": "https://www.nof-hagalil.muni.il/",
+      "status": "verified",
+      "source_kind": "website",
+      "publisher_type": "municipality",
+      "publisher_name": "עיריית נוף הגליל",
+      "region": "הצפון והעמק",
+      "scan_frequency_hours": 168,
+      "priority": 6,
+      "source_trust_score": 85,
+      "notes": "homepage - the events sub-page was not found in discovery; low yield expected until refined"
+    },
+    {
+      "name": "מועצה אזורית לב השרון - כל מה שקורה במועצה",
+      "seed_url": "https://www.lev-hasharon.com/events/",
+      "status": "verified",
+      "source_kind": "municipality_calendar",
+      "publisher_type": "regional_council",
+      "publisher_name": "מועצה אזורית לב השרון",
+      "region": "השרון",
+      "scan_frequency_hours": 72,
+      "priority": 7,
+      "source_trust_score": 85
+    },
+    {
+      "name": "כיוונים באר שבע - אירועים ומופעים (רשת מרכזים קהילתיים)",
+      "seed_url": "https://kivunimb7.smarticket.co.il/אירועים_ומופעים",
+      "status": "verified",
+      "source_kind": "ticketing",
+      "publisher_type": "community_center_network",
+      "publisher_name": "כיוונים - החברה לתרבות ופנאי באר שבע",
+      "region": "השפלה והדרום",
+      "scan_frequency_hours": 72,
+      "priority": 8,
+      "source_trust_score": 80
+    },
+    {
+      "name": "בית אריאלה וספריות תל אביב-יפו - לוח אירועים",
+      "seed_url": "https://ariela.today/events",
+      "status": "verified",
+      "source_kind": "events_page",
+      "publisher_type": "library_network",
+      "publisher_name": "ספריות תל אביב-יפו",
+      "venue": "beit_ariela",
+      "region": "גוש דן והמרכז",
+      "categories": [
+        "ספרייה",
+        "שעת סיפור"
+      ],
+      "scan_frequency_hours": 72,
+      "priority": 8,
+      "source_trust_score": 85
+    },
+    {
+      "name": "רשת ספריות חוויות רחובות",
+      "seed_url": "https://www.havayot.org.il/",
+      "status": "verified",
+      "source_kind": "website",
+      "publisher_type": "library_network",
+      "publisher_name": "חוויות - רשת הספריות רחובות",
+      "region": "השפלה והדרום",
+      "categories": [
+        "ספרייה",
+        "שעת סיפור"
+      ],
+      "scan_frequency_hours": 168,
+      "priority": 6,
+      "source_trust_score": 85
+    },
+    {
+      "name": "מוזיאון ארץ ישראל - פעילויות לקהל הרחב",
+      "seed_url": "https://www.eretzmuseum.org.il/פעילויות-לקהל-הרחב/",
+      "status": "verified",
+      "source_kind": "events_page",
+      "publisher_type": "venue_operator",
+      "venue": "eretz_israel_museum",
+      "region": "גוש דן והמרכז",
+      "categories": [
+        "מוזיאון לילדים",
+        "סדנה"
+      ],
+      "scan_frequency_hours": 168,
+      "priority": 7,
+      "source_trust_score": 90
+    },
+    {
+      "name": "מדעטק חיפה",
+      "seed_url": "https://www.madatech.org.il/",
+      "status": "verified",
+      "source_kind": "website",
+      "publisher_type": "venue_operator",
+      "venue": "madatech",
+      "region": "חיפה והקריות",
+      "categories": [
+        "מוזיאון לילדים",
+        "מדע"
+      ],
+      "scan_frequency_hours": 168,
+      "priority": 8,
+      "source_trust_score": 90
+    },
+    {
+      "name": "מוזיאון ישראל - לוח אירועים למשפחה",
+      "seed_url": "https://www.imj.org.il/he/רשימת-אירועים",
+      "status": "js_only",
+      "source_kind": "events_page",
+      "publisher_type": "venue_operator",
+      "venue": "israel_museum",
+      "region": "ירושלים והסביבה",
+      "categories": [
+        "מוזיאון לילדים"
+      ],
+      "scan_frequency_hours": 168,
+      "priority": 8,
+      "source_trust_score": 90,
+      "notes": "0 Hebrew chars in server HTML - client-rendered"
+    },
+    {
+      "name": "מוזיאון המדע בלומפילד ירושלים",
+      "seed_url": "https://mada.org.il/",
+      "status": "blocked",
+      "source_kind": "website",
+      "publisher_type": "venue_operator",
+      "venue": "bloomfield_science",
+      "region": "ירושלים והסביבה",
+      "categories": [
+        "מוזיאון לילדים",
+        "מדע"
+      ],
+      "scan_frequency_hours": 168,
+      "priority": 8,
+      "source_trust_score": 90,
+      "notes": "HTTP 500 on 2026-09-13 (possibly transient) - reactivate after a manual re-test"
+    },
+    {
+      "name": "רשות הטבע והגנים - יומן פעילויות",
+      "seed_url": "https://www.parks.org.il/activities/",
+      "status": "blocked",
+      "source_kind": "events_page",
+      "publisher_type": "government_body",
+      "publisher_name": "רשות הטבע והגנים",
+      "region": null,
+      "categories": [
+        "טבע"
+      ],
+      "scan_frequency_hours": 72,
+      "priority": 9,
+      "source_trust_score": 95,
+      "notes": "HTTP 403 (WAF) for non-browser clients - highest-value nature source, needs an API/RSS or partnership path"
+    },
+    {
+      "name": "מתנ\"ס גן יבנה - פעילויות",
+      "seed_url": "https://matnasganyavne.org/page.php?ht=פעילויות&type=tHomeProjects",
+      "status": "blocked",
+      "source_kind": "events_page",
+      "publisher_type": "community_center_network",
+      "publisher_name": "מתנ\"ס גן יבנה",
+      "region": "השפלה והדרום",
+      "scan_frequency_hours": 72,
+      "priority": 6,
+      "source_trust_score": 80,
+      "notes": "redirect loop / >20s timeouts on 2026-09-13; same CMS family (page.php?type=tHomeProjects) as many matnasim - worth an adapter"
+    },
+    {
+      "name": "מתנ\"ס מתן",
+      "seed_url": "https://www.matnass.matan.muni.il/page.php?type=tHomeProjects",
+      "status": "blocked",
+      "source_kind": "events_page",
+      "publisher_type": "community_center_network",
+      "publisher_name": "מתנ\"ס מתן",
+      "region": "גוש דן והמרכז",
+      "scan_frequency_hours": 72,
+      "priority": 5,
+      "source_trust_score": 80,
+      "notes": "timeout >20s"
+    },
+    {
+      "name": "מרכז קהילתי עמק חפר",
+      "seed_url": "https://www.mk-hefer.org.il/",
+      "status": "js_only",
+      "source_kind": "website",
+      "publisher_type": "regional_council",
+      "publisher_name": "מועצה אזורית עמק חפר",
+      "region": "השרון",
+      "scan_frequency_hours": 168,
+      "priority": 6,
+      "source_trust_score": 80
+    },
+    {
+      "name": "מה קורה - לוח אירועים (אגרגטור)",
+      "seed_url": "https://www.makore.co.il/",
+      "status": "verified",
+      "source_kind": "aggregator",
+      "publisher_type": "aggregator",
+      "publisher_name": "מה קורה",
+      "region": null,
+      "scan_frequency_hours": 72,
+      "priority": 5,
+      "source_trust_score": 55
+    },
+    {
+      "name": "Kenyonim.com - אירועים בקניונים (אגרגטור)",
+      "seed_url": "https://www.kenyonim.com/eventsresults.asp?cboSort=DateStart&selSortD=asc&a=1",
+      "status": "verified",
+      "source_kind": "aggregator",
+      "publisher_type": "aggregator",
+      "publisher_name": "kenyonim.com",
+      "region": null,
+      "scan_frequency_hours": 72,
+      "priority": 6,
+      "source_trust_score": 50,
+      "notes": "legacy .asp site; charset auto-detected by the scanner (windows-1255 suspected). Review-only (trust 50)."
+    },
+    {
+      "name": "ירושלים ברשת - אירועים בקניון ירושלים (אגרגטור)",
+      "seed_url": "https://www.gojerusalem.co.il/subcategory/180/קניון-ירושלים/",
+      "status": "blocked",
+      "source_kind": "aggregator",
+      "publisher_type": "aggregator",
+      "publisher_name": "gojerusalem",
+      "region": "ירושלים והסביבה",
+      "scan_frequency_hours": 72,
+      "priority": 3,
+      "source_trust_score": 50,
+      "notes": "HTTP 403"
+    },
+    {
+      "name": "עיריית כרמיאל - מינהלת התרבות",
+      "seed_url": "https://www.karmiel.muni.il/city/culture/",
+      "status": "verified",
+      "region": "הצפון והעמק",
+      "categories": [],
+      "venue": null,
+      "discovery_batch": "2026-09-13",
+      "notes": "discovered via: (manual)",
+      "source_kind": "municipality_calendar",
+      "publisher_type": "municipality",
+      "scan_frequency_hours": 72,
+      "priority": 8,
+      "source_trust_score": 85,
+      "publisher_name": "עיריית כרמיאל"
+    },
+    {
+      "name": "היכל התרבות כרמיאל",
+      "seed_url": "https://www.htk.co.il/",
+      "status": "verified",
+      "region": "הצפון והעמק",
+      "categories": [
+        "הצגה"
+      ],
+      "venue": "htk_karmiel",
+      "discovery_batch": "2026-09-13",
+      "notes": "discovered via: (manual)",
+      "source_kind": "events_page",
+      "publisher_type": "venue_operator",
+      "scan_frequency_hours": 72,
+      "priority": 7,
+      "source_trust_score": 85
+    },
+    {
+      "name": "היכל התרבות עכו",
+      "seed_url": "https://www.htakko.co.il/",
+      "status": "verified",
+      "region": "הצפון והעמק",
+      "categories": [
+        "הצגה"
+      ],
+      "venue": "htakko",
+      "discovery_batch": "2026-09-13",
+      "notes": "discovered via: (manual)",
+      "source_kind": "events_page",
+      "publisher_type": "municipality",
+      "scan_frequency_hours": 72,
+      "priority": 7,
+      "source_trust_score": 85,
+      "publisher_name": "עיריית עכו"
+    },
+    {
+      "name": "מועצה אזורית גזר - אירועי ילדים",
+      "seed_url": "https://www.gezer-region.muni.il/events/?category=4&daterange=month",
+      "status": "verified",
+      "region": "השפלה והדרום",
+      "categories": [],
+      "venue": null,
+      "discovery_batch": "2026-09-13",
+      "notes": "discovered via: (manual)",
+      "source_kind": "municipality_calendar",
+      "publisher_type": "regional_council",
+      "scan_frequency_hours": 72,
+      "priority": 8,
+      "source_trust_score": 85,
+      "publisher_name": "מועצה אזורית גזר"
+    },
+    {
+      "name": "Ticketsi - הצגות ילדים (אגרגטור כרטיסים)",
+      "seed_url": "https://www.ticketsi.co.il/%D7%94%D7%A6%D7%92%D7%95%D7%AA-%D7%99%D7%9C%D7%93%D7%99%D7%9D",
+      "status": "verified",
+      "region": null,
+      "categories": [
+        "הצגה"
+      ],
+      "venue": null,
+      "discovery_batch": "2026-09-13",
+      "notes": "discovered via: (manual)",
+      "source_kind": "aggregator",
+      "publisher_type": "aggregator",
+      "scan_frequency_hours": 72,
+      "priority": 6,
+      "source_trust_score": 55,
+      "publisher_name": "Ticketsi"
+    },
+    {
+      "name": "קצת תרבות - הצגות ילדים (אגרגטור כרטיסים)",
+      "seed_url": "https://www.kzat-tarbut.com/%D7%94%D7%A6%D7%92%D7%95%D7%AA-%D7%99%D7%9C%D7%93%D7%99%D7%9D-%D7%9B%D7%A8%D7%98%D7%99%D7%A1%D7%99%D7%9D/",
+      "status": "verified",
+      "region": null,
+      "categories": [
+        "הצגה"
+      ],
+      "venue": null,
+      "discovery_batch": "2026-09-13",
+      "notes": "discovered via: (manual)",
+      "source_kind": "aggregator",
+      "publisher_type": "aggregator",
+      "scan_frequency_hours": 72,
+      "priority": 6,
+      "source_trust_score": 55,
+      "publisher_name": "קצת תרבות"
+    },
+    {
+      "name": "עיריית כפר סבא",
+      "seed_url": "https://www.kfar-saba.muni.il/",
+      "status": "verified",
+      "region": "השרון",
+      "categories": [],
+      "venue": null,
+      "discovery_batch": "2026-09-13",
+      "notes": "discovered via: (manual)",
+      "source_kind": "website",
+      "publisher_type": "municipality",
+      "scan_frequency_hours": 168,
+      "priority": 5,
+      "source_trust_score": 85,
+      "publisher_name": "עיריית כפר סבא"
+    },
+    {
+      "name": "עיריית חדרה",
+      "seed_url": "https://www.hadera.muni.il/",
+      "status": "verified",
+      "region": "השרון",
+      "categories": [],
+      "venue": null,
+      "discovery_batch": "2026-09-13",
+      "notes": "discovered via: (manual)",
+      "source_kind": "website",
+      "publisher_type": "municipality",
+      "scan_frequency_hours": 168,
+      "priority": 5,
+      "source_trust_score": 85,
+      "publisher_name": "עיריית חדרה"
+    },
+    {
+      "name": "עיריית בת ים",
+      "seed_url": "https://www.bat-yam.muni.il/",
+      "status": "verified",
+      "region": "גוש דן והמרכז",
+      "categories": [],
+      "venue": null,
+      "discovery_batch": "2026-09-13",
+      "notes": "discovered via: (manual)",
+      "source_kind": "website",
+      "publisher_type": "municipality",
+      "scan_frequency_hours": 168,
+      "priority": 5,
+      "source_trust_score": 85,
+      "publisher_name": "עיריית בת ים"
+    },
+    {
+      "name": "עיריית אשדוד",
+      "seed_url": "https://www.ashdod.muni.il/",
+      "status": "verified",
+      "region": "השפלה והדרום",
+      "categories": [],
+      "venue": null,
+      "discovery_batch": "2026-09-13",
+      "notes": "discovered via: (manual)",
+      "source_kind": "website",
+      "publisher_type": "municipality",
+      "scan_frequency_hours": 168,
+      "priority": 5,
+      "source_trust_score": 85,
+      "publisher_name": "עיריית אשדוד"
+    },
+    {
+      "name": "נוף הגליל - רשת המרכזים הקהילתיים פסיפס",
+      "seed_url": "https://www.nof-hagalil.muni.il/%D7%A8%D7%A9%D7%AA-%D7%94%D7%9E%D7%A8%D7%9B%D7%96%D7%99%D7%9D-%D7%94%D7%A7%D7%94%D7%99%D7%9C%D7%AA%D7%99%D7%99%D7%9D/",
+      "status": "verified",
+      "region": "הצפון והעמק",
+      "categories": [],
+      "venue": null,
+      "discovery_batch": "2026-09-13",
+      "notes": "discovered via: (manual)",
+      "source_kind": "website",
+      "publisher_type": "community_center_network",
+      "scan_frequency_hours": 72,
+      "priority": 6,
+      "source_trust_score": 85,
+      "publisher_name": "פסיפס - נוף הגליל"
+    },
+    {
+      "name": "עיריית יבנה",
+      "seed_url": "https://www.yavne.muni.il/",
+      "status": "verified",
+      "region": "השפלה והדרום",
+      "categories": [],
+      "venue": null,
+      "discovery_batch": "2026-09-13",
+      "notes": "discovered via: (manual)",
+      "source_kind": "website",
+      "publisher_type": "municipality",
+      "scan_frequency_hours": 168,
+      "priority": 5,
+      "source_trust_score": 85,
+      "publisher_name": "עיריית יבנה"
+    },
+    {
+      "name": "עיריית עכו",
+      "seed_url": "https://www.akko.muni.il/",
+      "status": "verified",
+      "region": "הצפון והעמק",
+      "categories": [],
+      "venue": null,
+      "discovery_batch": "2026-09-13",
+      "notes": "discovered via: (manual)",
+      "source_kind": "website",
+      "publisher_type": "municipality",
+      "scan_frequency_hours": 168,
+      "priority": 6,
+      "source_trust_score": 85,
+      "publisher_name": "עיריית עכו"
+    },
+    {
+      "name": "היכל התרבות מעלה אדומים",
+      "seed_url": "https://htma.smarticket.co.il/",
+      "status": "verified",
+      "region": "ירושלים והסביבה",
+      "categories": [
+        "הצגה"
+      ],
+      "venue": "htma",
+      "discovery_batch": "2026-09-13",
+      "notes": "discovered via: (manual)",
+      "source_kind": "ticketing",
+      "publisher_type": "venue_operator",
+      "scan_frequency_hours": 72,
+      "priority": 6,
+      "source_trust_score": 80
+    },
+    {
+      "name": "זהר הצפון - לוח אירועים כרמיאל משגב (מקומון)",
+      "seed_url": "https://www.zhk.co.il/events/",
+      "status": "verified",
+      "region": "הצפון והעמק",
+      "categories": [],
+      "venue": null,
+      "discovery_batch": "2026-09-13",
+      "notes": "discovered via: (manual)",
+      "source_kind": "aggregator",
+      "publisher_type": "aggregator",
+      "scan_frequency_hours": 72,
+      "priority": 5,
+      "source_trust_score": 50,
+      "publisher_name": "זהר הצפון"
+    },
+    {
+      "name": "עיריית אילת",
+      "seed_url": "https://www.eilat.muni.il/",
+      "status": "verified",
+      "region": "השפלה והדרום",
+      "categories": [],
+      "venue": null,
+      "discovery_batch": "2026-09-13",
+      "notes": "discovered via: (manual)",
+      "source_kind": "website",
+      "publisher_type": "municipality",
+      "scan_frequency_hours": 168,
+      "priority": 6,
+      "source_trust_score": 85,
+      "publisher_name": "עיריית אילת"
+    },
+    {
+      "name": "עיריית לוד",
+      "seed_url": "https://www.lod.muni.il/",
+      "status": "verified",
+      "region": "השפלה והדרום",
+      "categories": [],
+      "venue": null,
+      "discovery_batch": "2026-09-13",
+      "notes": "discovered via: (manual)",
+      "source_kind": "website",
+      "publisher_type": "municipality",
+      "scan_frequency_hours": 168,
+      "priority": 6,
+      "source_trust_score": 85,
+      "publisher_name": "עיריית לוד"
+    },
+    {
+      "name": "עיריית עפולה",
+      "seed_url": "https://www.afula.muni.il/",
+      "status": "verified",
+      "region": "הצפון והעמק",
+      "categories": [],
+      "venue": null,
+      "discovery_batch": "2026-09-13",
+      "notes": "discovered via: (manual)",
+      "source_kind": "website",
+      "publisher_type": "municipality",
+      "scan_frequency_hours": 168,
+      "priority": 6,
+      "source_trust_score": 85,
+      "publisher_name": "עיריית עפולה"
+    },
+    {
+      "name": "עיריית נהריה - אירועים",
+      "seed_url": "https://www.nahariya.muni.il/events/",
+      "status": "verified",
+      "region": "הצפון והעמק",
+      "categories": [],
+      "venue": null,
+      "discovery_batch": "2026-09-13",
+      "notes": "discovered via: (manual)",
+      "source_kind": "municipality_calendar",
+      "publisher_type": "municipality",
+      "scan_frequency_hours": 72,
+      "priority": 8,
+      "source_trust_score": 85,
+      "publisher_name": "עיריית נהריה"
+    },
+    {
+      "name": "תיירות אשדוד - אירועים",
+      "seed_url": "https://visit.ashdod.muni.il/events/",
+      "status": "verified",
+      "region": "השפלה והדרום",
+      "categories": [],
+      "venue": null,
+      "discovery_batch": "2026-09-13",
+      "notes": "discovered via: (manual)",
+      "source_kind": "municipality_calendar",
+      "publisher_type": "municipality",
+      "scan_frequency_hours": 72,
+      "priority": 7,
+      "source_trust_score": 85,
+      "publisher_name": "עיריית אשדוד (תיירות)"
+    },
+    {
+      "name": "רשת המתנ\"סים בית שמש - לוח אירועים",
+      "seed_url": "https://matnasbs.org.il/events/",
+      "status": "verified",
+      "region": "ירושלים והסביבה",
+      "categories": [],
+      "venue": null,
+      "discovery_batch": "2026-09-13",
+      "notes": "discovered via: (manual)",
+      "source_kind": "events_page",
+      "publisher_type": "community_center_network",
+      "scan_frequency_hours": 72,
+      "priority": 8,
+      "source_trust_score": 80,
+      "publisher_name": "רשת המרכזים הקהילתיים בית שמש"
+    },
+    {
+      "name": "עיריית נתניה",
+      "seed_url": "https://www.netanya.muni.il/",
+      "status": "verified",
+      "region": "השרון",
+      "categories": [],
+      "venue": null,
+      "discovery_batch": "2026-09-13",
+      "notes": "discovered via: (manual)",
+      "source_kind": "website",
+      "publisher_type": "municipality",
+      "scan_frequency_hours": 168,
+      "priority": 5,
+      "source_trust_score": 85,
+      "publisher_name": "עיריית נתניה"
+    },
+    {
+      "name": "קניון סי מול אשדוד - אירועים",
+      "seed_url": "https://seamall.co.il/events/",
+      "status": "verified",
+      "region": "השפלה והדרום",
+      "categories": [],
+      "venue": "seamall_ashdod",
+      "discovery_batch": "2026-09-13",
+      "notes": "discovered via: (manual)",
+      "source_kind": "events_page",
+      "publisher_type": "venue_operator",
+      "scan_frequency_hours": 72,
+      "priority": 7,
+      "source_trust_score": 80
+    },
+    {
+      "name": "החברה העירונית אשקלון - אירועים",
+      "seed_url": "https://ironitash.org.il/events/",
+      "status": "verified",
+      "region": "השפלה והדרום",
+      "categories": [],
+      "venue": null,
+      "discovery_batch": "2026-09-13",
+      "notes": "discovered via: (manual)",
+      "source_kind": "events_page",
+      "publisher_type": "community_center_network",
+      "scan_frequency_hours": 72,
+      "priority": 7,
+      "source_trust_score": 80,
+      "publisher_name": "החברה העירונית אשקלון"
+    },
+    {
+      "name": "מועצה אזורית מטה יהודה - אירועים",
+      "seed_url": "https://www.m-yehuda.org.il/events/",
+      "status": "verified",
+      "region": "ירושלים והסביבה",
+      "categories": [],
+      "venue": null,
+      "discovery_batch": "2026-09-13",
+      "notes": "discovered via: (manual)",
+      "source_kind": "municipality_calendar",
+      "publisher_type": "regional_council",
+      "scan_frequency_hours": 72,
+      "priority": 8,
+      "source_trust_score": 85,
+      "publisher_name": "מועצה אזורית מטה יהודה"
+    },
+    {
+      "name": "מתנ\"ס בית שמש - כרטיסים (smarticket)",
+      "seed_url": "https://matnasbs.smarticket.co.il/",
+      "status": "verified",
+      "region": "ירושלים והסביבה",
+      "categories": [],
+      "venue": null,
+      "discovery_batch": "2026-09-13",
+      "notes": "discovered via: (manual)",
+      "source_kind": "ticketing",
+      "publisher_type": "community_center_network",
+      "scan_frequency_hours": 72,
+      "priority": 6,
+      "source_trust_score": 80,
+      "publisher_name": "רשת המרכזים הקהילתיים בית שמש"
+    },
+    {
+      "name": "עיריית צפת",
+      "seed_url": "https://www.zefat.muni.il/",
+      "status": "verified",
+      "region": "הצפון והעמק",
+      "categories": [],
+      "venue": null,
+      "discovery_batch": "2026-09-13",
+      "notes": "discovered via: (manual)",
+      "source_kind": "website",
+      "publisher_type": "municipality",
+      "scan_frequency_hours": 168,
+      "priority": 6,
+      "source_trust_score": 85,
+      "publisher_name": "עיריית צפת"
+    },
+    {
+      "name": "עיריית טבריה",
+      "seed_url": "https://www.tiberias.muni.il/",
+      "status": "verified",
+      "region": "הצפון והעמק",
+      "categories": [],
+      "venue": null,
+      "discovery_batch": "2026-09-13",
+      "notes": "discovered via: (manual)",
+      "source_kind": "website",
+      "publisher_type": "municipality",
+      "scan_frequency_hours": 168,
+      "priority": 6,
+      "source_trust_score": 85,
+      "publisher_name": "עיריית טבריה"
+    },
+    {
+      "name": "החברה העירונית אשדוד - לוח אירועים",
+      "seed_url": "https://www.ironit.org.il/calendar-of-events/",
+      "status": "verified",
+      "region": "השפלה והדרום",
+      "categories": [],
+      "venue": null,
+      "discovery_batch": "2026-09-13",
+      "notes": "discovered via: (manual)",
+      "source_kind": "municipality_calendar",
+      "publisher_type": "community_center_network",
+      "scan_frequency_hours": 72,
+      "priority": 7,
+      "source_trust_score": 80,
+      "publisher_name": "החברה העירונית לתרבות ופנאי אשדוד"
+    },
+    {
+      "name": "BIG FASHION נצרת (bigcenters.co.il)",
+      "seed_url": "https://www.bigcenters.co.il/index.aspx?id=4038",
+      "status": "blocked",
+      "region": "הצפון והעמק",
+      "categories": [],
+      "venue": "bigfashion_nazareth",
+      "discovery_batch": "2026-09-13",
+      "notes": "discovered via: (manual)",
+      "source_kind": "events_page",
+      "publisher_type": "mall_chain",
+      "scan_frequency_hours": 72,
+      "priority": 6,
+      "source_trust_score": 75,
+      "publisher_name": "BIG"
+    },
+    {
+      "name": "עיריית אשקלון - כל האירועים",
+      "seed_url": "http://www.ashkelon.muni.il/Pages/AllEvents.aspx",
+      "status": "js_only",
+      "region": "השפלה והדרום",
+      "categories": [],
+      "venue": null,
+      "discovery_batch": "2026-09-13",
+      "notes": "discovered via: (manual)",
+      "source_kind": "municipality_calendar",
+      "publisher_type": "municipality",
+      "scan_frequency_hours": 72,
+      "priority": 8,
+      "source_trust_score": 85,
+      "publisher_name": "עיריית אשקלון"
+    },
+    {
+      "name": "החברה למתנ\"סים - מתנ\"ס מודיעין עילית",
+      "seed_url": "https://www.matnasim.org.il/?pg=MatnasItem&id=280",
+      "status": "blocked",
+      "region": "יו\"ש והבנימין",
+      "categories": [],
+      "venue": null,
+      "discovery_batch": "2026-09-13",
+      "notes": "discovered via: (manual)",
+      "source_kind": "website",
+      "publisher_type": "community_center_network",
+      "scan_frequency_hours": 72,
+      "priority": 5,
+      "source_trust_score": 80,
+      "publisher_name": "החברה למתנ\"סים"
+    },
+    {
+      "name": "קניון גירון אשקלון - פייסבוק",
+      "seed_url": "https://www.facebook.com/gironashkelon/",
+      "status": "js_only",
+      "region": "השפלה והדרום",
+      "categories": [],
+      "venue": "giron_ashkelon",
+      "discovery_batch": "2026-09-13",
+      "notes": "discovered via: (manual)",
+      "source_kind": "facebook",
+      "publisher_type": "venue_operator",
+      "scan_frequency_hours": 72,
+      "priority": 7,
+      "source_trust_score": 70
+    },
+    {
+      "name": "עיריית נהריה מחלקת תרבות - פייסבוק",
+      "seed_url": "https://www.facebook.com/nacityculture/",
+      "status": "js_only",
+      "region": "הצפון והעמק",
+      "categories": [],
+      "venue": null,
+      "discovery_batch": "2026-09-13",
+      "notes": "discovered via: (manual)",
+      "source_kind": "facebook",
+      "publisher_type": "municipality",
+      "scan_frequency_hours": 72,
+      "priority": 7,
+      "source_trust_score": 85,
+      "publisher_name": "עיריית נהריה"
+    },
+    {
+      "name": "ביג פאשן נצרת - אינסטגרם",
+      "seed_url": "https://www.instagram.com/bigfashionnatzrat/",
+      "status": "js_only",
+      "region": "הצפון והעמק",
+      "categories": [],
+      "venue": "bigfashion_nazareth",
+      "discovery_batch": "2026-09-13",
+      "notes": "discovered via: (manual)",
+      "source_kind": "instagram",
+      "publisher_type": "mall_chain",
+      "scan_frequency_hours": 72,
+      "priority": 7,
+      "source_trust_score": 70,
+      "publisher_name": "BIG"
+    },
+    {
+      "name": "עיריית רמת גן",
+      "seed_url": "https://www.ramat-gan.muni.il/",
+      "status": "js_only",
+      "region": "גוש דן והמרכז",
+      "categories": [],
+      "venue": null,
+      "discovery_batch": "2026-09-13",
+      "notes": "discovered via: (manual)",
+      "source_kind": "website",
+      "publisher_type": "municipality",
+      "scan_frequency_hours": 168,
+      "priority": 5,
+      "source_trust_score": 85,
+      "publisher_name": "עיריית רמת גן"
+    },
+    {
+      "name": "עיריית קריית גת",
+      "seed_url": "https://www.kiryat-gat.muni.il/",
+      "status": "blocked",
+      "region": "השפלה והדרום",
+      "categories": [],
+      "venue": null,
+      "discovery_batch": "2026-09-13",
+      "notes": "discovered via: (manual)",
+      "source_kind": "website",
+      "publisher_type": "municipality",
+      "scan_frequency_hours": 168,
+      "priority": 6,
+      "source_trust_score": 85,
+      "publisher_name": "עיריית קריית גת"
+    },
+    {
+      "name": "עיריית קריית שמונה",
+      "seed_url": "https://www.kiryat-shmona.muni.il/",
+      "status": "blocked",
+      "region": "הצפון והעמק",
+      "categories": [],
+      "venue": null,
+      "discovery_batch": "2026-09-13",
+      "notes": "discovered via: (manual)",
+      "source_kind": "website",
+      "publisher_type": "municipality",
+      "scan_frequency_hours": 168,
+      "priority": 6,
+      "source_trust_score": 85,
+      "publisher_name": "עיריית קריית שמונה"
+    },
+    {
+      "name": "עיריית נצרת",
+      "seed_url": "https://www.nazareth.muni.il/",
+      "status": "js_only",
+      "region": "הצפון והעמק",
+      "categories": [],
+      "venue": null,
+      "discovery_batch": "2026-09-13",
+      "notes": "discovered via: (manual)",
+      "source_kind": "website",
+      "publisher_type": "municipality",
+      "scan_frequency_hours": 168,
+      "priority": 6,
+      "source_trust_score": 85,
+      "publisher_name": "עיריית נצרת"
+    },
+    {
+      "name": "תרבות אשדוד - ילדים",
+      "seed_url": "https://www.tarbutashdod.com/category/kids/",
+      "status": "blocked",
+      "region": "השפלה והדרום",
+      "categories": [],
+      "venue": null,
+      "discovery_batch": "2026-09-13",
+      "notes": "discovered via: (manual)",
+      "source_kind": "events_page",
+      "publisher_type": "municipality",
+      "scan_frequency_hours": 72,
+      "priority": 8,
+      "source_trust_score": 85,
+      "publisher_name": "עיריית אשדוד - אגף אירועים"
+    },
+    {
+      "name": "iShow - פעילויות לילדים בדרום (אגרגטור)",
+      "seed_url": "https://ishow.co.il/kids?district=south",
+      "status": "blocked",
+      "region": "השפלה והדרום",
+      "categories": [],
+      "venue": null,
+      "discovery_batch": "2026-09-13",
+      "notes": "discovered via: (manual)",
+      "source_kind": "aggregator",
+      "publisher_type": "aggregator",
+      "scan_frequency_hours": 72,
+      "priority": 5,
+      "source_trust_score": 55,
+      "publisher_name": "iShow"
+    }
+  ]
+}

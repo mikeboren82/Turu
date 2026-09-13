@@ -159,6 +159,11 @@ function renderDashboardPage() {
       { tint: 'source-new', href: '/incoming', icon: '🆕', value: summary.newIncoming, label: 'פעילויות חדשות ממתינות' },
       { tint: 'source-update', href: '/incoming', icon: '🔄', value: summary.updatedIncoming, label: 'עדכונים ממתינים' },
       { tint: 'source-missing', href: '/incoming', icon: '👻', value: summary.missingFlagged, label: 'נעלמו מהמקור' },
+      { tint: 'alert', href: '/sources', icon: '🩺', value: summary.attentionSources, label: 'מקורות שדורשים תשומת לב' },
+      { tint: 'alert', href: '/sources', icon: '⏸️', value: summary.pausedSources, label: 'מקורות שהושהו אוטומטית' },
+      { tint: 'source-missing', href: '/sources', icon: '📵', value: summary.socialBlockedSources, label: 'מקורות פייסבוק/אינסטגרם (לא נתמך)' },
+      { tint: 'source-new', href: '/incoming', icon: '⚡', value: summary.autoApproved7d, label: 'אושרו אוטומטית (7 ימים)' },
+      { tint: 'source-update', href: '/incoming', icon: '🧬', value: summary.duplicatesPrevented7d, label: 'כפילויות שנמנעו (7 ימים)' },
     ].filter((c) => c.value > 0);
     $sourcesAlertsRow.innerHTML = cards.map((c) => (
       '<a class="stat-card tint-' + c.tint + '" href="' + c.href + '">' +

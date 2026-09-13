@@ -1,0 +1,901 @@
+{
+  "generatedAt": "2026-09-13T12:03:12.959Z",
+  "totals": {
+    "sources": 115,
+    "activeSources": 88,
+    "pausedSources": 27,
+    "attentionSources": 0,
+    "socialOnlySources": 7,
+    "venues": 46,
+    "activities": 5072,
+    "nonPlaygroundActivities": 127,
+    "datedActivities": 11,
+    "activitiesWithVenue": 15,
+    "activitiesWithSourceId": 28
+  },
+  "byRegion": {
+    "הצפון והעמק": {
+      "sources": 18,
+      "activeSources": 13,
+      "venues": 5,
+      "activities": 558,
+      "nonPlayground": 14,
+      "families": {
+        "mall": 2,
+        "municipality": 8,
+        "theater": 1,
+        "community_center": 1,
+        "aggregator": 1
+      }
+    },
+    "חיפה והקריות": {
+      "sources": 7,
+      "activeSources": 6,
+      "venues": 6,
+      "activities": 220,
+      "nonPlayground": 11,
+      "families": {
+        "farm": 1,
+        "museum": 2,
+        "mall": 2,
+        "municipality": 1
+      }
+    },
+    "השרון": {
+      "sources": 16,
+      "activeSources": 13,
+      "venues": 5,
+      "activities": 552,
+      "nonPlayground": 42,
+      "families": {
+        "municipality": 8,
+        "museum": 1,
+        "mall": 3,
+        "ticketing": 1
+      }
+    },
+    "גוש דן והמרכז": {
+      "sources": 25,
+      "activeSources": 23,
+      "venues": 14,
+      "activities": 1055,
+      "nonPlayground": 32,
+      "families": {
+        "mall": 9,
+        "museum": 2,
+        "farm": 1,
+        "attraction": 1,
+        "municipality": 9,
+        "library": 1
+      }
+    },
+    "ירושלים והסביבה": {
+      "sources": 11,
+      "activeSources": 8,
+      "venues": 7,
+      "activities": 932,
+      "nonPlayground": 9,
+      "families": {
+        "attraction": 1,
+        "farm": 1,
+        "mall": 2,
+        "ticketing": 2,
+        "municipality": 1,
+        "community_center": 1
+      }
+    },
+    "השפלה והדרום": {
+      "sources": 26,
+      "activeSources": 19,
+      "venues": 8,
+      "activities": 1241,
+      "nonPlayground": 19,
+      "families": {
+        "attraction": 1,
+        "museum": 1,
+        "mall": 4,
+        "municipality": 10,
+        "library": 1,
+        "ticketing": 1,
+        "community_center": 1
+      }
+    },
+    "יו\"ש והבנימין": {
+      "sources": 1,
+      "activeSources": 0,
+      "venues": 0,
+      "activities": 130,
+      "nonPlayground": 0,
+      "families": {}
+    },
+    "(unknown)": {
+      "sources": 11,
+      "activeSources": 6,
+      "venues": 0,
+      "activities": 0,
+      "nonPlayground": 0,
+      "families": {
+        "mall": 3,
+        "aggregator": 3
+      }
+    }
+  },
+  "byFamily": {
+    "mall": 25,
+    "municipality": 37,
+    "museum": 6,
+    "farm": 3,
+    "attraction": 3,
+    "library": 2,
+    "aggregator": 4,
+    "theater": 1,
+    "ticketing": 4,
+    "community_center": 3
+  },
+  "byFamilyAll": {
+    "mall": 29,
+    "municipality": 44,
+    "museum": 8,
+    "farm": 3,
+    "attraction": 3,
+    "social": 7,
+    "library": 2,
+    "venue_website": 1,
+    "aggregator": 7,
+    "community_center": 6,
+    "theater": 1,
+    "ticketing": 4
+  },
+  "byCategory": {
+    "פארק": 14,
+    "פארק שעשועים": 8,
+    "ג'ימבורי": 4,
+    "אטרקציה": 23,
+    "חווה": 8,
+    "פעילות מים": 3,
+    "בעלי חיים": 2,
+    "מוזיאון לילדים": 9,
+    "משחקייה": 8,
+    "טרמפולינות": 5,
+    "מדע": 2,
+    "סדנה": 6,
+    "פעילות קהילתית": 2,
+    "אחר": 9,
+    "הצגה": 1,
+    "פינת חי": 4,
+    "ספורט": 7,
+    "שעת סיפור": 2,
+    "טבע": 4,
+    "גן חיות": 1,
+    "חדשנות בחקלאות": 1,
+    "יצירה": 1,
+    "קולנוע לילדים": 1,
+    "בריכה": 2
+  },
+  "socialOnlyVenues": [
+    {
+      "name": "גרנד קניון באר שבע",
+      "city": "באר שבע",
+      "region": "השפלה והדרום",
+      "type": "mall"
+    },
+    {
+      "name": "מרכז קהילתי רותם",
+      "city": "מועצה אזורית מנשה",
+      "region": "חיפה והקריות",
+      "type": "community_center"
+    },
+    {
+      "name": "קניון גירון אשקלון",
+      "city": "אשקלון",
+      "region": "השפלה והדרום",
+      "type": "mall"
+    },
+    {
+      "name": "ביג פאשן נצרת",
+      "city": "נצרת",
+      "region": "הצפון והעמק",
+      "type": "mall"
+    }
+  ],
+  "unresolvedVenueLabels": [
+    {
+      "label": "ספרייה | רמת השרון",
+      "detections": 32
+    },
+    {
+      "label": "היכל התרבות יד-לבנים | רעננה",
+      "detections": 13
+    },
+    {
+      "label": "בית אריאלה | תל אביב",
+      "detections": 12
+    },
+    {
+      "label": "דיזנגוף סנטר | תל אביב",
+      "detections": 12
+    },
+    {
+      "label": "מרכז קהילתי שדה בוקר | גבעתיים",
+      "detections": 10
+    },
+    {
+      "label": "מרכז פלאים | גני תקווה",
+      "detections": 10
+    },
+    {
+      "label": "טכנודע | חדרה",
+      "detections": 9
+    },
+    {
+      "label": "המשכן למוסיקה ואמנויות | רעננה",
+      "detections": 9
+    },
+    {
+      "label": "מרכז קהילתי שז״ר | גבעתיים",
+      "detections": 8
+    },
+    {
+      "label": "מגדל שלום | תל אביב",
+      "detections": 7
+    },
+    {
+      "label": "קניון בירוקה | קריית שמונה",
+      "detections": 7
+    },
+    {
+      "label": "אשכול הפיס | בית חשמונאי",
+      "detections": 7
+    },
+    {
+      "label": "מרכז המוסיקה | רעננה",
+      "detections": 6
+    },
+    {
+      "label": "היכל התרבות מרכז הבמה | גני תקווה",
+      "detections": 6
+    },
+    {
+      "label": "מכון דוידסון לחינוך מדעי | רחובות",
+      "detections": 5
+    },
+    {
+      "label": "מרכז קיימות | רעננה",
+      "detections": 5
+    },
+    {
+      "label": "מרכז קטנטנים | רעננה",
+      "detections": 5
+    },
+    {
+      "label": "היכל התרבות יד-לבנים רעננה | רעננה",
+      "detections": 5
+    },
+    {
+      "label": "מקלט רמב״ם | גבעתיים",
+      "detections": 5
+    },
+    {
+      "label": "מרכז קהילתי בית ראשונים | גבעתיים",
+      "detections": 5
+    },
+    {
+      "label": "מרכז השחר | גבעתיים",
+      "detections": 5
+    },
+    {
+      "label": "מדבריום | מצפה רמון",
+      "detections": 4
+    },
+    {
+      "label": "גן החיות התנ״כי | ירושלים",
+      "detections": 4
+    },
+    {
+      "label": "גן החיות ואקווריום ישראל | ירושלים",
+      "detections": 4
+    },
+    {
+      "label": "רמת ישראל — ביצרון | תל אביב",
+      "detections": 4
+    }
+  ],
+  "reviewQueue": {
+    "pending": 816,
+    "autoApproved30d": 255,
+    "duplicates30d": 82
+  },
+  "sourceHealth": {
+    "healthy": 80,
+    "failing": 8,
+    "auto_paused": 27
+  },
+  "failureKinds": {
+    "gone_404": 3,
+    "unknown": 1
+  },
+  "lowYieldSources": [
+    {
+      "name": "קניון שבעת הכוכבים הרצליה",
+      "scans": 2,
+      "failKinds": {
+        "timeout_network": 1
+      }
+    },
+    {
+      "name": "תיירות כפרית לב השרון",
+      "scans": 4,
+      "failKinds": {}
+    },
+    {
+      "name": "מוזיאון הילדים חולון",
+      "scans": 4,
+      "failKinds": {}
+    },
+    {
+      "name": "G סיטי - אירועים ופעילויות (רשת)",
+      "scans": 2,
+      "failKinds": {
+        "access_403_waf": 1
+      }
+    },
+    {
+      "name": "עיריית באר שבע - אירועים",
+      "scans": 2,
+      "failKinds": {
+        "timeout_network": 1
+      }
+    },
+    {
+      "name": "עיריית נוף הגליל",
+      "scans": 2,
+      "failKinds": {
+        "access_403_waf": 1
+      }
+    },
+    {
+      "name": "עזריאלי הנגב באר שבע - אירועים",
+      "scans": 4,
+      "failKinds": {
+        "unknown": 3
+      }
+    },
+    {
+      "name": "עיריית ראשון לציון - אירועים ומופעים",
+      "scans": 2,
+      "failKinds": {
+        "timeout_network": 1
+      }
+    },
+    {
+      "name": "עיריית חולון - לוח אירועים",
+      "scans": 2,
+      "failKinds": {
+        "timeout_network": 1
+      }
+    },
+    {
+      "name": "עיריית כרמיאל - מינהלת התרבות",
+      "scans": 2,
+      "failKinds": {
+        "access_403_waf": 1
+      }
+    },
+    {
+      "name": "עיריית לוד",
+      "scans": 2,
+      "failKinds": {
+        "timeout_network": 1
+      }
+    },
+    {
+      "name": "החברה העירונית אשדוד - לוח אירועים",
+      "scans": 2,
+      "failKinds": {
+        "access_403_waf": 1
+      }
+    }
+  ],
+  "topYieldSources": [
+    {
+      "name": "עיריית רמת השרון - תרבות ואירועים",
+      "scans": 2,
+      "ok": 2,
+      "found": 60,
+      "created": 0,
+      "updated": 0,
+      "dupes": 0,
+      "failKinds": {}
+    },
+    {
+      "name": "עיריית רעננה - אירועי ילדים ומשפחה (כרטיסים)",
+      "scans": 2,
+      "ok": 2,
+      "found": 57,
+      "created": 0,
+      "updated": 0,
+      "dupes": 0,
+      "failKinds": {
+        "gone_404": 1
+      }
+    },
+    {
+      "name": "רשת ספריות חוויות רחובות",
+      "scans": 2,
+      "ok": 1,
+      "found": 50,
+      "created": 0,
+      "updated": 0,
+      "dupes": 0,
+      "failKinds": {
+        "access_403_waf": 1
+      }
+    },
+    {
+      "name": "עיריית גבעתיים - אירועים",
+      "scans": 2,
+      "ok": 1,
+      "found": 41,
+      "created": 0,
+      "updated": 0,
+      "dupes": 0,
+      "failKinds": {
+        "access_403_waf": 1
+      }
+    },
+    {
+      "name": "קניוני עזריאלי - כל האירועים (רשת)",
+      "scans": 2,
+      "ok": 1,
+      "found": 37,
+      "created": 0,
+      "updated": 0,
+      "dupes": 0,
+      "failKinds": {
+        "unknown": 1
+      }
+    },
+    {
+      "name": "קצת תרבות - הצגות ילדים (אגרגטור כרטיסים)",
+      "scans": 2,
+      "ok": 1,
+      "found": 35,
+      "created": 0,
+      "updated": 0,
+      "dupes": 0,
+      "failKinds": {
+        "access_403_waf": 1
+      }
+    },
+    {
+      "name": "בית אריאלה וספריות תל אביב-יפו - לוח אירועים",
+      "scans": 1,
+      "ok": 1,
+      "found": 34,
+      "created": 0,
+      "updated": 0,
+      "dupes": 0,
+      "failKinds": {}
+    },
+    {
+      "name": "Ticketsi - הצגות ילדים (אגרגטור כרטיסים)",
+      "scans": 2,
+      "ok": 1,
+      "found": 32,
+      "created": 0,
+      "updated": 0,
+      "dupes": 0,
+      "failKinds": {
+        "timeout_network": 1
+      }
+    },
+    {
+      "name": "עיריית הרצליה - לוח אירועים",
+      "scans": 2,
+      "ok": 1,
+      "found": 30,
+      "created": 0,
+      "updated": 0,
+      "dupes": 0,
+      "failKinds": {
+        "access_403_waf": 1
+      }
+    },
+    {
+      "name": "עיריית גני תקווה - אירועים",
+      "scans": 2,
+      "ok": 1,
+      "found": 30,
+      "created": 0,
+      "updated": 0,
+      "dupes": 0,
+      "failKinds": {
+        "access_403_waf": 1
+      }
+    },
+    {
+      "name": "תיירות אשדוד - אירועים",
+      "scans": 1,
+      "ok": 1,
+      "found": 30,
+      "created": 4,
+      "updated": 11,
+      "dupes": 0,
+      "failKinds": {
+        "access_403_waf": 1
+      }
+    },
+    {
+      "name": "עיריית חיפה - אירועים בעיר",
+      "scans": 2,
+      "ok": 1,
+      "found": 26,
+      "created": 2,
+      "updated": 23,
+      "dupes": 0,
+      "failKinds": {
+        "unknown": 1
+      }
+    },
+    {
+      "name": "קניון כפר סבא הירוקה - לוח אירועים",
+      "scans": 2,
+      "ok": 1,
+      "found": 25,
+      "created": 0,
+      "updated": 0,
+      "dupes": 0,
+      "failKinds": {
+        "timeout_network": 1
+      }
+    },
+    {
+      "name": "היכל התרבות כרמיאל",
+      "scans": 1,
+      "ok": 1,
+      "found": 25,
+      "created": 0,
+      "updated": 0,
+      "dupes": 0,
+      "failKinds": {
+        "gone_404": 1
+      }
+    },
+    {
+      "name": "קניון רמות ירושלים - אירועים",
+      "scans": 1,
+      "ok": 1,
+      "found": 24,
+      "created": 0,
+      "updated": 0,
+      "dupes": 0,
+      "failKinds": {}
+    }
+  ],
+  "gaps": [
+    {
+      "severity": "high",
+      "kind": "region_activities",
+      "region": "ירושלים והסביבה",
+      "message": "ירושלים והסביבה: only 9 non-playground activities live",
+      "action": "add event-yielding sources (municipality/mall) in this region"
+    },
+    {
+      "severity": "high",
+      "kind": "region_sources",
+      "region": "יו\"ש והבנימין",
+      "message": "יו\"ש והבנימין: only 0 active sources",
+      "action": "discover-sources.js --regions=<יו\"ש והבנימין> --families=mall,municipality,library,community_center"
+    },
+    {
+      "severity": "high",
+      "kind": "region_activities",
+      "region": "יו\"ש והבנימין",
+      "message": "יו\"ש והבנימין: only 0 non-playground activities live",
+      "action": "add event-yielding sources (municipality/mall) in this region"
+    },
+    {
+      "severity": "high",
+      "kind": "social_gap",
+      "message": "4 venues publish only on Facebook/Instagram (unsupported)",
+      "action": "see SOCIAL INGESTION GAP in the report; legitimate paths: Graph API with page-owner consent / venue-provided feeds"
+    },
+    {
+      "severity": "medium",
+      "kind": "region_family",
+      "region": "הצפון והעמק",
+      "family": "library",
+      "message": "הצפון והעמק: no active library source",
+      "action": "discover-sources.js --regions=<הצפון והעמק> --families=library"
+    },
+    {
+      "severity": "medium",
+      "kind": "region_family",
+      "region": "הצפון והעמק",
+      "family": "museum",
+      "message": "הצפון והעמק: no active museum source",
+      "action": "discover-sources.js --regions=<הצפון והעמק> --families=museum"
+    },
+    {
+      "severity": "medium",
+      "kind": "region_family",
+      "region": "חיפה והקריות",
+      "family": "library",
+      "message": "חיפה והקריות: no active library source",
+      "action": "discover-sources.js --regions=<חיפה והקריות> --families=library"
+    },
+    {
+      "severity": "medium",
+      "kind": "region_family",
+      "region": "חיפה והקריות",
+      "family": "community_center",
+      "message": "חיפה והקריות: no active community_center source",
+      "action": "discover-sources.js --regions=<חיפה והקריות> --families=community_center"
+    },
+    {
+      "severity": "medium",
+      "kind": "region_family",
+      "region": "השרון",
+      "family": "library",
+      "message": "השרון: no active library source",
+      "action": "discover-sources.js --regions=<השרון> --families=library"
+    },
+    {
+      "severity": "medium",
+      "kind": "region_family",
+      "region": "השרון",
+      "family": "community_center",
+      "message": "השרון: no active community_center source",
+      "action": "discover-sources.js --regions=<השרון> --families=community_center"
+    },
+    {
+      "severity": "medium",
+      "kind": "region_family",
+      "region": "גוש דן והמרכז",
+      "family": "community_center",
+      "message": "גוש דן והמרכז: no active community_center source",
+      "action": "discover-sources.js --regions=<גוש דן והמרכז> --families=community_center"
+    },
+    {
+      "severity": "medium",
+      "kind": "region_family",
+      "region": "ירושלים והסביבה",
+      "family": "library",
+      "message": "ירושלים והסביבה: no active library source",
+      "action": "discover-sources.js --regions=<ירושלים והסביבה> --families=library"
+    },
+    {
+      "severity": "medium",
+      "kind": "region_family",
+      "region": "ירושלים והסביבה",
+      "family": "museum",
+      "message": "ירושלים והסביבה: no active museum source",
+      "action": "discover-sources.js --regions=<ירושלים והסביבה> --families=museum"
+    },
+    {
+      "severity": "medium",
+      "kind": "region_family",
+      "region": "יו\"ש והבנימין",
+      "family": "mall",
+      "message": "יו\"ש והבנימין: no active mall source",
+      "action": "discover-sources.js --regions=<יו\"ש והבנימין> --families=mall"
+    },
+    {
+      "severity": "medium",
+      "kind": "region_family",
+      "region": "יו\"ש והבנימין",
+      "family": "municipality",
+      "message": "יו\"ש והבנימין: no active municipality source",
+      "action": "discover-sources.js --regions=<יו\"ש והבנימין> --families=municipality"
+    },
+    {
+      "severity": "medium",
+      "kind": "region_family",
+      "region": "יו\"ש והבנימין",
+      "family": "library",
+      "message": "יו\"ש והבנימין: no active library source",
+      "action": "discover-sources.js --regions=<יו\"ש והבנימין> --families=library"
+    },
+    {
+      "severity": "medium",
+      "kind": "region_family",
+      "region": "יו\"ש והבנימין",
+      "family": "community_center",
+      "message": "יו\"ש והבנימין: no active community_center source",
+      "action": "discover-sources.js --regions=<יו\"ש והבנימין> --families=community_center"
+    },
+    {
+      "severity": "medium",
+      "kind": "region_family",
+      "region": "יו\"ש והבנימין",
+      "family": "museum",
+      "message": "יו\"ש והבנימין: no active museum source",
+      "action": "discover-sources.js --regions=<יו\"ש והבנימין> --families=museum"
+    },
+    {
+      "severity": "medium",
+      "kind": "family_thin",
+      "family": "library",
+      "message": "source family \"library\" has 2 active sources nationally",
+      "action": "discover-sources.js --families=library"
+    },
+    {
+      "severity": "medium",
+      "kind": "family_thin",
+      "family": "theater",
+      "message": "source family \"theater\" has 1 active sources nationally",
+      "action": "discover-sources.js --families=theater"
+    },
+    {
+      "severity": "medium",
+      "kind": "family_thin",
+      "family": "nature",
+      "message": "source family \"nature\" has 0 active sources nationally",
+      "action": "discover-sources.js --families=nature"
+    },
+    {
+      "severity": "medium",
+      "kind": "family_thin",
+      "family": "organizer",
+      "message": "source family \"organizer\" has 0 active sources nationally",
+      "action": "discover-sources.js --families=organizer"
+    },
+    {
+      "severity": "medium",
+      "kind": "category_thin",
+      "category": "הצגה",
+      "message": "category \"הצגה\": 1 live activities",
+      "action": "target sources that publish this content (libraries/theaters/community centers/pools)"
+    },
+    {
+      "severity": "medium",
+      "kind": "category_thin",
+      "category": "שעת סיפור",
+      "message": "category \"שעת סיפור\": 2 live activities",
+      "action": "target sources that publish this content (libraries/theaters/community centers/pools)"
+    },
+    {
+      "severity": "medium",
+      "kind": "category_thin",
+      "category": "ספרייה",
+      "message": "category \"ספרייה\": 0 live activities",
+      "action": "target sources that publish this content (libraries/theaters/community centers/pools)"
+    },
+    {
+      "severity": "medium",
+      "kind": "category_thin",
+      "category": "יצירה",
+      "message": "category \"יצירה\": 1 live activities",
+      "action": "target sources that publish this content (libraries/theaters/community centers/pools)"
+    },
+    {
+      "severity": "medium",
+      "kind": "category_thin",
+      "category": "מדע",
+      "message": "category \"מדע\": 2 live activities",
+      "action": "target sources that publish this content (libraries/theaters/community centers/pools)"
+    },
+    {
+      "severity": "medium",
+      "kind": "category_thin",
+      "category": "פעילות מים",
+      "message": "category \"פעילות מים\": 3 live activities",
+      "action": "target sources that publish this content (libraries/theaters/community centers/pools)"
+    },
+    {
+      "severity": "medium",
+      "kind": "category_thin",
+      "category": "בריכה",
+      "message": "category \"בריכה\": 2 live activities",
+      "action": "target sources that publish this content (libraries/theaters/community centers/pools)"
+    },
+    {
+      "severity": "medium",
+      "kind": "category_thin",
+      "category": "טבע",
+      "message": "category \"טבע\": 4 live activities",
+      "action": "target sources that publish this content (libraries/theaters/community centers/pools)"
+    },
+    {
+      "severity": "medium",
+      "kind": "category_thin",
+      "category": "מוזיקה",
+      "message": "category \"מוזיקה\": 0 live activities",
+      "action": "target sources that publish this content (libraries/theaters/community centers/pools)"
+    },
+    {
+      "severity": "medium",
+      "kind": "category_thin",
+      "category": "ריקוד",
+      "message": "category \"ריקוד\": 0 live activities",
+      "action": "target sources that publish this content (libraries/theaters/community centers/pools)"
+    },
+    {
+      "severity": "medium",
+      "kind": "category_thin",
+      "category": "קולנוע לילדים",
+      "message": "category \"קולנוע לילדים\": 1 live activities",
+      "action": "target sources that publish this content (libraries/theaters/community centers/pools)"
+    },
+    {
+      "severity": "medium",
+      "kind": "category_thin",
+      "category": "פעילות עירונית",
+      "message": "category \"פעילות עירונית\": 0 live activities",
+      "action": "target sources that publish this content (libraries/theaters/community centers/pools)"
+    },
+    {
+      "severity": "medium",
+      "kind": "category_thin",
+      "category": "פעילות קהילתית",
+      "message": "category \"פעילות קהילתית\": 2 live activities",
+      "action": "target sources that publish this content (libraries/theaters/community centers/pools)"
+    },
+    {
+      "severity": "medium",
+      "kind": "venue_missing",
+      "message": "\"ספרייה | רמת השרון\" seen 32× without a canonical venue",
+      "action": "create the venue (+aliases) in the admin \"מקומות\" page or source-manifest.json"
+    },
+    {
+      "severity": "medium",
+      "kind": "venue_missing",
+      "message": "\"היכל התרבות יד-לבנים | רעננה\" seen 13× without a canonical venue",
+      "action": "create the venue (+aliases) in the admin \"מקומות\" page or source-manifest.json"
+    },
+    {
+      "severity": "medium",
+      "kind": "venue_missing",
+      "message": "\"בית אריאלה | תל אביב\" seen 12× without a canonical venue",
+      "action": "create the venue (+aliases) in the admin \"מקומות\" page or source-manifest.json"
+    },
+    {
+      "severity": "medium",
+      "kind": "venue_missing",
+      "message": "\"דיזנגוף סנטר | תל אביב\" seen 12× without a canonical venue",
+      "action": "create the venue (+aliases) in the admin \"מקומות\" page or source-manifest.json"
+    },
+    {
+      "severity": "medium",
+      "kind": "venue_missing",
+      "message": "\"מרכז קהילתי שדה בוקר | גבעתיים\" seen 10× without a canonical venue",
+      "action": "create the venue (+aliases) in the admin \"מקומות\" page or source-manifest.json"
+    },
+    {
+      "severity": "medium",
+      "kind": "venue_missing",
+      "message": "\"מרכז פלאים | גני תקווה\" seen 10× without a canonical venue",
+      "action": "create the venue (+aliases) in the admin \"מקומות\" page or source-manifest.json"
+    },
+    {
+      "severity": "medium",
+      "kind": "venue_missing",
+      "message": "\"טכנודע | חדרה\" seen 9× without a canonical venue",
+      "action": "create the venue (+aliases) in the admin \"מקומות\" page or source-manifest.json"
+    },
+    {
+      "severity": "medium",
+      "kind": "venue_missing",
+      "message": "\"המשכן למוסיקה ואמנויות | רעננה\" seen 9× without a canonical venue",
+      "action": "create the venue (+aliases) in the admin \"מקומות\" page or source-manifest.json"
+    },
+    {
+      "severity": "medium",
+      "kind": "venue_missing",
+      "message": "\"מרכז קהילתי שז״ר | גבעתיים\" seen 8× without a canonical venue",
+      "action": "create the venue (+aliases) in the admin \"מקומות\" page or source-manifest.json"
+    },
+    {
+      "severity": "medium",
+      "kind": "venue_missing",
+      "message": "\"מגדל שלום | תל אביב\" seen 7× without a canonical venue",
+      "action": "create the venue (+aliases) in the admin \"מקומות\" page or source-manifest.json"
+    },
+    {
+      "severity": "low",
+      "kind": "low_yield",
+      "message": "12 active sources scanned ≥2× in 30d with zero activities",
+      "action": "inspect seed URL (maybe a homepage, not the events page) or lower priority"
+    }
+  ]
+}

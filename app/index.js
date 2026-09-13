@@ -1180,7 +1180,10 @@ const styles = StyleSheet.create({
     position: 'absolute', top: 0, left: 0, right: 0, height: 230,
   },
   sunMascot: {
-    position: 'absolute', top: 46, left: 10,
+    // 'fixed' בווב: הדף עצמו גולל (לא ה-ScrollView הפנימי בלבד), אז 'absolute' רגיל היה נגרר
+    // עם התוכן במקום להישאר צמוד לפינת המסך. ב-native ה-ScrollView כן קוצץ את עצמו כראוי,
+    // ו-'fixed' לא קיים ב-RN native - 'absolute' שם כבר נשאר במקום כמצופה.
+    position: Platform.OS === 'web' ? 'fixed' : 'absolute', top: 46, left: 10,
   },
   // כותרת "לאן קופצים היום?" - ממש מתחת ללוגו (שעבר ל-Header המשותף, מוצג בכל עמוד). גרדיאנט
   // אמיתי (צהוב חם→ירוק רענן) רק בווב

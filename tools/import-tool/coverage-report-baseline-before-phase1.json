@@ -1,0 +1,719 @@
+{
+  "generatedAt": "2026-09-13T11:01:31.845Z",
+  "totals": {
+    "sources": 11,
+    "activeSources": 11,
+    "pausedSources": 0,
+    "attentionSources": 0,
+    "socialOnlySources": 0,
+    "venues": 0,
+    "activities": 5060,
+    "nonPlaygroundActivities": 115,
+    "datedActivities": 3,
+    "activitiesWithVenue": 0,
+    "activitiesWithSourceId": 16
+  },
+  "byRegion": {
+    "הצפון והעמק": {
+      "sources": 0,
+      "activeSources": 0,
+      "venues": 0,
+      "activities": 558,
+      "nonPlayground": 14,
+      "families": {}
+    },
+    "חיפה והקריות": {
+      "sources": 2,
+      "activeSources": 2,
+      "venues": 0,
+      "activities": 216,
+      "nonPlayground": 7,
+      "families": {
+        "farm": 1,
+        "museum": 1
+      }
+    },
+    "השרון": {
+      "sources": 2,
+      "activeSources": 2,
+      "venues": 0,
+      "activities": 552,
+      "nonPlayground": 42,
+      "families": {
+        "museum": 1,
+        "venue_website": 1
+      }
+    },
+    "גוש דן והמרכז": {
+      "sources": 4,
+      "activeSources": 4,
+      "venues": 0,
+      "activities": 1051,
+      "nonPlayground": 28,
+      "families": {
+        "farm": 2,
+        "museum": 2
+      }
+    },
+    "ירושלים והסביבה": {
+      "sources": 2,
+      "activeSources": 2,
+      "venues": 0,
+      "activities": 930,
+      "nonPlayground": 7,
+      "families": {
+        "farm": 2
+      }
+    },
+    "השפלה והדרום": {
+      "sources": 1,
+      "activeSources": 1,
+      "venues": 0,
+      "activities": 1239,
+      "nonPlayground": 17,
+      "families": {
+        "farm": 1
+      }
+    },
+    "יו\"ש והבנימין": {
+      "sources": 0,
+      "activeSources": 0,
+      "venues": 0,
+      "activities": 130,
+      "nonPlayground": 0,
+      "families": {}
+    },
+    "(unknown)": {
+      "sources": 0,
+      "activeSources": 0,
+      "venues": 0,
+      "activities": 0,
+      "nonPlayground": 0,
+      "families": {}
+    }
+  },
+  "byFamily": {
+    "farm": 6,
+    "museum": 4,
+    "venue_website": 1
+  },
+  "byFamilyAll": {
+    "farm": 6,
+    "museum": 4,
+    "venue_website": 1
+  },
+  "byCategory": {
+    "פארק": 14,
+    "פארק שעשועים": 8,
+    "ג'ימבורי": 4,
+    "אטרקציה": 22,
+    "חווה": 8,
+    "בעלי חיים": 2,
+    "פעילות מים": 3,
+    "מוזיאון לילדים": 7,
+    "משחקייה": 8,
+    "טרמפולינות": 5,
+    "מדע": 2,
+    "סדנה": 5,
+    "פעילות קהילתית": 1,
+    "אחר": 6,
+    "הצגה": 1,
+    "פינת חי": 3,
+    "טבע": 4,
+    "גן חיות": 1,
+    "חדשנות בחקלאות": 1,
+    "יצירה": 1,
+    "קולנוע לילדים": 1,
+    "ספורט": 6,
+    "בריכה": 2
+  },
+  "socialOnlyVenues": [],
+  "sourceHealth": {
+    "healthy": 11
+  },
+  "failureKinds": {},
+  "lowYieldSources": [
+    {
+      "name": "תיירות כפרית לב השרון",
+      "scans": 4,
+      "failKinds": {}
+    },
+    {
+      "name": "מוזיאון הילדים חולון",
+      "scans": 4,
+      "failKinds": {}
+    }
+  ],
+  "topYieldSources": [
+    {
+      "name": "ספארי רמת גן",
+      "scans": 2,
+      "ok": 2,
+      "found": 12,
+      "created": 3,
+      "updated": 0,
+      "dupes": 0,
+      "failKinds": {}
+    },
+    {
+      "name": "טכנודע - מוזיאון למדע ורפואה חדרה",
+      "scans": 3,
+      "ok": 3,
+      "found": 8,
+      "created": 4,
+      "updated": 0,
+      "dupes": 0,
+      "failKinds": {}
+    },
+    {
+      "name": "מדבריום - פארק חיות מדבר",
+      "scans": 3,
+      "ok": 3,
+      "found": 8,
+      "created": 4,
+      "updated": 0,
+      "dupes": 0,
+      "failKinds": {}
+    },
+    {
+      "name": "גן המדע מכון דוידסון - רחובות",
+      "scans": 1,
+      "ok": 1,
+      "found": 6,
+      "created": 6,
+      "updated": 0,
+      "dupes": 0,
+      "failKinds": {}
+    },
+    {
+      "name": "פארק ארץ הצבי - פינת חי במרכז",
+      "scans": 2,
+      "ok": 2,
+      "found": 6,
+      "created": 0,
+      "updated": 1,
+      "dupes": 0,
+      "failKinds": {}
+    },
+    {
+      "name": "גן החיות התנ\"כי ירושלים",
+      "scans": 6,
+      "ok": 3,
+      "found": 4,
+      "created": 0,
+      "updated": 0,
+      "dupes": 0,
+      "failKinds": {}
+    },
+    {
+      "name": "חוות ארץ האיילים - גוש עציון",
+      "scans": 1,
+      "ok": 1,
+      "found": 2,
+      "created": 1,
+      "updated": 0,
+      "dupes": 0,
+      "failKinds": {}
+    },
+    {
+      "name": "חוות הנדיב - פינת חי",
+      "scans": 1,
+      "ok": 1,
+      "found": 1,
+      "created": 1,
+      "updated": 0,
+      "dupes": 0,
+      "failKinds": {}
+    },
+    {
+      "name": "מוזיאון הילדים חולון",
+      "scans": 4,
+      "ok": 0,
+      "found": 0,
+      "created": 0,
+      "updated": 0,
+      "dupes": 0,
+      "failKinds": {}
+    },
+    {
+      "name": "תיירות כפרית לב השרון",
+      "scans": 4,
+      "ok": 2,
+      "found": 0,
+      "created": 0,
+      "updated": 0,
+      "dupes": 0,
+      "failKinds": {}
+    },
+    {
+      "name": "ממלכת הילדים - מוזיאון הכט אוניברסיטת חיפה",
+      "scans": 1,
+      "ok": 1,
+      "found": 0,
+      "created": 0,
+      "updated": 0,
+      "dupes": 0,
+      "failKinds": {}
+    }
+  ],
+  "gaps": [
+    {
+      "severity": "high",
+      "kind": "region_sources",
+      "region": "הצפון והעמק",
+      "message": "הצפון והעמק: only 0 active sources",
+      "action": "discover-sources.js --regions=<הצפון והעמק> --families=mall,municipality,library,community_center"
+    },
+    {
+      "severity": "high",
+      "kind": "region_sources",
+      "region": "חיפה והקריות",
+      "message": "חיפה והקריות: only 2 active sources",
+      "action": "discover-sources.js --regions=<חיפה והקריות> --families=mall,municipality,library,community_center"
+    },
+    {
+      "severity": "high",
+      "kind": "region_activities",
+      "region": "חיפה והקריות",
+      "message": "חיפה והקריות: only 7 non-playground activities live",
+      "action": "add event-yielding sources (municipality/mall) in this region"
+    },
+    {
+      "severity": "high",
+      "kind": "region_sources",
+      "region": "השרון",
+      "message": "השרון: only 2 active sources",
+      "action": "discover-sources.js --regions=<השרון> --families=mall,municipality,library,community_center"
+    },
+    {
+      "severity": "high",
+      "kind": "region_sources",
+      "region": "ירושלים והסביבה",
+      "message": "ירושלים והסביבה: only 2 active sources",
+      "action": "discover-sources.js --regions=<ירושלים והסביבה> --families=mall,municipality,library,community_center"
+    },
+    {
+      "severity": "high",
+      "kind": "region_activities",
+      "region": "ירושלים והסביבה",
+      "message": "ירושלים והסביבה: only 7 non-playground activities live",
+      "action": "add event-yielding sources (municipality/mall) in this region"
+    },
+    {
+      "severity": "high",
+      "kind": "region_sources",
+      "region": "השפלה והדרום",
+      "message": "השפלה והדרום: only 1 active sources",
+      "action": "discover-sources.js --regions=<השפלה והדרום> --families=mall,municipality,library,community_center"
+    },
+    {
+      "severity": "high",
+      "kind": "region_sources",
+      "region": "יו\"ש והבנימין",
+      "message": "יו\"ש והבנימין: only 0 active sources",
+      "action": "discover-sources.js --regions=<יו\"ש והבנימין> --families=mall,municipality,library,community_center"
+    },
+    {
+      "severity": "high",
+      "kind": "region_activities",
+      "region": "יו\"ש והבנימין",
+      "message": "יו\"ש והבנימין: only 0 non-playground activities live",
+      "action": "add event-yielding sources (municipality/mall) in this region"
+    },
+    {
+      "severity": "medium",
+      "kind": "region_family",
+      "region": "הצפון והעמק",
+      "family": "mall",
+      "message": "הצפון והעמק: no active mall source",
+      "action": "discover-sources.js --regions=<הצפון והעמק> --families=mall"
+    },
+    {
+      "severity": "medium",
+      "kind": "region_family",
+      "region": "הצפון והעמק",
+      "family": "municipality",
+      "message": "הצפון והעמק: no active municipality source",
+      "action": "discover-sources.js --regions=<הצפון והעמק> --families=municipality"
+    },
+    {
+      "severity": "medium",
+      "kind": "region_family",
+      "region": "הצפון והעמק",
+      "family": "library",
+      "message": "הצפון והעמק: no active library source",
+      "action": "discover-sources.js --regions=<הצפון והעמק> --families=library"
+    },
+    {
+      "severity": "medium",
+      "kind": "region_family",
+      "region": "הצפון והעמק",
+      "family": "community_center",
+      "message": "הצפון והעמק: no active community_center source",
+      "action": "discover-sources.js --regions=<הצפון והעמק> --families=community_center"
+    },
+    {
+      "severity": "medium",
+      "kind": "region_family",
+      "region": "הצפון והעמק",
+      "family": "museum",
+      "message": "הצפון והעמק: no active museum source",
+      "action": "discover-sources.js --regions=<הצפון והעמק> --families=museum"
+    },
+    {
+      "severity": "medium",
+      "kind": "region_family",
+      "region": "חיפה והקריות",
+      "family": "mall",
+      "message": "חיפה והקריות: no active mall source",
+      "action": "discover-sources.js --regions=<חיפה והקריות> --families=mall"
+    },
+    {
+      "severity": "medium",
+      "kind": "region_family",
+      "region": "חיפה והקריות",
+      "family": "municipality",
+      "message": "חיפה והקריות: no active municipality source",
+      "action": "discover-sources.js --regions=<חיפה והקריות> --families=municipality"
+    },
+    {
+      "severity": "medium",
+      "kind": "region_family",
+      "region": "חיפה והקריות",
+      "family": "library",
+      "message": "חיפה והקריות: no active library source",
+      "action": "discover-sources.js --regions=<חיפה והקריות> --families=library"
+    },
+    {
+      "severity": "medium",
+      "kind": "region_family",
+      "region": "חיפה והקריות",
+      "family": "community_center",
+      "message": "חיפה והקריות: no active community_center source",
+      "action": "discover-sources.js --regions=<חיפה והקריות> --families=community_center"
+    },
+    {
+      "severity": "medium",
+      "kind": "region_family",
+      "region": "השרון",
+      "family": "mall",
+      "message": "השרון: no active mall source",
+      "action": "discover-sources.js --regions=<השרון> --families=mall"
+    },
+    {
+      "severity": "medium",
+      "kind": "region_family",
+      "region": "השרון",
+      "family": "municipality",
+      "message": "השרון: no active municipality source",
+      "action": "discover-sources.js --regions=<השרון> --families=municipality"
+    },
+    {
+      "severity": "medium",
+      "kind": "region_family",
+      "region": "השרון",
+      "family": "library",
+      "message": "השרון: no active library source",
+      "action": "discover-sources.js --regions=<השרון> --families=library"
+    },
+    {
+      "severity": "medium",
+      "kind": "region_family",
+      "region": "השרון",
+      "family": "community_center",
+      "message": "השרון: no active community_center source",
+      "action": "discover-sources.js --regions=<השרון> --families=community_center"
+    },
+    {
+      "severity": "medium",
+      "kind": "region_family",
+      "region": "גוש דן והמרכז",
+      "family": "mall",
+      "message": "גוש דן והמרכז: no active mall source",
+      "action": "discover-sources.js --regions=<גוש דן והמרכז> --families=mall"
+    },
+    {
+      "severity": "medium",
+      "kind": "region_family",
+      "region": "גוש דן והמרכז",
+      "family": "municipality",
+      "message": "גוש דן והמרכז: no active municipality source",
+      "action": "discover-sources.js --regions=<גוש דן והמרכז> --families=municipality"
+    },
+    {
+      "severity": "medium",
+      "kind": "region_family",
+      "region": "גוש דן והמרכז",
+      "family": "library",
+      "message": "גוש דן והמרכז: no active library source",
+      "action": "discover-sources.js --regions=<גוש דן והמרכז> --families=library"
+    },
+    {
+      "severity": "medium",
+      "kind": "region_family",
+      "region": "גוש דן והמרכז",
+      "family": "community_center",
+      "message": "גוש דן והמרכז: no active community_center source",
+      "action": "discover-sources.js --regions=<גוש דן והמרכז> --families=community_center"
+    },
+    {
+      "severity": "medium",
+      "kind": "region_family",
+      "region": "ירושלים והסביבה",
+      "family": "mall",
+      "message": "ירושלים והסביבה: no active mall source",
+      "action": "discover-sources.js --regions=<ירושלים והסביבה> --families=mall"
+    },
+    {
+      "severity": "medium",
+      "kind": "region_family",
+      "region": "ירושלים והסביבה",
+      "family": "municipality",
+      "message": "ירושלים והסביבה: no active municipality source",
+      "action": "discover-sources.js --regions=<ירושלים והסביבה> --families=municipality"
+    },
+    {
+      "severity": "medium",
+      "kind": "region_family",
+      "region": "ירושלים והסביבה",
+      "family": "library",
+      "message": "ירושלים והסביבה: no active library source",
+      "action": "discover-sources.js --regions=<ירושלים והסביבה> --families=library"
+    },
+    {
+      "severity": "medium",
+      "kind": "region_family",
+      "region": "ירושלים והסביבה",
+      "family": "community_center",
+      "message": "ירושלים והסביבה: no active community_center source",
+      "action": "discover-sources.js --regions=<ירושלים והסביבה> --families=community_center"
+    },
+    {
+      "severity": "medium",
+      "kind": "region_family",
+      "region": "ירושלים והסביבה",
+      "family": "museum",
+      "message": "ירושלים והסביבה: no active museum source",
+      "action": "discover-sources.js --regions=<ירושלים והסביבה> --families=museum"
+    },
+    {
+      "severity": "medium",
+      "kind": "region_family",
+      "region": "השפלה והדרום",
+      "family": "mall",
+      "message": "השפלה והדרום: no active mall source",
+      "action": "discover-sources.js --regions=<השפלה והדרום> --families=mall"
+    },
+    {
+      "severity": "medium",
+      "kind": "region_family",
+      "region": "השפלה והדרום",
+      "family": "municipality",
+      "message": "השפלה והדרום: no active municipality source",
+      "action": "discover-sources.js --regions=<השפלה והדרום> --families=municipality"
+    },
+    {
+      "severity": "medium",
+      "kind": "region_family",
+      "region": "השפלה והדרום",
+      "family": "library",
+      "message": "השפלה והדרום: no active library source",
+      "action": "discover-sources.js --regions=<השפלה והדרום> --families=library"
+    },
+    {
+      "severity": "medium",
+      "kind": "region_family",
+      "region": "השפלה והדרום",
+      "family": "community_center",
+      "message": "השפלה והדרום: no active community_center source",
+      "action": "discover-sources.js --regions=<השפלה והדרום> --families=community_center"
+    },
+    {
+      "severity": "medium",
+      "kind": "region_family",
+      "region": "השפלה והדרום",
+      "family": "museum",
+      "message": "השפלה והדרום: no active museum source",
+      "action": "discover-sources.js --regions=<השפלה והדרום> --families=museum"
+    },
+    {
+      "severity": "medium",
+      "kind": "region_family",
+      "region": "יו\"ש והבנימין",
+      "family": "mall",
+      "message": "יו\"ש והבנימין: no active mall source",
+      "action": "discover-sources.js --regions=<יו\"ש והבנימין> --families=mall"
+    },
+    {
+      "severity": "medium",
+      "kind": "region_family",
+      "region": "יו\"ש והבנימין",
+      "family": "municipality",
+      "message": "יו\"ש והבנימין: no active municipality source",
+      "action": "discover-sources.js --regions=<יו\"ש והבנימין> --families=municipality"
+    },
+    {
+      "severity": "medium",
+      "kind": "region_family",
+      "region": "יו\"ש והבנימין",
+      "family": "library",
+      "message": "יו\"ש והבנימין: no active library source",
+      "action": "discover-sources.js --regions=<יו\"ש והבנימין> --families=library"
+    },
+    {
+      "severity": "medium",
+      "kind": "region_family",
+      "region": "יו\"ש והבנימין",
+      "family": "community_center",
+      "message": "יו\"ש והבנימין: no active community_center source",
+      "action": "discover-sources.js --regions=<יו\"ש והבנימין> --families=community_center"
+    },
+    {
+      "severity": "medium",
+      "kind": "region_family",
+      "region": "יו\"ש והבנימין",
+      "family": "museum",
+      "message": "יו\"ש והבנימין: no active museum source",
+      "action": "discover-sources.js --regions=<יו\"ש והבנימין> --families=museum"
+    },
+    {
+      "severity": "medium",
+      "kind": "family_thin",
+      "family": "library",
+      "message": "source family \"library\" has 0 active sources nationally",
+      "action": "discover-sources.js --families=library"
+    },
+    {
+      "severity": "medium",
+      "kind": "family_thin",
+      "family": "community_center",
+      "message": "source family \"community_center\" has 0 active sources nationally",
+      "action": "discover-sources.js --families=community_center"
+    },
+    {
+      "severity": "medium",
+      "kind": "family_thin",
+      "family": "theater",
+      "message": "source family \"theater\" has 0 active sources nationally",
+      "action": "discover-sources.js --families=theater"
+    },
+    {
+      "severity": "medium",
+      "kind": "family_thin",
+      "family": "nature",
+      "message": "source family \"nature\" has 0 active sources nationally",
+      "action": "discover-sources.js --families=nature"
+    },
+    {
+      "severity": "medium",
+      "kind": "family_thin",
+      "family": "organizer",
+      "message": "source family \"organizer\" has 0 active sources nationally",
+      "action": "discover-sources.js --families=organizer"
+    },
+    {
+      "severity": "medium",
+      "kind": "family_thin",
+      "family": "ticketing",
+      "message": "source family \"ticketing\" has 0 active sources nationally",
+      "action": "discover-sources.js --families=ticketing"
+    },
+    {
+      "severity": "medium",
+      "kind": "category_thin",
+      "category": "הצגה",
+      "message": "category \"הצגה\": 1 live activities",
+      "action": "target sources that publish this content (libraries/theaters/community centers/pools)"
+    },
+    {
+      "severity": "medium",
+      "kind": "category_thin",
+      "category": "שעת סיפור",
+      "message": "category \"שעת סיפור\": 0 live activities",
+      "action": "target sources that publish this content (libraries/theaters/community centers/pools)"
+    },
+    {
+      "severity": "medium",
+      "kind": "category_thin",
+      "category": "ספרייה",
+      "message": "category \"ספרייה\": 0 live activities",
+      "action": "target sources that publish this content (libraries/theaters/community centers/pools)"
+    },
+    {
+      "severity": "medium",
+      "kind": "category_thin",
+      "category": "יצירה",
+      "message": "category \"יצירה\": 1 live activities",
+      "action": "target sources that publish this content (libraries/theaters/community centers/pools)"
+    },
+    {
+      "severity": "medium",
+      "kind": "category_thin",
+      "category": "מדע",
+      "message": "category \"מדע\": 2 live activities",
+      "action": "target sources that publish this content (libraries/theaters/community centers/pools)"
+    },
+    {
+      "severity": "medium",
+      "kind": "category_thin",
+      "category": "פעילות מים",
+      "message": "category \"פעילות מים\": 3 live activities",
+      "action": "target sources that publish this content (libraries/theaters/community centers/pools)"
+    },
+    {
+      "severity": "medium",
+      "kind": "category_thin",
+      "category": "בריכה",
+      "message": "category \"בריכה\": 2 live activities",
+      "action": "target sources that publish this content (libraries/theaters/community centers/pools)"
+    },
+    {
+      "severity": "medium",
+      "kind": "category_thin",
+      "category": "טבע",
+      "message": "category \"טבע\": 4 live activities",
+      "action": "target sources that publish this content (libraries/theaters/community centers/pools)"
+    },
+    {
+      "severity": "medium",
+      "kind": "category_thin",
+      "category": "מוזיקה",
+      "message": "category \"מוזיקה\": 0 live activities",
+      "action": "target sources that publish this content (libraries/theaters/community centers/pools)"
+    },
+    {
+      "severity": "medium",
+      "kind": "category_thin",
+      "category": "ריקוד",
+      "message": "category \"ריקוד\": 0 live activities",
+      "action": "target sources that publish this content (libraries/theaters/community centers/pools)"
+    },
+    {
+      "severity": "medium",
+      "kind": "category_thin",
+      "category": "קולנוע לילדים",
+      "message": "category \"קולנוע לילדים\": 1 live activities",
+      "action": "target sources that publish this content (libraries/theaters/community centers/pools)"
+    },
+    {
+      "severity": "medium",
+      "kind": "category_thin",
+      "category": "פעילות עירונית",
+      "message": "category \"פעילות עירונית\": 0 live activities",
+      "action": "target sources that publish this content (libraries/theaters/community centers/pools)"
+    },
+    {
+      "severity": "medium",
+      "kind": "category_thin",
+      "category": "פעילות קהילתית",
+      "message": "category \"פעילות קהילתית\": 1 live activities",
+      "action": "target sources that publish this content (libraries/theaters/community centers/pools)"
+    },
+    {
+      "severity": "low",
+      "kind": "low_yield",
+      "message": "2 active sources scanned ≥2× in 30d with zero activities",
+      "action": "inspect seed URL (maybe a homepage, not the events page) or lower priority"
+    }
+  ]
+}

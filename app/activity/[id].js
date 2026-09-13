@@ -616,7 +616,7 @@ export default function ActivityScreen() {
               <Pressable onPress={() => Linking.openURL(activity.officialUrl)} hitSlop={6}>
                 <Text style={styles.sourceLink}>🔗 אתר רשמי</Text>
               </Pressable>
-            ) : activity.sourceUrl ? (
+            ) : activity.sourceUrl && !activity.sourceUrl.includes('openstreetmap.org') ? (
               <Pressable onPress={() => Linking.openURL(activity.sourceUrl)} hitSlop={6}>
                 <Text style={styles.sourceLink}>🔗 המידע נאסף מהאתר הזה - למקור</Text>
               </Pressable>

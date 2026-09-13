@@ -150,6 +150,19 @@ function renderSourcesPage() {
       <div class="field"><label>אזור</label><select id="fRegion"><option value="">-- ללא --</option></select></div>
       <div class="field"><label>תדירות סריקה</label><select id="fFreq"><option value="12">כל 12 שעות</option><option value="24" selected>כל 24 שעות</option><option value="72">כל 3 ימים</option><option value="168">כל שבוע</option></select></div>
       <div class="field"><label>ציון אמון (0-100, ריק = לא הוגדר)</label><input id="fTrust" type="number" min="0" max="100" placeholder="לא הוגדר"></div>
+      <div class="field"><label>סוג מקור (מה הדף)</label><select id="fKind">
+        <option value="website">אתר</option><option value="events_page">עמוד אירועים</option><option value="municipality_calendar">לוח אירועים עירוני</option>
+        <option value="chain_events_page">עמוד אירועים של רשת</option><option value="aggregator">אגרגטור</option><option value="ticketing">כרטיסים</option>
+        <option value="facebook">פייסבוק (לא נתמך לסריקה)</option><option value="instagram">אינסטגרם (לא נתמך לסריקה)</option><option value="rss">RSS</option><option value="api">API</option><option value="other">אחר</option>
+      </select></div>
+      <div class="field"><label>מי מפרסם (WHO)</label><select id="fPublisherType">
+        <option value="">--</option><option value="venue_operator">המקום עצמו</option><option value="municipality">עירייה</option><option value="local_council">מועצה מקומית</option>
+        <option value="regional_council">מועצה אזורית</option><option value="mall_chain">רשת קניונים</option><option value="organizer">מארגן/מפיק</option>
+        <option value="community_center_network">רשת מתנ״סים</option><option value="library_network">רשת ספריות</option><option value="aggregator">אגרגטור</option><option value="government_body">גוף ממשלתי</option><option value="other">אחר</option>
+      </select></div>
+      <div class="field"><label>שם המפרסם</label><input id="fPublisherName" type="text" placeholder="למשל: עיריית חיפה / אמות קניונים"></div>
+      <div class="field"><label>מקום קנוני (WHERE) - רק אם זה העמוד של המקום עצמו</label><select id="fVenue"><option value="">-- ללא --</option></select></div>
+      <div class="field"><label>עדיפות (1-10, 8+ = מקור בעל ערך גבוה, לא מושהה אוטומטית)</label><input id="fPriority" type="number" min="1" max="10" value="5"></div>
       <div class="field full">
         <label>קטגוריות רלוונטיות (אופציונלי - להנחיה/סינון עתידי)</label>
         <div id="fCategories" class="cat-checks"></div>
@@ -249,6 +262,11 @@ function renderSourcesPage() {
     document.getElementById('fTrust').value = source && source.source_trust_score != null ? source.source_trust_score : '';
     document.getElementById('fActive').checked = source ? source.is_active : true;
     document.getElementById('fTrusted').checked = source ? source.is_trusted : false;
+    document.getElementById('fKind').value = source ? (source.source_kind || 'website') : 'website';
+    document.getElementById('fPublisherType').value = source ? (source.publisher_type || '') : '';
+    document.getElementById('fPublisherName').value = source ? (source.publisher_name || '') : '';
+    document.getElementById('fPriority').value = source ? String(source.priority ?? 5) : '5';
+    renderVenueOptions(source ? source.venue_id : '');
     renderRegionOptions(source ? source.region : '');
     renderCategoryChecks(source ? source.categories : []);
     $formCard.style.display = 'block';
@@ -275,6 +293,11 @@ function renderSourcesPage() {
       is_active: document.getElementById('fActive').checked,
       is_trusted: document.getElementById('fTrusted').checked,
       source_trust_score: trustRaw === '' ? null : Number(trustRaw),
+      source_kind: document.getElementById('fKind').value,
+      publisher_type: document.getElementById('fPublisherType').value || null,
+      publisher_name: document.getElementById('fPublisherName').value.trim() || null,
+      venue_id: document.getElementById('fVenue').value || null,
+      priority: Math.min(10, Math.max(1, Number(document.getElementById('fPriority').value) || 5)),
     };
     $saveSourceBtn.disabled = true;
     try {
@@ -359,6 +382,18 @@ function renderSourcesPage() {
     return '<span class="badge trust-' + s.source_trust_level + '">ציון אמון: ' + s.source_trust_score + ' (' + s.source_trust_level + ')</span>';
   }
 
+  const HEALTH_LABELS = { healthy: '💚 תקין', failing: '🟡 כשלים אחרונים', backed_off: '🟠 בהאטה (backoff)', attention_required: '🔴 דורש תשומת לב', auto_paused: '⏸️ הושהה אוטומטית' };
+  const FAILURE_LABELS = { gone_404: 'הדף נעלם (404)', access_403_waf: 'חסימת גישה (403/WAF)', timeout_network: 'timeout/רשת', parse_extraction: 'כשל חילוץ', content_changed: 'התוכן השתנה - לא נמצאו פעילויות', unknown: 'לא ידוע' };
+  const KIND_LABELS = { website: 'אתר', events_page: 'עמוד אירועים', municipality_calendar: 'לוח עירוני', chain_events_page: 'אירועי רשת', aggregator: 'אגרגטור', ticketing: 'כרטיסים', facebook: 'פייסבוק', instagram: 'אינסטגרם', rss: 'RSS', api: 'API', other: 'אחר' };
+  let venueNames = {};
+
+  function healthBadge(s) {
+    const h = s.health_status || 'healthy';
+    if (!s.is_active && ['facebook', 'instagram'].includes(s.source_kind)) return '<span class="badge paused">📵 לא נתמך לסריקה (רשת חברתית)</span>';
+    const cls = h === 'healthy' ? 'active' : (h === 'failing' || h === 'backed_off' ? 'trust-MEDIUM' : 'error');
+    return '<span class="badge ' + cls + '">' + (HEALTH_LABELS[h] || h) + (s.consecutive_failures ? ' (' + s.consecutive_failures + ')' : '') + '</span>';
+  }
+
   function renderCard(s) {
     const statusBadge = s.last_scan_status === 'error'
       ? '<span class="badge error">⚠️ סריקה אחרונה נכשלה</span>'
@@ -367,12 +402,19 @@ function renderSourcesPage() {
       '<div class="source-head">' +
         '<span class="source-name">' + escapeHtml(s.name) + '</span>' +
         '<span class="badge ' + (s.is_active ? 'active' : 'paused') + '">' + (s.is_active ? '🟢 פעיל' : '⏸️ מושהה') + '</span>' +
+        healthBadge(s) +
         trustBadge(s) +
         (s.is_trusted ? '<span class="badge trusted">⭐ מהימן</span>' : '') +
+        ((s.priority || 5) >= 8 ? '<span class="badge trusted">🔝 עדיפות ' + s.priority + '</span>' : '') +
         statusBadge +
       '</div>' +
       '<div class="source-url"><a href="' + escapeHtml(s.seed_url) + '" target="_blank" rel="noopener">' + escapeHtml(s.seed_url) + '</a></div>' +
       '<div class="source-meta">' +
+        '<span><b>סוג:</b> ' + escapeHtml(KIND_LABELS[s.source_kind] || s.source_kind || 'אתר') + '</span>' +
+        (s.publisher_name || s.publisher_type ? '<span><b>מפרסם:</b> ' + escapeHtml([s.publisher_name, s.publisher_type].filter(Boolean).join(' · ')) + '</span>' : '') +
+        (s.venue_id ? '<span><b>מקום:</b> 🏬 ' + escapeHtml(venueNames[s.venue_id] || s.venue_id) + '</span>' : '') +
+        (s.last_failure_kind ? '<span><b>סוג כשל אחרון:</b> ' + escapeHtml(FAILURE_LABELS[s.last_failure_kind] || s.last_failure_kind) + '</span>' : '') +
+        (s.disabled_reason ? '<span style="color:oklch(0.5 0.18 25);"><b>סיבת השהיה:</b> ' + escapeHtml(s.disabled_reason) + '</span>' : '') +
         '<span><b>אזור:</b> ' + escapeHtml(s.region || '—') + '</span>' +
         '<span><b>תדירות:</b> כל ' + s.scan_frequency_hours + ' שעות</span>' +
         '<span><b>סריקה אחרונה:</b> ' + formatDate(s.last_scan_at) + '</span>' +
@@ -381,6 +423,8 @@ function renderSourcesPage() {
       '</div>' +
       (s.last_scan_error ? '<div class="source-meta" style="color:oklch(0.5 0.18 25);">שגיאה אחרונה: ' + escapeHtml(s.last_scan_error) + '</div>' : '') +
       '<div class="source-actions">' +
+        ((!s.is_active || ['attention_required', 'backed_off', 'auto_paused'].includes(s.health_status)) && !['facebook', 'instagram'].includes(s.source_kind)
+          ? '<button class="secondary-btn" data-action="reactivate" data-id="' + s.id + '">🔁 הפעל מחדש (איפוס כשלים)</button>' : '') +
         '<button class="secondary-btn" data-action="scan" data-id="' + s.id + '">🔍 סרוק עכשיו</button>' +
         '<button class="secondary-btn" data-action="logs" data-id="' + s.id + '">📜 היסטוריית סריקות</button>' +
         '<button class="secondary-btn" data-action="edit" data-id="' + s.id + '">✏️ עריכה</button>' +
@@ -409,10 +453,39 @@ function renderSourcesPage() {
     if (!btn) return;
     const id = btn.dataset.id;
     if (btn.dataset.action === 'scan') scanNow(id, btn);
+    else if (btn.dataset.action === 'reactivate') reactivateSource(id, btn);
     else if (btn.dataset.action === 'logs') toggleLogs(id);
     else if (btn.dataset.action === 'edit') editSourceById(id);
     else if (btn.dataset.action === 'delete') deleteSource(id);
   });
+
+  async function reactivateSource(id, btn) {
+    btn.disabled = true;
+    try {
+      const res = await fetch('/api/sources/' + id + '/reactivate', { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'שגיאה לא ידועה');
+      await load();
+    } catch (err) {
+      alert('שגיאה בהפעלה מחדש: ' + err.message);
+      btn.disabled = false;
+    }
+  }
+
+  let venuesList = [];
+  function renderVenueOptions(selected) {
+    const $v = document.getElementById('fVenue');
+    $v.innerHTML = '<option value="">-- ללא --</option>' + venuesList.filter((v) => v.is_active).map((v) => (
+      '<option value="' + v.id + '"' + (v.id === selected ? ' selected' : '') + '>' + escapeHtml(v.name_he + (v.city ? ' · ' + v.city : '')) + '</option>'
+    )).join('');
+  }
+  async function loadVenues() {
+    try {
+      const res = await fetch('/api/venues');
+      const data = await res.json();
+      if (res.ok) { venuesList = data.venues || []; venueNames = Object.fromEntries(venuesList.map((v) => [v.id, v.name_he])); }
+    } catch { /* venues are optional decoration here */ }
+  }
 
   async function toggleKillSwitch() {
     const next = !(settings.scanning_enabled !== false);
@@ -465,6 +538,7 @@ function renderSourcesPage() {
 
   async function load() {
     try {
+      await loadVenues();
       const [sourcesRes, settingsRes, optionsRes] = await Promise.all([
         fetch('/api/sources'), fetch('/api/automation-settings'), fetch('/api/manage/options'),
       ]);

@@ -246,6 +246,8 @@ function renderIncomingPage() {
         '<span><a href="' + escapeHtml(r.page_url) + '" target="_blank" rel="noopener">🔗 הדף המקורי</a></span>' +
         '<span>נמצא: ' + formatDate(r.found_at) + '</span>' +
         (r.existingActivity ? '<span>פעילות קיימת: ' + escapeHtml(r.existingActivity.name) + '</span>' : '') +
+        (c.venue_id ? '<span class="badge trust">🏬 מקום קנוני מזוהה</span>' : '') +
+        (c.organizer_name ? '<span>מארגן: ' + escapeHtml(c.organizer_name) + '</span>' : '') +
       '</div>' +
       (r.validation_issues && r.validation_issues.length
         ? '<div class="issues-row">' + r.validation_issues.map((i) => '<span class="badge issue">⚠️ חסר: ' + escapeHtml(i) + '</span>').join('') + '</div>'

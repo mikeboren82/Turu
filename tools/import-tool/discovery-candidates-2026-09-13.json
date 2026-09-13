@@ -1,0 +1,1591 @@
+{
+  "generatedAt": "2026-09-13T11:35:05.557Z",
+  "queries": [],
+  "candidates": [
+    {
+      "url": "https://www.karmiel.muni.il/city/culture/",
+      "title": "מינהלת התרבות - עיריית כרמיאל",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 200,
+      "ms": 750,
+      "charset": "UTF-8",
+      "textChars": 28492,
+      "hebrewChars": 16370,
+      "keywordHits": 34,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://www.karmiel.muni.il/city/culture/",
+      "verdict": "scrapable",
+      "family": "municipality",
+      "score": 85,
+      "approved": true,
+      "suggested": {
+        "source_kind": "municipality_calendar",
+        "publisher_type": "municipality",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 85
+      },
+      "overrides": {
+        "name": "עיריית כרמיאל - מינהלת התרבות",
+        "source_kind": "municipality_calendar",
+        "publisher_type": "municipality",
+        "publisher_name": "עיריית כרמיאל",
+        "region": "הצפון והעמק",
+        "priority": 8,
+        "source_trust_score": 85
+      },
+      "name": "עיריית כרמיאל - מינהלת התרבות",
+      "region": "הצפון והעמק"
+    },
+    {
+      "url": "https://www.htk.co.il/",
+      "title": "היכל התרבות כרמיאל",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 200,
+      "ms": 680,
+      "charset": "UTF-8",
+      "textChars": 26439,
+      "hebrewChars": 16969,
+      "keywordHits": 153,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://www.htk.co.il/",
+      "verdict": "scrapable",
+      "family": "theater",
+      "score": 85,
+      "approved": true,
+      "suggested": {
+        "source_kind": "events_page",
+        "publisher_type": "other",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 70
+      },
+      "overrides": {
+        "name": "היכל התרבות כרמיאל",
+        "source_kind": "events_page",
+        "publisher_type": "venue_operator",
+        "venue": "htk_karmiel",
+        "region": "הצפון והעמק",
+        "priority": 7,
+        "source_trust_score": 85,
+        "categories": [
+          "הצגה"
+        ]
+      },
+      "name": "היכל התרבות כרמיאל",
+      "venue": "htk_karmiel",
+      "region": "הצפון והעמק"
+    },
+    {
+      "url": "https://www.htakko.co.il/",
+      "title": "היכל התרבות בעכו - עיריית עכו",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 200,
+      "ms": 835,
+      "charset": "UTF-8",
+      "textChars": 7805,
+      "hebrewChars": 5346,
+      "keywordHits": 56,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://www.htakko.co.il/",
+      "verdict": "scrapable",
+      "family": "municipality",
+      "score": 85,
+      "approved": true,
+      "suggested": {
+        "source_kind": "municipality_calendar",
+        "publisher_type": "municipality",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 85
+      },
+      "overrides": {
+        "name": "היכל התרבות עכו",
+        "source_kind": "events_page",
+        "publisher_type": "municipality",
+        "publisher_name": "עיריית עכו",
+        "venue": "htakko",
+        "region": "הצפון והעמק",
+        "priority": 7,
+        "source_trust_score": 85,
+        "categories": [
+          "הצגה"
+        ]
+      },
+      "name": "היכל התרבות עכו",
+      "venue": "htakko",
+      "region": "הצפון והעמק"
+    },
+    {
+      "url": "https://www.gezer-region.muni.il/events/?category=4&daterange=month",
+      "title": "ילדים | אירועים",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 200,
+      "ms": 2311,
+      "charset": "UTF-8",
+      "textChars": 25258,
+      "hebrewChars": 19035,
+      "keywordHits": 34,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://gezer-region.muni.il/events/?category=4&daterange=month",
+      "verdict": "scrapable",
+      "family": "municipality",
+      "score": 85,
+      "approved": true,
+      "suggested": {
+        "source_kind": "municipality_calendar",
+        "publisher_type": "municipality",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 85
+      },
+      "overrides": {
+        "name": "מועצה אזורית גזר - אירועי ילדים",
+        "source_kind": "municipality_calendar",
+        "publisher_type": "regional_council",
+        "publisher_name": "מועצה אזורית גזר",
+        "region": "השפלה והדרום",
+        "priority": 8,
+        "source_trust_score": 85
+      },
+      "name": "מועצה אזורית גזר - אירועי ילדים",
+      "region": "השפלה והדרום"
+    },
+    {
+      "url": "https://www.ticketsi.co.il/%D7%94%D7%A6%D7%92%D7%95%D7%AA-%D7%99%D7%9C%D7%93%D7%99%D7%9D",
+      "title": "הצגות ילדים 2026 - הרשימה המלאה של כל ההופעות לילדים לפי תאריך | Ticketsi",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 200,
+      "ms": 530,
+      "charset": "UTF-8",
+      "textChars": 50059,
+      "hebrewChars": 35784,
+      "keywordHits": 331,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://www.ticketsi.co.il/%D7%94%D7%A6%D7%92%D7%95%D7%AA-%D7%99%D7%9C%D7%93%D7%99%D7%9D",
+      "verdict": "scrapable",
+      "family": "theater",
+      "score": 85,
+      "approved": true,
+      "suggested": {
+        "source_kind": "events_page",
+        "publisher_type": "other",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 70
+      },
+      "overrides": {
+        "name": "Ticketsi - הצגות ילדים (אגרגטור כרטיסים)",
+        "source_kind": "aggregator",
+        "publisher_type": "aggregator",
+        "publisher_name": "Ticketsi",
+        "region": null,
+        "priority": 6,
+        "source_trust_score": 55,
+        "categories": [
+          "הצגה"
+        ]
+      },
+      "name": "Ticketsi - הצגות ילדים (אגרגטור כרטיסים)"
+    },
+    {
+      "url": "https://www.kzat-tarbut.com/%D7%94%D7%A6%D7%92%D7%95%D7%AA-%D7%99%D7%9C%D7%93%D7%99%D7%9D-%D7%9B%D7%A8%D7%98%D7%99%D7%A1%D7%99%D7%9D/",
+      "title": "הצגות ילדים 2026 - הזמנת כרטיסים ולוח ההצגות המוביל והגדול בישראל | קצת תרבות - הצגות והופעות",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 200,
+      "ms": 473,
+      "charset": "UTF-8",
+      "textChars": 56633,
+      "hebrewChars": 40865,
+      "keywordHits": 517,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://www.kzat-tarbut.com/%D7%94%D7%A6%D7%92%D7%95%D7%AA-%D7%99%D7%9C%D7%93%D7%99%D7%9D-%D7%9B%D7%A8%D7%98%D7%99%D7%A1%D7%99%D7%9D/",
+      "verdict": "scrapable",
+      "family": "theater",
+      "score": 85,
+      "approved": true,
+      "suggested": {
+        "source_kind": "events_page",
+        "publisher_type": "other",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 70
+      },
+      "overrides": {
+        "name": "קצת תרבות - הצגות ילדים (אגרגטור כרטיסים)",
+        "source_kind": "aggregator",
+        "publisher_type": "aggregator",
+        "publisher_name": "קצת תרבות",
+        "region": null,
+        "priority": 6,
+        "source_trust_score": 55,
+        "categories": [
+          "הצגה"
+        ]
+      },
+      "name": "קצת תרבות - הצגות ילדים (אגרגטור כרטיסים)"
+    },
+    {
+      "url": "https://www.kfar-saba.muni.il/",
+      "title": "אתר האינטרנט של עיריית כפר סבא",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 200,
+      "ms": 1117,
+      "charset": "UTF-8",
+      "textChars": 30976,
+      "hebrewChars": 24197,
+      "keywordHits": 57,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://www.kfar-saba.muni.il/",
+      "verdict": "scrapable",
+      "family": "municipality",
+      "score": 85,
+      "approved": true,
+      "suggested": {
+        "source_kind": "municipality_calendar",
+        "publisher_type": "municipality",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 85
+      },
+      "overrides": {
+        "name": "עיריית כפר סבא",
+        "source_kind": "website",
+        "publisher_type": "municipality",
+        "publisher_name": "עיריית כפר סבא",
+        "region": "השרון",
+        "priority": 5,
+        "source_trust_score": 85,
+        "scan_frequency_hours": 168
+      },
+      "name": "עיריית כפר סבא",
+      "region": "השרון"
+    },
+    {
+      "url": "https://www.hadera.muni.il/",
+      "title": "אתר האינטרנט – עיריית חדרה",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 200,
+      "ms": 7209,
+      "charset": "UTF-8",
+      "textChars": 28263,
+      "hebrewChars": 21430,
+      "keywordHits": 36,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://www.hadera.muni.il/",
+      "verdict": "scrapable",
+      "family": "municipality",
+      "score": 85,
+      "approved": true,
+      "suggested": {
+        "source_kind": "municipality_calendar",
+        "publisher_type": "municipality",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 85
+      },
+      "overrides": {
+        "name": "עיריית חדרה",
+        "source_kind": "website",
+        "publisher_type": "municipality",
+        "publisher_name": "עיריית חדרה",
+        "region": "השרון",
+        "priority": 5,
+        "source_trust_score": 85,
+        "scan_frequency_hours": 168
+      },
+      "name": "עיריית חדרה",
+      "region": "השרון"
+    },
+    {
+      "url": "https://www.bat-yam.muni.il/",
+      "title": "עיריית בת ים",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 200,
+      "ms": 1180,
+      "charset": "UTF-8",
+      "textChars": 17001,
+      "hebrewChars": 13392,
+      "keywordHits": 40,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://www.bat-yam.muni.il/he/",
+      "verdict": "scrapable",
+      "family": "municipality",
+      "score": 85,
+      "approved": true,
+      "suggested": {
+        "source_kind": "municipality_calendar",
+        "publisher_type": "municipality",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 85
+      },
+      "overrides": {
+        "name": "עיריית בת ים",
+        "source_kind": "website",
+        "publisher_type": "municipality",
+        "publisher_name": "עיריית בת ים",
+        "region": "גוש דן והמרכז",
+        "priority": 5,
+        "source_trust_score": 85,
+        "scan_frequency_hours": 168
+      },
+      "name": "עיריית בת ים",
+      "region": "גוש דן והמרכז"
+    },
+    {
+      "url": "https://www.ashdod.muni.il/",
+      "title": "אתר העיר",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 200,
+      "ms": 3942,
+      "charset": "utf-8",
+      "textChars": 40061,
+      "hebrewChars": 26891,
+      "keywordHits": 104,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://www.ashdod.muni.il/he-il/%d7%90%d7%aa%d7%a8-%d7%94%d7%a2%d7%99%d7%a8/",
+      "verdict": "scrapable",
+      "family": "municipality",
+      "score": 85,
+      "approved": true,
+      "suggested": {
+        "source_kind": "municipality_calendar",
+        "publisher_type": "municipality",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 85
+      },
+      "overrides": {
+        "name": "עיריית אשדוד",
+        "source_kind": "website",
+        "publisher_type": "municipality",
+        "publisher_name": "עיריית אשדוד",
+        "region": "השפלה והדרום",
+        "priority": 5,
+        "source_trust_score": 85,
+        "scan_frequency_hours": 168
+      },
+      "name": "עיריית אשדוד",
+      "region": "השפלה והדרום"
+    },
+    {
+      "url": "https://www.nof-hagalil.muni.il/%D7%A8%D7%A9%D7%AA-%D7%94%D7%9E%D7%A8%D7%9B%D7%96%D7%99%D7%9D-%D7%94%D7%A7%D7%94%D7%99%D7%9C%D7%AA%D7%99%D7%99%D7%9D/",
+      "title": "רשת המרכזים הקהילתיים \"פסיפס\"",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 200,
+      "ms": 860,
+      "charset": "UTF-8",
+      "textChars": 11238,
+      "hebrewChars": 8937,
+      "keywordHits": 26,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://www.nof-hagalil.muni.il/%D7%A8%D7%A9%D7%AA-%D7%94%D7%9E%D7%A8%D7%9B%D7%96%D7%99%D7%9D-%D7%94%D7%A7%D7%94%D7%99%D7%9C%D7%AA%D7%99%D7%99%D7%9D/",
+      "verdict": "scrapable",
+      "family": "municipality",
+      "score": 81,
+      "approved": true,
+      "suggested": {
+        "source_kind": "municipality_calendar",
+        "publisher_type": "municipality",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 85
+      },
+      "overrides": {
+        "name": "נוף הגליל - רשת המרכזים הקהילתיים פסיפס",
+        "source_kind": "website",
+        "publisher_type": "community_center_network",
+        "publisher_name": "פסיפס - נוף הגליל",
+        "region": "הצפון והעמק",
+        "priority": 6,
+        "source_trust_score": 85
+      },
+      "name": "נוף הגליל - רשת המרכזים הקהילתיים פסיפס",
+      "region": "הצפון והעמק"
+    },
+    {
+      "url": "https://www.yavne.muni.il/",
+      "title": "עיריית יבנה",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 200,
+      "ms": 656,
+      "charset": "UTF-8",
+      "textChars": 12977,
+      "hebrewChars": 10334,
+      "keywordHits": 26,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://www.yavne.muni.il/",
+      "verdict": "scrapable",
+      "family": "municipality",
+      "score": 81,
+      "approved": true,
+      "suggested": {
+        "source_kind": "municipality_calendar",
+        "publisher_type": "municipality",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 85
+      },
+      "overrides": {
+        "name": "עיריית יבנה",
+        "source_kind": "website",
+        "publisher_type": "municipality",
+        "publisher_name": "עיריית יבנה",
+        "region": "השפלה והדרום",
+        "priority": 5,
+        "source_trust_score": 85,
+        "scan_frequency_hours": 168
+      },
+      "name": "עיריית יבנה",
+      "region": "השפלה והדרום"
+    },
+    {
+      "url": "https://www.akko.muni.il/",
+      "title": "עיריית עכו",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 200,
+      "ms": 514,
+      "charset": "UTF-8",
+      "textChars": 9829,
+      "hebrewChars": 7773,
+      "keywordHits": 23,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://www.akko.muni.il/he/",
+      "verdict": "scrapable",
+      "family": "municipality",
+      "score": 78,
+      "approved": true,
+      "suggested": {
+        "source_kind": "municipality_calendar",
+        "publisher_type": "municipality",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 85
+      },
+      "overrides": {
+        "name": "עיריית עכו",
+        "source_kind": "website",
+        "publisher_type": "municipality",
+        "publisher_name": "עיריית עכו",
+        "region": "הצפון והעמק",
+        "priority": 6,
+        "source_trust_score": 85,
+        "scan_frequency_hours": 168
+      },
+      "name": "עיריית עכו",
+      "region": "הצפון והעמק"
+    },
+    {
+      "url": "https://htma.smarticket.co.il/",
+      "title": "דף הבית • היכל התרבות מעלה אדומים",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 200,
+      "ms": 1207,
+      "charset": "UTF-8",
+      "textChars": 8157,
+      "hebrewChars": 5651,
+      "keywordHits": 21,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://htma.smarticket.co.il/",
+      "verdict": "scrapable",
+      "family": "theater",
+      "score": 76,
+      "approved": true,
+      "suggested": {
+        "source_kind": "events_page",
+        "publisher_type": "other",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 70
+      },
+      "overrides": {
+        "name": "היכל התרבות מעלה אדומים",
+        "source_kind": "ticketing",
+        "publisher_type": "venue_operator",
+        "venue": "htma",
+        "region": "ירושלים והסביבה",
+        "priority": 6,
+        "source_trust_score": 80,
+        "categories": [
+          "הצגה"
+        ]
+      },
+      "name": "היכל התרבות מעלה אדומים",
+      "venue": "htma",
+      "region": "ירושלים והסביבה"
+    },
+    {
+      "url": "https://www.zhk.co.il/events/",
+      "title": "לוח בידור | אירועי תרבות בכרמיאל, משגב והסביבה | תרבות ופנאי | זהר הצפון",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 200,
+      "ms": 582,
+      "charset": "UTF-8",
+      "textChars": 3826,
+      "hebrewChars": 2929,
+      "keywordHits": 23,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://www.zhk.co.il/events/",
+      "verdict": "scrapable",
+      "family": "other",
+      "score": 73,
+      "approved": true,
+      "suggested": {
+        "source_kind": "events_page",
+        "publisher_type": "other",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 70
+      },
+      "overrides": {
+        "name": "זהר הצפון - לוח אירועים כרמיאל משגב (מקומון)",
+        "source_kind": "aggregator",
+        "publisher_type": "aggregator",
+        "publisher_name": "זהר הצפון",
+        "region": "הצפון והעמק",
+        "priority": 5,
+        "source_trust_score": 50
+      },
+      "name": "זהר הצפון - לוח אירועים כרמיאל משגב (מקומון)",
+      "region": "הצפון והעמק"
+    },
+    {
+      "url": "https://www.eilat.muni.il/",
+      "title": "עיריית אילת",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 200,
+      "ms": 1789,
+      "charset": "UTF-8",
+      "textChars": 6566,
+      "hebrewChars": 5279,
+      "keywordHits": 17,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://www.eilat.muni.il/",
+      "verdict": "scrapable",
+      "family": "municipality",
+      "score": 72,
+      "approved": true,
+      "suggested": {
+        "source_kind": "municipality_calendar",
+        "publisher_type": "municipality",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 85
+      },
+      "overrides": {
+        "name": "עיריית אילת",
+        "source_kind": "website",
+        "publisher_type": "municipality",
+        "publisher_name": "עיריית אילת",
+        "region": "השפלה והדרום",
+        "priority": 6,
+        "source_trust_score": 85,
+        "scan_frequency_hours": 168
+      },
+      "name": "עיריית אילת",
+      "region": "השפלה והדרום"
+    },
+    {
+      "url": "https://www.lod.muni.il/",
+      "title": "עיריית לוד",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 200,
+      "ms": 1101,
+      "charset": "UTF-8",
+      "textChars": 13712,
+      "hebrewChars": 10415,
+      "keywordHits": 15,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://www.lod.muni.il/he/",
+      "verdict": "scrapable",
+      "family": "municipality",
+      "score": 70,
+      "approved": true,
+      "suggested": {
+        "source_kind": "municipality_calendar",
+        "publisher_type": "municipality",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 85
+      },
+      "overrides": {
+        "name": "עיריית לוד",
+        "source_kind": "website",
+        "publisher_type": "municipality",
+        "publisher_name": "עיריית לוד",
+        "region": "השפלה והדרום",
+        "priority": 6,
+        "source_trust_score": 85,
+        "scan_frequency_hours": 168
+      },
+      "name": "עיריית לוד",
+      "region": "השפלה והדרום"
+    },
+    {
+      "url": "https://www.afula.muni.il/",
+      "title": "עיריית עפולה",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 200,
+      "ms": 1769,
+      "charset": "UTF-8",
+      "textChars": 12805,
+      "hebrewChars": 10299,
+      "keywordHits": 15,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://www.afula.muni.il/he/",
+      "verdict": "scrapable",
+      "family": "municipality",
+      "score": 70,
+      "approved": true,
+      "suggested": {
+        "source_kind": "municipality_calendar",
+        "publisher_type": "municipality",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 85
+      },
+      "overrides": {
+        "name": "עיריית עפולה",
+        "source_kind": "website",
+        "publisher_type": "municipality",
+        "publisher_name": "עיריית עפולה",
+        "region": "הצפון והעמק",
+        "priority": 6,
+        "source_trust_score": 85,
+        "scan_frequency_hours": 168
+      },
+      "name": "עיריית עפולה",
+      "region": "הצפון והעמק"
+    },
+    {
+      "url": "https://www.nahariya.muni.il/events/",
+      "title": "אירועים",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 200,
+      "ms": 253,
+      "charset": "UTF-8",
+      "textChars": 8053,
+      "hebrewChars": 6126,
+      "keywordHits": 14,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://www.nahariya.muni.il/events/",
+      "verdict": "scrapable",
+      "family": "municipality",
+      "score": 69,
+      "approved": true,
+      "suggested": {
+        "source_kind": "municipality_calendar",
+        "publisher_type": "municipality",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 85
+      },
+      "overrides": {
+        "name": "עיריית נהריה - אירועים",
+        "source_kind": "municipality_calendar",
+        "publisher_type": "municipality",
+        "publisher_name": "עיריית נהריה",
+        "region": "הצפון והעמק",
+        "priority": 8,
+        "source_trust_score": 85
+      },
+      "name": "עיריית נהריה - אירועים",
+      "region": "הצפון והעמק"
+    },
+    {
+      "url": "https://visit.ashdod.muni.il/events/",
+      "title": "אירועים - תיירות אשדוד",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 200,
+      "ms": 657,
+      "charset": "UTF-8",
+      "textChars": 2516,
+      "hebrewChars": 1815,
+      "keywordHits": 9,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://visit.ashdod.muni.il/events/",
+      "verdict": "scrapable",
+      "family": "municipality",
+      "score": 64,
+      "approved": true,
+      "suggested": {
+        "source_kind": "municipality_calendar",
+        "publisher_type": "municipality",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 85
+      },
+      "overrides": {
+        "name": "תיירות אשדוד - אירועים",
+        "source_kind": "municipality_calendar",
+        "publisher_type": "municipality",
+        "publisher_name": "עיריית אשדוד (תיירות)",
+        "region": "השפלה והדרום",
+        "priority": 7,
+        "source_trust_score": 85
+      },
+      "name": "תיירות אשדוד - אירועים",
+      "region": "השפלה והדרום"
+    },
+    {
+      "url": "https://matnasbs.org.il/events/",
+      "title": "לוח אירועים",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 200,
+      "ms": 607,
+      "charset": "UTF-8",
+      "textChars": 3455,
+      "hebrewChars": 2437,
+      "keywordHits": 9,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://matnasbs.org.il/events/",
+      "verdict": "scrapable",
+      "family": "community_center",
+      "score": 64,
+      "approved": true,
+      "suggested": {
+        "source_kind": "events_page",
+        "publisher_type": "other",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 70
+      },
+      "overrides": {
+        "name": "רשת המתנ\"סים בית שמש - לוח אירועים",
+        "source_kind": "events_page",
+        "publisher_type": "community_center_network",
+        "publisher_name": "רשת המרכזים הקהילתיים בית שמש",
+        "region": "ירושלים והסביבה",
+        "priority": 8,
+        "source_trust_score": 80
+      },
+      "name": "רשת המתנ\"סים בית שמש - לוח אירועים",
+      "region": "ירושלים והסביבה"
+    },
+    {
+      "url": "https://www.netanya.muni.il/",
+      "title": "עיריית נתניה - האתר הרשמי            \n         | עיריית נתניה",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 200,
+      "ms": 426,
+      "charset": "utf-8",
+      "textChars": 8020,
+      "hebrewChars": 4863,
+      "keywordHits": 9,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://www.netanya.muni.il/",
+      "verdict": "scrapable",
+      "family": "municipality",
+      "score": 64,
+      "approved": true,
+      "suggested": {
+        "source_kind": "municipality_calendar",
+        "publisher_type": "municipality",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 85
+      },
+      "overrides": {
+        "name": "עיריית נתניה",
+        "source_kind": "website",
+        "publisher_type": "municipality",
+        "publisher_name": "עיריית נתניה",
+        "region": "השרון",
+        "priority": 5,
+        "source_trust_score": 85,
+        "scan_frequency_hours": 168
+      },
+      "name": "עיריית נתניה",
+      "region": "השרון"
+    },
+    {
+      "url": "https://seamall.co.il/events/",
+      "title": "אירועים – קניון סימול אשדוד",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 200,
+      "ms": 3702,
+      "charset": "UTF-8",
+      "textChars": 2638,
+      "hebrewChars": 1079,
+      "keywordHits": 8,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://seamall.co.il/events/",
+      "verdict": "scrapable",
+      "family": "mall",
+      "score": 63,
+      "approved": true,
+      "suggested": {
+        "source_kind": "events_page",
+        "publisher_type": "venue_operator",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 70
+      },
+      "overrides": {
+        "name": "קניון סי מול אשדוד - אירועים",
+        "source_kind": "events_page",
+        "publisher_type": "venue_operator",
+        "venue": "seamall_ashdod",
+        "region": "השפלה והדרום",
+        "priority": 7,
+        "source_trust_score": 80
+      },
+      "name": "קניון סי מול אשדוד - אירועים",
+      "venue": "seamall_ashdod",
+      "region": "השפלה והדרום"
+    },
+    {
+      "url": "https://ironitash.org.il/events/",
+      "title": "Events – החברה העירונית אשקלון",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 200,
+      "ms": 282,
+      "charset": "UTF-8",
+      "textChars": 1653,
+      "hebrewChars": 1311,
+      "keywordHits": 12,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://ironitash.org.il/events/",
+      "verdict": "scrapable",
+      "family": "other",
+      "score": 62,
+      "approved": true,
+      "suggested": {
+        "source_kind": "events_page",
+        "publisher_type": "other",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 70
+      },
+      "overrides": {
+        "name": "החברה העירונית אשקלון - אירועים",
+        "source_kind": "events_page",
+        "publisher_type": "community_center_network",
+        "publisher_name": "החברה העירונית אשקלון",
+        "region": "השפלה והדרום",
+        "priority": 7,
+        "source_trust_score": 80
+      },
+      "name": "החברה העירונית אשקלון - אירועים",
+      "region": "השפלה והדרום"
+    },
+    {
+      "url": "https://www.m-yehuda.org.il/events/",
+      "title": "אירועים\t\t | מטה יהודה",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 200,
+      "ms": 1379,
+      "charset": "UTF-8",
+      "textChars": 9196,
+      "hebrewChars": 7271,
+      "keywordHits": 12,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://www.m-yehuda.org.il/events/",
+      "verdict": "scrapable",
+      "family": "other",
+      "score": 62,
+      "approved": true,
+      "suggested": {
+        "source_kind": "events_page",
+        "publisher_type": "other",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 70
+      },
+      "overrides": {
+        "name": "מועצה אזורית מטה יהודה - אירועים",
+        "source_kind": "municipality_calendar",
+        "publisher_type": "regional_council",
+        "publisher_name": "מועצה אזורית מטה יהודה",
+        "region": "ירושלים והסביבה",
+        "priority": 8,
+        "source_trust_score": 85
+      },
+      "name": "מועצה אזורית מטה יהודה - אירועים",
+      "region": "ירושלים והסביבה"
+    },
+    {
+      "url": "https://matnasbs.smarticket.co.il/",
+      "title": "דף הבית • מתנ״ס בית שמש",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 200,
+      "ms": 494,
+      "charset": "UTF-8",
+      "textChars": 4197,
+      "hebrewChars": 2989,
+      "keywordHits": 7,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://matnasbs.smarticket.co.il/",
+      "verdict": "scrapable",
+      "family": "community_center",
+      "score": 62,
+      "approved": true,
+      "suggested": {
+        "source_kind": "events_page",
+        "publisher_type": "other",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 70
+      },
+      "overrides": {
+        "name": "מתנ\"ס בית שמש - כרטיסים (smarticket)",
+        "source_kind": "ticketing",
+        "publisher_type": "community_center_network",
+        "publisher_name": "רשת המרכזים הקהילתיים בית שמש",
+        "region": "ירושלים והסביבה",
+        "priority": 6,
+        "source_trust_score": 80
+      },
+      "name": "מתנ\"ס בית שמש - כרטיסים (smarticket)",
+      "region": "ירושלים והסביבה"
+    },
+    {
+      "url": "https://www.zefat.muni.il/",
+      "title": "ראשי - עיריית צפת",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 200,
+      "ms": 12752,
+      "charset": "UTF-8",
+      "textChars": 21175,
+      "hebrewChars": 10257,
+      "keywordHits": 6,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://www.zefat.muni.il/",
+      "verdict": "scrapable",
+      "family": "municipality",
+      "score": 61,
+      "approved": true,
+      "suggested": {
+        "source_kind": "municipality_calendar",
+        "publisher_type": "municipality",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 85
+      },
+      "overrides": {
+        "name": "עיריית צפת",
+        "source_kind": "website",
+        "publisher_type": "municipality",
+        "publisher_name": "עיריית צפת",
+        "region": "הצפון והעמק",
+        "priority": 6,
+        "source_trust_score": 85,
+        "scan_frequency_hours": 168
+      },
+      "name": "עיריית צפת",
+      "region": "הצפון והעמק"
+    },
+    {
+      "url": "https://www.tiberias.muni.il/",
+      "title": "ראשי - עיריית טבריה",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 200,
+      "ms": 876,
+      "charset": "UTF-8",
+      "textChars": 20687,
+      "hebrewChars": 9829,
+      "keywordHits": 5,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://www.tiberias.muni.il/",
+      "verdict": "scrapable",
+      "family": "municipality",
+      "score": 60,
+      "approved": true,
+      "suggested": {
+        "source_kind": "municipality_calendar",
+        "publisher_type": "municipality",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 85
+      },
+      "overrides": {
+        "name": "עיריית טבריה",
+        "source_kind": "website",
+        "publisher_type": "municipality",
+        "publisher_name": "עיריית טבריה",
+        "region": "הצפון והעמק",
+        "priority": 6,
+        "source_trust_score": 85,
+        "scan_frequency_hours": 168
+      },
+      "name": "עיריית טבריה",
+      "region": "הצפון והעמק"
+    },
+    {
+      "url": "https://www.ironit.org.il/calendar-of-events/",
+      "title": "לוח אירועים - Ironit",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 200,
+      "ms": 535,
+      "charset": "UTF-8",
+      "textChars": 1504,
+      "hebrewChars": 1185,
+      "keywordHits": 6,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://www.ironit.org.il/calendar-of-events/",
+      "verdict": "scrapable",
+      "family": "other",
+      "score": 56,
+      "approved": true,
+      "suggested": {
+        "source_kind": "events_page",
+        "publisher_type": "other",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 70
+      },
+      "overrides": {
+        "name": "החברה העירונית אשדוד - לוח אירועים",
+        "source_kind": "municipality_calendar",
+        "publisher_type": "community_center_network",
+        "publisher_name": "החברה העירונית לתרבות ופנאי אשדוד",
+        "region": "השפלה והדרום",
+        "priority": 7,
+        "source_trust_score": 80
+      },
+      "name": "החברה העירונית אשדוד - לוח אירועים",
+      "region": "השפלה והדרום"
+    },
+    {
+      "url": "https://www.bigcenters.co.il/index.aspx?id=4038",
+      "title": "העמוד לא נמצא - BIG",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 404,
+      "ms": 2162,
+      "charset": "UTF-8",
+      "textChars": 3030,
+      "hebrewChars": 1856,
+      "keywordHits": 4,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://www.bigcenters.co.il/index.aspx?id=4038",
+      "verdict": "http_error",
+      "family": "mall",
+      "score": 9,
+      "approved": true,
+      "suggested": {
+        "source_kind": "events_page",
+        "publisher_type": "venue_operator",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 70
+      },
+      "overrides": {
+        "name": "BIG FASHION נצרת (bigcenters.co.il)",
+        "source_kind": "events_page",
+        "publisher_type": "mall_chain",
+        "publisher_name": "BIG",
+        "venue": "bigfashion_nazareth",
+        "region": "הצפון והעמק",
+        "priority": 6,
+        "source_trust_score": 75
+      },
+      "name": "BIG FASHION נצרת (bigcenters.co.il)",
+      "venue": "bigfashion_nazareth",
+      "region": "הצפון והעמק"
+    },
+    {
+      "url": "http://www.ashkelon.muni.il/Pages/AllEvents.aspx",
+      "title": "עיריית אשקלון",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 200,
+      "ms": 1148,
+      "charset": "utf-8",
+      "textChars": 0,
+      "hebrewChars": 0,
+      "keywordHits": 0,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://ashkelon.muni.gov.il/he",
+      "verdict": "js_only",
+      "family": "municipality",
+      "score": 5,
+      "approved": true,
+      "suggested": {
+        "source_kind": "municipality_calendar",
+        "publisher_type": "municipality",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 85
+      },
+      "overrides": {
+        "name": "עיריית אשקלון - כל האירועים",
+        "source_kind": "municipality_calendar",
+        "publisher_type": "municipality",
+        "publisher_name": "עיריית אשקלון",
+        "region": "השפלה והדרום",
+        "priority": 8,
+        "source_trust_score": 85
+      },
+      "name": "עיריית אשקלון - כל האירועים",
+      "region": "השפלה והדרום"
+    },
+    {
+      "url": "https://www.matnasim.org.il/?pg=MatnasItem&id=280",
+      "title": "החברה למתנ\"סים | אדם, קהילה, חברה",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 200,
+      "ms": 2457,
+      "charset": "UTF-8",
+      "textChars": 1931,
+      "hebrewChars": 1477,
+      "keywordHits": 0,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://www.matnasim.org.il/?pg=MatnasItem&id=280",
+      "verdict": "low_relevance",
+      "family": "community_center",
+      "score": 5,
+      "approved": true,
+      "suggested": {
+        "source_kind": "events_page",
+        "publisher_type": "other",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 70
+      },
+      "overrides": {
+        "name": "החברה למתנ\"סים - מתנ\"ס מודיעין עילית",
+        "source_kind": "website",
+        "publisher_type": "community_center_network",
+        "publisher_name": "החברה למתנ\"סים",
+        "region": "יו\"ש והבנימין",
+        "priority": 5,
+        "source_trust_score": 80
+      },
+      "name": "החברה למתנ\"סים - מתנ\"ס מודיעין עילית",
+      "region": "יו\"ש והבנימין"
+    },
+    {
+      "url": "https://www.facebook.com/gironashkelon/",
+      "title": "קניון גירון | Ashqelon",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 200,
+      "ms": 656,
+      "charset": "utf-8",
+      "textChars": 0,
+      "hebrewChars": 0,
+      "keywordHits": 0,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://www.facebook.com/gironashkelon/",
+      "verdict": "js_only",
+      "family": "mall",
+      "score": 5,
+      "approved": true,
+      "suggested": {
+        "source_kind": "events_page",
+        "publisher_type": "venue_operator",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 70
+      },
+      "overrides": {
+        "name": "קניון גירון אשקלון - פייסבוק",
+        "source_kind": "facebook",
+        "publisher_type": "venue_operator",
+        "venue": "giron_ashkelon",
+        "region": "השפלה והדרום",
+        "priority": 7,
+        "source_trust_score": 70
+      },
+      "name": "קניון גירון אשקלון - פייסבוק",
+      "venue": "giron_ashkelon",
+      "region": "השפלה והדרום"
+    },
+    {
+      "url": "https://www.facebook.com/nacityculture/",
+      "title": "עיריית נהריה מחלקת תרבות | Nahf",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 200,
+      "ms": 1089,
+      "charset": "utf-8",
+      "textChars": 0,
+      "hebrewChars": 0,
+      "keywordHits": 0,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://www.facebook.com/nacityculture/",
+      "verdict": "js_only",
+      "family": "municipality",
+      "score": 5,
+      "approved": true,
+      "suggested": {
+        "source_kind": "municipality_calendar",
+        "publisher_type": "municipality",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 85
+      },
+      "overrides": {
+        "name": "עיריית נהריה מחלקת תרבות - פייסבוק",
+        "source_kind": "facebook",
+        "publisher_type": "municipality",
+        "publisher_name": "עיריית נהריה",
+        "region": "הצפון והעמק",
+        "priority": 7,
+        "source_trust_score": 85
+      },
+      "name": "עיריית נהריה מחלקת תרבות - פייסבוק",
+      "region": "הצפון והעמק"
+    },
+    {
+      "url": "https://www.instagram.com/bigfashionnatzrat/",
+      "title": "‏ביג פאשן נצרת‏ (@‏‎bigfashionnatzrat‎‏) • תמונות וסרטונים באינסטגרם",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 200,
+      "ms": 1175,
+      "charset": "utf-8",
+      "textChars": 0,
+      "hebrewChars": 0,
+      "keywordHits": 0,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://www.instagram.com/bigfashionnatzrat/",
+      "verdict": "js_only",
+      "family": "mall",
+      "score": 5,
+      "approved": true,
+      "suggested": {
+        "source_kind": "events_page",
+        "publisher_type": "venue_operator",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 70
+      },
+      "overrides": {
+        "name": "ביג פאשן נצרת - אינסטגרם",
+        "source_kind": "instagram",
+        "publisher_type": "mall_chain",
+        "publisher_name": "BIG",
+        "venue": "bigfashion_nazareth",
+        "region": "הצפון והעמק",
+        "priority": 7,
+        "source_trust_score": 70
+      },
+      "name": "ביג פאשן נצרת - אינסטגרם",
+      "venue": "bigfashion_nazareth",
+      "region": "הצפון והעמק"
+    },
+    {
+      "url": "https://www.ramat-gan.muni.il/",
+      "title": "עיריית רמת גן",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 200,
+      "ms": 1602,
+      "charset": "utf-8",
+      "textChars": 0,
+      "hebrewChars": 0,
+      "keywordHits": 0,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://www.ramat-gan.muni.il/",
+      "verdict": "js_only",
+      "family": "municipality",
+      "score": 5,
+      "approved": true,
+      "suggested": {
+        "source_kind": "municipality_calendar",
+        "publisher_type": "municipality",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 85
+      },
+      "overrides": {
+        "name": "עיריית רמת גן",
+        "source_kind": "website",
+        "publisher_type": "municipality",
+        "publisher_name": "עיריית רמת גן",
+        "region": "גוש דן והמרכז",
+        "priority": 5,
+        "source_trust_score": 85,
+        "scan_frequency_hours": 168
+      },
+      "name": "עיריית רמת גן",
+      "region": "גוש דן והמרכז"
+    },
+    {
+      "url": "https://www.kiryat-gat.muni.il/",
+      "title": "",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 0,
+      "ms": 22,
+      "error": "TypeError: fetch failed",
+      "verdict": "blocked",
+      "family": "municipality",
+      "score": 5,
+      "approved": true,
+      "suggested": {
+        "source_kind": "municipality_calendar",
+        "publisher_type": "municipality",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 85
+      },
+      "overrides": {
+        "name": "עיריית קריית גת",
+        "source_kind": "website",
+        "publisher_type": "municipality",
+        "publisher_name": "עיריית קריית גת",
+        "region": "השפלה והדרום",
+        "priority": 6,
+        "source_trust_score": 85,
+        "scan_frequency_hours": 168
+      },
+      "name": "עיריית קריית גת",
+      "region": "השפלה והדרום"
+    },
+    {
+      "url": "https://www.kiryat-shmona.muni.il/",
+      "title": "",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 0,
+      "ms": 22,
+      "error": "TypeError: fetch failed",
+      "verdict": "blocked",
+      "family": "municipality",
+      "score": 5,
+      "approved": true,
+      "suggested": {
+        "source_kind": "municipality_calendar",
+        "publisher_type": "municipality",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 85
+      },
+      "overrides": {
+        "name": "עיריית קריית שמונה",
+        "source_kind": "website",
+        "publisher_type": "municipality",
+        "publisher_name": "עיריית קריית שמונה",
+        "region": "הצפון והעמק",
+        "priority": 6,
+        "source_trust_score": 85,
+        "scan_frequency_hours": 168
+      },
+      "name": "עיריית קריית שמונה",
+      "region": "הצפון והעמק"
+    },
+    {
+      "url": "https://www.nazareth.muni.il/",
+      "title": "עיריית נצרת - \n\tالعربية",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 200,
+      "ms": 6470,
+      "charset": "utf-8",
+      "textChars": 1890,
+      "hebrewChars": 142,
+      "keywordHits": 0,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://www.nazareth.muni.il/arabic/pages/default.aspx",
+      "verdict": "js_only",
+      "family": "municipality",
+      "score": 5,
+      "approved": true,
+      "suggested": {
+        "source_kind": "municipality_calendar",
+        "publisher_type": "municipality",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 85
+      },
+      "overrides": {
+        "name": "עיריית נצרת",
+        "source_kind": "website",
+        "publisher_type": "municipality",
+        "publisher_name": "עיריית נצרת",
+        "region": "הצפון והעמק",
+        "priority": 6,
+        "source_trust_score": 85,
+        "scan_frequency_hours": 168
+      },
+      "name": "עיריית נצרת",
+      "region": "הצפון והעמק"
+    },
+    {
+      "url": "https://www.tarbutashdod.com/category/kids/",
+      "title": "403 - Forbidden",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 403,
+      "ms": 455,
+      "charset": "utf-8",
+      "textChars": 49,
+      "hebrewChars": 0,
+      "keywordHits": 0,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://www.tarbutashdod.com/category/kids/",
+      "verdict": "blocked",
+      "family": "other",
+      "score": 0,
+      "approved": true,
+      "suggested": {
+        "source_kind": "events_page",
+        "publisher_type": "other",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 70
+      },
+      "overrides": {
+        "name": "תרבות אשדוד - ילדים",
+        "source_kind": "events_page",
+        "publisher_type": "municipality",
+        "publisher_name": "עיריית אשדוד - אגף אירועים",
+        "region": "השפלה והדרום",
+        "priority": 8,
+        "source_trust_score": 85
+      },
+      "name": "תרבות אשדוד - ילדים",
+      "region": "השפלה והדרום"
+    },
+    {
+      "url": "https://ishow.co.il/kids?district=south",
+      "title": "Just a moment...",
+      "queries": [
+        "(manual)"
+      ],
+      "status": 403,
+      "ms": 282,
+      "charset": "UTF-8",
+      "textChars": 0,
+      "hebrewChars": 0,
+      "keywordHits": 0,
+      "jsonLd": 0,
+      "hasEventLd": false,
+      "finalUrl": "https://ishow.co.il/kids?district=south",
+      "verdict": "blocked",
+      "family": "other",
+      "score": 0,
+      "approved": true,
+      "suggested": {
+        "source_kind": "events_page",
+        "publisher_type": "other",
+        "scan_frequency_hours": 72,
+        "priority": 5,
+        "source_trust_score": 70
+      },
+      "overrides": {
+        "name": "iShow - פעילויות לילדים בדרום (אגרגטור)",
+        "source_kind": "aggregator",
+        "publisher_type": "aggregator",
+        "publisher_name": "iShow",
+        "region": "השפלה והדרום",
+        "priority": 5,
+        "source_trust_score": 55
+      },
+      "name": "iShow - פעילויות לילדים בדרום (אגרגטור)",
+      "region": "השפלה והדרום"
+    }
+  ]
+}

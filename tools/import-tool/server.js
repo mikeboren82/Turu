@@ -12,10 +12,14 @@ const { renderMessagesPage } = require('./messages');
 const { renderDashboardPage } = require('./dashboard');
 const { renderSourcesPage } = require('./sources');
 const { renderIncomingPage } = require('./incoming');
+const { renderVenuesPage } = require('./venues');
 const { getClient } = require('./supabase');
 const { generatePlaygroundDisplayName, isGenericPlaygroundName } = require('./playgroundNaming');
 const { normalizeCityName } = require('./cityNaming');
 const { classifyPlaceholderGroup } = require('./placeholderGroup');
+const { normalizeIncomingCandidate } = require('./incomingShape');
+const { repairModelJson, resolveVenue, normalizeVenueAlias } = require('./venueNaming');
+const { computeEventFingerprint } = require('./eventFingerprint');
 
 // Supabase/PostgREST מגביל תגובת select ל-1000 שורות כברירת מחדל בשקט (בלי שגיאה!) - באג
 // שנתקלנו בו שוב ושוב במקומות נפרדים בקובץ הזה (activities/contributors/duplicates/geocode-
@@ -547,7 +551,12 @@ async function scrapeAndExtract(urlString) {
     ],
   });
 
-  const raw = message.content.map((b) => (b.type === 'text' ? b.text : '')).join('');
+  // repairHebrewGershayim: Haiku writes Hebrew abbreviations with a raw ASCII quote inside JSON
+  // strings ("התנ"כי") - same deterministic fix as _shared/extraction.ts (root cause of the
+  // "JSON פגום" failures on the zoo/museum sources, 2026-09-13).
+  const rawModel = message.content.map((b) => (b.type === 'text' ? b.text : '')).join('');
+  let raw = rawModel;
+  try { JSON.parse((rawModel.match(/\[[\s\S]*\]/) || [''])[0]); } catch { raw = repairModelJson(rawModel); }
   const jsonMatch = raw.match(/\[[\s\S]*\]/);
   if (!jsonMatch) {
     const err = new Error('המודל לא החזיר JSON תקני');
@@ -876,9 +885,11 @@ async function requireVerifiedLocation(client, rawActivity) {
       const { error: updErr } = await client.from('locations').update(fillIn).eq('id', existing.id);
       if (updErr) throw updErr;
     }
+    // Coordinates already known (Google-Places rows carry lat/lng) beat a fresh geocode.
+    const provided = activity.lat != null && activity.lng != null ? { lat: activity.lat, lng: activity.lng } : null;
     const coords = existing.lat != null && existing.lng != null
       ? { lat: existing.lat, lng: existing.lng }
-      : await geocodeLocation({ address: null, name: activity.location_name, city: activity.city || existing.city });
+      : (provided || await geocodeLocation({ address: null, name: activity.location_name, city: activity.city || existing.city }));
     if (!coords) {
       throw new Error('לא נמצאה כתובת מאומתת למקום "' + activity.location_name + '" - הפעילות לא נשמרה');
     }
@@ -889,7 +900,10 @@ async function requireVerifiedLocation(client, rawActivity) {
   }
 
   // מקום חדש - geocode *לפני* יצירה, כדי שלעולם לא תיווצר שורה בלי קואורדינטות שצריך לנקות אחריה.
-  const coords = await geocodeLocation({ address: null, name: activity.location_name, city: activity.city || null });
+  // קואורדינטות שהגיעו עם המועמד (Google Places) עדיפות על geocoding-לפי-שם.
+  const coords = (activity.lat != null && activity.lng != null)
+    ? { lat: activity.lat, lng: activity.lng }
+    : await geocodeLocation({ address: activity.address || null, name: activity.location_name, city: activity.city || null });
   if (!coords) {
     throw new Error('לא נמצאה כתובת מאומתת למקום "' + activity.location_name + '" - הפעילות לא נשמרה');
   }
@@ -897,7 +911,7 @@ async function requireVerifiedLocation(client, rawActivity) {
     .from('locations')
     .insert({
       name: activity.location_name, city: activity.city || null, region: activity.region || null,
-      lat: coords.lat, lng: coords.lng,
+      address: activity.address || null, lat: coords.lat, lng: coords.lng, venue_id: activity.venue_id || null,
     })
     .select('id')
     .single();
@@ -905,9 +919,21 @@ async function requireVerifiedLocation(client, rawActivity) {
   return created.id;
 }
 
-async function saveNewActivity(client, userId, sourceUrl, activity) {
+// meta.sourceId / meta.incomingId (optional): provenance - written to activities.source_id and as an
+// activity_sources 'created' row, so "missing from source" detection and the multi-source model
+// (0078) work for admin-approved activities too, not only for scan-source auto-approvals.
+async function saveNewActivity(client, userId, sourceUrl, activity, meta = {}) {
   {
     const archived = shouldArchiveForCommitment(activity);
+    // WHERE: canonical venue via curated aliases (conservative - ambiguous => no link).
+    if (!activity.venue_id && activity.location_name) {
+      const venue = await resolveVenue(client, { locationName: activity.location_name, city: activity.city });
+      if (venue) {
+        activity = { ...activity, venue_id: venue.id };
+        if (activity.lat == null && venue.lat != null) activity = { ...activity, lat: venue.lat, lng: venue.lng };
+        if (!activity.city && venue.city) activity = { ...activity, city: venue.city };
+      }
+    }
     const locationId = await requireVerifiedLocation(client, activity);
 
     // גן-שעשועים ללא שם רשמי מקבל שם מבוסס-כתובת במקום גנרי, באותה פונקציה מרכזית שגם
@@ -967,11 +993,28 @@ async function saveNewActivity(client, userId, sourceUrl, activity) {
         status: archived ? 'archived' : 'approved',
         source: 'scraped',
         source_url: sourceUrl || null,
+        source_id: meta.sourceId || null,
+        venue_id: activity.venue_id || null,
+        organizer_name: activity.organizer_name || null,
+        google_place_id: activity.google_place_id || null,
+        event_fingerprint: computeEventFingerprint({
+          name: finalName, venueId: activity.venue_id || null, city: activity.city, scheduleType: activity.schedule_type,
+          oneTimeDate: activity.one_time_date, recurringDays: activity.recurring_days, startTime: activity.start_time,
+        }),
         created_by: userId,
+        last_seen_at: new Date().toISOString(),
       })
       .select('id')
       .single();
     if (actErr) throw actErr;
+
+    if (sourceUrl) {
+      const { error: provErr } = await client.from('activity_sources').insert({
+        activity_id: savedActivity.id, source_id: meta.sourceId || null, page_url: sourceUrl,
+        incoming_activity_id: meta.incomingId || null, relation: 'created',
+      });
+      if (provErr) console.error('activity_sources insert failed (non-fatal):', provErr.message);
+    }
 
     const scheduleRows = [];
     if (activity.schedule_type === 'recurring' && Array.isArray(activity.recurring_days) && activity.recurring_days.length) {
@@ -2343,6 +2386,8 @@ app.get('/incoming', (req, res) => {
 const SOURCE_FIELDS = new Set([
   'name', 'seed_url', 'type', 'region', 'categories', 'scan_frequency_hours',
   'is_active', 'source_trust_score', 'is_trusted',
+  // 0077 registry fields (WHO publishes / owning venue / health / adapter strategy)
+  'source_kind', 'publisher_name', 'publisher_type', 'venue_id', 'priority', 'strategy', 'discovery_batch', 'disabled_reason',
 ]);
 function pickSourceFields(body) {
   const safe = {};
@@ -2460,21 +2505,29 @@ app.get('/api/sources/:id/logs', async (req, res) => {
 app.get('/api/sources/alerts-summary', async (req, res) => {
   try {
     const { client } = await getClient();
-    const [failedSources, newIncoming, updatedIncoming, missingFlagged] = await Promise.all([
+    const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString();
+    const [failedSources, newIncoming, updatedIncoming, missingFlagged, attentionSources, pausedSources, socialBlocked, autoApproved7d, dupes7d] = await Promise.all([
       client.from('sources').select('id', { count: 'exact', head: true }).eq('last_scan_status', 'error'),
       client.from('incoming_activities').select('id', { count: 'exact', head: true }).eq('match_type', 'new').in('status', ['new', 'needs_review']),
       client.from('incoming_activities').select('id', { count: 'exact', head: true }).eq('match_type', 'update').in('status', ['new', 'needs_review']),
       client.from('incoming_activities').select('id', { count: 'exact', head: true }).eq('status', 'missing_flagged'),
+      client.from('sources').select('id', { count: 'exact', head: true }).eq('health_status', 'attention_required'),
+      client.from('sources').select('id', { count: 'exact', head: true }).eq('health_status', 'auto_paused'),
+      client.from('sources').select('id', { count: 'exact', head: true }).in('source_kind', ['facebook', 'instagram']).eq('is_active', false),
+      client.from('incoming_activities').select('id', { count: 'exact', head: true }).eq('status', 'approved').is('reviewed_by', null).gte('found_at', weekAgo),
+      client.from('incoming_activities').select('id', { count: 'exact', head: true }).eq('match_type', 'duplicate').gte('found_at', weekAgo),
     ]);
-    if (failedSources.error) throw failedSources.error;
-    if (newIncoming.error) throw newIncoming.error;
-    if (updatedIncoming.error) throw updatedIncoming.error;
-    if (missingFlagged.error) throw missingFlagged.error;
+    for (const r of [failedSources, newIncoming, updatedIncoming, missingFlagged, attentionSources, pausedSources, socialBlocked, autoApproved7d, dupes7d]) if (r.error) throw r.error;
     res.json({
       failedSources: failedSources.count || 0,
       newIncoming: newIncoming.count || 0,
       updatedIncoming: updatedIncoming.count || 0,
       missingFlagged: missingFlagged.count || 0,
+      attentionSources: attentionSources.count || 0,
+      pausedSources: pausedSources.count || 0,
+      socialBlockedSources: socialBlocked.count || 0,
+      autoApproved7d: autoApproved7d.count || 0,
+      duplicatesPrevented7d: dupes7d.count || 0,
     });
   } catch (err) {
     console.error(err);
@@ -2489,10 +2542,11 @@ app.get('/api/sources/alerts-summary', async (req, res) => {
 app.get('/api/incoming', async (req, res) => {
   try {
     const { client } = await getClient();
-    const { data, error } = await client
+    // The queue is now fed by ~90 sources (was 11): 300 hid most of it - see fetchAllRows for the
+    // PostgREST 1000-row cap; open items first so the admin always sees the whole backlog.
+    const data = await fetchAllRows(() => client
       .from('incoming_activities').select('*')
-      .order('found_at', { ascending: false }).limit(300);
-    if (error) throw error;
+      .order('found_at', { ascending: false }));
 
     const sourceIds = [...new Set(data.map((r) => r.source_id).filter(Boolean))];
     const activityIds = [...new Set(data.flatMap((r) => [r.existing_activity_id, r.created_activity_id]).filter(Boolean))];
@@ -2539,7 +2593,20 @@ app.post('/api/incoming/:id/approve', async (req, res) => {
     }
 
     if (item.match_type === 'new') {
-      const { activityId, archived } = await saveNewActivity(client, userId, item.page_url, item.extracted_data);
+      // Both extracted_data shapes (page extraction / Google Places) are accepted - see incomingShape.js.
+      const payload = normalizeIncomingCandidate(item.extracted_data);
+      if (payload.google_place_id) {
+        const { data: dupe } = await client.from('activities').select('id, name').eq('google_place_id', payload.google_place_id).maybeSingle();
+        if (dupe) {
+          await client.from('incoming_activities').update({
+            status: 'rejected', reject_reason: 'כפילות מאומתת - google_place_id זהה לפעילות קיימת (' + dupe.id + ')',
+            existing_activity_id: dupe.id, reviewed_by: userId, reviewed_at: new Date().toISOString(),
+          }).eq('id', id);
+          await client.from('activity_sources').upsert({ activity_id: dupe.id, source_id: item.source_id, page_url: item.page_url, incoming_activity_id: item.id, relation: 'seen', last_seen_at: new Date().toISOString() }, { onConflict: 'activity_id,page_url' });
+          return res.status(409).json({ error: 'הפעילות כבר קיימת במאגר (' + dupe.name + ') - סומנה ככפילות', duplicateOf: dupe.id });
+        }
+      }
+      const { activityId, archived } = await saveNewActivity(client, userId, item.page_url, payload, { sourceId: item.source_id, incomingId: item.id });
       const { error: updErr } = await client.from('incoming_activities').update({
         status: 'approved', created_activity_id: activityId, reviewed_by: userId, reviewed_at: new Date().toISOString(),
       }).eq('id', id);
@@ -2562,6 +2629,10 @@ app.post('/api/incoming/:id/approve', async (req, res) => {
         status: 'updated', reviewed_by: userId, reviewed_at: new Date().toISOString(),
       }).eq('id', id);
       if (updErr) throw updErr;
+      await client.from('activity_sources').upsert({
+        activity_id: item.existing_activity_id, source_id: item.source_id, page_url: item.page_url,
+        incoming_activity_id: item.id, relation: 'updated', last_seen_at: new Date().toISOString(),
+      }, { onConflict: 'activity_id,page_url' });
       return res.json({ ok: true, activityId: item.existing_activity_id });
     }
 
@@ -2647,10 +2718,116 @@ app.post('/api/incoming/:id/resolve-missing', async (req, res) => {
   }
 });
 
+// ---- Venues (WHERE) - minimum operable set: list / create / alias / merge. No rich UI. ----
+app.get('/venues', (req, res) => {
+  res.type('html').send(renderVenuesPage());
+});
+
+app.get('/api/venues', async (req, res) => {
+  try {
+    const { client } = await getClient();
+    const [venuesRes, aliasesRes, actsRes, srcRes] = await Promise.all([
+      client.from('venues').select('*').order('name_he'),
+      client.from('venue_aliases').select('alias, venue_id'),
+      client.from('activities').select('venue_id').not('venue_id', 'is', null),
+      client.from('sources').select('venue_id, source_kind, is_active').not('venue_id', 'is', null),
+    ]);
+    for (const r of [venuesRes, aliasesRes, actsRes, srcRes]) if (r.error) throw r.error;
+    const aliasesBy = {}; (aliasesRes.data || []).forEach((a) => { (aliasesBy[a.venue_id] ||= []).push(a.alias); });
+    const actsBy = {}; (actsRes.data || []).forEach((a) => { actsBy[a.venue_id] = (actsBy[a.venue_id] || 0) + 1; });
+    const srcBy = {}; (srcRes.data || []).forEach((s) => { (srcBy[s.venue_id] ||= []).push({ kind: s.source_kind, active: s.is_active }); });
+    res.json({ venues: (venuesRes.data || []).map((v) => ({ ...v, aliases: aliasesBy[v.id] || [], activityCount: actsBy[v.id] || 0, sources: srcBy[v.id] || [] })) });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || 'שגיאה בטעינת מקומות' });
+  }
+});
+
+const VENUE_FIELDS = new Set(['name_he', 'venue_type', 'city', 'neighborhood', 'address', 'lat', 'lng', 'region', 'chain', 'website_url', 'events_url', 'facebook_url', 'instagram_url', 'google_place_id', 'is_active', 'notes']);
+app.post('/api/venues', async (req, res) => {
+  const body = req.body || {};
+  const fields = {};
+  for (const k of VENUE_FIELDS) if (k in body) fields[k] = body[k];
+  if (!fields.name_he) return res.status(400).json({ error: 'חסר שם מקום' });
+  if (fields.city) fields.city = normalizeCityName(fields.city);
+  try {
+    const { client, userId } = await getClient();
+    const { data: venue, error } = await client.from('venues').insert({ ...fields, created_by: userId }).select('*').single();
+    if (error) throw error;
+    const aliases = [...new Set([fields.name_he, ...(Array.isArray(body.aliases) ? body.aliases : [])].filter(Boolean))];
+    const rows = aliases.map((a) => ({ alias: a, alias_normalized: normalizeVenueAlias(a), venue_id: venue.id })).filter((r) => r.alias_normalized);
+    if (rows.length) await client.from('venue_aliases').upsert(rows, { onConflict: 'alias_normalized,venue_id' });
+    res.json({ ok: true, venue, aliases });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || 'שגיאה ביצירת מקום' });
+  }
+});
+
+app.post('/api/venues/:id/alias', async (req, res) => {
+  const { alias } = req.body || {};
+  if (!alias || !normalizeVenueAlias(alias)) return res.status(400).json({ error: 'כינוי לא תקין' });
+  try {
+    const { client } = await getClient();
+    const { error } = await client.from('venue_aliases').upsert({ alias, alias_normalized: normalizeVenueAlias(alias), venue_id: req.params.id }, { onConflict: 'alias_normalized,venue_id' });
+    if (error) throw error;
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || 'שגיאה בהוספת כינוי' });
+  }
+});
+
+// Merge two venues: re-point activities/locations/sources/aliases to the keeper; the loser row is
+// kept (is_active=false, merged_into=keeper) - never deleted.
+app.post('/api/venues/merge', async (req, res) => {
+  const { keeperId, loserId } = req.body || {};
+  if (!keeperId || !loserId || keeperId === loserId) return res.status(400).json({ error: 'נדרשים שני מקומות שונים' });
+  try {
+    const { client } = await getClient();
+    const { data: loser, error: lErr } = await client.from('venues').select('*').eq('id', loserId).maybeSingle();
+    if (lErr) throw lErr;
+    if (!loser) return res.status(404).json({ error: 'המקום לא נמצא' });
+    for (const table of ['activities', 'locations', 'sources']) {
+      const { error } = await client.from(table).update({ venue_id: keeperId }).eq('venue_id', loserId);
+      if (error) throw error;
+    }
+    const { data: loserAliases } = await client.from('venue_aliases').select('alias, alias_normalized').eq('venue_id', loserId);
+    const rows = [...(loserAliases || []), { alias: loser.name_he, alias_normalized: normalizeVenueAlias(loser.name_he) }]
+      .map((a) => ({ ...a, venue_id: keeperId })).filter((r) => r.alias_normalized);
+    if (rows.length) await client.from('venue_aliases').upsert(rows, { onConflict: 'alias_normalized,venue_id' });
+    const { error: updErr } = await client.from('venues').update({ is_active: false, merged_into: keeperId, updated_at: new Date().toISOString() }).eq('id', loserId);
+    if (updErr) throw updErr;
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || 'שגיאה במיזוג מקומות' });
+  }
+});
+
+// Re-enable a paused / backed-off source (resets the health counters, keeps history).
+app.post('/api/sources/:id/reactivate', async (req, res) => {
+  try {
+    const { client } = await getClient();
+    const { data, error } = await client.from('sources').update({
+      is_active: true, health_status: 'healthy', consecutive_failures: 0, disabled_reason: null,
+      next_scan_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+    }).eq('id', req.params.id).select('id');
+    if (error) throw error;
+    if (!data || data.length === 0) return res.status(404).json({ error: 'המקור לא נמצא' });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || 'שגיאה בהפעלה מחדש' });
+  }
+});
+
 const AUTOMATION_SETTINGS_KEYS = new Set([
   'scanning_enabled', 'max_discovered_pages_per_source', 'max_activities_per_scan',
   'max_ai_requests_per_scan', 'fetch_timeout_ms', 'page_retry_count', 'missing_scan_threshold',
   'duplicate_confidence_threshold', 'needs_review_confidence_threshold', 'proximity_km',
+  'auto_approve_min_trust_score', 'source_attention_after_failures', 'source_auto_pause_after_failures',
+  'event_max_days_ahead', 'source_backoff_max_hours',
 ]);
 
 app.get('/api/automation-settings', async (req, res) => {
