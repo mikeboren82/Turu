@@ -40,6 +40,20 @@ async function fetchAllRows(queryBuilder) {
   return data;
 }
 
+// PostgREST filters travel in the URL: `.in('id', [765 uuids])` is ~30KB and the gateway answers a
+// bare 400 "Bad Request" (seen live on /api/incoming once the queue linked >700 activities).
+// Chunked lookups keep every request well under the limit.
+async function fetchByIds(client, table, select, ids, chunkSize = 150) {
+  const unique = [...new Set(ids.filter(Boolean))];
+  let rows = [];
+  for (let i = 0; i < unique.length; i += chunkSize) {
+    const { data, error } = await client.from(table).select(select).in('id', unique.slice(i, i + chunkSize));
+    if (error) throw error;
+    rows = rows.concat(data || []);
+  }
+  return rows;
+}
+
 const app = express();
 // המגבלה הרגילה (100kb) קטנה מדי להעלאת תמונה ידנית (base64 בגוף הבקשה) - כלי פנימי
 // למנהל אחד, אין חשש אבטחה מיוחד בהגדלת המגבלה.
@@ -2554,18 +2568,8 @@ app.get('/api/incoming', async (req, res) => {
     const sourceIds = [...new Set(data.map((r) => r.source_id).filter(Boolean))];
     const activityIds = [...new Set(data.flatMap((r) => [r.existing_activity_id, r.created_activity_id]).filter(Boolean))];
 
-    let sourcesById = new Map();
-    if (sourceIds.length > 0) {
-      const { data: sources, error: srcErr } = await client.from('sources').select('id, name').in('id', sourceIds);
-      if (srcErr) throw srcErr;
-      sourcesById = new Map((sources || []).map((s) => [s.id, s]));
-    }
-    let activitiesById = new Map();
-    if (activityIds.length > 0) {
-      const { data: activities, error: actErr } = await client.from('activities').select('id, name, status').in('id', activityIds);
-      if (actErr) throw actErr;
-      activitiesById = new Map((activities || []).map((a) => [a.id, a]));
-    }
+    const sourcesById = new Map((await fetchByIds(client, 'sources', 'id, name', sourceIds)).map((s) => [s.id, s]));
+    const activitiesById = new Map((await fetchByIds(client, 'activities', 'id, name, status', activityIds)).map((a) => [a.id, a]));
 
     res.json({
       items: data.map((r) => ({
@@ -2598,16 +2602,28 @@ app.post('/api/incoming/:id/approve', async (req, res) => {
     if (item.match_type === 'new') {
       // Both extracted_data shapes (page extraction / Google Places) are accepted - see incomingShape.js.
       const payload = normalizeIncomingCandidate(item.extracted_data);
+      // Exact-identity guards BEFORE creating anything: google_place_id, then event_fingerprint.
+      // The fingerprint guard closes the gap found 2026-09-13: the scanner dedups only against
+      // activities that existed at scan time, so two queue rows for the same event (two scans minutes
+      // apart, or a page listing it twice) were both approvable and produced 57 duplicate activities.
+      const fingerprint = computeEventFingerprint({
+        name: payload.name, venueId: payload.venue_id || null, city: payload.city, scheduleType: payload.schedule_type,
+        oneTimeDate: payload.one_time_date, recurringDays: payload.recurring_days, startTime: payload.start_time,
+      });
+      let dupe = null;
       if (payload.google_place_id) {
-        const { data: dupe } = await client.from('activities').select('id, name').eq('google_place_id', payload.google_place_id).maybeSingle();
-        if (dupe) {
-          await client.from('incoming_activities').update({
-            status: 'rejected', reject_reason: 'כפילות מאומתת - google_place_id זהה לפעילות קיימת (' + dupe.id + ')',
-            existing_activity_id: dupe.id, reviewed_by: userId, reviewed_at: new Date().toISOString(),
-          }).eq('id', id);
-          await client.from('activity_sources').upsert({ activity_id: dupe.id, source_id: item.source_id, page_url: item.page_url, incoming_activity_id: item.id, relation: 'seen', last_seen_at: new Date().toISOString() }, { onConflict: 'activity_id,page_url' });
-          return res.status(409).json({ error: 'הפעילות כבר קיימת במאגר (' + dupe.name + ') - סומנה ככפילות', duplicateOf: dupe.id });
-        }
+        ({ data: dupe } = await client.from('activities').select('id, name').eq('google_place_id', payload.google_place_id).maybeSingle());
+      }
+      if (!dupe && fingerprint) {
+        ({ data: dupe } = await client.from('activities').select('id, name').eq('event_fingerprint', fingerprint).neq('status', 'archived').limit(1).maybeSingle());
+      }
+      if (dupe) {
+        await client.from('incoming_activities').update({
+          status: 'rejected', reject_reason: 'כפילות מאומתת - ' + (payload.google_place_id ? 'google_place_id' : 'טביעת אצבע של האירוע') + ' זהה לפעילות קיימת (' + dupe.id + ')',
+          existing_activity_id: dupe.id, reviewed_by: userId, reviewed_at: new Date().toISOString(),
+        }).eq('id', id);
+        await client.from('activity_sources').upsert({ activity_id: dupe.id, source_id: item.source_id, page_url: item.page_url, incoming_activity_id: item.id, relation: 'seen', last_seen_at: new Date().toISOString() }, { onConflict: 'activity_id,page_url' });
+        return res.status(409).json({ error: 'הפעילות כבר קיימת במאגר (' + dupe.name + ') - סומנה ככפילות', duplicateOf: dupe.id });
       }
       const { activityId, archived } = await saveNewActivity(client, userId, item.page_url, payload, { sourceId: item.source_id, incomingId: item.id });
       const { error: updErr } = await client.from('incoming_activities').update({

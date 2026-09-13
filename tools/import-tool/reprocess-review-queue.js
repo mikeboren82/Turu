@@ -37,19 +37,31 @@ const SOFT = new Set(['מחיר']);
   }
   console.log(`pending 'new' items: ${rows.length} (${APPLY ? 'APPLY' : 'DRY RUN'}, trust>=${minTrust}, dates<=${maxDate})`);
 
+  // Dedup pre-check: the scanner computed event_fingerprint at scan time; if an activity with that
+  // fingerprint exists NOW (e.g. approved from another source since), approving would create a
+  // duplicate - such items stay for a human to link/reject.
+  const fps = [...new Set(rows.map((r) => r.extracted_data?.event_fingerprint).filter(Boolean))];
+  const existingFp = new Set();
+  for (let i = 0; i < fps.length; i += 150) {
+    const { data } = await client.from('activities').select('event_fingerprint').in('event_fingerprint', fps.slice(i, i + 150));
+    (data || []).forEach((a) => existingFp.add(a.event_fingerprint));
+  }
+
   const plan = { approve: [], reject: [], leave: 0 };
   const leaveReasons = {};
   for (const r of rows) {
     const c = r.extracted_data || {};
     const rel = assessChildRelevance(c);
+    if (c.event_fingerprint && existingFp.has(c.event_fingerprint)) { plan.leave++; leaveReasons['fingerprint already in activities'] = (leaveReasons['fingerprint already in activities'] || 0) + 1; continue; }
     const past = c.schedule_type === 'one_time' && c.one_time_date && c.one_time_date < today;
     if (rel === 'reject') { plan.reject.push({ id: r.id, reason: 'קהל יעד למבוגרים (בדיקת רלוונטיות לילדים)' }); continue; }
     if (past) { plan.reject.push({ id: r.id, reason: 'אירוע חד-פעמי שתאריכו עבר' }); continue; }
     const trusted = !!r.source?.is_trusted || (r.source?.source_trust_score != null && Number(r.source.source_trust_score) >= minTrust);
-    const gating = (r.validation_issues || []).filter((i) => !SOFT.has(i) && i !== 'possible_duplicate_of_existing:NEEDS_REVIEW');
+    // a possible-duplicate flag is a gating issue - never auto-approve over it
+    const gating = (r.validation_issues || []).filter((i) => !SOFT.has(i));
     const dateOk = c.schedule_type !== 'one_time' || (c.one_time_date && c.one_time_date >= today && c.one_time_date <= maxDate);
     const hasPlace = !!(c.city && (c.location_name || c.formatted_address));
-    if (trusted && gating.length === 0 && dateOk && hasPlace && rel === 'ok') { plan.approve.push({ id: r.id, name: c.name, src: r.source?.name }); continue; }
+    if (trusted && gating.length === 0 && dateOk && hasPlace && rel === 'ok') { plan.approve.push({ id: r.id, name: c.name, src: r.source?.name, fp: c.event_fingerprint || null }); continue; }
     plan.leave++;
     const why = !trusted ? 'untrusted source' : gating.length ? 'issues: ' + gating.join(',') : !dateOk ? 'date not plausible' : !hasPlace ? 'no place' : 'relevance ' + rel;
     leaveReasons[why] = (leaveReasons[why] || 0) + 1;
@@ -59,8 +71,10 @@ const SOFT = new Set(['מחיר']);
   console.log('approve sample:', plan.approve.slice(0, 8).map((a) => `${a.name} [${a.src}]`).join(' | '));
   if (!APPLY) return;
 
-  let ok = 0, dup = 0, fail = 0;
+  let ok = 0, dup = 0, fail = 0, batchDup = 0;
+  const approvedFp = new Set(); // within-batch: two queue rows for the same event => approve one, leave the other
   for (const a of plan.approve.slice(0, LIMIT)) {
+    if (a.fp) { if (approvedFp.has(a.fp)) { batchDup++; continue; } approvedFp.add(a.fp); }
     try {
       const res = await fetch(`${BASE}/api/incoming/${a.id}/approve`, { method: 'POST', headers: { 'Content-Type': 'application/json' } });
       if (res.status === 409) dup++; else if (!res.ok) { fail++; console.log('  approve failed:', a.name, (await res.json()).error); } else ok++;
@@ -71,5 +85,5 @@ const SOFT = new Set(['מחיר']);
     const { error } = await client.from('incoming_activities').update({ status: 'rejected', reject_reason: rj.reason + ' (סבב חוזר של תור הבדיקה)', reviewed_by: userId, reviewed_at: new Date().toISOString() }).eq('id', rj.id);
     if (!error) rej++;
   }
-  console.log(`applied: approved ${ok}, duplicates ${dup}, failed ${fail}, rejected ${rej}`);
+  console.log(`applied: approved ${ok}, duplicates ${dup}, same-batch duplicates left for review ${batchDup}, failed ${fail}, rejected ${rej}`);
 })().catch((e) => { console.error(e); process.exit(1); });

@@ -376,6 +376,9 @@ Deno.serve(async (req: Request) => {
   const matchedExistingIds = new Set<string>();
   const cityCache = new Map<string, ExistingActivity[]>();
   const venueCache = new Map<string, Awaited<ReturnType<typeof resolveVenue>>>();
+  // Fingerprints already handled in THIS scan (a page can list the same event twice; two pages of one
+  // source can repeat it) - the second occurrence must not become a second queue row.
+  const seenFingerprints = new Set<string>();
 
   const scanStartedAt = Date.now();
   const SCAN_TIME_BUDGET_MS = 100_000;
@@ -563,8 +566,20 @@ Deno.serve(async (req: Request) => {
           // Exact pre-check (the events' google_place_id): identical fingerprint already live => same event.
           let fingerprintMatchId: string | null = null;
           if (candidate.event_fingerprint) {
+            // (a) same event twice within this scan => count as duplicate, no second queue row
+            if (seenFingerprints.has(candidate.event_fingerprint)) { counters.duplicateCount++; continue; }
+            seenFingerprints.add(candidate.event_fingerprint);
             const { data: fpRow } = await client.from('activities').select('id').eq('event_fingerprint', candidate.event_fingerprint).eq('status', 'approved').limit(1).maybeSingle();
             fingerprintMatchId = (fpRow as { id: string } | null)?.id ?? null;
+            // (b) already waiting in the review queue from an earlier scan (cron + relay + scan-now can
+            // hit the same page minutes apart) => don't queue it again. The 2026-09-13 bulk approval
+            // turned exactly these twins into 57 duplicate activities.
+            if (!fingerprintMatchId) {
+              const { data: pendingRow } = await client.from('incoming_activities').select('id')
+                .eq('extracted_data->>event_fingerprint', candidate.event_fingerprint)
+                .in('status', ['new', 'needs_review']).limit(1).maybeSingle();
+              if (pendingRow) { counters.duplicateCount++; continue; }
+            }
           }
 
           const similar = !fingerprintMatchId && candidate.city ? await findSimilarActivities(client, candidate, cityCache) : [];

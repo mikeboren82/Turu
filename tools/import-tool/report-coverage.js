@@ -46,10 +46,29 @@ const tally = (arr, fn) => { const m = {}; arr.forEach((x) => { const k = fn(x) 
   const nonPlayground = approved.filter((a) => a.category !== 'גן שעשועים');
   const dated = approved.filter((a) => (a.activity_schedules || []).some((s) => s.schedule_type !== 'fixed_hours'));
 
-  // per-source yield (30d)
+  // per-source yield (30d). "active" != "healthy" != "productive": a source can return HTTP 200 on every
+  // scan and still never produce a useful activity - the yield model makes that visible.
+  const blankYield = () => ({ scans: 0, ok: 0, found: 0, created: 0, updated: 0, dupes: 0, rejected: 0, pending: 0, live: 0, lastUsefulAt: null, zeroYieldStreak: 0, failKinds: {} });
   const yieldBySource = {};
-  for (const l of logs) { const y = (yieldBySource[l.source_id] ||= { scans: 0, ok: 0, found: 0, created: 0, updated: 0, dupes: 0, failKinds: {} }); y.scans++; if (l.status !== 'error') y.ok++; y.found += l.activities_found || 0; y.created += l.auto_approved_count || 0; y.updated += l.updated_count || 0; y.dupes += l.duplicate_count || 0; if (l.failure_kind) y.failKinds[l.failure_kind] = (y.failKinds[l.failure_kind] || 0) + 1; }
-  for (const i of incoming) { if (!i.source_id) continue; const y = (yieldBySource[i.source_id] ||= { scans: 0, ok: 0, found: 0, created: 0, updated: 0, dupes: 0, failKinds: {} }); if (i.status === 'approved') y.created++; }
+  const logsBySource = {};
+  for (const l of logs) { const y = (yieldBySource[l.source_id] ||= blankYield()); y.scans++; if (l.status !== 'error') y.ok++; y.found += l.activities_found || 0; y.created += l.auto_approved_count || 0; y.updated += l.updated_count || 0; y.dupes += l.duplicate_count || 0; if (l.failure_kind) y.failKinds[l.failure_kind] = (y.failKinds[l.failure_kind] || 0) + 1; (logsBySource[l.source_id] ||= []).push(l); }
+  for (const i of incoming) {
+    if (!i.source_id) continue; const y = (yieldBySource[i.source_id] ||= blankYield());
+    if (i.status === 'approved') { y.created++; if (!y.lastUsefulAt || i.found_at > y.lastUsefulAt) y.lastUsefulAt = i.found_at; }
+    else if (i.status === 'rejected') y.rejected++;
+    else if (['new', 'needs_review'].includes(i.status)) y.pending++;
+  }
+  for (const a of approved) { if (!a.source_id) continue; const y = (yieldBySource[a.source_id] ||= blankYield()); y.live++; if (!y.lastUsefulAt || a.created_at > y.lastUsefulAt) y.lastUsefulAt = a.created_at; }
+  // zero-yield streak = latest consecutive completed scans that found nothing (running scans ignored)
+  for (const [id, ls] of Object.entries(logsBySource)) { let streak = 0; for (const l of ls.filter((l) => l.status !== 'running').sort((a, b) => (a.started_at < b.started_at ? 1 : -1))) { if ((l.activities_found || 0) > 0) break; streak++; } yieldBySource[id].zeroYieldStreak = streak; }
+  const productivity = (s) => {
+    const y = yieldBySource[s.id]; if (!s.is_active) return 'paused';
+    if (!y || y.scans === 0) return 'unscanned';
+    if (y.created > 0 || y.live > 0) return 'productive';
+    if (y.found > 0) return 'queue_only';      // finds things, nothing approved yet (review backlog / untrusted)
+    if (y.ok === 0) return 'failing';
+    return 'zero_yield';                        // scans succeed, nothing extracted
+  };
 
   const report = {
     generatedAt: new Date().toISOString(),
@@ -76,8 +95,12 @@ const tally = (arr, fn) => { const m = {}; arr.forEach((x) => { const k = fn(x) 
     failureKinds: tally(sources.filter((s) => s.last_failure_kind), (s) => s.last_failure_kind),
     lowYieldSources: active.filter((s) => (yieldBySource[s.id]?.scans || 0) >= 2 && (yieldBySource[s.id]?.found || 0) === 0).map((s) => ({ name: s.name, scans: yieldBySource[s.id].scans, failKinds: yieldBySource[s.id].failKinds })),
     topYieldSources: Object.entries(yieldBySource).map(([id, y]) => ({ name: sources.find((s) => s.id === id)?.name || id, ...y })).sort((a, b) => b.found - a.found).slice(0, 15),
+    productivity: tally(sources, productivity),
+    sourceYield: sources.map((s) => ({ id: s.id, name: s.name, region: regionOf(s), family: familyOf(s), active: !!s.is_active, health: s.health_status, trust: s.source_trust_score, productivity: productivity(s), ...(yieldBySource[s.id] || blankYield()) }))
+      .sort((a, b) => (b.live + b.created) - (a.live + a.created)),
     gaps: [],
   };
+  report.byRegionYield = Object.fromEntries(REGIONS.concat(['(unknown)']).map((r) => { const ss = report.sourceYield.filter((s) => s.region === r && s.active); return [r, { activeSources: ss.length, productive: ss.filter((s) => s.productivity === 'productive').length, queueOnly: ss.filter((s) => s.productivity === 'queue_only').length, zeroYield: ss.filter((s) => s.productivity === 'zero_yield').length, failing: ss.filter((s) => s.productivity === 'failing').length, unscanned: ss.filter((s) => s.productivity === 'unscanned').length, created30d: ss.reduce((n, s) => n + s.created, 0), pending: ss.reduce((n, s) => n + s.pending, 0) }]; }));
 
   // ---- gap engine: actionable, ranked ----
   const gaps = [];
@@ -92,6 +115,9 @@ const tally = (arr, fn) => { const m = {}; arr.forEach((x) => { const k = fn(x) 
   for (const c of thinCats) if ((report.byCategory[c] || 0) < 5) gaps.push({ severity: 'medium', kind: 'category_thin', category: c, message: `category "${c}": ${report.byCategory[c] || 0} live activities`, action: 'target sources that publish this content (libraries/theaters/community centers/pools)' });
   if (report.socialOnlyVenues.length) gaps.push({ severity: 'high', kind: 'social_gap', message: `${report.socialOnlyVenues.length} venues publish only on Facebook/Instagram (unsupported)`, action: 'see SOCIAL INGESTION GAP in the report; legitimate paths: Graph API with page-owner consent / venue-provided feeds' });
   if (report.lowYieldSources.length) gaps.push({ severity: 'low', kind: 'low_yield', message: `${report.lowYieldSources.length} active sources scanned ≥2× in 30d with zero activities`, action: 'inspect seed URL (maybe a homepage, not the events page) or lower priority' });
+  for (const r of REGIONS) { const y = report.byRegionYield[r]; if (y.activeSources >= 4 && y.productive < Math.ceil(y.activeSources / 3)) gaps.push({ severity: 'high', kind: 'region_low_yield', region: r, message: `${r}: ${y.activeSources} active sources but only ${y.productive} productive (${y.queueOnly} queue-only, ${y.zeroYield} zero-yield, ${y.failing} failing)`, action: 'fix seed URLs / trust-promote queue-only sources after quality review / relay-scan failing ones' }); }
+  const queueOnly = report.sourceYield.filter((s) => s.productivity === 'queue_only' && s.pending >= 10);
+  if (queueOnly.length) gaps.push({ severity: 'medium', kind: 'queue_only_sources', message: `${queueOnly.length} sources feed the review queue (>=10 pending each) but have nothing approved: ${queueOnly.slice(0, 6).map((s) => s.name).join(', ')}`, action: 'review a sample per source; promote trust to >=80 where quality holds so routine items auto-publish' });
   report.unresolvedVenueLabels.filter((u) => u.detections >= 5).slice(0, 10).forEach((u) => gaps.push({ severity: 'medium', kind: 'venue_missing', message: `"${u.label}" seen ${u.detections}× without a canonical venue`, action: 'create the venue (+aliases) in the admin "מקומות" page or source-manifest.json' }));
   report.gaps = gaps.sort((a, b) => ({ high: 0, medium: 1, low: 2 })[a.severity] - ({ high: 0, medium: 1, low: 2 })[b.severity]);
 
@@ -106,6 +132,9 @@ const tally = (arr, fn) => { const m = {}; arr.forEach((x) => { const k = fn(x) 
     console.log('=== SOURCE HEALTH ===', report.sourceHealth, '| failure kinds:', report.failureKinds);
     console.log('=== SOCIAL-ONLY VENUES ===', report.socialOnlyVenues.length, report.socialOnlyVenues.slice(0, 10).map((v) => v.name).join(', '));
     console.log('=== LOW YIELD ===', report.lowYieldSources.map((s) => s.name).join(', ') || '-');
+    console.log('=== PRODUCTIVITY (all sources) ===', report.productivity);
+    console.log('=== BY REGION YIELD (active: productive / queue-only / zero-yield / failing / unscanned | created30d | pending) ===');
+    for (const [r, y] of Object.entries(report.byRegionYield)) console.log(`${r.padEnd(18)} ${String(y.activeSources).padStart(3)}: ${y.productive}/${y.queueOnly}/${y.zeroYield}/${y.failing}/${y.unscanned} | ${y.created30d} | ${y.pending}`);
     console.log('\n=== GAPS (ranked) ===');
     report.gaps.slice(0, 30).forEach((g) => console.log(`[${g.severity}] ${g.message}  ->  ${g.action}`));
   }
