@@ -1,7 +1,7 @@
 // TuRu Cleaner - retry / backoff / archive / reopen rules (THE-CLEANER.md §16-19). Pure helpers +
 // the DB writes that move a case (and its subject) to a terminal state. Archive reasons are
 // machine-readable codes; an archived subject is never deleted and can be reopened by reopen().
-const { resolveVenue } = require('../venueNaming');
+const venueNaming = require('../venueNaming'); // called through the module so tests can inject
 
 const ARCHIVE_REASON_BY_ISSUE = {
   missing_location: 'missing_address_unresolved', rejected_missing_address: 'missing_address_unresolved', unverified_location: 'missing_address_unresolved',
@@ -87,10 +87,10 @@ async function reopenWhereEvidenceChanged(client, { limit = 200 } = {}) {
       const { data: row } = await client.from('incoming_activities').select('status, location_name:extracted_data->>location_name, city:extracted_data->>city, name:extracted_data->>name, one_time_date:extracted_data->>one_time_date, schedule_type:extracted_data->>schedule_type').eq('id', c.subject_id).maybeSingle();
       if (!row) continue;
       if (row.schedule_type === 'one_time' && row.one_time_date && row.one_time_date < new Date().toISOString().slice(0, 10)) continue;
-      for (const label of [row.location_name, row.name]) { if (!label) continue; const v = await resolveVenue(client, { locationName: label, city: row.city }); if (v) { evidence = { venue_now_resolves: v.name_he, label }; break; } }
+      for (const label of [row.location_name, row.name]) { if (!label) continue; const v = await venueNaming.resolveVenue(client, { locationName: label, city: row.city }); if (v) { evidence = { venue_now_resolves: v.name_he, label }; break; } }
     } else {
       const { data: a } = await client.from('activities').select('name, venue_id, locations(name, city)').eq('id', c.subject_id).maybeSingle();
-      if (a && !a.venue_id && a.locations?.name) { const v = await resolveVenue(client, { locationName: a.locations.name, city: a.locations.city }); if (v) evidence = { venue_now_resolves: v.name_he }; }
+      if (a && !a.venue_id && a.locations?.name) { const v = await venueNaming.resolveVenue(client, { locationName: a.locations.name, city: a.locations.city }); if (v) evidence = { venue_now_resolves: v.name_he }; }
     }
     if (!evidence) continue;
     const now = new Date().toISOString();
