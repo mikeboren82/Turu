@@ -2544,8 +2544,11 @@ app.get('/api/incoming', async (req, res) => {
     const { client } = await getClient();
     // The queue is now fed by ~90 sources (was 11): 300 hid most of it - see fetchAllRows for the
     // PostgREST 1000-row cap; open items first so the admin always sees the whole backlog.
+    // raw_source_snapshot (4KB/row) is never rendered in the inbox - leaving it out keeps the
+    // 1000-row pages small enough to never trip the client's fetch limits.
     const data = await fetchAllRows(() => client
-      .from('incoming_activities').select('*')
+      .from('incoming_activities')
+      .select('id, source_id, scan_log_id, page_url, match_type, existing_activity_id, confidence_score, confidence_breakdown, source_trust_score, extracted_data, diff, validation_issues, status, reviewed_by, reviewed_at, reject_reason, created_activity_id, found_at, created_at, updated_at')
       .order('found_at', { ascending: false }));
 
     const sourceIds = [...new Set(data.map((r) => r.source_id).filter(Boolean))];
