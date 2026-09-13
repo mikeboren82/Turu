@@ -751,7 +751,7 @@
   "sources": [
     {
       "name": "תיירות כפרית לב השרון",
-      "seed_url": "https://tour-levhasharon.org.il/business/category/70/events/",
+      "seed_url": "https://tour-levhasharon.org.il/business/category/70/",
       "status": "verified",
       "source_kind": "website",
       "publisher_type": "regional_council",
@@ -1005,7 +1005,8 @@
       "region": "גוש דן והמרכז",
       "scan_frequency_hours": 72,
       "priority": 5,
-      "source_trust_score": 75
+      "source_trust_score": 75,
+      "strategy": "local_relay"
     },
     {
       "name": "G סיטי - אירועים ופעילויות (רשת)",
@@ -2144,7 +2145,8 @@
       "scan_frequency_hours": 168,
       "priority": 6,
       "source_trust_score": 85,
-      "publisher_name": "עיריית לוד"
+      "publisher_name": "עיריית לוד",
+      "strategy": "local_relay"
     },
     {
       "name": "עיריית עפולה",
@@ -2212,8 +2214,8 @@
     },
     {
       "name": "עיריית נתניה",
-      "seed_url": "https://www.netanya.muni.il/",
-      "status": "verified",
+      "seed_url": "https://www.netanya.muni.il/City/Events/Pages/events_list.aspx?target=%D7%A2%D7%A5%20%D7%A7%D7%94%D7%9C%D7%99%20%D7%99%D7%A2%D7%93:%D7%AA%D7%95%D7%A9%D7%91%D7%99%D7%9D:%D7%90%D7%95%D7%9B%D7%9C%D7%95%D7%A1%D7%99%D7%95%D7%AA:%D7%99%D7%9C%D7%93%D7%99%D7%9D",
+      "status": "js_only",
       "region": "השרון",
       "categories": [],
       "venue": null,
@@ -2224,11 +2226,13 @@
       "scan_frequency_hours": 168,
       "priority": 5,
       "source_trust_score": 85,
-      "publisher_name": "עיריית נתניה"
+      "publisher_name": "עיריית נתניה",
+      "strategy": "local_relay",
+      "disabled_reason": "js_only: SharePoint events list requires a scripted browser (page says enable scripts)"
     },
     {
       "name": "קניון סי מול אשדוד - אירועים",
-      "seed_url": "https://seamall.co.il/%D7%90%D7%99%D7%A8%D7%95%D7%A2%D7%99%D7%9D/",
+      "seed_url": "https://seamall.co.il/events/",
       "status": "verified",
       "region": "השפלה והדרום",
       "categories": [],
@@ -2700,7 +2704,7 @@
     },
     {
       "name": "עיריית נהריה",
-      "seed_url": "https://www.nahariya.muni.il/",
+      "seed_url": "https://www.nahariya.muni.il/events/",
       "status": "verified",
       "region": "הצפון והעמק",
       "categories": [],
