@@ -125,15 +125,25 @@ async function callPlaces(apiKey: string, path: string, body: Record<string, unk
 // RequestStats - סופר לפי סוג-בקשה, לא "Google calls" אחיד (בקשת המשתמש 2026-09-12: "המערכת
 // צריכה לדעת להבדיל בין ID-only, Pro Search ו-Place Details"). מועבר במפורש לכל פונקציית-
 // קריאה במקום global mutable - כל הרצת Deno.serve מקבלת אובייקט stats טרי משלה.
+// page2Success/page3Success/page2Failure/page3Failure (2026-09-13, Batch-13 pre-flight,
+// observability-only per explicit instruction): a page-2/3 fetch's outcome previously only ever
+// surfaced as a console.error inside fetchAllPaginatedResults (_shared/placesDiscovery.ts) with
+// nothing persisted - these counters make "did an extra-page fetch ever actually fail in
+// production" answerable from settlement_scan_runs (0075) without touching Edge Function logs.
+// Page 1 has no success/failure counter here on purpose - a page-1 failure already aborts that
+// settlement's fill entirely (importErrors), a completely different, already-visible signal from
+// "the extra-page pagination path specifically had a problem".
 interface RequestStats {
   idOnly: number; textSearch: number; nearbySearch: number; placeDetails: number;
   googleResults: number; rejected: number; duplicates: number;
   textSearchPages: number; settlementsWithExtraPages: number;
+  page2Success: number; page3Success: number; page2Failure: number; page3Failure: number;
 }
 function newRequestStats(): RequestStats {
   return {
     idOnly: 0, textSearch: 0, nearbySearch: 0, placeDetails: 0, googleResults: 0, rejected: 0, duplicates: 0,
     textSearchPages: 0, settlementsWithExtraPages: 0,
+    page2Success: 0, page3Success: 0, page2Failure: 0, page3Failure: 0,
   };
 }
 
@@ -161,19 +171,36 @@ export type PlaceResult = RawPlaceResult & { _page: number };
 // ראו הבדיקות שם) כדי שתהיה ניתנת-לבדיקה בלי Deno.serve/API אמיתי. כאן רק מזריקים את קריאת-ה-API
 // האמיתית + setTimeout אמיתי.
 async function searchTextPlaygrounds(apiKey: string, lat: number, lon: number, radiusM: number, stats: RequestStats): Promise<PlaceResult[]> {
+  // pageIndex - local counter tracking which page number the current fetchPage invocation is
+  // (fetchAllPaginatedResults calls fetchPage sequentially, page 1/2/3/...) purely so the
+  // try/catch below can attribute a page-2/3 success or failure to stats. Does not change what
+  // fetchAllPaginatedResults itself does with the result/error (still returned/thrown exactly as
+  // before) - this only adds observation around the existing call, per explicit instruction not
+  // to change the page-fetch logic itself.
+  let pageIndex = 0;
   const { places, pagesFetched } = await fetchAllPaginatedResults<RawPlaceResult>(
     async (pageToken) => {
+      pageIndex++;
+      const currentPage = pageIndex;
       stats.textSearch++;
-      const body: Record<string, unknown> = {
-        textQuery: 'גן שעשועים',
-        locationBias: { circle: { center: { latitude: lat, longitude: lon }, radius: radiusM } },
-        maxResultCount: 20, languageCode: 'he', regionCode: 'IL',
-      };
-      if (pageToken) body.pageToken = pageToken;
-      const data = await callPlaces(apiKey, 'places:searchText', body, DISCOVERY_FIELD_MASK);
-      const pagePlaces = (data.places || []) as RawPlaceResult[];
-      stats.googleResults += pagePlaces.length;
-      return { places: pagePlaces, nextPageToken: data.nextPageToken as string | undefined };
+      try {
+        const body: Record<string, unknown> = {
+          textQuery: 'גן שעשועים',
+          locationBias: { circle: { center: { latitude: lat, longitude: lon }, radius: radiusM } },
+          maxResultCount: 20, languageCode: 'he', regionCode: 'IL',
+        };
+        if (pageToken) body.pageToken = pageToken;
+        const data = await callPlaces(apiKey, 'places:searchText', body, DISCOVERY_FIELD_MASK);
+        const pagePlaces = (data.places || []) as RawPlaceResult[];
+        stats.googleResults += pagePlaces.length;
+        if (currentPage === 2) stats.page2Success++;
+        else if (currentPage === 3) stats.page3Success++;
+        return { places: pagePlaces, nextPageToken: data.nextPageToken as string | undefined };
+      } catch (err) {
+        if (currentPage === 2) stats.page2Failure++;
+        else if (currentPage === 3) stats.page3Failure++;
+        throw err; // rethrow unchanged - fetchAllPaginatedResults's existing error handling decides what happens next.
+      }
     },
     { maxPages: MAX_TEXT_SEARCH_PAGES, delayMs: PAGE_TOKEN_DELAY_MS, sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)) },
   );
@@ -838,6 +865,10 @@ Deno.serve(async (req: Request) => {
       candidates_after_duplicate_filter: candidatesAfterDuplicateFilter,
       text_search_pages: stats.textSearchPages,
       settlements_with_extra_pages: stats.settlementsWithExtraPages,
+      page_2_success: stats.page2Success,
+      page_3_success: stats.page3Success,
+      page_2_failure: stats.page2Failure,
+      page_3_failure: stats.page3Failure,
     }).eq('id', runId);
   }
 
