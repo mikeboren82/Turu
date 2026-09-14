@@ -63,7 +63,7 @@ test('lifecycle: backoff schedule and settings defaults', () => {
 });
 
 test('listing-card image discovery: card image + detail link (Givatayim markup), cross-host detail link (Herzliya markup)', () => {
-  const { findEventCard, containsScore } = require('../cleaner/imageResolver');
+  const { findEventCard, containsScore } = require('../lib/pageExtract');
   const giv = '<base href="/"><div class="col"><a href="./events/10215/" class="event-promo"><div class="pic"><img src="https://org-images.coing.co/437/resources/d8d4.jpeg" alt="" loading="lazy"></div><div class="details"><h2 class="name mb-2"> סדנת רכיבה על אופניים </h2><div class="date">15/09/2026 17:00 גבעתיים פארק</div></div></a></div><a href="./events/1/">טורניר סטריטבול 3 על 3</a>';
   const c1 = findEventCard(giv, 'https://www.givatayim.muni.il/events/', 'סדנת רכיבה על אופניים');
   assert.equal(c1.detailUrl, 'https://www.givatayim.muni.il/events/10215/');

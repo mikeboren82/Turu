@@ -27,7 +27,7 @@ export function normalizeVenueAlias(name: string | null | undefined): string {
   return s;
 }
 
-export interface ResolvedVenue { id: string; name_he: string; city: string | null; venue_type: string; lat: number | null; lng: number | null }
+export interface ResolvedVenue { id: string; name_he: string; city: string | null; venue_type: string; lat: number | null; lng: number | null; address?: string | null }
 
 // "תל אביב" vs "תל אביב יפו", "מודיעין" vs "מודיעין מכבים רעות": the shorter canonical form is a
 // prefix/substring of the longer one. Exact after normalizeCityName, else containment (>= 3 chars).
@@ -47,7 +47,7 @@ export async function resolveVenue(client: any, input: { locationName: string | 
   const city = normalizeCityName(input.city || null);
   const { data, error } = await client
     .from('venue_aliases')
-    .select('venue:venues!inner(id, name_he, city, venue_type, lat, lng, is_active)')
+    .select('venue:venues!inner(id, name_he, city, venue_type, lat, lng, address, is_active)')
     .eq('alias_normalized', norm);
   if (error || !data) return null;
   // deno-lint-ignore no-explicit-any

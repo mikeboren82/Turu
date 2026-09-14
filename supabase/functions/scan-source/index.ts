@@ -25,6 +25,7 @@ import {
   ARCHIVE_CATEGORIES,
 } from '../_shared/extraction.ts';
 import { discoverListingLinks } from '../_shared/discovery.ts';
+import { extractJsonLdEvents, applyJsonLdToCandidate, type JsonLdEvent } from '../_shared/jsonld.ts';
 import { fetchJsonApiText, type JsonApiConfig } from '../_shared/adapters.ts';
 import { computeContentHash } from '../_shared/hashing.ts';
 
@@ -82,21 +83,30 @@ async function autoApproveNewActivity(
 
   // A canonical venue with coordinates is the best possible location - reuse/create the location row
   // from the venue itself so every event at that venue shares one address row.
-  const { data: existingLoc } = venueId
-    ? await client.from('locations').select('id, city, region, lat, lng').eq('venue_id', venueId).limit(1).maybeSingle()
-    : await client.from('locations').select('id, city, region, lat, lng').ilike('name', locationName).limit(1).maybeSingle();
+  // the best address available at ingestion: what the page said, else the canonical venue's address
+  const venueRow = candidate.venue as { lat: number | null; lng: number | null; city: string | null; address?: string | null } | undefined;
+  const candAddress = (candidate.address as string | null) || null;
+  const bestAddress = candAddress || venueRow?.address || null;
+  const addressProv = candAddress ? { address_source: 'monster:extracted', address_confidence: 'MEDIUM' } : venueRow?.address ? { address_source: 'monster:venue', address_confidence: 'HIGH' } : {};
+  // an existing location row is matched by venue, else by name WITHIN THE SAME CITY (a global name
+  // match bound "ספריית העיר" to another city's row - Cleaner audit 2026-09-14)
+  const locQuery = venueId
+    ? client.from('locations').select('id, city, region, lat, lng, address').eq('venue_id', venueId)
+    : client.from('locations').select('id, city, region, lat, lng, address').ilike('name', locationName).eq('city', candidate.city as string);
+  const { data: existingLoc } = await locQuery.limit(1).maybeSingle();
   if (existingLoc) {
     locationId = (existingLoc as { id: string }).id;
     const fillIn: Record<string, unknown> = {};
     if (!(existingLoc as { city: unknown }).city && candidate.city) fillIn.city = candidate.city;
     if (!(existingLoc as { region: unknown }).region && candidate.region) fillIn.region = candidate.region;
+    if (!(existingLoc as { address: unknown }).address && bestAddress) { fillIn.address = bestAddress; Object.assign(fillIn, addressProv, { address_resolved_at: new Date().toISOString() }); }
     if (Object.keys(fillIn).length > 0) await client.from('locations').update(fillIn).eq('id', locationId);
   } else {
-    const venueRow = candidate.venue as { lat: number | null; lng: number | null; city: string | null } | undefined;
     const { data: createdLoc, error: locErr } = await client
       .from('locations')
       .insert({
         name: locationName, city: candidate.city || venueRow?.city || null, region: candidate.region || null,
+        address: bestAddress, ...addressProv, address_resolved_at: bestAddress ? new Date().toISOString() : null,
         lat: venueRow?.lat ?? null, lng: venueRow?.lng ?? null, venue_id: venueId,
       })
       .select('id').single();
@@ -111,8 +121,14 @@ async function autoApproveNewActivity(
   let finalLng = (locRow as { lng: number | null } | null)?.lng ?? null;
   if (locRow && !hasCoords) {
     const l = locRow as { address: string | null; name: string | null; city: string | null };
+    // JSON-LD geo on the page (candidate.lat/lng from applyJsonLdToCandidate) is verified structured data
+    const ldLat = candidate.lat as number | null, ldLng = candidate.lng as number | null;
+    if (ldLat != null && ldLng != null) {
+      await client.from('locations').update({ lat: ldLat, lng: ldLng }).eq('id', locationId).is('lat', null);
+      hasCoords = true; finalLat = ldLat; finalLng = ldLng;
+    }
     const query = [l.address, l.name, l.city].filter(Boolean).join(', ') || l.city;
-    if (query) {
+    if (!hasCoords && query) {
       const coords = await geocodeAddress(query);
       if (coords) {
         await client.from('locations').update({ lat: coords.lat, lng: coords.lng }).eq('id', locationId);
@@ -244,6 +260,9 @@ function sanitizeCandidate(raw: any, pageUrl: string): { candidate: any; issues:
     price_amount: typeof raw.price_amount === 'number' ? raw.price_amount : null,
     location_name: typeof raw.location_name === 'string' && raw.location_name.trim() ? raw.location_name.trim() : null,
     location_detail: typeof raw.location_detail === 'string' ? raw.location_detail : null,
+    // street address as written on the page (2026-09-14: the prompt never asked for it before - 624 of
+    // 757 live activities had none, all Cleaner work); a bare city/place name is not an address
+    address: typeof raw.address === 'string' && /\d/.test(raw.address) && raw.address.trim().length >= 5 ? raw.address.trim().slice(0, 200) : null,
     city: typeof raw.city === 'string' && raw.city.trim() ? normalizeCityName(raw.city) : null,
     organizer_name: typeof raw.organizer_name === 'string' && raw.organizer_name.trim() ? raw.organizer_name.trim() : null,
     registration_url: httpUrl(raw.registration_url),
@@ -471,6 +490,7 @@ Deno.serve(async (req: Request) => {
         let candidateImages: ReturnType<typeof extractCandidateImages>;
         let text: string;
         let hash: string;
+        let pageJsonLd: JsonLdEvent[] = []; // structured events on this page (non-relay, non-heavy pages)
         if (relayPage) {
           candidateImages = (relayPage.images || []).slice(0, 40);
           text = relayPage.text.slice(0, PAGE_TEXT_CHAR_LIMIT * MAX_TEXT_CHUNKS);
@@ -499,6 +519,7 @@ Deno.serve(async (req: Request) => {
           } else {
             const $ = cheerio.load(html);
             candidateImages = extractCandidateImages($, pageUrl);
+            pageJsonLd = extractJsonLdEvents($);
             text = pageTextForExtraction($, textBudget);
           }
           hash = await computeContentHash(text);
@@ -581,6 +602,9 @@ Deno.serve(async (req: Request) => {
           if (counters.found >= maxActivitiesPerScan) break;
           const { candidate, issues } = sanitizeCandidate(rawCandidate, pageUrl);
           candidate.pageUrl = pageUrl;
+          // deterministic structured data beats nothing: fill address/coordinates/date from the page's
+          // JSON-LD Event with the same name (fill-null only - never over what the extractor found)
+          if (pageJsonLd.length) { const filled = applyJsonLdToCandidate(candidate, pageJsonLd); if (filled.length) { candidate.jsonld_filled = filled; if (candidate.one_time_date) { const i = issues.indexOf('תאריך'); if (i >= 0) issues.splice(i, 1); } } }
 
           if (issues.length > 0 && !candidate.name) { counters.rejectedCount++; continue; }
           if (isCommitmentActivity(candidate)) { counters.rejectedCount++; continue; }
@@ -599,7 +623,7 @@ Deno.serve(async (req: Request) => {
           candidate.venue = venue;
           if (venue) {
             if (!candidate.city && venue.city) candidate.city = normalizeCityName(venue.city);
-            candidate.lat = venue.lat; candidate.lng = venue.lng;
+            if (venue.lat != null) { candidate.lat = venue.lat; candidate.lng = venue.lng; }
             // the 'עיר' issue was pushed by sanitize before the venue could supply the city
             // (24 Ramot-mall items sat in review with a valid city because of it, 2026-09-13)
             if (candidate.city) { const i = issues.indexOf('עיר'); if (i >= 0) issues.splice(i, 1); }

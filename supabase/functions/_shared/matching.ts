@@ -62,6 +62,7 @@ export interface ExistingActivity {
   booking_requirement: string | null;
   source_url: string | null;
   location_name: string | null;
+  address?: string | null;
   city: string | null;
   lat: number | null;
   lng: number | null;
@@ -108,7 +109,7 @@ export async function getExistingActivitiesForCity(client: any, city: string, ca
     .select(`
       id, name, name_source, description, category, min_age, max_age, price_type, price_amount,
       booking_requirement, source_url, venue_id, event_fingerprint,
-      location:locations!inner(name, city, lat, lng),
+      location:locations!inner(name, city, lat, lng, address),
       activity_schedules(schedule_type, one_time_date, start_time, end_time, day_of_week),
       activity_images(url)
     `)
@@ -122,7 +123,7 @@ export async function getExistingActivitiesForCity(client: any, city: string, ca
       id: a.id, name: a.name, name_source: a.name_source, description: a.description, category: a.category,
       min_age: a.min_age, max_age: a.max_age, price_type: a.price_type, price_amount: a.price_amount,
       booking_requirement: a.booking_requirement, source_url: a.source_url,
-      location_name: a.location?.name ?? null, city: normalizeCityName(a.location?.city ?? null),
+      location_name: a.location?.name ?? null, address: a.location?.address ?? null, city: normalizeCityName(a.location?.city ?? null),
       lat: a.location?.lat ?? null, lng: a.location?.lng ?? null,
       venue_id: a.venue_id ?? null, event_fingerprint: a.event_fingerprint ?? null,
       schedule_type: sched.schedule_type ?? null, one_time_date: sched.one_time_date ?? null,
@@ -203,7 +204,7 @@ export function computeConfidence(candidate: any, existing: ExistingActivity, th
 
 const DIFF_FIELD_LABELS: Record<string, string> = {
   one_time_date: 'תאריך', start_time: 'שעת התחלה', end_time: 'שעת סיום',
-  price_amount: 'מחיר', price_type: 'סוג מחיר', location_name: 'מיקום', city: 'עיר',
+  price_amount: 'מחיר', price_type: 'סוג מחיר', location_name: 'מיקום', city: 'עיר', address: 'כתובת',
   min_age: 'גיל מינימלי', max_age: 'גיל מקסימלי', description: 'תיאור',
   booking_requirement: 'זמינות/הזמנה', has_image: 'תמונה', name: 'שם',
 };
@@ -230,6 +231,8 @@ export function computeFieldDiff(candidate: any, existing: ExistingActivity): Re
   compare('price_type', existing.price_type, candidate.price_type);
   compare('location_name', existing.location_name, candidate.location_name);
   compare('city', existing.city, normalizeCityName(candidate.city || null));
+  // a later scan that SEES a street address surfaces it as an update (only when the record has none)
+  if (candidate.address && !existing.address) compare('address', existing.address ?? null, candidate.address);
   compare('min_age', existing.min_age, candidate.min_age);
   compare('max_age', existing.max_age, candidate.max_age);
   compare('booking_requirement', existing.booking_requirement, candidate.booking_requirement);

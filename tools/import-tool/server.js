@@ -138,6 +138,7 @@ function buildExtractionSystemPrompt() {
 - price_amount: מספר (בשקלים) אם price_type הוא fixed, אחרת null
 - location_name: שם המקום הכללי (למשל שם הקניון/הפארק), אחרת null
 - location_detail: פרטי מיקום נוספים בתוך המקום (קומה, אזור וכו'), אחרת null
+- address: כתובת הרחוב של המקום (רחוב ומספר בית) **רק אם היא כתובה במפורש בטקסט**, למשל "רחוב הרצל 12" - אל תנחש כתובת ואל תמציא מספר בית; אם מופיע רק שם המקום או רק העיר - null
 - city: שם היישוב/העיר שבו נמצאת הפעילות (למשל "תל אביב", "חיפה", "קרית שמונה"), אחרת null
 
 בנוסף, סווג את הפעילות לפי השדות הבאים - **רק אם ניתן להסיק אותם בביטחון סביר מהטקסט**. אל תנחש - אם אין רמז ברור, השאר null (או מערך ריק [] עבור שדות מסוג מערך).
@@ -406,23 +407,29 @@ async function queryNominatim(query) {
 // (חדרי בריחה, סטודיו טניס וכו') לא ימופו שם בכלל, אז חיפוש עם שם העסק המדויק נכשל הרבה פעמים.
 // לכן: קודם מנסים את השאילתה המלאה (כתובת/שם המקום/עיר), ואם זה נכשל - fallback לעיר בלבד, כדי
 // לפחות לקבל פין מקורב באזור הנכון במקום כלום.
+// 2026-09-14 (Cleaner audit): a city-only hit is a CITY CENTROID, not a verified place. It still
+// makes the record publishable (pin in the right area), but the result now says so
+// ({ fallback: 'city' }) and the callers stamp locations.address_source='geocode:city_centroid' +
+// address_confidence='LOW', so THE CLEANER opens an unverified_location case and may replace the
+// weak coordinates with HIGH/MEDIUM evidence later.
 async function geocodeLocation(location) {
   const full = [location.address, location.name, location.city].filter(Boolean).join(', ');
   const attempts = [];
-  if (full) attempts.push(full);
-  if (location.city && location.city !== full) attempts.push(location.city);
+  if (full) attempts.push({ query: full, fallback: null });
+  if (location.city && location.city !== full) attempts.push({ query: location.city, fallback: 'city' });
   if (attempts.length === 0) return null;
 
-  for (const query of attempts) {
+  for (const { query, fallback } of attempts) {
     try {
       const coords = await queryNominatim(query);
-      if (coords) return coords;
+      if (coords) return { ...coords, fallback };
     } catch (err) {
       console.error('geocoding נכשל עבור "' + query + '":', err);
     }
   }
   return null;
 }
+const centroidStamp = (coords) => (coords && coords.fallback === 'city' ? { address_source: 'geocode:city_centroid', address_confidence: 'LOW' } : {});
 
 // עוזר משותף: אם למיקום הנתון עדיין אין קואורדינטות - מנסה לאתר ולמלא אותן. נקרא אחרי כל יצירה/עדכון
 // של מיקום (שמירת פעילות חדשה, עריכת מיקום בטופס הניהול) כדי שקואורדינטות יתמלאו אוטומטית מרגע
@@ -438,7 +445,7 @@ async function geocodeAndFillLocation(client, locationId, { force = false } = {}
   if (!force && loc.lat != null && loc.lng != null) return { lat: loc.lat, lng: loc.lng };
   const coords = await geocodeLocation(loc);
   if (coords) {
-    await client.from('locations').update({ lat: coords.lat, lng: coords.lng }).eq('id', locationId);
+    await client.from('locations').update({ lat: coords.lat, lng: coords.lng, ...centroidStamp(coords) }).eq('id', locationId);
   }
   return coords;
 }
@@ -886,18 +893,24 @@ async function requireVerifiedLocation(client, rawActivity) {
   // מנרמל city לצורה קנונית (cityNaming.js) לפני כל כתיבה - מונע וריאציות-איות ("תל אביב" מול
   // "תל־אביב–יפו") שמפצלות אותה עיר לכמה ערכים שונים, ראו migrate-city-names.js.
   const activity = { ...rawActivity, city: normalizeCityName(rawActivity.city) };
-  const { data: existing, error: findErr } = await client
-    .from('locations')
-    .select('id, city, region, lat, lng')
-    .ilike('name', activity.location_name)
-    .limit(1)
-    .maybeSingle();
+  // the best address available now: what the candidate carried (extracted / Cleaner-resolved / Places)
+  // else the canonical venue's address (saveNewActivity resolved venue_id before calling us)
+  let venueAddress = null;
+  if (!activity.address && activity.venue_id) { const { data: v } = await client.from('venues').select('address').eq('id', activity.venue_id).maybeSingle(); venueAddress = v?.address || null; }
+  const bestAddress = activity.address || venueAddress || null;
+  const addressProv = activity.address ? { address_source: activity.address_source || 'monster:extracted', address_confidence: activity.address_confidence || 'MEDIUM', address_resolved_at: new Date().toISOString() } : venueAddress ? { address_source: 'monster:venue', address_confidence: 'HIGH', address_resolved_at: new Date().toISOString() } : {};
+  // an existing row is matched by name WITHIN THE SAME CITY when the candidate has one (a global name
+  // match bound "ספריית העיר" to another city's row - Cleaner audit 2026-09-14)
+  let findQ = client.from('locations').select('id, city, region, lat, lng, address').ilike('name', activity.location_name);
+  if (activity.city) findQ = findQ.or(`city.eq.${activity.city.replace(/[,.()]/g, ' ')},city.is.null`);
+  const { data: existing, error: findErr } = await findQ.limit(1).maybeSingle();
   if (findErr) throw findErr;
 
   if (existing) {
     const fillIn = {};
     if (!existing.city && activity.city) fillIn.city = activity.city;
     if (!existing.region && activity.region) fillIn.region = activity.region;
+    if (!existing.address && bestAddress) Object.assign(fillIn, { address: bestAddress }, addressProv);
     if (Object.keys(fillIn).length > 0) {
       const { error: updErr } = await client.from('locations').update(fillIn).eq('id', existing.id);
       if (updErr) throw updErr;
@@ -906,12 +919,12 @@ async function requireVerifiedLocation(client, rawActivity) {
     const provided = activity.lat != null && activity.lng != null ? { lat: activity.lat, lng: activity.lng } : null;
     const coords = existing.lat != null && existing.lng != null
       ? { lat: existing.lat, lng: existing.lng }
-      : (provided || await geocodeLocation({ address: null, name: activity.location_name, city: activity.city || existing.city }));
+      : (provided || await geocodeLocation({ address: bestAddress, name: activity.location_name, city: activity.city || existing.city }));
     if (!coords) {
       throw new Error('לא נמצאה כתובת מאומתת למקום "' + activity.location_name + '" - הפעילות לא נשמרה');
     }
     if (existing.lat == null) {
-      await client.from('locations').update({ lat: coords.lat, lng: coords.lng }).eq('id', existing.id);
+      await client.from('locations').update({ lat: coords.lat, lng: coords.lng, ...centroidStamp(coords) }).eq('id', existing.id);
     }
     return existing.id;
   }
@@ -920,7 +933,7 @@ async function requireVerifiedLocation(client, rawActivity) {
   // קואורדינטות שהגיעו עם המועמד (Google Places) עדיפות על geocoding-לפי-שם.
   const coords = (activity.lat != null && activity.lng != null)
     ? { lat: activity.lat, lng: activity.lng }
-    : await geocodeLocation({ address: activity.address || null, name: activity.location_name, city: activity.city || null });
+    : await geocodeLocation({ address: bestAddress, name: activity.location_name, city: activity.city || null });
   if (!coords) {
     throw new Error('לא נמצאה כתובת מאומתת למקום "' + activity.location_name + '" - הפעילות לא נשמרה');
   }
@@ -928,7 +941,8 @@ async function requireVerifiedLocation(client, rawActivity) {
     .from('locations')
     .insert({
       name: activity.location_name, city: activity.city || null, region: activity.region || null,
-      address: activity.address || null, lat: coords.lat, lng: coords.lng, venue_id: activity.venue_id || null,
+      address: bestAddress, ...addressProv, ...centroidStamp(coords),
+      lat: coords.lat, lng: coords.lng, venue_id: activity.venue_id || null,
     })
     .select('id')
     .single();

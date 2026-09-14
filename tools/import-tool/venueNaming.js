@@ -56,7 +56,7 @@ async function resolveVenue(client, { locationName, city }) {
   const cityNorm = normalizeCityName(city || null);
   const { data, error } = await client
     .from('venue_aliases')
-    .select('venue:venues!inner(id, name_he, city, venue_type, lat, lng, is_active)')
+    .select('venue:venues!inner(id, name_he, city, venue_type, lat, lng, address, is_active)')
     .eq('alias_normalized', norm);
   if (error || !data) return null;
   const venues = data.map((r) => r.venue).filter((v) => v && v.is_active);

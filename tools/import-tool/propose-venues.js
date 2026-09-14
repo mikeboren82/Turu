@@ -18,7 +18,7 @@ const APPLY = process.argv.includes('--apply');
 const MIN_ACTS = 3;
 const GENERIC = new Set(['ספרייה', 'הספרייה', 'ספריה', 'מתנס', 'מתנ"ס', 'המתנס', 'פארק', 'גן', 'גינה', 'הגינה', 'מרכז', 'המרכז', 'אולם', 'היכל', 'בית', 'חוף', 'הפארק', 'קניון', 'הקניון', 'כיכר', 'מגרש', 'אודיטוריום', 'מרכז קהילתי', 'מרכז מסחרי', 'בית ספר', 'גן ילדים', 'מקוון', 'zoom', 'online']);
 const TYPE_RULES = [[/קניון|סנטר|מרכז מסחרי|מול\b/, 'mall'], [/ספרי/, 'library'], [/מתנ"?ס|מרכז קהילתי|מרכזים קהילתיים|קהילה/, 'community_center'], [/היכל|תיאטרון|אולם|אודיטוריום|מרכז הבמה/, 'theater'], [/מוזיאון|מוזאון|מדעטק|טכנודע/, 'museum'], [/פארק|גן |גינה|יער|חורש/, 'park'], [/חווה|פינת חי|משק/, 'farm'], [/מרכז תרבות|בית תרבות|תרבות/, 'cultural_center'], [/בריכה|קאנטרי|ספורט|מגרש/, 'sports_center'], [/כיכר|רחבה|טיילת|חוף/, 'public_square'], [/מרכז מבקרים/, 'visitor_center']];
-const REGIONS = new Set(['הצפון והעמק', 'חיפה והקריות', 'השרון', 'גוש דן והמרכז', 'ירושלים והסביבה', 'השפלה והדרום', 'יו"ש והבנימין']);
+const REGIONS = new Set(['הצפון והגליל', 'עמק יזרעאל והעמקים', 'חיפה והקריות', 'השרון', 'גוש דן והמרכז', 'ירושלים והסביבה', 'השפלה', 'הדרום והנגב', 'יו"ש והבנימין']);
 
 async function all(client, table, select, fn) { let from = 0, rows = []; while (true) { let q = client.from(table).select(select).range(from, from + 999); if (fn) q = fn(q); const { data, error } = await q; if (error) throw error; rows = rows.concat(data); if (data.length < 1000) return rows; from += 1000; } }
 const median = (xs) => { const s = [...xs].sort((a, b) => a - b); return s[Math.floor(s.length / 2)]; };
@@ -57,11 +57,13 @@ const median = (xs) => { const s = [...xs].sort((a, b) => a - b); return s[Math.
   skipped.slice(0, 15).forEach((s) => console.log(`  - ${s.label} [${s.city}] n=${s.n}: ${s.why}`));
   if (!APPLY) return;
   let created = 0, linked = 0;
+  const { createVenueWithAlias } = require('./venueLearning');
   for (const p of proposals) {
-    const { data: v, error } = await client.from('venues').insert({ name_he: p.label, venue_type: p.type, city: p.city, region: p.region, address: p.address, lat: p.lat, lng: p.lng, is_active: true, notes: `learned from ${p.n} published activities (${p.sources} sources) - propose-venues.js`, created_by: userId }).select('id').single();
-    if (error) { console.log('  venue insert failed', p.label, error.message); continue; }
-    created++;
-    await client.from('venue_aliases').upsert([{ alias: p.label, alias_normalized: normalizeVenueAlias(p.label), venue_id: v.id }], { onConflict: 'alias_normalized,venue_id' });
+    // one shared writer with the Cleaner's cluster step: re-resolves the alias right before insert
+    const res = await createVenueWithAlias(client, { label: p.label, city: p.city, region: p.region, type: p.type, lat: p.lat, lng: p.lng, address: p.address, notes: `learned from ${p.n} published activities (${p.sources} sources) - propose-venues.js`, userId });
+    if (!res.venue) { console.log('  venue insert failed', p.label, res.error); continue; }
+    const v = res.venue;
+    if (res.created) created++;
     const ids = p.acts.map((a) => a.id), locIds = p.acts.map((a) => a.location_id).filter(Boolean);
     await client.from('activities').update({ venue_id: v.id }).in('id', ids);
     if (locIds.length) await client.from('locations').update({ venue_id: v.id }).in('id', locIds);

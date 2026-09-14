@@ -10,15 +10,30 @@
 //   node relay-scan.js --source=<uuid>    -> one source (any strategy)
 //   node relay-scan.js --mark-blocked     -> first flip active sources whose last failure was
 //                                            access_403_waf/timeout_network/unknown to strategy='local_relay'
+//   node relay-scan.js --detail-pages=N   -> ALSO relay up to N event detail pages per listing page
+//                                            ("פרטים נוספים" / title / booking links - lib/pageExtract.js
+//                                            findEventDetailLinks, shared with THE CLEANER). Default N comes
+//                                            from sources.adapter_config.detail_traversal.max_pages (0 = off).
+//
+// DETAIL TRAVERSAL - incremental step (2026-09-14): listing pages often carry only a title/date; the
+// street address, JSON-LD and the event image live on the detail page. Relaying detail pages as
+// ordinary pages means scan-source extracts them with the same prompt/dedup/provenance, and the
+// candidate's page_url IS the detail page (the Cleaner's source_page stage then reads it directly).
+// The architectural target is adapter-controlled bounded traversal inside THE MONSTER itself
+// (scan-source reading adapter_config.detail_traversal: { max_pages, allow_hosts }), not a CLI flag
+// a human must remember - this flag + the adapter_config default are the first step, budgets unchanged
+// when the config is absent.
 require('dotenv').config();
 const crypto = require('crypto');
 const cheerio = require('cheerio');
 const { getClient } = require('./supabase');
 const { fetchJsonApiText } = require('./jsonApiAdapter');
 const { UA, fetchHtml } = require('./lib/fetchPage');
+const { findEventDetailLinks } = require('./lib/pageExtract');
 
 const args = Object.fromEntries(process.argv.slice(2).filter((a) => a.startsWith('--')).map((a) => { const [k, v] = a.slice(2).split('='); return [k, v === undefined ? true : v]; }));
 const MAX_PAGES = 8;
+const MAX_DETAIL_PAGES_HARD = 25; // per listing page, whatever the config says
 
 // --- mirrors of supabase/functions/_shared (discovery.ts / hashing.ts / extraction.ts) ---
 const DISCOVERY_KEYWORDS = ['אירוע', 'אירועים', 'לוח אירועים', 'פעילויות', 'פעילות', 'חוגים', 'קייטנה', 'event', 'events', 'calendar', 'activities', 'activity', 'קטגוריה', 'category', 'עמוד', 'page'];
@@ -88,16 +103,24 @@ function splitText(text, limit) {
   return parts;
 }
 
-async function buildPages(seedUrl) {
+async function buildPages(seedUrl, detail = { maxPages: 0, allowHosts: [] }) {
   const seed = await fetchHtml(seedUrl);
   if (!seed.ok) throw new Error(`seed HTTP ${seed.status}`);
   const $seed = cheerio.load(seed.html);
   const urls = [seedUrl, ...discoverListingLinks($seed, seedUrl, MAX_PAGES - 1)];
   const pages = [];
+  const seen = new Set(urls);
+  let detailBudget = Math.min(Number(detail.maxPages) || 0, MAX_DETAIL_PAGES_HARD) * urls.length;
   for (const url of urls) {
     try {
       const res = url === seedUrl ? seed : await fetchHtml(url);
       if (!res.ok) continue;
+      // bounded detail traversal: event detail pages of this listing page ride along as pages of their own
+      if (detailBudget > 0) {
+        const links = findEventDetailLinks(res.html, url, { max: Math.min(detailBudget, Number(detail.maxPages) || 0), allowHosts: detail.allowHosts || [] });
+        for (const l of links) { if (seen.has(l.url)) continue; seen.add(l.url); urls.push(l.url); detailBudget--; }
+        if (links.length) console.log(`   detail pages from ${url}: +${links.length}`);
+      }
       const $ = cheerio.load(res.html.length > 1_500_000 ? res.html.slice(0, 1_500_000) : res.html);
       const images = extractCandidateImages($, url);
       const text = pageTextForExtraction($);
@@ -151,7 +174,7 @@ async function buildPages(seedUrl) {
           // matches them to events by context like page images
           return parts.map((text, i) => ({ url: `${s.seed_url}#part=${i + 1}`, text, hash: sha256(text), images: i === 0 ? (api.images || []) : [] }));
         })()
-        : await buildPages(s.seed_url);
+        : await buildPages(s.seed_url, { maxPages: args['detail-pages'] != null ? Number(args['detail-pages']) : Number(s.adapter_config?.detail_traversal?.max_pages || 0), allowHosts: s.adapter_config?.detail_traversal?.allow_hosts || [] });
       if (!pages.length) { console.log(`✗ ${s.name}: no usable pages`); continue; }
       // One edge invocation extracts ~2-3 dense windows before its time budget (SCAN_TIME_BUDGET_MS)
       // defers the rest, so the pages go in batches: post a batch, wait for that scan to finish

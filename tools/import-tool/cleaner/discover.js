@@ -47,7 +47,7 @@ async function discoverCases(client, { today }) {
   }
 
   // B. live activities with missing important data
-  const acts = await all(client, 'activities', 'id, category, venue_id, source_id, placeholder_group, photo_skipped, locations(id, address, city, lat, lng, region), activity_schedules(schedule_type, one_time_date), activity_images(id)', (q) => q.eq('status', 'approved'));
+  const acts = await all(client, 'activities', 'id, category, venue_id, source_id, placeholder_group, photo_skipped, locations(id, address, city, lat, lng, region, address_source, address_confidence), activity_schedules(schedule_type, one_time_date), activity_images(id)', (q) => q.eq('status', 'approved'));
   for (const a of acts) {
     const pg = a.category === 'גן שעשועים';
     const loc = a.locations; const sched = a.activity_schedules || [];
@@ -56,7 +56,11 @@ async function discoverCases(client, { today }) {
     const recurring = sched.some((s) => s.schedule_type === 'recurring');
     const ctx = { eventDate, live: true, recurring, today };
     if (eventDate && eventDate < today) continue; // expired: the cron archives it, nothing to repair
+    // weak coordinates = provenance says city-centroid geocode (prospective stamp by the approve path,
+    // or the multi-signal historical audit) - not a verified location, repairable with stronger evidence
+    const weakCoords = loc && loc.lat != null && (loc.address_source === 'geocode:city_centroid' || loc.address_source === 'geocode:city_centroid_suspected');
     if (!loc || loc.lat == null || loc.lng == null) add({ subject_kind: 'activity', subject_id: a.id, issue: 'missing_coordinates', priority: 12, event_date: eventDate, source_id: a.source_id, opened_reason: 'live without coordinates' });
+    else if (weakCoords && !pg) add({ subject_kind: 'activity', subject_id: a.id, issue: 'unverified_location', priority: priorityFor('unverified_location', ctx), event_date: eventDate, source_id: a.source_id, opened_reason: 'coordinates are a city centroid (' + loc.address_source + ')' });
     else if (!loc.address) add({ subject_kind: 'activity', subject_id: a.id, issue: 'incomplete_address', priority: priorityFor('incomplete_address', ctx) + (pg ? 20 : 0), event_date: eventDate, source_id: a.source_id, opened_reason: 'coordinates without street address' });
     if (!pg && !a.venue_id) add({ subject_kind: 'activity', subject_id: a.id, issue: 'missing_venue', priority: priorityFor('missing_venue', ctx), event_date: eventDate, source_id: a.source_id, opened_reason: 'no canonical venue' });
     if (!pg && !(a.activity_images || []).length && !a.photo_skipped) add({ subject_kind: 'activity', subject_id: a.id, issue: 'missing_image', priority: priorityFor('missing_image', ctx), event_date: eventDate, source_id: a.source_id, opened_reason: a.placeholder_group ? 'placeholder ' + a.placeholder_group : 'no image' });
@@ -75,9 +79,11 @@ async function upsertCases(client, candidates) {
   const rows = [];
   for (const c of candidates) { if (map.has(key(c))) { existing++; continue; } rows.push({ ...c, status: 'open', next_attempt_at: new Date().toISOString() }); }
   for (let i = 0; i < rows.length; i += 200) {
-    const { error } = await client.from('cleaner_cases').insert(rows.slice(i, i + 200));
-    if (error) throw new Error('cleaner_cases insert: ' + error.message);
-    created += Math.min(200, rows.length - i);
+    // idempotent: two workers discovering at the same moment both see the same new subjects (found
+    // by the 2026-09-14 two-worker test) - the unique key decides, duplicates are ignored, not errors
+    const { data, error } = await client.from('cleaner_cases').upsert(rows.slice(i, i + 200), { onConflict: 'subject_kind,subject_id,issue', ignoreDuplicates: true }).select('id');
+    if (error) throw new Error('cleaner_cases upsert: ' + error.message);
+    created += (data || []).length;
   }
   // cases whose subject no longer has the issue (fixed by a human / the scanner) => resolved(external)
   const wanted = new Set(candidates.map(key));

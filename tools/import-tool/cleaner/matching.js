@@ -33,7 +33,7 @@ async function getExistingActivitiesForCity(client, city, cache) {
   if (cache.has(norm)) return cache.get(norm);
   const cityVariants = [...new Set([norm, city].filter(Boolean))];
   const { data, error } = await client.from('activities')
-    .select('id, name, name_source, description, category, min_age, max_age, price_type, price_amount, booking_requirement, source_url, venue_id, event_fingerprint, location:locations!inner(name, city, lat, lng), activity_schedules(schedule_type, one_time_date, start_time, end_time, day_of_week), activity_images(url)')
+    .select('id, name, name_source, description, category, min_age, max_age, price_type, price_amount, booking_requirement, source_url, venue_id, event_fingerprint, location:locations!inner(name, city, lat, lng, address), activity_schedules(schedule_type, one_time_date, start_time, end_time, day_of_week), activity_images(url)')
     .in('location.city', cityVariants).eq('status', 'approved');
   if (error) throw error;
   const mapped = (data || []).map((a) => {
@@ -42,7 +42,7 @@ async function getExistingActivitiesForCity(client, city, cache) {
       id: a.id, name: a.name, name_source: a.name_source, description: a.description, category: a.category,
       min_age: a.min_age, max_age: a.max_age, price_type: a.price_type, price_amount: a.price_amount,
       booking_requirement: a.booking_requirement, source_url: a.source_url,
-      location_name: a.location?.name ?? null, city: normalizeCityName(a.location?.city ?? null),
+      location_name: a.location?.name ?? null, address: a.location?.address ?? null, city: normalizeCityName(a.location?.city ?? null),
       lat: a.location?.lat ?? null, lng: a.location?.lng ?? null,
       venue_id: a.venue_id ?? null, event_fingerprint: a.event_fingerprint ?? null,
       schedule_type: sched.schedule_type ?? null, one_time_date: sched.one_time_date ?? null,
