@@ -108,9 +108,22 @@ async function processCase(client, c, ctx) {
         return r;
       }
       if (c.issue === 'missing_required_metadata') {
-        const r = await enrichFields(client, { kind: 'incoming', row }, ctx);
-        if (r.filled.length) { counters.fieldsFilled += r.filled.length; gain(counters, r.filled.map(() => 'metadataFieldsAdded')); if (!r.remaining.length) { counters.resolved++; const patched = await loadIncoming(client, row.id); const hb = await handBackIncoming(client, patched, ctx); if (hb.outcome === 'published') { counters.published++; gain(counters, ['incomingPromoted']); } else if (hb.outcome === 'duplicate_merged') { counters.duplicatesMerged++; gain(counters, ['duplicatesMerged']); } else if (hb.outcome === 'awaiting_policy') counters.policyHold++; return resolveCase(client, c, { outcome: hb.outcome, filled: r.filled, handback: hb }); } }
-        const rr = await markAttemptFailed(client, c, { method: r.tried, error: 'still missing: ' + r.remaining.join(','), settings, evidence: { remaining: r.remaining } });
+        // canonical venue/source type corroborates a name-keyword category (MEDIUM rule)
+        let venueType = null;
+        if (row.source?.venue_id) { const { data: v } = await client.from('venues').select('venue_type').eq('id', row.source.venue_id).maybeSingle(); venueType = v?.venue_type || null; }
+        const r = await enrichFields(client, { kind: 'incoming', row }, { ...ctx, dry: DRY, venueType });
+        counters.metadata = counters.metadata || { processed: 0, audience: 0, date: 0, category: 0, entity_type: 0, fullyClosed: 0, partial: 0, unresolved: {} };
+        const m = counters.metadata; m.processed++;
+        for (const f of r.filled) { if (f === 'audience') m.audience++; else if (f === 'one_time_date') m.date++; else if (f === 'category') m.category++; else if (f === 'entity_type') m.entity_type++; }
+        for (const [k, why] of Object.entries(r.unresolved || {})) { const key = k + ': ' + String(why).slice(0, 60); m.unresolved[key] = (m.unresolved[key] || 0) + 1; }
+        if (r.rejected) { counters.archived++; counters.archiveReasons.invalid_event = (counters.archiveReasons.invalid_event || 0) + 1; return archiveCase(client, c, { reason: 'invalid_event', note: 'קהל יעד למבוגרים לפי עמוד המקור', methods: r.tried }); }
+        if (DRY) return { outcome: 'dry:' + (r.remaining.length ? 'partial' : 'closed'), method: r.filled.join(',') || '-', error: Object.entries(r.unresolved || {}).map(([k, v]) => k + '=' + v).join('; ') };
+        if (r.filled.length) {
+          counters.fieldsFilled += r.filled.length; gain(counters, r.filled.map(() => 'metadataFieldsAdded'));
+          if (!r.remaining.length) { m.fullyClosed++; counters.resolved++; const patched = await loadIncoming(client, row.id); const hb = await handBackIncoming(client, patched, ctx); if (hb.outcome === 'published') { counters.published++; gain(counters, ['incomingPromoted']); } else if (hb.outcome === 'duplicate_merged') { counters.duplicatesMerged++; gain(counters, ['duplicatesMerged']); } else if (hb.outcome === 'awaiting_policy') counters.policyHold++; return resolveCase(client, c, { outcome: hb.outcome, filled: r.filled, fields: r.fields, handback: hb }); }
+          m.partial++;
+        }
+        const rr = await markAttemptFailed(client, c, { method: r.tried, error: 'still missing: ' + r.remaining.join(',') + (Object.keys(r.unresolved || {}).length ? ' | ' + Object.entries(r.unresolved).map(([k, v]) => k + ': ' + v).join('; ').slice(0, 220) : ''), settings, evidence: { remaining: r.remaining, filled: r.filled, unresolved: r.unresolved } });
         countArchive(counters, rr);
         return rr;
       }

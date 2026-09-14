@@ -1,0 +1,1064 @@
+{
+  "generatedAt": "2026-09-14T13:27:05.311Z",
+  "apply": true,
+  "tally": {
+    "already_reconciled": 38,
+    "skipped_not_a_live_pair": 43,
+    "DISTINCT_PLACES": 11,
+    "SAME_PLACE_MEDIUM_NEEDS_MORE_EVIDENCE": 11,
+    "INSUFFICIENT_EVIDENCE": 1
+  },
+  "merged": 0,
+  "results": [
+    {
+      "review_case": "1360262a-2039-4257-874b-8a37131becb3",
+      "osm": {
+        "id": "5e85831a-a420-4ab7-a362-4af366b207a8",
+        "name": "חורשת האקליפטוס",
+        "address": "38, בית שמש"
+      },
+      "google": {
+        "id": "b66b7883-ff18-4f5e-a64a-f7335680a20f",
+        "name": "פארק האקליפטוס",
+        "address": "היסמין 19, בית שמש"
+      },
+      "outcome": "DISTINCT_PLACES",
+      "decisive": "different streets (38 / היסמין) and 88 m apart",
+      "signals": [
+        "88 m",
+        "street 0.00 (38 vs היסמין)",
+        "name 0.50",
+        "city true"
+      ],
+      "ev": {
+        "distM": 88,
+        "st": 0,
+        "nm": 0.5,
+        "sameCity": true,
+        "oStreet": "38",
+        "gStreet": "היסמין",
+        "gHouse": "19",
+        "osm_at_google": {
+          "category": "tourism",
+          "type": "picnic_site",
+          "name": null,
+          "road": "38",
+          "lat": 31.7391698,
+          "lng": 34.9727029,
+          "osm_id": 713582617,
+          "osm_type": "node"
+        },
+        "osm_at_osm": {
+          "category": "leisure",
+          "type": "playground",
+          "name": "חורשת האקליפטוס",
+          "road": "38",
+          "lat": 31.7394934,
+          "lng": 34.9726802,
+          "osm_id": 713582660,
+          "osm_type": "node"
+        }
+      }
+    },
+    {
+      "review_case": "bc283464-b614-40c6-be4f-49ee0052abb6",
+      "osm": {
+        "id": "5e395b6e-941d-4dc9-b987-daf7805ee1b5",
+        "name": "גן שעשועים – יעקב פרי, חולון",
+        "address": "יעקב פרי, חולון"
+      },
+      "google": {
+        "id": "98c7ec88-b4ed-4bdf-a90e-9523a04b2251",
+        "name": "פארק תל גיבורים",
+        "address": "המצודה, חולון"
+      },
+      "outcome": "SAME_PLACE_MEDIUM_NEEDS_MORE_EVIDENCE",
+      "decisive": "39 m, same type, no street/name/feature agreement",
+      "signals": [
+        "39 m",
+        "street 0.00 (יעקב פרי vs המצודה)",
+        "name 0.00",
+        "city true"
+      ],
+      "ev": {
+        "distM": 39,
+        "st": 0,
+        "nm": 0,
+        "sameCity": true,
+        "oStreet": "יעקב פרי",
+        "gStreet": "המצודה",
+        "gHouse": null,
+        "osm_at_google": {
+          "category": "amenity",
+          "type": "parking",
+          "name": null,
+          "road": "המצודה",
+          "lat": 32.0338192,
+          "lng": 34.7672484,
+          "osm_id": 1352906017,
+          "osm_type": "way"
+        },
+        "osm_at_osm": {
+          "category": "leisure",
+          "type": "playground",
+          "name": null,
+          "road": "יעקב פרי",
+          "lat": 32.0339143,
+          "lng": 34.7676742,
+          "osm_id": 332452750,
+          "osm_type": "way"
+        }
+      }
+    },
+    {
+      "review_case": "68c16be1-65f7-4193-85b9-7056cdee5b57",
+      "osm": {
+        "id": "fa8b36c4-5eb8-4752-bc9e-ec5d4208c839",
+        "name": "גן שעשועים – סעדיה גאון, תל־אביב–יפו",
+        "address": "סעדיה גאון, תל־אביב–יפו"
+      },
+      "google": {
+        "id": "27a9f376-4003-4728-9924-35cf2026c8a6",
+        "name": "פארק קריית ספר",
+        "address": "וילסון 14, תל אביב יפו"
+      },
+      "outcome": "SAME_PLACE_MEDIUM_NEEDS_MORE_EVIDENCE",
+      "decisive": "27 m, same type, no street/name/feature agreement",
+      "signals": [
+        "27 m",
+        "street 0.00 (סעדיה גאון vs וילסון)",
+        "name 0.00",
+        "city true"
+      ],
+      "ev": {
+        "distM": 27,
+        "st": 0,
+        "nm": 0,
+        "sameCity": true,
+        "oStreet": "סעדיה גאון",
+        "gStreet": "וילסון",
+        "gHouse": "14",
+        "osm_at_google": {
+          "category": "amenity",
+          "type": "cafe",
+          "name": "גרציאני",
+          "road": "יהודה הלוי",
+          "lat": 32.0685207,
+          "lng": 34.7815352,
+          "osm_id": 10949032625,
+          "osm_type": "node"
+        },
+        "osm_at_osm": {
+          "category": "leisure",
+          "type": "playground",
+          "name": null,
+          "road": "סעדיה גאון",
+          "lat": 32.06818,
+          "lng": 34.7816834,
+          "osm_id": 2500253395,
+          "osm_type": "node"
+        }
+      }
+    },
+    {
+      "review_case": "723a7794-3f65-4b0e-a03e-8a78f08aa868",
+      "osm": {
+        "id": "55f39b8e-e68d-41e9-b826-2d8e8de0f71b",
+        "name": "גן שעשועים – המלך יותם, ערד",
+        "address": "המלך יותם, ערד"
+      },
+      "google": {
+        "id": "7d7618fc-298b-41dd-826e-a2729570562c",
+        "name": "גן שעשועים דוד המלך",
+        "address": "דוד המלך 15, ערד"
+      },
+      "outcome": "DISTINCT_PLACES",
+      "decisive": "273 m apart - two playground locations",
+      "signals": [
+        "273 m",
+        "street 0.50 (המלך יותם vs דוד המלך)",
+        "name 0.50",
+        "city true"
+      ],
+      "ev": {
+        "distM": 273,
+        "st": 0.5,
+        "nm": 0.5,
+        "sameCity": true,
+        "oStreet": "המלך יותם",
+        "gStreet": "דוד המלך",
+        "gHouse": "15"
+      }
+    },
+    {
+      "review_case": "cfa59315-6ecf-4a72-9e82-181114d5fab2",
+      "osm": {
+        "id": "4c1639b3-c340-4ece-acc9-a3a1b42c8b16",
+        "name": "גן שעשועים – ניסנית, חולון",
+        "address": "ניסנית, חולון"
+      },
+      "google": {
+        "id": "50276f0d-cedb-43cf-ae13-fc48125dda41",
+        "name": "גן סיפור - חמשת החושים",
+        "address": "המרגנית, חולון"
+      },
+      "outcome": "SAME_PLACE_MEDIUM_NEEDS_MORE_EVIDENCE",
+      "decisive": "32 m, same type, no street/name/feature agreement",
+      "signals": [
+        "32 m",
+        "street 0.00 (ניסנית vs המרגנית)",
+        "name 0.00",
+        "city true"
+      ],
+      "ev": {
+        "distM": 32,
+        "st": 0,
+        "nm": 0,
+        "sameCity": true,
+        "oStreet": "ניסנית",
+        "gStreet": "המרגנית",
+        "gHouse": null,
+        "osm_at_google": {
+          "category": "building",
+          "type": "apartments",
+          "name": null,
+          "road": "המרגנית",
+          "lat": 32.0100015,
+          "lng": 34.7786075,
+          "osm_id": 861124362,
+          "osm_type": "way"
+        },
+        "osm_at_osm": {
+          "category": "leisure",
+          "type": "playground",
+          "name": null,
+          "road": "ניסנית",
+          "lat": 32.0100931,
+          "lng": 34.7794716,
+          "osm_id": 1968967655,
+          "osm_type": "node"
+        }
+      }
+    },
+    {
+      "review_case": "8ca92db3-f36f-4fd4-973d-39ac447831bc",
+      "osm": {
+        "id": "9521f2d8-5899-4bc2-8f7e-a3e939c5d97b",
+        "name": "גן שעשועים – מוריה, גן יבנה",
+        "address": "מוריה, גן יבנה"
+      },
+      "google": {
+        "id": "8058c4bf-0e25-405e-8d05-e6ebd64f70cb",
+        "name": "פארק גלבוע - גן משחקים",
+        "address": "גלבוע 7, גן יבנה"
+      },
+      "outcome": "SAME_PLACE_MEDIUM_NEEDS_MORE_EVIDENCE",
+      "decisive": "18 m, same type, no street/name/feature agreement",
+      "signals": [
+        "18 m",
+        "street 0.00 (מוריה vs גלבוע)",
+        "name 0.00",
+        "city true"
+      ],
+      "ev": {
+        "distM": 18,
+        "st": 0,
+        "nm": 0,
+        "sameCity": true,
+        "oStreet": "מוריה",
+        "gStreet": "גלבוע",
+        "gHouse": "7",
+        "osm_at_google": {
+          "category": "leisure",
+          "type": "pitch",
+          "name": null,
+          "road": "גלבוע",
+          "lat": 31.7954731,
+          "lng": 34.7112182,
+          "osm_id": 1338848714,
+          "osm_type": "way"
+        },
+        "osm_at_osm": {
+          "category": "leisure",
+          "type": "playground",
+          "name": null,
+          "road": "מוריה",
+          "lat": 31.7956565,
+          "lng": 34.7113133,
+          "osm_id": 1551324213,
+          "osm_type": "way"
+        }
+      }
+    },
+    {
+      "review_case": "aab628cb-32bf-4bf7-8fa8-258e9e296ed6",
+      "osm": {
+        "id": "3e71aae0-9b32-464e-bf0b-76825341f184",
+        "name": "גן שעשועים – מגיני הגליל, רחובות",
+        "address": "מגיני הגליל, רחובות"
+      },
+      "google": {
+        "id": "84cf5abb-283c-483d-a471-09ac2c8ef316",
+        "name": "גן ליאור",
+        "address": "גן ליאור, רחובות"
+      },
+      "outcome": "SAME_PLACE_MEDIUM_NEEDS_MORE_EVIDENCE",
+      "decisive": "30 m, same type, no street/name/feature agreement",
+      "signals": [
+        "30 m",
+        "street 0.00 (מגיני הגליל vs גן ליאור)",
+        "name 0.00",
+        "city true"
+      ],
+      "ev": {
+        "distM": 30,
+        "st": 0,
+        "nm": 0,
+        "sameCity": true,
+        "oStreet": "מגיני הגליל",
+        "gStreet": "גן ליאור",
+        "gHouse": null,
+        "osm_at_google": {
+          "category": "amenity",
+          "type": "drinking_water",
+          "name": null,
+          "road": "ירושלים",
+          "lat": 31.89074,
+          "lng": 34.830988,
+          "osm_id": 5134502625,
+          "osm_type": "node"
+        },
+        "osm_at_osm": {
+          "category": "leisure",
+          "type": "playground",
+          "name": null,
+          "road": "מגיני הגליל",
+          "lat": 31.890676,
+          "lng": 34.8307002,
+          "osm_id": 1843880904,
+          "osm_type": "node"
+        }
+      }
+    },
+    {
+      "review_case": "21e351ea-5ca2-4727-b6fb-5af319830a62",
+      "osm": {
+        "id": "36a9e0a4-c16c-45af-84a5-dea34038bd55",
+        "name": "גן שעשועים – המעיין, ראשון לציון",
+        "address": "המעיין, ראשון לציון"
+      },
+      "google": {
+        "id": "87b376e3-a71e-4294-a2ad-644df54d221e",
+        "name": "גן שעשועים – שדרות דוד בן גוריון, ראשון לציון",
+        "address": "שדרות דוד בן גוריון, ראשון לציון"
+      },
+      "outcome": "DISTINCT_PLACES",
+      "decisive": "different streets (המעיין / דוד בן גוריון) and 232 m apart",
+      "signals": [
+        "232 m",
+        "street 0.00 (המעיין vs דוד בן גוריון)",
+        "name 0.00",
+        "city true"
+      ],
+      "ev": {
+        "distM": 232,
+        "st": 0,
+        "nm": 0,
+        "sameCity": true,
+        "oStreet": "המעיין",
+        "gStreet": "דוד בן גוריון",
+        "gHouse": null,
+        "osm_at_google": {
+          "category": "leisure",
+          "type": "playground",
+          "name": null,
+          "road": "שדרות דוד בן גוריון",
+          "lat": 31.9698593,
+          "lng": 34.7899181,
+          "osm_id": 1032820351,
+          "osm_type": "way"
+        },
+        "osm_at_osm": {
+          "category": "leisure",
+          "type": "playground",
+          "name": null,
+          "road": "המעיין",
+          "lat": 31.9685039,
+          "lng": 34.7917842,
+          "osm_id": 9285366610,
+          "osm_type": "node"
+        }
+      }
+    },
+    {
+      "review_case": "7d6783b1-f914-4430-976a-6ffa0660d596",
+      "osm": {
+        "id": "d826dbd7-81c8-4eb8-b1e5-cd1589e2e18a",
+        "name": "גן שעשועים – רפאל איתן, חולון",
+        "address": "רפאל איתן, חולון"
+      },
+      "google": {
+        "id": "3b8cdc5a-34d7-43c1-a981-ed2a6a452bd2",
+        "name": "גן סיפור חולון",
+        "address": "מוטה גור 6, חולון"
+      },
+      "outcome": "DISTINCT_PLACES",
+      "decisive": "different streets (רפאל איתן / מוטה גור) and 72 m apart",
+      "signals": [
+        "72 m",
+        "street 0.00 (רפאל איתן vs מוטה גור)",
+        "name 0.00",
+        "city true"
+      ],
+      "ev": {
+        "distM": 72,
+        "st": 0,
+        "nm": 0,
+        "sameCity": true,
+        "oStreet": "רפאל איתן",
+        "gStreet": "מוטה גור",
+        "gHouse": "6",
+        "osm_at_google": {
+          "category": "amenity",
+          "type": "parking",
+          "name": null,
+          "road": "מוטה גור",
+          "lat": 32.00856,
+          "lng": 34.7825817,
+          "osm_id": 861124433,
+          "osm_type": "way"
+        },
+        "osm_at_osm": {
+          "category": "leisure",
+          "type": "playground",
+          "name": null,
+          "road": "רפאל איתן",
+          "lat": 32.0075497,
+          "lng": 34.7822866,
+          "osm_id": 861305378,
+          "osm_type": "way"
+        }
+      }
+    },
+    {
+      "review_case": "839690f3-a39c-4aa9-b4bf-de87696d0cc8",
+      "osm": {
+        "id": "fa5e55e1-7e2b-40de-b060-3a46421c6b37",
+        "name": "גן שעשועים – דרך אורגיל יעקב מואטי, רחובות",
+        "address": "דרך אורגיל יעקב מואטי, רחובות"
+      },
+      "google": {
+        "id": "5b277d83-2d5d-46e8-9dac-354e1abac389",
+        "name": "גינת היובל",
+        "address": "נחום קסלמן 2, רחובות"
+      },
+      "outcome": "SAME_PLACE_MEDIUM_NEEDS_MORE_EVIDENCE",
+      "decisive": "44 m, same type, no street/name/feature agreement",
+      "signals": [
+        "44 m",
+        "street 0.00 (אורגיל יעקב מואטי vs נחום קסלמן)",
+        "name 0.00",
+        "city true"
+      ],
+      "ev": {
+        "distM": 44,
+        "st": 0,
+        "nm": 0,
+        "sameCity": true,
+        "oStreet": "אורגיל יעקב מואטי",
+        "gStreet": "נחום קסלמן",
+        "gHouse": "2",
+        "osm_at_google": {
+          "category": "leisure",
+          "type": "sports_centre",
+          "name": null,
+          "road": "רב אלוף חיים בר-לב",
+          "lat": 31.8875025,
+          "lng": 34.8258621,
+          "osm_id": 1191208405,
+          "osm_type": "way"
+        },
+        "osm_at_osm": {
+          "category": "leisure",
+          "type": "playground",
+          "name": null,
+          "road": "דרך אורגיל יעקב מואטי",
+          "lat": 31.887955,
+          "lng": 34.8253961,
+          "osm_id": 1191208403,
+          "osm_type": "way"
+        }
+      }
+    },
+    {
+      "review_case": "9abc8313-a251-4b25-aea5-90df89fb60b3",
+      "osm": {
+        "id": "82352cc4-42c7-41d3-a8a3-ad1c75eda1a5",
+        "name": "גן שעשועים – סער, מועצה אזורית נחל שורק",
+        "address": "סער, מועצה אזורית נחל שורק"
+      },
+      "google": {
+        "id": "18a34505-6743-41d6-90d6-8b3c6d02b514",
+        "name": "הפארק הגדול",
+        "address": "Unnamed Road, Yad Binyamin"
+      },
+      "outcome": "SAME_PLACE_MEDIUM_NEEDS_MORE_EVIDENCE",
+      "decisive": "35 m, same type, no street/name/feature agreement",
+      "signals": [
+        "35 m",
+        "street 0.00 (סער vs Unnamed Road)",
+        "name 0.00",
+        "city true"
+      ],
+      "ev": {
+        "distM": 35,
+        "st": 0,
+        "nm": 0,
+        "sameCity": true,
+        "oStreet": "סער",
+        "gStreet": "Unnamed Road",
+        "gHouse": null,
+        "osm_at_google": {
+          "category": "leisure",
+          "type": "playground",
+          "name": null,
+          "road": "שלו",
+          "lat": 31.8012642,
+          "lng": 34.8220127,
+          "osm_id": 816824250,
+          "osm_type": "way"
+        },
+        "osm_at_osm": {
+          "category": "leisure",
+          "type": "playground",
+          "name": null,
+          "road": "סער",
+          "lat": 31.80107,
+          "lng": 34.8216215,
+          "osm_id": 816824277,
+          "osm_type": "way"
+        }
+      }
+    },
+    {
+      "review_case": "48b662ad-d602-46ba-8ba1-e85fa1ee7129",
+      "osm": {
+        "id": "f92aaf3b-7070-403f-ab7a-4f66cddc8268",
+        "name": "גן שעשועים – ביאליק, גן יבנה",
+        "address": "ביאליק, גן יבנה"
+      },
+      "google": {
+        "id": "913780be-663f-41e4-bcf3-fc3b0b9384df",
+        "name": "פארק גן יבנה",
+        "address": "מסוף אילן רמון/דרך מנחם בגין, גן יבנה"
+      },
+      "outcome": "DISTINCT_PLACES",
+      "decisive": "different streets (ביאליק / מסוף אילן רמון/דרך מנחם בגין) and 247 m apart",
+      "signals": [
+        "247 m",
+        "street 0.00 (ביאליק vs מסוף אילן רמון/דרך מנחם בגין)",
+        "name 0.00",
+        "city true"
+      ],
+      "ev": {
+        "distM": 247,
+        "st": 0,
+        "nm": 0,
+        "sameCity": true,
+        "oStreet": "ביאליק",
+        "gStreet": "מסוף אילן רמון/דרך מנחם בגין",
+        "gHouse": null,
+        "osm_at_google": {
+          "category": "highway",
+          "type": "residential",
+          "name": "רחל המשוררת",
+          "road": "רחל המשוררת",
+          "lat": 31.7922551,
+          "lng": 34.7029821,
+          "osm_id": 34967332,
+          "osm_type": "way"
+        },
+        "osm_at_osm": {
+          "category": "leisure",
+          "type": "playground",
+          "name": null,
+          "road": "ביאליק",
+          "lat": 31.7932121,
+          "lng": 34.700748,
+          "osm_id": 1242772760,
+          "osm_type": "way"
+        }
+      }
+    },
+    {
+      "review_case": "a5ba3635-25ec-4c65-9a6a-3e24429a5264",
+      "osm": {
+        "id": "20f1efd0-4210-489a-99dd-5af1e6f81edf",
+        "name": "גן שעשועים – שלמה וחיה אנגל, כפר סבא",
+        "address": "שלמה וחיה אנגל, כפר סבא"
+      },
+      "google": {
+        "id": "3c947e9b-94f9-45c1-8a4b-57d651cf5880",
+        "name": "פארק כפר סבא הירוקה",
+        "address": "דובה ויצחק שיינפיין 23/17, כפר סבא"
+      },
+      "outcome": "DISTINCT_PLACES",
+      "decisive": "different streets (שלמה וחיה אנגל / דובה ויצחק שיינפיין 23/17) and 154 m apart",
+      "signals": [
+        "154 m",
+        "street 0.00 (שלמה וחיה אנגל vs דובה ויצחק שיינפיין 23/17)",
+        "name 0.00",
+        "city true"
+      ],
+      "ev": {
+        "distM": 154,
+        "st": 0,
+        "nm": 0,
+        "sameCity": true,
+        "oStreet": "שלמה וחיה אנגל",
+        "gStreet": "דובה ויצחק שיינפיין 23/17",
+        "gHouse": null,
+        "osm_at_google": {
+          "category": "building",
+          "type": "house",
+          "name": null,
+          "road": "שלמה וחיה אנגל",
+          "lat": 32.1950156,
+          "lng": 34.8984746,
+          "osm_id": 1201627502,
+          "osm_type": "way"
+        },
+        "osm_at_osm": {
+          "category": "leisure",
+          "type": "playground",
+          "name": null,
+          "road": "שלמה וחיה אנגל",
+          "lat": 32.1973452,
+          "lng": 34.8980593,
+          "osm_id": 947566330,
+          "osm_type": "way"
+        }
+      }
+    },
+    {
+      "review_case": "a5ddaea3-0774-4105-9cc3-512b1c69f722",
+      "osm": {
+        "id": "6bbefeb8-c31c-4ecf-acb5-bbf7de132338",
+        "name": "גן שעשועים – גינה מא' עד ת', ראשון לציון",
+        "address": "גינה מא' עד ת', ראשון לציון"
+      },
+      "google": {
+        "id": "1bfccc65-ab82-4aee-8fbe-a3c9e196bd0e",
+        "name": "גן בעברית",
+        "address": "דרך חיים הרצוג, ראשון לציון"
+      },
+      "outcome": "SAME_PLACE_MEDIUM_NEEDS_MORE_EVIDENCE",
+      "decisive": "48 m, same type, no street/name/feature agreement",
+      "signals": [
+        "48 m",
+        "street 0.00 (גינה מא' עד ת' vs חיים הרצוג)",
+        "name 0.00",
+        "city true"
+      ],
+      "ev": {
+        "distM": 48,
+        "st": 0,
+        "nm": 0,
+        "sameCity": true,
+        "oStreet": "גינה מא' עד ת'",
+        "gStreet": "חיים הרצוג",
+        "gHouse": null,
+        "osm_at_google": {
+          "category": "amenity",
+          "type": "drinking_water",
+          "name": null,
+          "road": "שלמה לוי",
+          "lat": 31.9659258,
+          "lng": 34.8255946,
+          "osm_id": 5147980796,
+          "osm_type": "node"
+        },
+        "osm_at_osm": {
+          "category": "leisure",
+          "type": "playground",
+          "name": null,
+          "road": "גינה מא' עד ת'",
+          "lat": 31.9655331,
+          "lng": 34.8258776,
+          "osm_id": 388336681,
+          "osm_type": "way"
+        }
+      }
+    },
+    {
+      "review_case": "fffb64ed-0b76-449f-ae28-1869c980f605",
+      "osm": {
+        "id": "b4215313-d299-4f4a-a3ed-72f86cc529c4",
+        "name": "גן שעשועים – פעמון, ראש העין",
+        "address": "פעמון, ראש העין"
+      },
+      "google": {
+        "id": "c60f8a8f-4597-44e7-88ca-b7ef9700c24d",
+        "name": "גן פעמון הגדול",
+        "address": "Bet HaKeshet, Barkan, Rosh Haayin"
+      },
+      "outcome": "DISTINCT_PLACES",
+      "decisive": "different streets (פעמון / Barkan) and 61 m apart",
+      "signals": [
+        "61 m",
+        "street 0.00 (פעמון vs Barkan)",
+        "name 0.50",
+        "city false"
+      ],
+      "ev": {
+        "distM": 61,
+        "st": 0,
+        "nm": 0.5,
+        "sameCity": false,
+        "oStreet": "פעמון",
+        "gStreet": "Barkan",
+        "gHouse": null,
+        "osm_at_google": {
+          "category": "building",
+          "type": "kindergarten",
+          "name": "גן/מעון אפיקים",
+          "road": "ברקן",
+          "lat": 32.0936274,
+          "lng": 34.9792196,
+          "osm_id": 414279414,
+          "osm_type": "way"
+        },
+        "osm_at_osm": {
+          "category": "leisure",
+          "type": "playground",
+          "name": null,
+          "road": "פעמון",
+          "lat": 32.0942926,
+          "lng": 34.9802579,
+          "osm_id": 534240774,
+          "osm_type": "way"
+        }
+      }
+    },
+    {
+      "review_case": "9fac5d67-bca1-4523-89aa-70918a065e74",
+      "osm": {
+        "id": "c1eb0680-c195-49db-9da3-1ffe8d88692f",
+        "name": "מתקני ספורט החבל",
+        "address": "כיכר קוקיה, שהם"
+      },
+      "google": {
+        "id": "b06cc723-b3a0-4d21-a0f5-8633feae4842",
+        "name": "גן החבל",
+        "address": "החבל, שוהם"
+      },
+      "outcome": "DISTINCT_PLACES",
+      "decisive": "different settlement and > 150 m apart",
+      "signals": [
+        "222 m",
+        "street 0.00 (כיכר קוקיה vs החבל)",
+        "name 0.33",
+        "city false"
+      ],
+      "ev": {
+        "distM": 222,
+        "st": 0,
+        "nm": 0.3333333333333333,
+        "sameCity": false,
+        "oStreet": "כיכר קוקיה",
+        "gStreet": "החבל",
+        "gHouse": null
+      }
+    },
+    {
+      "review_case": "097df3e8-5487-490f-819d-7123c2426bd5",
+      "osm": {
+        "id": "c1de7720-f1b4-415e-9fab-97f67a056e24",
+        "name": "גן שעשועים – יסמין, שהם",
+        "address": "יסמין, שהם"
+      },
+      "google": {
+        "id": "b06cc723-b3a0-4d21-a0f5-8633feae4842",
+        "name": "גן החבל",
+        "address": "החבל, שוהם"
+      },
+      "outcome": "SAME_PLACE_MEDIUM_NEEDS_MORE_EVIDENCE",
+      "decisive": "36 m, same type, no street/name/feature agreement",
+      "signals": [
+        "36 m",
+        "street 0.00 (יסמין vs החבל)",
+        "name 0.00",
+        "city false"
+      ],
+      "ev": {
+        "distM": 36,
+        "st": 0,
+        "nm": 0,
+        "sameCity": false,
+        "oStreet": "יסמין",
+        "gStreet": "החבל",
+        "gHouse": null,
+        "osm_at_google": {
+          "category": "tourism",
+          "type": "viewpoint",
+          "name": "מצפה אחיעד",
+          "road": "החבל",
+          "lat": 32.0061445,
+          "lng": 34.9441353,
+          "osm_id": 1355762800,
+          "osm_type": "way"
+        },
+        "osm_at_osm": {
+          "category": "leisure",
+          "type": "playground",
+          "name": null,
+          "road": "יסמין",
+          "lat": 32.0060164,
+          "lng": 34.9444885,
+          "osm_id": 12626418987,
+          "osm_type": "node"
+        }
+      }
+    },
+    {
+      "review_case": "216fdcd2-22df-4dfc-9c41-c4e727157e91",
+      "osm": {
+        "id": "4a1f990f-2e7b-4d45-a4ac-3d9b2c9d19f5",
+        "name": "גן שעשועים – סוקולוב, ירושלים | القدس",
+        "address": "סוקולוב, ירושלים | القدس"
+      },
+      "google": {
+        "id": "b81bc281-d5bf-4d11-a714-5b5ef08191b7",
+        "name": "גן סוקולוב",
+        "address": "סוקולוב 10, ירושלים"
+      },
+      "outcome": "INSUFFICIENT_EVIDENCE",
+      "decisive": "112 m apart, evidence neither ties nor separates",
+      "signals": [
+        "112 m",
+        "street 1.00 (סוקולוב vs סוקולוב)",
+        "name 1.00",
+        "city true"
+      ],
+      "ev": {
+        "distM": 112,
+        "st": 1,
+        "nm": 1,
+        "sameCity": true,
+        "oStreet": "סוקולוב",
+        "gStreet": "סוקולוב",
+        "gHouse": "10",
+        "osm_at_google": {
+          "category": "place",
+          "type": "house",
+          "name": null,
+          "road": "סוקולוב",
+          "lat": 31.7726233,
+          "lng": 35.2189066,
+          "osm_id": 1702453643,
+          "osm_type": "node"
+        },
+        "osm_at_osm": {
+          "category": "leisure",
+          "type": "playground",
+          "name": null,
+          "road": "סוקולוב",
+          "lat": 31.7713998,
+          "lng": 35.2195518,
+          "osm_id": 158019187,
+          "osm_type": "way"
+        }
+      }
+    },
+    {
+      "review_case": "29ae4c75-1ba1-4260-8d6e-4ca5f3b6457a",
+      "osm": {
+        "id": "e9d8c72c-d605-4192-af33-99a42857fe28",
+        "name": "גן שעשועים – ואלוס, אשדוד",
+        "address": "ואלוס, אשדוד"
+      },
+      "google": {
+        "id": "34ec5ca9-b69f-42da-ad25-2917014ed9ae",
+        "name": "פארק ואגם",
+        "address": null
+      },
+      "outcome": "SAME_PLACE_MEDIUM_NEEDS_MORE_EVIDENCE",
+      "decisive": "40 m, same type, no street/name/feature agreement",
+      "signals": [
+        "40 m",
+        "street n/a (ואלוס vs -)",
+        "name 0.00",
+        "city true"
+      ],
+      "ev": {
+        "distM": 40,
+        "st": null,
+        "nm": 0,
+        "sameCity": true,
+        "oStreet": "ואלוס",
+        "gStreet": null,
+        "gHouse": null,
+        "osm_at_google": {
+          "category": "highway",
+          "type": "pedestrian",
+          "name": null,
+          "road": null,
+          "lat": 31.7940699,
+          "lng": 34.6301018,
+          "osm_id": 1282102907,
+          "osm_type": "way"
+        },
+        "osm_at_osm": {
+          "category": "leisure",
+          "type": "playground",
+          "name": null,
+          "road": "ואלוס",
+          "lat": 31.7934855,
+          "lng": 34.6306046,
+          "osm_id": 14103839449,
+          "osm_type": "node"
+        }
+      }
+    },
+    {
+      "review_case": "3f8c6388-fea2-4a71-abb9-f687b4915f19",
+      "osm": {
+        "id": "c17162f8-799e-431f-aa30-9c05f7b761e8",
+        "name": "גן שעשועים – משעול הכימיה, ראשון לציון",
+        "address": "משעול הכימיה, ראשון לציון"
+      },
+      "google": {
+        "id": "07ddb0b7-100d-4487-a825-39a91afc81e4",
+        "name": "גן פרס נובל",
+        "address": "מעגל השלום 15, ראשון לציון"
+      },
+      "outcome": "SAME_PLACE_MEDIUM_NEEDS_MORE_EVIDENCE",
+      "decisive": "45 m, same type, no street/name/feature agreement",
+      "signals": [
+        "45 m",
+        "street 0.00 (משעול הכימיה vs מעגל השלום)",
+        "name 0.00",
+        "city true"
+      ],
+      "ev": {
+        "distM": 45,
+        "st": 0,
+        "nm": 0,
+        "sameCity": true,
+        "oStreet": "משעול הכימיה",
+        "gStreet": "מעגל השלום",
+        "gHouse": "15",
+        "osm_at_google": {
+          "category": "building",
+          "type": "apartments",
+          "name": null,
+          "road": "מעגל השלום",
+          "lat": 31.9685618,
+          "lng": 34.7651945,
+          "osm_id": 371637670,
+          "osm_type": "way"
+        },
+        "osm_at_osm": {
+          "category": "leisure",
+          "type": "playground",
+          "name": null,
+          "road": "משעול הכימיה",
+          "lat": 31.9685903,
+          "lng": 34.7647573,
+          "osm_id": 4500340283,
+          "osm_type": "node"
+        }
+      }
+    },
+    {
+      "review_case": "63f7f63d-7d19-4f76-8221-59d23d3b31d8",
+      "osm": {
+        "id": "c3ccabfc-45b7-4d00-a5b7-15c06270d484",
+        "name": "גן שעשועים – תרפ\"ט, צפת",
+        "address": "תרפ\"ט, צפת"
+      },
+      "google": {
+        "id": "64059e86-04a6-4c1e-a246-bd66acc0324d",
+        "name": "גן שעשועים – דרך חטיבת יפתח, צפת",
+        "address": "דרך חטיבת יפתח, צפת"
+      },
+      "outcome": "DISTINCT_PLACES",
+      "decisive": "264 m apart - two playground locations",
+      "signals": [
+        "264 m",
+        "street 0.00 (תרפ\"ט vs חטיבת יפתח)",
+        "name 0.00",
+        "city true"
+      ],
+      "ev": {
+        "distM": 264,
+        "st": 0,
+        "nm": 0,
+        "sameCity": true,
+        "oStreet": "תרפ\"ט",
+        "gStreet": "חטיבת יפתח",
+        "gHouse": null
+      }
+    },
+    {
+      "review_case": "5aca5e89-6024-43d1-ac60-a35f98d4446e",
+      "osm": {
+        "id": "2456fadd-8231-424a-8211-b2f27554b225",
+        "name": "גן שעשועים – המכללה, עכו",
+        "address": "המכללה, עכו"
+      },
+      "google": {
+        "id": "0b353a67-c2a7-4862-907a-7df41b6d07a3",
+        "name": "פארק משפחה עכו",
+        "address": "נפתלי, עכו"
+      },
+      "outcome": "DISTINCT_PLACES",
+      "decisive": "297 m apart - two playground locations",
+      "signals": [
+        "297 m",
+        "street 0.00 (המכללה vs נפתלי)",
+        "name 0.00",
+        "city true"
+      ],
+      "ev": {
+        "distM": 297,
+        "st": 0,
+        "nm": 0,
+        "sameCity": true,
+        "oStreet": "המכללה",
+        "gStreet": "נפתלי",
+        "gHouse": null
+      }
+    },
+    {
+      "review_case": "d55f3653-eb69-4d6c-9d99-f18659331e1e",
+      "osm": {
+        "id": "c056919d-87b4-4094-836f-c8a3a674e124",
+        "name": "גן שעשועים – אהוד מנור, כפר יונה",
+        "address": "אהוד מנור, כפר יונה"
+      },
+      "google": {
+        "id": "ece5b7e4-9bde-47cb-987c-f2f122318608",
+        "name": "פאנקי מאנקי כפר יונה",
+        "address": "חנה רובינה 1, כפר יונה"
+      },
+      "outcome": "DISTINCT_PLACES",
+      "decisive": "291 m apart - two playground locations",
+      "signals": [
+        "291 m",
+        "street 0.00 (אהוד מנור vs חנה רובינה)",
+        "name 0.00",
+        "city true"
+      ],
+      "ev": {
+        "distM": 291,
+        "st": 0,
+        "nm": 0,
+        "sameCity": true,
+        "oStreet": "אהוד מנור",
+        "gStreet": "חנה רובינה",
+        "gHouse": "1"
+      }
+    }
+  ]
+}

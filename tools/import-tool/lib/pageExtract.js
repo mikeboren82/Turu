@@ -179,7 +179,7 @@ function findEventCard(html, baseUrl, name) {
 // event title links, booking links, and card links. Same host by default; `allowHosts` extends it
 // (ticketing hosts a municipality links to). Returns at most `max` absolute URLs, listing order.
 const DETAIL_TEXT = /פרטים נוספים|מידע נוסף|לפרטים|קרא עוד|קראו עוד|להזמנת כרטיסים|לרכישת כרטיסים|לפרטים והרשמה|read more|more info/i;
-const DETAIL_HREF = /\/event(s)?\/[^/]+|\/activity\/|\/show\/|\/item\/|[?&](?:event|item|eventid|activityid)=\d+/i;
+const DETAIL_HREF = /\/event(s)?\/(?!calendar|category|page|\?|#)[^/?#]+|\/activity\/|\/show\/|\/item\/|[?&](?:event|item|eventid|activityid)=\d+/i;
 // an event card carries a date/time; site navigation ("מכרזים", "צור קשר", "דבר ראש העיר") does not
 const EVENT_CONTEXT = /\b\d{1,2}[./]\d{1,2}(?:[./]\d{2,4})?\b|\b\d{1,2}:\d{2}\b|בשעה|יום (?:ראשון|שני|שלישי|רביעי|חמישי|שישי|שבת)|בתאריך/;
 const NAV_TEXT = /מכרז|צור קשר|אודות|דבר ראש|הנהלה|תנאי שימוש|נגישות|מפת האתר|כניסה|התחברות|חיפוש|עמוד הבית|דף הבית|הצטרפו|ניוזלטר|תשלומים|טפסים/;

@@ -26,6 +26,8 @@ import {
 } from '../_shared/extraction.ts';
 import { discoverListingLinks } from '../_shared/discovery.ts';
 import { extractJsonLdEvents, applyJsonLdToCandidate, type JsonLdEvent } from '../_shared/jsonld.ts';
+import { findEventDetailLinks, findEventDetailLinksCheap, detailLinkFor, type DetailLink, type DetailTraversalConfig } from '../_shared/detailLinks.ts';
+import { extractDetailEvidence, applyDetailEvidence } from '../_shared/detailEvidence.ts';
 import { fetchJsonApiText, type JsonApiConfig } from '../_shared/adapters.ts';
 import { computeContentHash } from '../_shared/hashing.ts';
 
@@ -400,6 +402,19 @@ Deno.serve(async (req: Request) => {
   // source can repeat it) - the second occurrence must not become a second queue row.
   const seenFingerprints = new Set<string>();
 
+  // Adapter-controlled bounded DETAIL TRAVERSAL (2026-09-14): sources.adapter_config.detail_traversal =
+  // { max_pages, allow_hosts }. A listing card names the event; its detail page carries the address,
+  // JSON-LD, image, price and ages. Deterministic evidence only (no extra AI call), merged fill-null
+  // into the listing candidate, both URLs kept in provenance. Absent config => nothing changes.
+  const detailCfg = ((source.adapter_config || {}) as { detail_traversal?: DetailTraversalConfig }).detail_traversal || null;
+  const detailMaxPerPage = Math.min(Number(detailCfg?.max_pages || 0), 12);
+  const DETAIL_MAX_PER_SCAN = 24; // hard cap per invocation regardless of config
+  // a heavy listing's AI extraction alone can use the 60 s page budget; detail fetches (8 s each, no AI)
+  // get their own ceiling that still stays well under the ~150 s edge kill
+  const DETAIL_TIME_BUDGET_MS = 105_000;
+  const detail = { links: 0, attempted: 0, fetched: 0, failed: 0, unchanged: 0, filled: {} as Record<string, number>, ms: 0, unmatched: [] as { name: string; links: string[] }[] };
+  const detailCache = new Map<string, ReturnType<typeof extractDetailEvidence> | null>();
+
   const scanStartedAt = Date.now();
   // Budget after which no NEW page/window is started. One extraction call on a dense listing window
   // can itself take ~60s (dozens of events => long output), and the edge runtime kills invocations
@@ -414,6 +429,7 @@ Deno.serve(async (req: Request) => {
       activities_found: counters.found, new_count: counters.newCount,
       updated_count: counters.updatedCount, duplicate_count: counters.duplicateCount,
       rejected_count: counters.rejectedCount, auto_approved_count: counters.autoApprovedCount,
+      detail_metrics: detailCfg ? detail : null,
     }).eq('id', scanLogId);
   }
 
@@ -491,6 +507,7 @@ Deno.serve(async (req: Request) => {
         let text: string;
         let hash: string;
         let pageJsonLd: JsonLdEvent[] = []; // structured events on this page (non-relay, non-heavy pages)
+        let pageDetailLinks: DetailLink[] = []; // detail links of this listing page (adapter-controlled)
         if (relayPage) {
           candidateImages = (relayPage.images || []).slice(0, 40);
           text = relayPage.text.slice(0, PAGE_TEXT_CHAR_LIMIT * MAX_TEXT_CHUNKS);
@@ -515,11 +532,13 @@ Deno.serve(async (req: Request) => {
           if (html.length > HEAVY_HTML_BYTES) {
             // DOM-free path: no images (they would need the DOM), text via regex stripping
             candidateImages = [];
+            if (detailMaxPerPage > 0) { pageDetailLinks = findEventDetailLinksCheap(html, pageUrl, { max: 40, allowHosts: detailCfg?.allow_hosts || [] }); detail.links += pageDetailLinks.length; }
             text = cheapPageText(html, textBudget);
           } else {
             const $ = cheerio.load(html);
             candidateImages = extractCandidateImages($, pageUrl);
             pageJsonLd = extractJsonLdEvents($);
+            if (detailMaxPerPage > 0) { pageDetailLinks = findEventDetailLinks($, pageUrl, { max: 40, allowHosts: detailCfg?.allow_hosts || [] }); detail.links += pageDetailLinks.length; }
             text = pageTextForExtraction($, textBudget);
           }
           hash = await computeContentHash(text);
@@ -605,6 +624,35 @@ Deno.serve(async (req: Request) => {
           // deterministic structured data beats nothing: fill address/coordinates/date from the page's
           // JSON-LD Event with the same name (fill-null only - never over what the extractor found)
           if (pageJsonLd.length) { const filled = applyJsonLdToCandidate(candidate, pageJsonLd); if (filled.length) { candidate.jsonld_filled = filled; if (candidate.one_time_date) { const i = issues.indexOf('תאריך'); if (i >= 0) issues.splice(i, 1); } } }
+          // bounded detail traversal: the card link that names THIS candidate -> its page's deterministic evidence
+          if (detailMaxPerPage > 0 && detail.attempted < DETAIL_MAX_PER_SCAN && Date.now() - scanStartedAt < DETAIL_TIME_BUDGET_MS) {
+            const allowedHosts = new Set([new URL(pageUrl).hostname.replace(/^www\./, ''), ...(detailCfg?.allow_hosts || []).map((h) => h.replace(/^www\./, ''))]);
+            const link = detailLinkFor(pageDetailLinks, candidate.name as string | null, candidate.registration_url as string | null, allowedHosts);
+            // diagnostics for the cohort: which names found no link (first 3 per scan)
+            if (!link && pageDetailLinks.length && detail.unmatched.length < 3) detail.unmatched.push({ name: String(candidate.name || '').slice(0, 60), links: pageDetailLinks.slice(0, 3).map((l) => (l.text || decodeURIComponent(l.url.split('/').filter(Boolean).pop() || '')).slice(0, 60)) });
+            if (link) {
+              let ev = detailCache.get(link.url);
+              if (ev === undefined) {
+                if ([...detailCache.keys()].filter((u) => pageDetailLinks.some((l) => l.url === u)).length >= detailMaxPerPage) ev = null;
+                else {
+                  const t0 = Date.now(); detail.attempted++;
+                  const dr = await fetchHtml(link.url, { timeoutMs: Math.min(fetchTimeoutMs, 8000), retries: 0 });
+                  detail.ms += Date.now() - t0;
+                  if (dr.ok && dr.html) { detail.fetched++; ev = extractDetailEvidence(dr.html.length > MAX_HTML_BYTES ? dr.html.slice(0, MAX_HTML_BYTES) : dr.html, todayStr); }
+                  else { detail.failed++; ev = null; }
+                }
+                detailCache.set(link.url, ev);
+              }
+              if (ev) {
+                const pageHost = (() => { try { return new URL(pageUrl).hostname.replace(/^www\./, ''); } catch { return ''; } })();
+                const filled = applyDetailEvidence(candidate, ev, link.url, pageHost);
+                for (const f of filled) detail.filled[f] = (detail.filled[f] || 0) + 1;
+                if (filled.length && candidate.one_time_date) { const i = issues.indexOf('תאריך'); if (i >= 0) issues.splice(i, 1); }
+                // detail-page images go through the same provenance shape sanitizeCandidate builds
+                if (filled.includes('image') && Array.isArray(candidate.images)) candidate.images = (candidate.images as { url: string; source_type: string; needs_rights_review: boolean }[]).slice(0, 3);
+              }
+            }
+          }
 
           if (issues.length > 0 && !candidate.name) { counters.rejectedCount++; continue; }
           if (isCommitmentActivity(candidate)) { counters.rejectedCount++; continue; }
@@ -733,6 +781,8 @@ Deno.serve(async (req: Request) => {
           if (autoApprovedActivityId) {
             counters.autoApprovedCount++;
             await recordProvenance(client, { activityId: autoApprovedActivityId, sourceId: source.id, pageUrl, incomingId, relation: 'created' });
+            // both the listing and the detail page are provenance (detail traversal)
+            if (candidate.detail_url) await recordProvenance(client, { activityId: autoApprovedActivityId, sourceId: source.id, pageUrl: candidate.detail_url as string, incomingId, relation: 'seen' });
           } else if (existingActivityId) {
             await recordProvenance(client, { activityId: existingActivityId, sourceId: source.id, pageUrl, incomingId, relation: matchType === 'update' ? 'updated' : 'seen' });
           }
