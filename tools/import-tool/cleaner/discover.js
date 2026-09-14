@@ -9,7 +9,16 @@ const META_ISSUES = new Set(['קטגוריה', 'תאריך', 'סוג ישות', 
 
 async function all(client, table, select, fn) {
   let from = 0, rows = [];
-  while (true) { let q = client.from(table).select(select).range(from, from + 999); if (fn) q = fn(q); const { data, error } = await q; if (error) throw new Error(table + ': ' + error.message); rows = rows.concat(data); if (data.length < 1000) return rows; from += 1000; }
+  while (true) {
+    let data = null, lastErr = null;
+    for (let attempt = 0; attempt < 3 && !data; attempt++) {
+      // transient network terminations happen on long paged reads (seen 2026-09-14) - retry, never half-read
+      let q = client.from(table).select(select).range(from, from + 999); if (fn) q = fn(q);
+      try { const r = await q; if (r.error) throw new Error(r.error.message); data = r.data; } catch (e) { lastErr = e; await new Promise((r) => setTimeout(r, 1500 * (attempt + 1))); }
+    }
+    if (!data) throw new Error(table + ': ' + (lastErr?.message || 'read failed'));
+    rows = rows.concat(data); if (data.length < 1000) return rows; from += 1000;
+  }
 }
 
 // an extracted "2026-09-31" is not a date; it must not reach the date column (and is itself a metadata defect)
@@ -66,6 +75,12 @@ async function discoverCases(client, { today }) {
     if (!pg && !(a.activity_images || []).length && !a.photo_skipped) add({ subject_kind: 'activity', subject_id: a.id, issue: 'missing_image', priority: priorityFor('missing_image', ctx), event_date: eventDate, source_id: a.source_id, opened_reason: a.placeholder_group ? 'placeholder ' + a.placeholder_group : 'no image' });
     if (!pg && !sched.length) add({ subject_kind: 'activity', subject_id: a.id, issue: 'missing_schedule', priority: priorityFor('missing_schedule', ctx), event_date: null, source_id: a.source_id, opened_reason: 'no schedule rows' });
     if (loc && !loc.region) add({ subject_kind: 'activity', subject_id: a.id, issue: 'missing_region', priority: priorityFor('missing_region', ctx), event_date: eventDate, source_id: a.source_id, opened_reason: 'location without region' });
+  }
+  // C. retired settlement scanner's review backlog (0089): one case per unresolved review case,
+  //    referencing the row (no copied queue). Priority after blocking location work.
+  const reviews = await all(client, 'settlement_scan_review_cases', 'id, case_type, detection_count, resolution', (q) => q.eq('status', 'needs_review'));
+  for (const r of reviews) {
+    add({ subject_kind: 'settlement_review', subject_id: r.id, issue: 'settlement_review', priority: 28 - Math.min(3, r.detection_count || 1), event_date: null, source_id: null, opened_reason: 'legacy ' + r.case_type });
   }
   return { candidates: out, stats };
 }

@@ -1,256 +1,274 @@
 {
-  "generatedAt": "2026-09-14T09:58:25.500Z",
+  "generatedAt": "2026-09-14T12:46:08.527Z",
   "since": "2026-09-13T17:51:32.020Z",
   "backlog": {
-    "open": 1852,
-    "due": 1789,
-    "awaitingRetry": 63,
+    "open": 1785,
+    "due": 1457,
+    "awaitingRetry": 328,
     "stuckBeyondWindow": 0,
     "byIssue": {
       "missing_required_metadata": {
-        "open": 297,
-        "resolved": 5,
+        "open": 290,
+        "resolved": 24,
         "archived": 14
       },
       "missing_image": {
-        "open": 442,
-        "resolved": 37,
+        "open": 449,
+        "resolved": 55,
         "archived": 0
       },
       "missing_location": {
-        "open": 136,
-        "resolved": 66,
+        "open": 122,
+        "resolved": 81,
         "archived": 125
       },
       "incomplete_address": {
-        "open": 167,
-        "resolved": 592,
-        "archived": 0
-      },
-      "missing_schedule": {
-        "open": 44,
-        "resolved": 1,
-        "archived": 0
-      },
-      "missing_region": {
-        "open": 383,
-        "resolved": 24,
+        "open": 122,
+        "resolved": 649,
         "archived": 0
       },
       "missing_venue": {
-        "open": 324,
-        "resolved": 106,
+        "open": 337,
+        "resolved": 114,
+        "archived": 2
+      },
+      "missing_region": {
+        "open": 365,
+        "resolved": 43,
         "archived": 0
       },
       "unverified_location": {
-        "open": 59,
-        "resolved": 0,
+        "open": 51,
+        "resolved": 8,
         "archived": 0
+      },
+      "missing_schedule": {
+        "open": 49,
+        "resolved": 1,
+        "archived": 0
+      },
+      "settlement_review": {
+        "open": 0,
+        "resolved": 263,
+        "archived": 19
       }
     },
     "byPriorityBucket": {
-      "important": 560,
-      "enrichment": 1097,
-      "blocking": 195
+      "important": 510,
+      "enrichment": 1102,
+      "blocking": 173
     },
     "leased": 0
   },
   "awaitingRetryByNextStrategy": {
-    "missing_image:existing (await new canonical evidence)": 30,
-    "missing_venue:venue_site": 9,
-    "missing_location:existing (await new canonical evidence)": 6,
+    "missing_image:existing (await new canonical evidence)": 36,
+    "missing_location:existing (await new canonical evidence)": 121,
+    "missing_venue:venue_site": 27,
+    "missing_region:existing (await new canonical evidence)": 12,
+    "unverified_location:existing (await new canonical evidence)": 51,
+    "missing_schedule:existing (await new canonical evidence)": 49,
+    "missing_required_metadata:existing (await new canonical evidence)": 19,
     "missing_location:venue_site": 1,
-    "missing_required_metadata:existing (await new canonical evidence)": 2,
     "missing_venue:source_page": 4,
-    "missing_venue:place_lookup_inferred": 4,
-    "missing_region:existing (await new canonical evidence)": 7
+    "missing_venue:place_lookup_inferred": 8
   },
   "resolved": {
-    "total": 831,
-    "withGain": 336,
-    "noGain": 495,
+    "total": 1238,
+    "withGain": 689,
+    "noGain": 549,
     "outcomes": {
-      "duplicate_merged": 26,
-      "resolved_externally": 490,
-      "address_filled": 229,
-      "published": 3,
-      "awaiting_policy": 33,
-      "field_filled": 7,
+      "resolved_externally": 505,
+      "duplicate_merged": 30,
+      "address_filled": 250,
+      "published": 5,
+      "image_attached": 52,
+      "awaiting_policy": 48,
+      "settlement_duplicate": 263,
+      "field_filled": 26,
       "possible_update": 4,
-      "already_filled": 5,
-      "image_attached": 34
+      "coordinates_verified": 7,
+      "already_filled": 44,
+      "venue_linked": 4
     },
     "byMethod": {
-      "source_page": 23,
-      "reverse_geocode": 225,
+      "source_page": 37,
+      "reverse_geocode": 278,
       "existing_source_venue": 24,
-      "prior_activity": 13,
+      "prior_activity": 15,
+      "OSM street agreement \"שדרות הנשיא ויצמן\" + 23 m + same type": 1,
+      "google_place_id": 213,
+      "place_lookup_inferred": 2,
       "existing_location": 9,
-      "existing_venue": 4,
-      "detail_page": 1
+      "name overlap 1.00 + 74 m": 1,
+      "same street \"הרב משה בלוי\" + 12 m": 1,
+      "existing_venue": 14,
+      "OSM playground feature identity + 9 m": 1,
+      "same street \"מוטה גור\" + 27 m": 2,
+      "same street \"הרב קירשטיין\" + 20 m": 1,
+      "same street \"המסילה\" + 41 m": 1,
+      "detail_page": 6,
+      "same street \"יצחק רבין\" + 47 m": 1,
+      "OSM playground feature identity + 10 m": 1,
+      "OSM street agreement \"ברנט\" + 9 m + same type": 1,
+      "same street \"מאיר דנקנר\" + 19 m": 1,
+      "same street \"כפר עציון\" + 32 m": 1,
+      "same street \"הרב הרצוג\" + 10 m": 1,
+      "OSM street agreement \"גד מכנס\" + 50 m + same type": 1,
+      "same street \"אליעזר בן יהודה\" + 49 m": 1,
+      "same street \"חיים ארלוזורוב\" + 15 m": 1,
+      "OSM street agreement \"אבני חושן\" + 118 m + same type": 1,
+      "same street \"אשר\" + 40 m": 1,
+      "same street \"ירח אב\" + 36 m": 1,
+      "OSM playground feature identity + 43 m": 1,
+      "same street \"עמק איילון\" + 17 m": 1,
+      "same street \"מיכאל\" + 14 m": 1,
+      "same street \"רפאל איתן\" + 53 m": 1,
+      "same street \"הארץ\" + 25 m": 1,
+      "OSM playground feature identity + 13 m": 1,
+      "same street \"הרימון\" + 29 m": 1,
+      "OSM playground feature identity + 7 m": 1,
+      "name overlap 1.00 + 95 m": 1,
+      "OSM playground feature identity + 35 m": 1,
+      "OSM playground feature identity + 18 m": 1,
+      "OSM street agreement \"בזל\" + 118 m + same type": 1,
+      "same street \"בקעת רימון\" + 19 m": 1,
+      "same street \"אבני החושן\" + 39 m": 1,
+      "same street \"דפנה\" + 48 m": 1,
+      "same street \"כובשי קטמון\" + 15 m": 1,
+      "same street \"זהבית\" + 14 m": 1,
+      "OSM street agreement \"שדרות דוד בן גוריון\" + 61 m + same type": 1,
+      "same street \"דב פרומר\" + 58 m": 1,
+      "same name (1.00) + 168 m": 1,
+      "OSM playground feature identity + 11 m": 2,
+      "same street \"בר אילן\" + 41 m": 1,
+      "name overlap 1.00 + 32 m": 1,
+      "same street \"גפן\" + 5 m": 1,
+      "same street \"הרב ירמה\" + 27 m": 1,
+      "same street \"החריש\" + 8 m": 1,
+      "OSM street agreement \"אברהם ליכטנשטיין\" + 49 m + same type": 1,
+      "same street \"הרצל\" + 12 m": 1,
+      "same street \"התומר\" + 45 m": 1
     },
-    "avgAttempts": 0.43,
+    "avgAttempts": 0.61,
     "successRateByIssue": {
-      "missing_required_metadata": 26,
+      "missing_required_metadata": 63,
       "missing_image": 100,
-      "missing_location": 35,
+      "missing_location": 39,
       "incomplete_address": 100,
-      "missing_schedule": 100,
+      "missing_venue": 98,
       "missing_region": 100,
-      "missing_venue": 100,
-      "unverified_location": null
+      "unverified_location": 100,
+      "missing_schedule": 100,
+      "settlement_review": 93
     }
   },
   "archived": {
-    "total": 139,
+    "total": 160,
     "byReason": {
       "missing_address_unresolved": 119,
       "activity_expired_before_resolution": 19,
-      "ambiguous_location": 1
+      "requires_human_judgment": 12,
+      "ambiguous_location": 1,
+      "insufficient_required_data": 7,
+      "venue_not_found": 2
     },
     "unexplained": 0
   },
   "informationGain": {
-    "addressesAdded": 10,
-    "streetAddressesAdded": 4,
-    "coordsAdded": 3,
+    "addressesAdded": 48,
+    "streetAddressesAdded": 12,
+    "coordsAdded": 22,
     "coordsImproved": 0,
-    "venuesLinked": 1,
-    "venueRowsEnriched": 0,
-    "venuesCreated": 0,
-    "imagesAdded": 23,
+    "venuesLinked": 6,
+    "venueRowsEnriched": 3,
+    "venuesCreated": 2,
+    "imagesAdded": 41,
     "brokenImagesReplaced": 0,
     "schedulesAdded": 0,
-    "regionsAdded": 6,
-    "metadataFieldsAdded": 1,
-    "incomingPromoted": 2,
+    "regionsAdded": 25,
+    "metadataFieldsAdded": 16,
+    "incomingPromoted": 4,
     "existingEnriched": 0,
-    "duplicatesMerged": 0
+    "duplicatesMerged": 4
   },
   "venueEffects": {
-    "clustersResolved": 18,
-    "casesResolvedViaCluster": 0,
-    "casesResolvedViaCanonicalVenue": 1,
-    "externalLookupsAvoided": 1,
-    "venueRowsEnriched": 0,
-    "venuesCreated": 0
+    "clustersResolved": 33,
+    "casesResolvedViaCluster": 4,
+    "casesResolvedViaCanonicalVenue": 11,
+    "externalLookupsAvoided": 11,
+    "venueRowsEnriched": 3,
+    "venuesCreated": 2
   },
   "byFamily": {
     "ticketing": {
       "cases": 195,
-      "resolved": 82,
+      "resolved": 94,
       "archived": 36,
-      "open": 77,
+      "open": 65,
       "missing_address": 132
     },
     "venue": {
-      "cases": 512,
-      "resolved": 210,
+      "cases": 514,
+      "resolved": 236,
       "archived": 2,
-      "open": 300,
+      "open": 276,
       "missing_address": 216
     },
     "municipality": {
-      "cases": 1030,
-      "resolved": 392,
-      "archived": 26,
-      "open": 612,
-      "missing_address": 446
+      "cases": 1104,
+      "resolved": 458,
+      "archived": 28,
+      "open": 618,
+      "missing_address": 459
     },
     "mall": {
       "cases": 93,
-      "resolved": 29,
+      "resolved": 34,
       "archived": 0,
-      "open": 64,
+      "open": 59,
       "missing_address": 40
     },
     "aggregator": {
       "cases": 95,
-      "resolved": 12,
+      "resolved": 15,
       "archived": 62,
-      "open": 21,
+      "open": 18,
       "missing_address": 73
     },
     "organizer": {
-      "cases": 96,
-      "resolved": 22,
+      "cases": 99,
+      "resolved": 24,
       "archived": 10,
-      "open": 64,
+      "open": 65,
       "missing_address": 65
+    },
+    "(no source)": {
+      "cases": 849,
+      "resolved": 287,
+      "archived": 19,
+      "open": 543,
+      "missing_address": 90
     },
     "community_center": {
       "cases": 234,
-      "resolved": 80,
+      "resolved": 90,
       "archived": 3,
-      "open": 151,
+      "open": 141,
       "missing_address": 83
-    },
-    "(no source)": {
-      "cases": 567,
-      "resolved": 4,
-      "archived": 0,
-      "open": 563,
-      "missing_address": 90
     }
   },
   "sourceDebt": [
     {
-      "source": "עיריית רמת השרון - תרבות ואירועים",
-      "family": "municipality",
-      "path": "generic_html",
-      "activities": 43,
-      "candidates": 31,
-      "cases": 113,
-      "subjectsWithCases": 72,
-      "open": 54,
-      "dominantIssue": "incomplete_address (42)",
-      "debtRatio": 97,
-      "likelyRootCause": "extraction_weakness",
-      "flags": [
-        "missing_address_rate>=50%"
-      ]
-    },
-    {
       "source": "תיירות אשדוד - אירועים",
       "family": "municipality",
       "path": "generic_html",
-      "activities": 28,
+      "activities": 42,
       "candidates": 19,
-      "cases": 103,
-      "subjectsWithCases": 33,
-      "open": 87,
-      "dominantIssue": "incomplete_address (27)",
-      "debtRatio": 70,
-      "likelyRootCause": "unknown",
-      "flags": [
-        "missing_address_rate>=50%"
-      ]
-    },
-    {
-      "source": "רשת המתנ\"סים קריית גת - אירועים",
-      "family": "community_center",
-      "path": "generic_html",
-      "activities": 44,
-      "candidates": 61,
-      "cases": 102,
-      "subjectsWithCases": 45,
-      "open": 53,
-      "dominantIssue": "missing_image (44)",
-      "debtRatio": 43,
-      "likelyRootCause": "extraction_weakness",
-      "flags": []
-    },
-    {
-      "source": "עיריית תל אביב-יפו - אירועים ומופעים",
-      "family": "municipality",
-      "path": "local_relay",
-      "activities": 36,
-      "candidates": 38,
-      "cases": 99,
-      "subjectsWithCases": 42,
-      "open": 61,
-      "dominantIssue": "incomplete_address (36)",
-      "debtRatio": 57,
+      "cases": 142,
+      "subjectsWithCases": 51,
+      "open": 119,
+      "dominantIssue": "missing_venue (40)",
+      "debtRatio": 84,
       "likelyRootCause": "extraction_weakness",
       "flags": [
         "missing_address_rate>=50%"
@@ -260,13 +278,59 @@
       "source": "עיריית גבעתיים - אירועים",
       "family": "municipality",
       "path": "generic_html",
-      "activities": 35,
+      "activities": 51,
       "candidates": 33,
-      "cases": 93,
-      "subjectsWithCases": 38,
-      "open": 35,
-      "dominantIssue": "missing_image (35)",
-      "debtRatio": 56,
+      "cases": 116,
+      "subjectsWithCases": 55,
+      "open": 52,
+      "dominantIssue": "missing_image (49)",
+      "debtRatio": 65,
+      "likelyRootCause": "extraction_weakness",
+      "flags": []
+    },
+    {
+      "source": "עיריית רמת השרון - תרבות ואירועים",
+      "family": "municipality",
+      "path": "generic_html",
+      "activities": 43,
+      "candidates": 31,
+      "cases": 113,
+      "subjectsWithCases": 72,
+      "open": 45,
+      "dominantIssue": "incomplete_address (42)",
+      "debtRatio": 97,
+      "likelyRootCause": "extraction_weakness",
+      "flags": [
+        "missing_address_rate>=50%"
+      ]
+    },
+    {
+      "source": "עיריית תל אביב-יפו - אירועים ומופעים",
+      "family": "municipality",
+      "path": "local_relay",
+      "activities": 37,
+      "candidates": 38,
+      "cases": 109,
+      "subjectsWithCases": 50,
+      "open": 70,
+      "dominantIssue": "incomplete_address (36)",
+      "debtRatio": 67,
+      "likelyRootCause": "extraction_weakness",
+      "flags": [
+        "missing_address_rate>=50%"
+      ]
+    },
+    {
+      "source": "רשת המתנ\"סים קריית גת - אירועים",
+      "family": "community_center",
+      "path": "generic_html",
+      "activities": 44,
+      "candidates": 68,
+      "cases": 102,
+      "subjectsWithCases": 45,
+      "open": 52,
+      "dominantIssue": "missing_image (44)",
+      "debtRatio": 40,
       "likelyRootCause": "extraction_weakness",
       "flags": []
     },
@@ -274,12 +338,12 @@
       "source": "עיריית חולון - לוח אירועים",
       "family": "municipality",
       "path": "local_relay",
-      "activities": 38,
+      "activities": 40,
       "candidates": 25,
-      "cases": 90,
-      "subjectsWithCases": 47,
-      "open": 45,
-      "dominantIssue": "missing_image (39)",
+      "cases": 92,
+      "subjectsWithCases": 49,
+      "open": 44,
+      "dominantIssue": "missing_image (41)",
       "debtRatio": 75,
       "likelyRootCause": "extraction_weakness",
       "flags": []
@@ -292,7 +356,7 @@
       "candidates": 24,
       "cases": 88,
       "subjectsWithCases": 30,
-      "open": 44,
+      "open": 40,
       "dominantIssue": "missing_venue (29)",
       "debtRatio": 57,
       "likelyRootCause": "extraction_weakness",
@@ -305,13 +369,13 @@
       "family": "venue",
       "path": "generic_html",
       "activities": 14,
-      "candidates": 44,
+      "candidates": 40,
       "cases": 87,
       "subjectsWithCases": 38,
-      "open": 60,
+      "open": 55,
       "dominantIssue": "missing_location (23)",
-      "debtRatio": 66,
-      "likelyRootCause": "extraction_weakness",
+      "debtRatio": 70,
+      "likelyRootCause": "missing_detail_traversal",
       "flags": [
         "missing_address_rate>=50%"
       ]
@@ -324,7 +388,7 @@
       "candidates": 30,
       "cases": 71,
       "subjectsWithCases": 30,
-      "open": 41,
+      "open": 40,
       "dominantIssue": "missing_image (27)",
       "debtRatio": 53,
       "likelyRootCause": "extraction_weakness",
@@ -338,7 +402,7 @@
       "candidates": 32,
       "cases": 59,
       "subjectsWithCases": 33,
-      "open": 48,
+      "open": 38,
       "dominantIssue": "incomplete_address (20)",
       "debtRatio": 63,
       "likelyRootCause": "venue_resolution_weakness",
@@ -361,6 +425,22 @@
       "flags": []
     },
     {
+      "source": "החברה להגנת הטבע - הולכים על פתוח (סיורים)",
+      "family": "organizer",
+      "path": "generic_html",
+      "activities": 12,
+      "candidates": 0,
+      "cases": 55,
+      "subjectsWithCases": 37,
+      "open": 33,
+      "dominantIssue": "missing_location (25)",
+      "debtRatio": 100,
+      "likelyRootCause": "extraction_weakness",
+      "flags": [
+        "missing_address_rate>=50%"
+      ]
+    },
+    {
       "source": "עיריית רעננה - אירועי ילדים ומשפחה (כרטיסים)",
       "family": "ticketing",
       "path": "generic_html",
@@ -368,25 +448,9 @@
       "candidates": 38,
       "cases": 52,
       "subjectsWithCases": 32,
-      "open": 33,
+      "open": 22,
       "dominantIssue": "incomplete_address (26)",
       "debtRatio": 50,
-      "likelyRootCause": "extraction_weakness",
-      "flags": [
-        "missing_address_rate>=50%"
-      ]
-    },
-    {
-      "source": "החברה להגנת הטבע - הולכים על פתוח (סיורים)",
-      "family": "organizer",
-      "path": "generic_html",
-      "activities": 11,
-      "candidates": 0,
-      "cases": 52,
-      "subjectsWithCases": 36,
-      "open": 31,
-      "dominantIssue": "missing_location (25)",
-      "debtRatio": 100,
       "likelyRootCause": "extraction_weakness",
       "flags": [
         "missing_address_rate>=50%"
@@ -400,7 +464,7 @@
       "candidates": 21,
       "cases": 45,
       "subjectsWithCases": 24,
-      "open": 21,
+      "open": 18,
       "dominantIssue": "missing_image (17)",
       "debtRatio": 63,
       "likelyRootCause": "extraction_weakness",
@@ -411,12 +475,12 @@
       "family": "venue",
       "path": "generic_html",
       "activities": 15,
-      "candidates": 40,
+      "candidates": 39,
       "cases": 44,
       "subjectsWithCases": 33,
       "open": 29,
       "dominantIssue": "missing_required_metadata (18)",
-      "debtRatio": 60,
+      "debtRatio": 61,
       "likelyRootCause": "extraction_weakness",
       "flags": []
     },
@@ -424,13 +488,13 @@
       "source": "היכל התרבות כרמיאל",
       "family": "venue",
       "path": "generic_html",
-      "activities": 28,
+      "activities": 30,
       "candidates": 15,
-      "cases": 39,
-      "subjectsWithCases": 29,
-      "open": 14,
+      "cases": 41,
+      "subjectsWithCases": 31,
+      "open": 16,
       "dominantIssue": "incomplete_address (25)",
-      "debtRatio": 67,
+      "debtRatio": 69,
       "likelyRootCause": "extraction_weakness",
       "flags": [
         "missing_address_rate>=50%"
@@ -441,12 +505,12 @@
       "family": "municipality",
       "path": "generic_html",
       "activities": 7,
-      "candidates": 18,
+      "candidates": 14,
       "cases": 39,
       "subjectsWithCases": 21,
-      "open": 21,
+      "open": 15,
       "dominantIssue": "missing_required_metadata (10)",
-      "debtRatio": 84,
+      "debtRatio": 100,
       "likelyRootCause": "extraction_weakness",
       "flags": []
     },
@@ -458,10 +522,26 @@
       "candidates": 26,
       "cases": 38,
       "subjectsWithCases": 35,
-      "open": 14,
+      "open": 12,
       "dominantIssue": "missing_location (35)",
       "debtRatio": 100,
       "likelyRootCause": "source_limitation",
+      "flags": [
+        "missing_address_rate>=50%"
+      ]
+    },
+    {
+      "source": "נוף הגליל - רשת המרכזים הקהילתיים פסיפס",
+      "family": "community_center",
+      "path": "generic_html",
+      "activities": 9,
+      "candidates": 12,
+      "cases": 37,
+      "subjectsWithCases": 12,
+      "open": 27,
+      "dominantIssue": "incomplete_address (9)",
+      "debtRatio": 57,
+      "likelyRootCause": "venue_resolution_weakness",
       "flags": [
         "missing_address_rate>=50%"
       ]
@@ -474,24 +554,24 @@
       "candidates": 10,
       "cases": 37,
       "subjectsWithCases": 13,
-      "open": 17,
+      "open": 15,
       "dominantIssue": "missing_image (12)",
       "debtRatio": 59,
       "likelyRootCause": "extraction_weakness",
       "flags": []
     },
     {
-      "source": "נוף הגליל - רשת המרכזים הקהילתיים פסיפס",
-      "family": "community_center",
+      "source": "החברה להגנת הטבע - לוח אירועים ופעילויות",
+      "family": "organizer",
       "path": "generic_html",
-      "activities": 9,
-      "candidates": 12,
-      "cases": 37,
-      "subjectsWithCases": 12,
-      "open": 28,
-      "dominantIssue": "incomplete_address (9)",
-      "debtRatio": 57,
-      "likelyRootCause": "unknown",
+      "activities": 1,
+      "candidates": 0,
+      "cases": 36,
+      "subjectsWithCases": 25,
+      "open": 24,
+      "dominantIssue": "missing_location (24)",
+      "debtRatio": 100,
+      "likelyRootCause": "source_limitation",
       "flags": [
         "missing_address_rate>=50%"
       ]
@@ -506,22 +586,6 @@
       "subjectsWithCases": 36,
       "open": 8,
       "dominantIssue": "missing_location (36)",
-      "debtRatio": 100,
-      "likelyRootCause": "source_limitation",
-      "flags": [
-        "missing_address_rate>=50%"
-      ]
-    },
-    {
-      "source": "החברה להגנת הטבע - לוח אירועים ופעילויות",
-      "family": "organizer",
-      "path": "generic_html",
-      "activities": 1,
-      "candidates": 0,
-      "cases": 36,
-      "subjectsWithCases": 25,
-      "open": 25,
-      "dominantIssue": "missing_location (24)",
       "debtRatio": 100,
       "likelyRootCause": "source_limitation",
       "flags": [
@@ -568,7 +632,7 @@
       "candidates": 26,
       "cases": 33,
       "subjectsWithCases": 24,
-      "open": 8,
+      "open": 7,
       "dominantIssue": "incomplete_address (24)",
       "debtRatio": 48,
       "likelyRootCause": "extraction_weakness",
@@ -614,13 +678,27 @@
       "candidates": 10,
       "cases": 31,
       "subjectsWithCases": 11,
-      "open": 23,
+      "open": 20,
       "dominantIssue": "incomplete_address (11)",
       "debtRatio": 52,
       "likelyRootCause": "extraction_weakness",
       "flags": [
         "missing_address_rate>=50%"
       ]
+    },
+    {
+      "source": "מועצה אזורית גזר - אירועי ילדים",
+      "family": "municipality",
+      "path": "generic_html",
+      "activities": 7,
+      "candidates": 10,
+      "cases": 30,
+      "subjectsWithCases": 14,
+      "open": 23,
+      "dominantIssue": "missing_required_metadata (7)",
+      "debtRatio": 82,
+      "likelyRootCause": "extraction_weakness",
+      "flags": []
     },
     {
       "source": "קופת בראבו - היכל התרבות אשקלון (כרטיסים)",
@@ -637,20 +715,6 @@
       "flags": [
         "missing_address_rate>=50%"
       ]
-    },
-    {
-      "source": "מועצה אזורית גזר - אירועי ילדים",
-      "family": "municipality",
-      "path": "generic_html",
-      "activities": 7,
-      "candidates": 10,
-      "cases": 30,
-      "subjectsWithCases": 14,
-      "open": 24,
-      "dominantIssue": "missing_required_metadata (7)",
-      "debtRatio": 82,
-      "likelyRootCause": "extraction_weakness",
-      "flags": []
     },
     {
       "source": "מדעטק חיפה",
@@ -692,7 +756,7 @@
       "candidates": 0,
       "cases": 24,
       "subjectsWithCases": 22,
-      "open": 23,
+      "open": 22,
       "dominantIssue": "missing_required_metadata (19)",
       "debtRatio": 100,
       "likelyRootCause": "extraction_weakness",
@@ -706,10 +770,10 @@
       "candidates": 8,
       "cases": 24,
       "subjectsWithCases": 14,
-      "open": 10,
+      "open": 6,
       "dominantIssue": "missing_venue (14)",
       "debtRatio": 67,
-      "likelyRootCause": "extraction_weakness",
+      "likelyRootCause": "venue_resolution_weakness",
       "flags": [
         "missing_address_rate>=50%"
       ]
@@ -722,7 +786,7 @@
       "candidates": 9,
       "cases": 21,
       "subjectsWithCases": 10,
-      "open": 10,
+      "open": 7,
       "dominantIssue": "incomplete_address (8)",
       "debtRatio": 59,
       "likelyRootCause": "extraction_weakness",
@@ -735,13 +799,13 @@
       "family": "venue",
       "path": "generic_html",
       "activities": 9,
-      "candidates": 7,
+      "candidates": 8,
       "cases": 21,
       "subjectsWithCases": 9,
-      "open": 18,
+      "open": 15,
       "dominantIssue": "missing_schedule (8)",
-      "debtRatio": 56,
-      "likelyRootCause": "unknown",
+      "debtRatio": 53,
+      "likelyRootCause": "extraction_weakness",
       "flags": []
     },
     {
@@ -752,10 +816,10 @@
       "candidates": 3,
       "cases": 19,
       "subjectsWithCases": 7,
-      "open": 12,
-      "dominantIssue": "incomplete_address (7)",
+      "open": 8,
+      "dominantIssue": "missing_venue (7)",
       "debtRatio": 70,
-      "likelyRootCause": "unknown",
+      "likelyRootCause": "extraction_weakness",
       "flags": [
         "missing_address_rate>=50%"
       ]
@@ -805,28 +869,28 @@
   ],
   "topSources": [
     [
+      "תיירות אשדוד - אירועים",
+      142
+    ],
+    [
+      "עיריית גבעתיים - אירועים",
+      116
+    ],
+    [
       "עיריית רמת השרון - תרבות ואירועים",
       113
     ],
     [
-      "תיירות אשדוד - אירועים",
-      103
+      "עיריית תל אביב-יפו - אירועים ומופעים",
+      109
     ],
     [
       "רשת המתנ\"סים קריית גת - אירועים",
       102
     ],
     [
-      "עיריית תל אביב-יפו - אירועים ומופעים",
-      99
-    ],
-    [
-      "עיריית גבעתיים - אירועים",
-      93
-    ],
-    [
       "עיריית חולון - לוח אירועים",
-      90
+      92
     ],
     [
       "עיריית הרצליה - לוח אירועים",
@@ -849,11 +913,11 @@
       57
     ],
     [
-      "עיריית רעננה - אירועי ילדים ומשפחה (כרטיסים)",
-      52
+      "החברה להגנת הטבע - הולכים על פתוח (סיורים)",
+      55
     ],
     [
-      "החברה להגנת הטבע - הולכים על פתוח (סיורים)",
+      "עיריית רעננה - אירועי ילדים ומשפחה (כרטיסים)",
       52
     ],
     [
@@ -866,22 +930,23 @@
     ]
   ],
   "historicalDebt": {
-    "total": 2629,
-    "open": 1701,
+    "total": 2911,
+    "open": 1580,
     "byIssue": {
       "missing_required_metadata": 276,
       "missing_image": 443,
       "missing_location": 312,
       "incomplete_address": 715,
-      "missing_schedule": 43,
-      "missing_region": 402,
       "missing_venue": 390,
-      "unverified_location": 48
+      "missing_region": 402,
+      "unverified_location": 48,
+      "settlement_review": 282,
+      "missing_schedule": 43
     },
     "bySource": [
       [
         "(no source)",
-        563
+        845
       ],
       [
         "עיריית תל אביב-יפו - אירועים ומופעים",
@@ -935,50 +1000,54 @@
       "mall": 88,
       "aggregator": 90,
       "organizer": 77,
-      "community_center": 209,
-      "(no source)": 563
+      "(no source)": 845,
+      "community_center": 209
     },
     "byIngestionPath": {
       "generic_html": 1869,
       "local_relay": 197,
-      "(no source)": 563
+      "(no source)": 845
     }
   },
   "newDebt": {
     "since": "2026-09-13T17:51:32.020Z",
     "subjectsEntered": {
-      "incoming": 438,
-      "activities": 57
+      "incoming": 638,
+      "activities": 94
     },
     "cases": {
-      "total": 193,
-      "open": 151,
+      "total": 272,
+      "open": 205,
       "byIssue": {
-        "incomplete_address": 44,
-        "missing_location": 15,
-        "missing_required_metadata": 40,
-        "missing_venue": 40,
-        "missing_image": 36,
-        "missing_region": 5,
-        "missing_schedule": 2,
-        "unverified_location": 11
+        "missing_location": 16,
+        "missing_schedule": 7,
+        "missing_image": 61,
+        "incomplete_address": 56,
+        "unverified_location": 11,
+        "missing_required_metadata": 52,
+        "missing_venue": 63,
+        "missing_region": 6
       },
       "bySource": [
+        [
+          "תיירות אשדוד - אירועים",
+          55
+        ],
+        [
+          "עיריית גבעתיים - אירועים",
+          25
+        ],
         [
           "עיריית רמת השרון - תרבות ואירועים",
           24
         ],
         [
+          "החברה להגנת הטבע - הולכים על פתוח (סיורים)",
+          20
+        ],
+        [
           "עיריית הרצליה - לוח אירועים",
           19
-        ],
-        [
-          "החברה להגנת הטבע - הולכים על פתוח (סיורים)",
-          17
-        ],
-        [
-          "תיירות אשדוד - אירועים",
-          16
         ],
         [
           "מדעטק חיפה",
@@ -986,7 +1055,11 @@
         ],
         [
           "עיריית חולון - לוח אירועים",
-          9
+          11
+        ],
+        [
+          "עיריית תל אביב-יפו - אירועים ומופעים",
+          10
         ],
         [
           "מתנ\"ס קריית אונו - אירועים",
@@ -997,45 +1070,658 @@
           8
         ],
         [
-          "גן החיות התנ\"כי ירושלים",
-          8
-        ],
-        [
           "עיריית נשר - אירועים",
           8
         ],
         [
-          "עיריית חיפה - ספריות עירוניות",
-          6
-        ],
-        [
-          "מועצה אזורית גזר - אירועי ילדים",
-          6
+          "גן החיות התנ\"כי ירושלים",
+          8
         ]
       ],
       "byFamily": {
-        "municipality": 104,
+        "municipality": 178,
         "community_center": 25,
         "aggregator": 5,
-        "venue": 30,
-        "organizer": 19,
+        "venue": 32,
+        "organizer": 22,
         "ticketing": 1,
         "mall": 5,
         "(no source)": 4
       },
       "byIngestionPath": {
-        "generic_html": 174,
-        "local_relay": 15,
+        "generic_html": 241,
+        "local_relay": 27,
         "(no source)": 4
       }
     },
-    "casesPer100Subjects": 39
+    "casesPer100Subjects": 37.2
   },
   "centroid": {
-    "suspectedLocations": 51,
-    "repairedCases": 0
+    "suspectedLocations": 44,
+    "repairedCases": 8
   },
   "runs": [
+    {
+      "started_at": "2026-09-14T12:31:09.306526+00:00",
+      "finished_at": "2026-09-14T12:44:25.895+00:00",
+      "worker": "Mike:248",
+      "notes": null,
+      "counters": {
+        "gain": {
+          "coordsAdded": 14,
+          "imagesAdded": 11,
+          "regionsAdded": 12,
+          "venuesLinked": 0,
+          "venuesCreated": 0,
+          "addressesAdded": 17,
+          "coordsImproved": 0,
+          "schedulesAdded": 0,
+          "duplicatesMerged": 1,
+          "existingEnriched": 0,
+          "incomingPromoted": 1,
+          "venueRowsEnriched": 2,
+          "metadataFieldsAdded": 7,
+          "brokenImagesReplaced": 0,
+          "streetAddressesAdded": 6
+        },
+        "errors": 0,
+        "backlog": 1785,
+        "archived": 1,
+        "clusters": {
+          "groups": 25,
+          "created": 0,
+          "members": 657,
+          "unresolved": 16,
+          "existingEnriched": 2
+        },
+        "reopened": 0,
+        "resolved": 45,
+        "inspected": 150,
+        "published": 1,
+        "discovered": 3,
+        "durationMs": 796687,
+        "policyHold": 11,
+        "imagesFound": 11,
+        "fieldsFilled": 19,
+        "venuesLinked": 0,
+        "addressesFound": 9,
+        "archiveReasons": {
+          "venue_not_found": 1
+        },
+        "resolvedNoGain": 4,
+        "closedExternally": 1,
+        "duplicatesMerged": 1,
+        "newDebtProcessed": 1,
+        "resolvedViaVenue": 1,
+        "resolvedViaCluster": 0,
+        "venueClustersResolved": 4,
+        "externalLookupsAvoided": 1
+      }
+    },
+    {
+      "started_at": "2026-09-14T12:12:36.726883+00:00",
+      "finished_at": "2026-09-14T12:31:05.016+00:00",
+      "worker": "Mike:24244",
+      "notes": null,
+      "counters": {
+        "gain": {
+          "coordsAdded": 5,
+          "imagesAdded": 7,
+          "regionsAdded": 7,
+          "venuesLinked": 1,
+          "venuesCreated": 2,
+          "addressesAdded": 10,
+          "coordsImproved": 0,
+          "schedulesAdded": 0,
+          "duplicatesMerged": 3,
+          "existingEnriched": 0,
+          "incomingPromoted": 1,
+          "venueRowsEnriched": 1,
+          "metadataFieldsAdded": 8,
+          "brokenImagesReplaced": 0,
+          "streetAddressesAdded": 1
+        },
+        "errors": 0,
+        "backlog": 1833,
+        "archived": 1,
+        "clusters": {
+          "groups": 25,
+          "created": 2,
+          "members": 674,
+          "unresolved": 15,
+          "existingEnriched": 1
+        },
+        "reopened": 0,
+        "resolved": 30,
+        "inspected": 150,
+        "published": 1,
+        "discovered": 0,
+        "durationMs": 1108414,
+        "policyHold": 4,
+        "imagesFound": 7,
+        "fieldsFilled": 15,
+        "venuesLinked": 0,
+        "addressesFound": 7,
+        "archiveReasons": {
+          "venue_not_found": 1
+        },
+        "resolvedNoGain": 5,
+        "closedExternally": 0,
+        "duplicatesMerged": 3,
+        "newDebtProcessed": 0,
+        "resolvedViaVenue": 1,
+        "resolvedViaCluster": 0,
+        "venueClustersResolved": 4,
+        "externalLookupsAvoided": 1
+      }
+    },
+    {
+      "started_at": "2026-09-14T11:59:23.956058+00:00",
+      "finished_at": "2026-09-14T12:08:06.184+00:00",
+      "worker": "Mike:30812",
+      "notes": null,
+      "counters": {
+        "gain": {
+          "coordsAdded": 0,
+          "imagesAdded": 0,
+          "regionsAdded": 0,
+          "venuesLinked": 0,
+          "placeIdsAdded": 2,
+          "venuesCreated": 0,
+          "addressesAdded": 0,
+          "coordsImproved": 0,
+          "schedulesAdded": 0,
+          "duplicatesMerged": 0,
+          "existingEnriched": 0,
+          "incomingPromoted": 0,
+          "venueRowsEnriched": 0,
+          "metadataFieldsAdded": 0,
+          "brokenImagesReplaced": 0,
+          "streetAddressesAdded": 0
+        },
+        "errors": 0,
+        "backlog": 1869,
+        "archived": 3,
+        "reopened": 0,
+        "resolved": 24,
+        "inspected": 27,
+        "published": 0,
+        "discovered": 0,
+        "durationMs": 522339,
+        "policyHold": 0,
+        "settlement": {
+          "DUPLICATE": 24,
+          "INSUFFICIENT_EVIDENCE": 3
+        },
+        "imagesFound": 0,
+        "fieldsFilled": 0,
+        "venuesLinked": 0,
+        "addressesFound": 0,
+        "archiveReasons": {
+          "insufficient_required_data": 3
+        },
+        "resolvedNoGain": 0,
+        "closedExternally": 0,
+        "duplicatesMerged": 0,
+        "newDebtProcessed": 0,
+        "resolvedViaVenue": 0,
+        "resolvedViaCluster": 0,
+        "venueClustersResolved": 0,
+        "externalLookupsAvoided": 0
+      }
+    },
+    {
+      "started_at": "2026-09-14T11:54:20.305612+00:00",
+      "finished_at": "2026-09-14T11:59:20.155+00:00",
+      "worker": "Mike:32300",
+      "notes": null,
+      "counters": {
+        "gain": {
+          "coordsAdded": 0,
+          "imagesAdded": 0,
+          "regionsAdded": 0,
+          "venuesLinked": 0,
+          "venuesCreated": 0,
+          "addressesAdded": 0,
+          "coordsImproved": 0,
+          "schedulesAdded": 0,
+          "duplicatesMerged": 0,
+          "existingEnriched": 0,
+          "incomingPromoted": 0,
+          "venueRowsEnriched": 0,
+          "metadataFieldsAdded": 0,
+          "brokenImagesReplaced": 0,
+          "streetAddressesAdded": 0
+        },
+        "errors": 0,
+        "backlog": 1896,
+        "archived": 0,
+        "reopened": 0,
+        "resolved": 0,
+        "inspected": 0,
+        "published": 0,
+        "discovered": 0,
+        "durationMs": 299945,
+        "policyHold": 0,
+        "imagesFound": 0,
+        "fieldsFilled": 0,
+        "venuesLinked": 0,
+        "addressesFound": 0,
+        "archiveReasons": {},
+        "resolvedNoGain": 0,
+        "closedExternally": 0,
+        "duplicatesMerged": 0,
+        "newDebtProcessed": 0,
+        "resolvedViaVenue": 0,
+        "resolvedViaCluster": 0,
+        "venueClustersResolved": 0,
+        "externalLookupsAvoided": 0
+      }
+    },
+    {
+      "started_at": "2026-09-14T11:49:14.937352+00:00",
+      "finished_at": "2026-09-14T11:53:06.071+00:00",
+      "worker": "Mike:31416",
+      "notes": null,
+      "counters": {
+        "gain": {
+          "coordsAdded": 0,
+          "imagesAdded": 0,
+          "regionsAdded": 0,
+          "venuesLinked": 0,
+          "venuesCreated": 0,
+          "addressesAdded": 0,
+          "coordsImproved": 0,
+          "schedulesAdded": 0,
+          "duplicatesMerged": 0,
+          "existingEnriched": 0,
+          "incomingPromoted": 0,
+          "venueRowsEnriched": 0,
+          "metadataFieldsAdded": 0,
+          "brokenImagesReplaced": 0,
+          "streetAddressesAdded": 0
+        },
+        "errors": 0,
+        "backlog": 1896,
+        "archived": 16,
+        "reopened": 0,
+        "resolved": 0,
+        "inspected": 16,
+        "published": 0,
+        "discovered": 0,
+        "durationMs": 231273,
+        "policyHold": 0,
+        "settlement": {
+          "GENUINELY_HUMAN": 12,
+          "INSUFFICIENT_EVIDENCE": 4
+        },
+        "imagesFound": 0,
+        "fieldsFilled": 0,
+        "venuesLinked": 0,
+        "addressesFound": 0,
+        "archiveReasons": {
+          "requires_human_judgment": 12,
+          "insufficient_required_data": 4
+        },
+        "resolvedNoGain": 0,
+        "closedExternally": 0,
+        "duplicatesMerged": 0,
+        "newDebtProcessed": 0,
+        "resolvedViaVenue": 0,
+        "resolvedViaCluster": 0,
+        "venueClustersResolved": 0,
+        "externalLookupsAvoided": 0
+      }
+    },
+    {
+      "started_at": "2026-09-14T11:29:34.425442+00:00",
+      "finished_at": "2026-09-14T11:49:08.897+00:00",
+      "worker": "Mike:31916",
+      "notes": "failed: TypeError: fetch failed",
+      "counters": {
+        "gain": {
+          "coordsAdded": 0,
+          "imagesAdded": 0,
+          "regionsAdded": 0,
+          "venuesLinked": 0,
+          "placeIdsAdded": 37,
+          "venuesCreated": 0,
+          "addressesAdded": 0,
+          "coordsImproved": 0,
+          "schedulesAdded": 0,
+          "duplicatesMerged": 0,
+          "existingEnriched": 0,
+          "incomingPromoted": 0,
+          "venueRowsEnriched": 0,
+          "metadataFieldsAdded": 0,
+          "brokenImagesReplaced": 0,
+          "streetAddressesAdded": 0
+        },
+        "errors": 1,
+        "archived": 0,
+        "reopened": 0,
+        "resolved": 180,
+        "inspected": 180,
+        "published": 0,
+        "discovered": 0,
+        "policyHold": 0,
+        "settlement": {
+          "DUPLICATE": 180,
+          "GENUINELY_HUMAN": 12,
+          "INSUFFICIENT_EVIDENCE": 4
+        },
+        "imagesFound": 0,
+        "fieldsFilled": 0,
+        "venuesLinked": 0,
+        "addressesFound": 0,
+        "archiveReasons": {},
+        "resolvedNoGain": 0,
+        "closedExternally": 0,
+        "duplicatesMerged": 0,
+        "newDebtProcessed": 0,
+        "resolvedViaVenue": 0,
+        "resolvedViaCluster": 0,
+        "venueClustersResolved": 0,
+        "externalLookupsAvoided": 0
+      }
+    },
+    {
+      "started_at": "2026-09-14T11:21:32.215131+00:00",
+      "finished_at": "2026-09-14T11:27:30.779+00:00",
+      "worker": "Mike:18372",
+      "notes": null,
+      "counters": {
+        "gain": {
+          "coordsAdded": 0,
+          "imagesAdded": 0,
+          "regionsAdded": 0,
+          "venuesLinked": 0,
+          "placeIdsAdded": 6,
+          "venuesCreated": 0,
+          "addressesAdded": 0,
+          "coordsImproved": 0,
+          "schedulesAdded": 0,
+          "duplicatesMerged": 0,
+          "existingEnriched": 0,
+          "incomingPromoted": 0,
+          "venueRowsEnriched": 0,
+          "metadataFieldsAdded": 0,
+          "brokenImagesReplaced": 0,
+          "streetAddressesAdded": 0
+        },
+        "errors": 0,
+        "backlog": 2092,
+        "archived": 0,
+        "reopened": 0,
+        "resolved": 59,
+        "inspected": 59,
+        "published": 0,
+        "discovered": 23,
+        "durationMs": 358632,
+        "policyHold": 0,
+        "settlement": {
+          "DUPLICATE": 59,
+          "GENUINELY_HUMAN": 1
+        },
+        "imagesFound": 0,
+        "fieldsFilled": 0,
+        "venuesLinked": 0,
+        "addressesFound": 0,
+        "archiveReasons": {},
+        "resolvedNoGain": 0,
+        "closedExternally": 0,
+        "duplicatesMerged": 0,
+        "newDebtProcessed": 0,
+        "resolvedViaVenue": 0,
+        "resolvedViaCluster": 0,
+        "venueClustersResolved": 0,
+        "externalLookupsAvoided": 0
+      }
+    },
+    {
+      "started_at": "2026-09-14T10:38:33.937839+00:00",
+      "finished_at": "2026-09-14T10:46:11.777+00:00",
+      "worker": "Mike:28272",
+      "notes": null,
+      "counters": {
+        "gain": {
+          "coordsAdded": 0,
+          "imagesAdded": 0,
+          "regionsAdded": 0,
+          "venuesLinked": 4,
+          "venuesCreated": 0,
+          "addressesAdded": 4,
+          "coordsImproved": 0,
+          "schedulesAdded": 0,
+          "duplicatesMerged": 0,
+          "existingEnriched": 0,
+          "incomingPromoted": 0,
+          "venueRowsEnriched": 0,
+          "metadataFieldsAdded": 0,
+          "brokenImagesReplaced": 0,
+          "streetAddressesAdded": 1
+        },
+        "errors": 0,
+        "backlog": 2128,
+        "archived": 0,
+        "clusters": {
+          "groups": 25,
+          "created": 0,
+          "members": 705,
+          "unresolved": 12,
+          "existingEnriched": 0
+        },
+        "reopened": 0,
+        "resolved": 9,
+        "inspected": 38,
+        "published": 0,
+        "discovered": 46,
+        "durationMs": 457889,
+        "policyHold": 0,
+        "imagesFound": 0,
+        "fieldsFilled": 0,
+        "venuesLinked": 4,
+        "addressesFound": 5,
+        "archiveReasons": {},
+        "resolvedNoGain": 29,
+        "closedExternally": 1,
+        "duplicatesMerged": 0,
+        "newDebtProcessed": 0,
+        "resolvedViaVenue": 8,
+        "resolvedViaCluster": 4,
+        "venueClustersResolved": 7,
+        "externalLookupsAvoided": 8
+      }
+    },
+    {
+      "started_at": "2026-09-14T10:24:46.358144+00:00",
+      "finished_at": "2026-09-14T10:24:57.347+00:00",
+      "worker": "Mike:9768",
+      "notes": null,
+      "counters": {
+        "gain": {
+          "coordsAdded": 0,
+          "imagesAdded": 0,
+          "regionsAdded": 0,
+          "venuesLinked": 0,
+          "venuesCreated": 0,
+          "addressesAdded": 0,
+          "coordsImproved": 0,
+          "schedulesAdded": 0,
+          "duplicatesMerged": 0,
+          "existingEnriched": 0,
+          "incomingPromoted": 0,
+          "venueRowsEnriched": 0,
+          "metadataFieldsAdded": 0,
+          "brokenImagesReplaced": 0,
+          "streetAddressesAdded": 0
+        },
+        "errors": 0,
+        "backlog": 2121,
+        "archived": 0,
+        "reopened": 0,
+        "resolved": 0,
+        "inspected": 0,
+        "published": 0,
+        "discovered": 2,
+        "durationMs": 11049,
+        "policyHold": 0,
+        "imagesFound": 0,
+        "fieldsFilled": 0,
+        "venuesLinked": 0,
+        "addressesFound": 0,
+        "archiveReasons": {},
+        "resolvedNoGain": 0,
+        "closedExternally": 0,
+        "duplicatesMerged": 0,
+        "newDebtProcessed": 0,
+        "resolvedViaVenue": 0,
+        "resolvedViaCluster": 0,
+        "venueClustersResolved": 0,
+        "externalLookupsAvoided": 0
+      }
+    },
+    {
+      "started_at": "2026-09-14T10:21:49.630922+00:00",
+      "finished_at": "2026-09-14T10:24:42.938+00:00",
+      "worker": "Mike:18936",
+      "notes": null,
+      "counters": {
+        "gain": {
+          "coordsAdded": 0,
+          "imagesAdded": 0,
+          "regionsAdded": 0,
+          "venuesLinked": 0,
+          "venuesCreated": 0,
+          "addressesAdded": 0,
+          "coordsImproved": 0,
+          "schedulesAdded": 0,
+          "duplicatesMerged": 0,
+          "existingEnriched": 0,
+          "incomingPromoted": 0,
+          "venueRowsEnriched": 0,
+          "metadataFieldsAdded": 0,
+          "brokenImagesReplaced": 0,
+          "streetAddressesAdded": 0
+        },
+        "errors": 0,
+        "backlog": 2119,
+        "archived": 0,
+        "reopened": 0,
+        "resolved": 0,
+        "inspected": 10,
+        "published": 0,
+        "discovered": 287,
+        "durationMs": 173343,
+        "policyHold": 0,
+        "imagesFound": 0,
+        "fieldsFilled": 0,
+        "venuesLinked": 0,
+        "addressesFound": 0,
+        "archiveReasons": {},
+        "resolvedNoGain": 0,
+        "closedExternally": 7,
+        "duplicatesMerged": 0,
+        "newDebtProcessed": 0,
+        "resolvedViaVenue": 0,
+        "resolvedViaCluster": 0,
+        "venueClustersResolved": 0,
+        "externalLookupsAvoided": 0
+      }
+    },
+    {
+      "started_at": "2026-09-14T10:17:02.228468+00:00",
+      "finished_at": "2026-09-14T10:18:16.209+00:00",
+      "worker": "Mike:11708",
+      "notes": "failed: activities: TypeError: terminated",
+      "counters": {
+        "gain": {
+          "coordsAdded": 0,
+          "imagesAdded": 0,
+          "regionsAdded": 0,
+          "venuesLinked": 0,
+          "venuesCreated": 0,
+          "addressesAdded": 0,
+          "coordsImproved": 0,
+          "schedulesAdded": 0,
+          "duplicatesMerged": 0,
+          "existingEnriched": 0,
+          "incomingPromoted": 0,
+          "venueRowsEnriched": 0,
+          "metadataFieldsAdded": 0,
+          "brokenImagesReplaced": 0,
+          "streetAddressesAdded": 0
+        },
+        "errors": 0,
+        "archived": 0,
+        "reopened": 0,
+        "resolved": 0,
+        "inspected": 0,
+        "published": 0,
+        "discovered": 0,
+        "policyHold": 0,
+        "imagesFound": 0,
+        "fieldsFilled": 0,
+        "venuesLinked": 0,
+        "addressesFound": 0,
+        "archiveReasons": {},
+        "resolvedNoGain": 0,
+        "duplicatesMerged": 0,
+        "newDebtProcessed": 0,
+        "resolvedViaVenue": 0,
+        "resolvedViaCluster": 0,
+        "venueClustersResolved": 0,
+        "externalLookupsAvoided": 0
+      }
+    },
+    {
+      "started_at": "2026-09-14T10:08:05.926705+00:00",
+      "finished_at": "2026-09-14T10:18:56.1+00:00",
+      "worker": "Mike:11560",
+      "notes": null,
+      "counters": {
+        "gain": {
+          "coordsAdded": 0,
+          "imagesAdded": 0,
+          "regionsAdded": 0,
+          "venuesLinked": 0,
+          "venuesCreated": 0,
+          "addressesAdded": 7,
+          "coordsImproved": 0,
+          "schedulesAdded": 0,
+          "duplicatesMerged": 0,
+          "existingEnriched": 0,
+          "incomingPromoted": 0,
+          "venueRowsEnriched": 0,
+          "metadataFieldsAdded": 0,
+          "brokenImagesReplaced": 0,
+          "streetAddressesAdded": 0
+        },
+        "errors": 0,
+        "backlog": 1832,
+        "archived": 0,
+        "reopened": 0,
+        "resolved": 7,
+        "inspected": 59,
+        "published": 0,
+        "discovered": 0,
+        "durationMs": 650185,
+        "policyHold": 0,
+        "imagesFound": 0,
+        "fieldsFilled": 0,
+        "venuesLinked": 0,
+        "addressesFound": 7,
+        "archiveReasons": {},
+        "resolvedNoGain": 1,
+        "closedExternally": 12,
+        "duplicatesMerged": 0,
+        "newDebtProcessed": 0,
+        "resolvedViaVenue": 0,
+        "resolvedViaCluster": 0,
+        "venueClustersResolved": 0,
+        "externalLookupsAvoided": 0
+      }
+    },
     {
       "started_at": "2026-09-14T09:51:38.23614+00:00",
       "finished_at": "2026-09-14T09:57:15.392+00:00",
@@ -1435,533 +2121,9 @@
         "venueClustersResolved": 0,
         "externalLookupsAvoided": 0
       }
-    },
-    {
-      "started_at": "2026-09-14T09:30:09.199761+00:00",
-      "finished_at": "2026-09-14T09:31:20.699+00:00",
-      "worker": "workerD",
-      "notes": null,
-      "counters": {
-        "gain": {
-          "coordsAdded": 0,
-          "imagesAdded": 5,
-          "regionsAdded": 0,
-          "venuesLinked": 0,
-          "venuesCreated": 0,
-          "addressesAdded": 0,
-          "coordsImproved": 0,
-          "schedulesAdded": 0,
-          "duplicatesMerged": 0,
-          "existingEnriched": 0,
-          "incomingPromoted": 0,
-          "venueRowsEnriched": 0,
-          "metadataFieldsAdded": 0,
-          "brokenImagesReplaced": 0,
-          "streetAddressesAdded": 0
-        },
-        "errors": 0,
-        "backlog": 2019,
-        "archived": 0,
-        "reopened": 0,
-        "resolved": 5,
-        "inspected": 12,
-        "published": 0,
-        "discovered": 0,
-        "durationMs": 71451,
-        "policyHold": 0,
-        "imagesFound": 5,
-        "fieldsFilled": 0,
-        "venuesLinked": 0,
-        "addressesFound": 0,
-        "archiveReasons": {},
-        "resolvedNoGain": 0,
-        "closedExternally": 0,
-        "duplicatesMerged": 0,
-        "newDebtProcessed": 0,
-        "resolvedViaVenue": 0,
-        "resolvedViaCluster": 0,
-        "venueClustersResolved": 0,
-        "externalLookupsAvoided": 0
-      }
-    },
-    {
-      "started_at": "2026-09-14T09:30:09.138263+00:00",
-      "finished_at": "2026-09-14T09:30:12.655+00:00",
-      "worker": "Mike:19736",
-      "notes": null,
-      "counters": {
-        "gain": {
-          "coordsAdded": 0,
-          "imagesAdded": 0,
-          "regionsAdded": 0,
-          "venuesLinked": 0,
-          "venuesCreated": 0,
-          "addressesAdded": 0,
-          "coordsImproved": 0,
-          "schedulesAdded": 0,
-          "duplicatesMerged": 0,
-          "existingEnriched": 0,
-          "incomingPromoted": 0,
-          "venueRowsEnriched": 0,
-          "metadataFieldsAdded": 0,
-          "brokenImagesReplaced": 0,
-          "streetAddressesAdded": 0
-        },
-        "errors": 0,
-        "backlog": 2029,
-        "archived": 0,
-        "reopened": 0,
-        "resolved": 0,
-        "inspected": 1,
-        "published": 0,
-        "discovered": 0,
-        "durationMs": 3490,
-        "policyHold": 0,
-        "imagesFound": 0,
-        "fieldsFilled": 0,
-        "venuesLinked": 0,
-        "addressesFound": 0,
-        "archiveReasons": {},
-        "resolvedNoGain": 0,
-        "duplicatesMerged": 0,
-        "newDebtProcessed": 1,
-        "resolvedViaVenue": 0,
-        "resolvedViaCluster": 0,
-        "venueClustersResolved": 0,
-        "externalLookupsAvoided": 0
-      }
-    },
-    {
-      "started_at": "2026-09-14T09:29:44.211166+00:00",
-      "finished_at": "2026-09-14T09:30:29.557+00:00",
-      "worker": "Mike:29860",
-      "notes": null,
-      "counters": {
-        "gain": {
-          "coordsAdded": 0,
-          "imagesAdded": 0,
-          "regionsAdded": 0,
-          "venuesLinked": 0,
-          "venuesCreated": 0,
-          "addressesAdded": 0,
-          "coordsImproved": 0,
-          "schedulesAdded": 0,
-          "duplicatesMerged": 0,
-          "existingEnriched": 0,
-          "incomingPromoted": 0,
-          "venueRowsEnriched": 0,
-          "metadataFieldsAdded": 0,
-          "brokenImagesReplaced": 0,
-          "streetAddressesAdded": 0
-        },
-        "errors": 0,
-        "backlog": 2028,
-        "archived": 0,
-        "reopened": 0,
-        "resolved": 0,
-        "inspected": 0,
-        "published": 0,
-        "discovered": 0,
-        "durationMs": 45360,
-        "policyHold": 0,
-        "imagesFound": 0,
-        "fieldsFilled": 0,
-        "venuesLinked": 0,
-        "centroidAudit": {
-          "flagged": 51,
-          "candidates": 107,
-          "byProvenance": 0
-        },
-        "addressesFound": 0,
-        "archiveReasons": {},
-        "resolvedNoGain": 0,
-        "closedExternally": 0,
-        "duplicatesMerged": 0,
-        "newDebtProcessed": 0,
-        "resolvedViaVenue": 0,
-        "resolvedViaCluster": 0,
-        "venueClustersResolved": 0,
-        "externalLookupsAvoided": 0
-      }
-    },
-    {
-      "started_at": "2026-09-14T09:26:56.729591+00:00",
-      "finished_at": "2026-09-14T09:27:00.441+00:00",
-      "worker": "Mike:24584",
-      "notes": null,
-      "counters": {
-        "gain": {
-          "coordsAdded": 0,
-          "imagesAdded": 0,
-          "regionsAdded": 0,
-          "venuesLinked": 0,
-          "venuesCreated": 0,
-          "addressesAdded": 0,
-          "coordsImproved": 0,
-          "schedulesAdded": 0,
-          "duplicatesMerged": 0,
-          "existingEnriched": 0,
-          "incomingPromoted": 0,
-          "venueRowsEnriched": 0,
-          "metadataFieldsAdded": 0,
-          "brokenImagesReplaced": 0,
-          "streetAddressesAdded": 0
-        },
-        "errors": 0,
-        "backlog": 2030,
-        "archived": 1,
-        "reopened": 0,
-        "resolved": 0,
-        "inspected": 1,
-        "published": 0,
-        "discovered": 0,
-        "durationMs": 3395,
-        "policyHold": 0,
-        "imagesFound": 0,
-        "fieldsFilled": 0,
-        "venuesLinked": 0,
-        "addressesFound": 0,
-        "archiveReasons": {
-          "missing_address_unresolved": 1
-        },
-        "resolvedNoGain": 0,
-        "duplicatesMerged": 0,
-        "newDebtProcessed": 0,
-        "resolvedViaVenue": 0,
-        "resolvedViaCluster": 0,
-        "venueClustersResolved": 0,
-        "externalLookupsAvoided": 0
-      }
-    },
-    {
-      "started_at": "2026-09-14T09:26:49.493553+00:00",
-      "finished_at": "2026-09-14T09:26:52.59+00:00",
-      "worker": "Mike:30028",
-      "notes": null,
-      "counters": {
-        "gain": {
-          "coordsAdded": 0,
-          "imagesAdded": 0,
-          "regionsAdded": 0,
-          "venuesLinked": 0,
-          "venuesCreated": 0,
-          "addressesAdded": 0,
-          "coordsImproved": 0,
-          "schedulesAdded": 0,
-          "duplicatesMerged": 0,
-          "existingEnriched": 0,
-          "incomingPromoted": 0,
-          "venueRowsEnriched": 0,
-          "metadataFieldsAdded": 0,
-          "brokenImagesReplaced": 0,
-          "streetAddressesAdded": 0
-        },
-        "errors": 0,
-        "backlog": 2045,
-        "archived": 0,
-        "reopened": 0,
-        "resolved": 0,
-        "inspected": 1,
-        "published": 0,
-        "discovered": 0,
-        "durationMs": 3110,
-        "policyHold": 0,
-        "imagesFound": 0,
-        "fieldsFilled": 0,
-        "venuesLinked": 0,
-        "addressesFound": 0,
-        "archiveReasons": {},
-        "resolvedNoGain": 0,
-        "duplicatesMerged": 0,
-        "newDebtProcessed": 0,
-        "resolvedViaVenue": 0,
-        "resolvedViaCluster": 0,
-        "venueClustersResolved": 0,
-        "externalLookupsAvoided": 0
-      }
-    },
-    {
-      "started_at": "2026-09-14T09:26:37.954081+00:00",
-      "finished_at": "2026-09-14T09:26:52.107+00:00",
-      "worker": "workerB",
-      "notes": "failed: cleaner_cases insert: duplicate key value violates unique constraint \"cleaner_cases_subject_kind_subject_id_issue_key\"",
-      "counters": {
-        "gain": {
-          "coordsAdded": 0,
-          "imagesAdded": 0,
-          "regionsAdded": 0,
-          "venuesLinked": 0,
-          "venuesCreated": 0,
-          "addressesAdded": 0,
-          "coordsImproved": 0,
-          "schedulesAdded": 0,
-          "duplicatesMerged": 0,
-          "existingEnriched": 0,
-          "incomingPromoted": 0,
-          "venueRowsEnriched": 0,
-          "metadataFieldsAdded": 0,
-          "brokenImagesReplaced": 0,
-          "streetAddressesAdded": 0
-        },
-        "errors": 0,
-        "archived": 0,
-        "reopened": 0,
-        "resolved": 0,
-        "inspected": 0,
-        "published": 0,
-        "discovered": 0,
-        "policyHold": 0,
-        "imagesFound": 0,
-        "fieldsFilled": 0,
-        "venuesLinked": 0,
-        "addressesFound": 0,
-        "archiveReasons": {},
-        "resolvedNoGain": 0,
-        "duplicatesMerged": 0,
-        "newDebtProcessed": 0,
-        "resolvedViaVenue": 0,
-        "resolvedViaCluster": 0,
-        "venueClustersResolved": 0,
-        "externalLookupsAvoided": 0
-      }
-    },
-    {
-      "started_at": "2026-09-14T09:26:37.586329+00:00",
-      "finished_at": "2026-09-14T09:26:41.227+00:00",
-      "worker": "Mike:10776",
-      "notes": null,
-      "counters": {
-        "gain": {
-          "coordsAdded": 0,
-          "imagesAdded": 0,
-          "regionsAdded": 0,
-          "venuesLinked": 0,
-          "venuesCreated": 0,
-          "addressesAdded": 0,
-          "coordsImproved": 0,
-          "schedulesAdded": 0,
-          "duplicatesMerged": 0,
-          "existingEnriched": 0,
-          "incomingPromoted": 0,
-          "venueRowsEnriched": 0,
-          "metadataFieldsAdded": 0,
-          "brokenImagesReplaced": 0,
-          "streetAddressesAdded": 0
-        },
-        "errors": 0,
-        "backlog": 2050,
-        "archived": 0,
-        "reopened": 0,
-        "resolved": 0,
-        "inspected": 1,
-        "published": 0,
-        "discovered": 0,
-        "durationMs": 3334,
-        "policyHold": 0,
-        "imagesFound": 0,
-        "fieldsFilled": 0,
-        "venuesLinked": 0,
-        "addressesFound": 0,
-        "archiveReasons": {},
-        "resolvedNoGain": 0,
-        "duplicatesMerged": 0,
-        "newDebtProcessed": 1,
-        "resolvedViaVenue": 0,
-        "resolvedViaCluster": 0,
-        "venueClustersResolved": 0,
-        "externalLookupsAvoided": 0
-      }
-    },
-    {
-      "started_at": "2026-09-14T09:26:36.768952+00:00",
-      "finished_at": "2026-09-14T09:28:05.645+00:00",
-      "worker": "workerA",
-      "notes": null,
-      "counters": {
-        "gain": {
-          "coordsAdded": 0,
-          "imagesAdded": 2,
-          "regionsAdded": 0,
-          "venuesLinked": 0,
-          "venuesCreated": 0,
-          "addressesAdded": 0,
-          "coordsImproved": 0,
-          "schedulesAdded": 0,
-          "duplicatesMerged": 0,
-          "existingEnriched": 0,
-          "incomingPromoted": 0,
-          "venueRowsEnriched": 0,
-          "metadataFieldsAdded": 0,
-          "brokenImagesReplaced": 0,
-          "streetAddressesAdded": 0
-        },
-        "errors": 0,
-        "backlog": 2028,
-        "archived": 0,
-        "reopened": 0,
-        "resolved": 2,
-        "inspected": 12,
-        "published": 0,
-        "discovered": 0,
-        "durationMs": 88657,
-        "policyHold": 0,
-        "imagesFound": 2,
-        "fieldsFilled": 0,
-        "venuesLinked": 0,
-        "addressesFound": 0,
-        "archiveReasons": {},
-        "resolvedNoGain": 0,
-        "closedExternally": 19,
-        "duplicatesMerged": 0,
-        "newDebtProcessed": 0,
-        "resolvedViaVenue": 0,
-        "resolvedViaCluster": 0,
-        "venueClustersResolved": 0,
-        "externalLookupsAvoided": 0
-      }
-    },
-    {
-      "started_at": "2026-09-14T09:18:33.138086+00:00",
-      "finished_at": "2026-09-14T09:22:52.788+00:00",
-      "worker": "Mike:6180",
-      "notes": null,
-      "counters": {
-        "gain": {
-          "coordsAdded": 1,
-          "imagesAdded": 2,
-          "regionsAdded": 1,
-          "venuesLinked": 0,
-          "venuesCreated": 0,
-          "addressesAdded": 3,
-          "coordsImproved": 0,
-          "schedulesAdded": 0,
-          "duplicatesMerged": 0,
-          "existingEnriched": 0,
-          "incomingPromoted": 0,
-          "venueRowsEnriched": 0,
-          "metadataFieldsAdded": 0,
-          "brokenImagesReplaced": 0,
-          "streetAddressesAdded": 1
-        },
-        "errors": 0,
-        "backlog": 2049,
-        "archived": 4,
-        "clusters": {
-          "groups": 25,
-          "created": 1,
-          "members": 838,
-          "unresolved": 16,
-          "existingEnriched": 8
-        },
-        "reopened": 0,
-        "resolved": 7,
-        "inspected": 56,
-        "published": 0,
-        "discovered": 0,
-        "durationMs": 259428,
-        "policyHold": 1,
-        "imagesFound": 2,
-        "fieldsFilled": 1,
-        "venuesLinked": 0,
-        "venuesCreated": 1,
-        "addressesFound": 3,
-        "archiveReasons": {
-          "activity_expired_before_resolution": 4
-        },
-        "resolvedNoGain": 1,
-        "closedExternally": 0,
-        "duplicatesMerged": 0,
-        "newDebtProcessed": 0,
-        "resolvedViaVenue": 0,
-        "venueRowsEnriched": 8,
-        "resolvedViaCluster": 0,
-        "venueClustersResolved": 9,
-        "externalLookupsAvoided": 0
-      }
-    },
-    {
-      "started_at": "2026-09-14T09:12:37.314966+00:00",
-      "finished_at": "2026-09-14T09:15:12.04+00:00",
-      "worker": "Mike:2228",
-      "notes": null,
-      "counters": {
-        "gain": {
-          "coordsAdded": 0,
-          "imagesAdded": 1,
-          "regionsAdded": 0,
-          "venuesLinked": 0,
-          "venuesCreated": 0,
-          "addressesAdded": 0,
-          "coordsImproved": 0,
-          "schedulesAdded": 0,
-          "duplicatesMerged": 0,
-          "existingEnriched": 0,
-          "incomingPromoted": 0,
-          "venueRowsEnriched": 0,
-          "metadataFieldsAdded": 0,
-          "brokenImagesReplaced": 0,
-          "streetAddressesAdded": 0
-        },
-        "errors": 0,
-        "backlog": 2061,
-        "archived": 6,
-        "reopened": 0,
-        "resolved": 1,
-        "inspected": 12,
-        "published": 0,
-        "discovered": 52,
-        "durationMs": 154741,
-        "policyHold": 0,
-        "imagesFound": 1,
-        "fieldsFilled": 0,
-        "venuesLinked": 0,
-        "addressesFound": 0,
-        "archiveReasons": {
-          "activity_expired_before_resolution": 6
-        },
-        "resolvedNoGain": 1,
-        "closedExternally": 244,
-        "duplicatesMerged": 0,
-        "newDebtProcessed": 1,
-        "resolvedViaVenue": 0,
-        "resolvedViaCluster": 0,
-        "venueClustersResolved": 0,
-        "externalLookupsAvoided": 0
-      }
-    },
-    {
-      "started_at": "2026-09-13T18:31:13.398612+00:00",
-      "finished_at": null,
-      "worker": null,
-      "notes": "abandoned (no finish, stale heartbeat)",
-      "counters": {}
-    },
-    {
-      "started_at": "2026-09-13T18:14:42.751566+00:00",
-      "finished_at": "2026-09-13T18:30:12.066+00:00",
-      "worker": null,
-      "notes": null,
-      "counters": {
-        "errors": 0,
-        "backlog": 2423,
-        "archived": 0,
-        "reopened": 0,
-        "resolved": 66,
-        "inspected": 250,
-        "published": 2,
-        "discovered": 0,
-        "durationMs": 929221,
-        "policyHold": 19,
-        "imagesFound": 0,
-        "fieldsFilled": 0,
-        "venuesLinked": 0,
-        "addressesFound": 68,
-        "archiveReasons": {},
-        "duplicatesMerged": 8
-      }
     }
   ],
   "stuckSample": [],
   "unexplainedBacklog": 0,
-  "locationsWithoutAddress": 423
+  "locationsWithoutAddress": 400
 }

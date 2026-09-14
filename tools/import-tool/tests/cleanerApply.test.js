@@ -32,8 +32,19 @@ test('address / coords / venue writes are guarded (is null | LOW) and report gai
   const addr = client.updates.find((u) => u.table === 'locations' && u.payload.address);
   assert.ok(has(addr, 'is', 'address', null), 'address only fills a null');
   const coords = client.updates.find((u) => u.table === 'locations' && u.payload.lat != null);
-  assert.ok(has(coords, 'or', 'lat.is.null,address_confidence.eq.LOW'), 'coordinates fill null or replace LOW (centroid) only');
+  assert.ok(has(coords, 'is', 'lat', null), 'missing coordinates are filled only while still null');
   assert.equal(coords.payload.address_source, 'cleaner:source_page');
+  assert.ok(client.updates.findIndex((u) => u.payload.lat != null) < client.updates.findIndex((u) => u.payload.address), 'coordinates are written before the address (the address write changes the provenance the coordinate guard reads)');
+  // weak (centroid) coordinates: replaced only while they are still the exact values seen at claim time
+  const weak = stub();
+  const w = await applyAddressToActivity(weak, { id: 'a', location_id: 'l', locations: { lat: 32.1, lng: 34.8, address: null, address_source: 'geocode:city_centroid_suspected' } }, { lat: 32.11, lng: 34.81, method: 'source_page', confidence: 'HIGH' }, { replaceWeak: true });
+  assert.deepEqual(w.wrote, ['coordsImproved']);
+  const wu = weak.updates.find((u) => u.payload.lat != null);
+  assert.ok(has(wu, 'eq', 'lat', 32.1) && has(wu, 'eq', 'lng', 34.8), 'optimistic guard on the weak values');
+  // verified coordinates: never replaced
+  const ver = stub();
+  const v = await applyAddressToActivity(ver, { id: 'a', location_id: 'l', locations: { lat: 32.1, lng: 34.8, address: 'x', address_source: 'cleaner:source_page', address_confidence: 'HIGH' } }, { lat: 1, lng: 1, method: 'place_lookup', confidence: 'MEDIUM' });
+  assert.ok(!v.wrote.includes('coordsImproved'));
   const venue = client.updates.find((u) => u.table === 'activities');
   assert.ok(has(venue, 'is', 'venue_id', null), 'a verified venue link is never overwritten');
 });

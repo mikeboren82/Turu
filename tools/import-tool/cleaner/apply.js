@@ -40,7 +40,9 @@ async function patchIncomingLocation(client, row, loc) {
 }
 
 // -> { outcome: 'published'|'duplicate_merged'|'possible_update'|'awaiting_policy'|'error', ... }
-async function handBackIncoming(client, row, { settings, userId, cache, today, counters }) {
+// trustedOverride: the Cleaner itself vetted the candidate (settlement_review HIGH decisions) - the
+// source-trust gate does not apply; every other guard (matcher, date, relevance, /approve dedup) does
+async function handBackIncoming(client, row, { settings, userId, cache, today, counters, trustedOverride = false }) {
   const c = row.extracted_data || {};
   const candidate = { name: c.name, city: c.city, pageUrl: row.page_url, venue_id: c.venue_id || null, lat: c.lat ?? null, lng: c.lng ?? null, one_time_date: c.one_time_date || null, recurring_days: c.recurring_days || [], event_fingerprint: c.event_fingerprint || computeEventFingerprint({ name: c.name, venueId: c.venue_id || null, city: c.city, scheduleType: c.schedule_type, oneTimeDate: c.one_time_date, recurringDays: c.recurring_days, startTime: c.start_time }) };
   const match = await bestMatch(client, candidate, settings.thresholds, cache);
@@ -59,7 +61,7 @@ async function handBackIncoming(client, row, { settings, userId, cache, today, c
   }
   // policy = the same gate reprocess-review-queue.js / the scanner use
   const { data: src } = await client.from('sources').select('is_trusted, source_trust_score').eq('id', row.source_id).maybeSingle();
-  const trusted = !!src?.is_trusted || (src?.source_trust_score != null && Number(src.source_trust_score) >= settings.minTrust);
+  const trusted = trustedOverride || !!src?.is_trusted || (src?.source_trust_score != null && Number(src.source_trust_score) >= settings.minTrust);
   const gating = (row.validation_issues || []).filter((i) => !SOFT.has(i));
   const maxDate = new Date(Date.now() + settings.maxDaysAhead * 86400000).toISOString().slice(0, 10);
   const dateOk = c.schedule_type !== 'one_time' || (c.one_time_date && c.one_time_date >= today && c.one_time_date <= maxDate);
@@ -100,19 +102,28 @@ async function enrichExistingFromCandidate(client, activityId, c) {
 
 // ---- live activities ----
 // Conditional fill-null writes (+ replace explicitly LOW data with HIGH/MEDIUM). -> { wrote: [gainKeys], skipped: [fields] }
-async function applyAddressToActivity(client, activity, loc) {
+// opts.replaceWeak: the case itself asserts the current coordinates are weak (unverified_location);
+// they are replaced only if they are STILL the exact values seen at claim time (optimistic guard).
+async function applyAddressToActivity(client, activity, loc, { replaceWeak = false } = {}) {
   const wrote = [], skipped = [];
   const locId = activity.location_id;
   const now = new Date().toISOString();
   const strong = ['HIGH', 'MEDIUM'].includes(loc.confidence);
+  // coordinates FIRST: the address write below stamps the new provenance, which would hide the LOW
+  // marker the coordinate replacement keys on (Phase B 2026-09-14: 7 cases kept centroid coords)
+  if (loc.lat != null && strong) {
+    const cur = activity.locations || {};
+    const weak = replaceWeak || ['geocode:city_centroid', 'geocode:city_centroid_suspected'].includes(cur.address_source) || cur.address_confidence === 'LOW';
+    if (cur.lat == null || weak) {
+      let q = client.from('locations').update({ lat: loc.lat, lng: loc.lng, address_source: 'cleaner:' + loc.method, address_confidence: loc.confidence, address_resolved_at: now }).eq('id', locId);
+      q = cur.lat == null ? q.is('lat', null) : q.eq('lat', cur.lat).eq('lng', cur.lng);
+      const { data } = await q.select('id');
+      if (data && data.length) wrote.push(cur.lat == null ? 'coordsAdded' : 'coordsImproved'); else skipped.push('coords');
+    } else skipped.push('coords_verified'); // verified coordinates: never replaced, no query issued
+  }
   if (loc.address) {
     const { data } = await client.from('locations').update({ address: loc.address, address_source: 'cleaner:' + loc.method, address_confidence: loc.confidence, address_resolved_at: now }).eq('id', locId).is('address', null).select('id');
     if (data && data.length) wrote.push(hasHouseNumber(loc.address) ? 'streetAddressesAdded' : 'addressesAdded'); else skipped.push('address');
-  }
-  if (loc.lat != null && strong) {
-    // fill missing coordinates, or replace a LOW (city-centroid) position with a verified one
-    const { data } = await client.from('locations').update({ lat: loc.lat, lng: loc.lng, address_source: 'cleaner:' + loc.method, address_confidence: loc.confidence, address_resolved_at: now }).eq('id', locId).or('lat.is.null,address_confidence.eq.LOW').select('id, address');
-    if (data && data.length) wrote.push(activity.locations?.lat == null ? 'coordsAdded' : 'coordsImproved'); else if (activity.locations?.lat == null) skipped.push('coords');
   }
   if (loc.city && !activity.locations?.city) {
     const { data } = await client.from('locations').update({ city: loc.city }).eq('id', locId).is('city', null).select('id');

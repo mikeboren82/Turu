@@ -111,14 +111,16 @@ async function buildPages(seedUrl, detail = { maxPages: 0, allowHosts: [] }) {
   const pages = [];
   const seen = new Set(urls);
   let detailBudget = Math.min(Number(detail.maxPages) || 0, MAX_DETAIL_PAGES_HARD) * urls.length;
+  const detailUrls = new Set(); // pages added as detail pages never spawn further traversal (depth 1)
   for (const url of urls) {
     try {
       const res = url === seedUrl ? seed : await fetchHtml(url);
       if (!res.ok) continue;
       // bounded detail traversal: event detail pages of this listing page ride along as pages of their own
-      if (detailBudget > 0) {
+      // (only from listing pages, never from a detail page - depth 1; never into alternate-language sections)
+      if (detailBudget > 0 && !detailUrls.has(url)) {
         const links = findEventDetailLinks(res.html, url, { max: Math.min(detailBudget, Number(detail.maxPages) || 0), allowHosts: detail.allowHosts || [] });
-        for (const l of links) { if (seen.has(l.url)) continue; seen.add(l.url); urls.push(l.url); detailBudget--; }
+        for (const l of links) { if (seen.has(l.url)) continue; seen.add(l.url); urls.push(l.url); detailUrls.add(l.url); detailBudget--; }
         if (links.length) console.log(`   detail pages from ${url}: +${links.length}`);
       }
       const $ = cheerio.load(res.html.length > 1_500_000 ? res.html.slice(0, 1_500_000) : res.html);

@@ -17,6 +17,7 @@ const ARCHIVE_REASON_BY_ISSUE = {
   missing_coordinates: 'missing_address_unresolved', incomplete_address: 'address_unresolved_nonblocking', missing_venue: 'venue_not_found',
   missing_image: 'image_unavailable_only', broken_image: 'image_unavailable_only', missing_schedule: 'insufficient_required_data',
   missing_region: 'other', missing_required_metadata: 'insufficient_required_data', low_quality_description: 'other',
+  settlement_review: 'insufficient_required_data',
 };
 // issues whose archive also archives/rejects the SUBJECT (blocking); the rest archive only the case
 const BLOCKING_FOR_INCOMING = new Set(['missing_location', 'rejected_missing_address', 'unverified_location', 'missing_required_metadata', 'missing_coordinates']);
@@ -29,6 +30,7 @@ const MISSING_BY_ISSUE = {
   incomplete_address: 'street address (coordinates known)', missing_coordinates: 'coordinates', missing_venue: 'canonical venue link',
   missing_image: 'usable image', broken_image: 'usable image (current one broken)', missing_schedule: 'schedule rows', missing_region: 'region',
   missing_required_metadata: 'required metadata (category/date/entity type/audience)', low_quality_description: 'description',
+  settlement_review: 'identity decision for a legacy settlement candidate (duplicate / new / invalid)',
 };
 const REOPEN_WHEN_BY_ISSUE = {
   missing_location: ['a venue/alias resolves the location label or organizer', 'the source page or its detail page changes', 'the same event fingerprint reappears with location data', 'a single-venue detail page for the event appears (touring shows)'],
@@ -37,6 +39,7 @@ const REOPEN_WHEN_BY_ISSUE = {
   missing_image: ['the source page or detail page gains an image', 'the venue gains a site image'], broken_image: ['the source page gains an image'],
   missing_schedule: ['the source page exposes a schedule (JSON-LD/text)'], missing_region: ['the city gains a region mapping'],
   missing_required_metadata: ['the source page exposes the missing field (JSON-LD)'], low_quality_description: ['the source page changes'],
+  settlement_review: ['Google Place details become available (types/photos)', 'a canonical record appears with the same place id or street', 'an admin adds venue/category evidence'],
 };
 
 function settingsFrom(rows) {
@@ -97,6 +100,13 @@ function mergeUnavailable(prev, now) {
   const m = new Map(prev.map((x) => [x.stage, x]));
   for (const x of now || []) m.set(x.stage, x);
   return [...m.values()];
+}
+
+// give a claimed case back untouched (controlled runs that only apply one outcome class)
+async function releaseCase(client, c) {
+  const { error } = await client.from('cleaner_cases').update({ ...RELEASE, updated_at: new Date().toISOString() }).eq('id', c.id);
+  if (error) throw error;
+  return { outcome: 'released' };
 }
 
 async function resolveCase(client, c, resolution) {
@@ -175,4 +185,4 @@ async function reopenWhereEvidenceChanged(client, { limit = 200 } = {}) {
   return { reopened, scanned: (cases || []).length };
 }
 
-module.exports = { settingsFrom, nextAttemptAt, markAttemptFailed, resolveCase, archiveCase, archiveExpired, reopenWhereEvidenceChanged, stagesForAttempt, remainingStages, buildExplanation, STAGES, EVIDENCE_STAGES, ARCHIVE_REASON_BY_ISSUE, BLOCKING_FOR_INCOMING, REOPENABLE_REASONS, LOCATION_ISSUES, RELEASE };
+module.exports = { settingsFrom, nextAttemptAt, markAttemptFailed, resolveCase, releaseCase, archiveCase, archiveExpired, reopenWhereEvidenceChanged, stagesForAttempt, remainingStages, buildExplanation, STAGES, EVIDENCE_STAGES, ARCHIVE_REASON_BY_ISSUE, BLOCKING_FOR_INCOMING, REOPENABLE_REASONS, LOCATION_ISSUES, RELEASE };

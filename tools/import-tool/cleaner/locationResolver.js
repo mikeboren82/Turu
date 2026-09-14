@@ -291,6 +291,10 @@ function stageAvailability(subject) {
 async function resolveLocation(client, subject, opts = {}) {
   const s = { ...subject, city: normalizeCityName(subject.city || null) };
   const stages = opts.stages || STAGES;
+  // coordinates known to be weak (a city centroid): evidence that merely repeats them is no evidence -
+  // another activity of the same source sitting on the same centroid must not "verify" this one
+  const avoid = opts.avoidCoords && opts.avoidCoords.lat != null ? opts.avoidCoords : null;
+  const repeatsWeak = (r) => avoid && r && r.lat != null && haversineKm(Number(r.lat), Number(r.lng), Number(avoid.lat), Number(avoid.lng)) < 0.02;
   const budget = { pages: opts.maxPages ?? 4 };
   const cache = opts.cache || new Map();
   const counters = opts.counters || null;
@@ -305,6 +309,7 @@ async function resolveLocation(client, subject, opts = {}) {
     if (!r) return;
     if (r._error) { errors.push(`${stage}: ${r._error}`); return; }
     if (r._skipped) { skipped.push({ stage, why: r._skipped }); tried.splice(tried.lastIndexOf(stage), 1); ran--; return; }
+    if (repeatsWeak(r)) { errors.push(`${stage}: evidence repeats the known-weak coordinates (${r.method})`); return; }
     if (!best || rank(r.confidence) > rank(best.confidence) || (opts.needVenue && r.venue_id && !best.venue_id)) best = r;
   };
   const pre = stageAvailability(s);

@@ -12,6 +12,7 @@ const { renderMessagesPage } = require('./messages');
 const { renderDashboardPage } = require('./dashboard');
 const { renderSourcesPage } = require('./sources');
 const { renderIncomingPage } = require('./incoming');
+const { renderSettlementReviewPage } = require('./settlementReview');
 const { renderVenuesPage } = require('./venues');
 const { renderCleanerPage } = require('./cleaner-page');
 const { getClient } = require('./supabase');
@@ -44,11 +45,11 @@ async function fetchAllRows(queryBuilder) {
 // PostgREST filters travel in the URL: `.in('id', [765 uuids])` is ~30KB and the gateway answers a
 // bare 400 "Bad Request" (seen live on /api/incoming once the queue linked >700 activities).
 // Chunked lookups keep every request well under the limit.
-async function fetchByIds(client, table, select, ids, chunkSize = 150) {
+async function fetchByIds(client, table, select, ids, chunkSize = 150, idColumn = 'id') {
   const unique = [...new Set(ids.filter(Boolean))];
   let rows = [];
   for (let i = 0; i < unique.length; i += chunkSize) {
-    const { data, error } = await client.from(table).select(select).in('id', unique.slice(i, i + chunkSize));
+    const { data, error } = await client.from(table).select(select).in(idColumn, unique.slice(i, i + chunkSize));
     if (error) throw error;
     rows = rows.concat(data || []);
   }
@@ -2428,6 +2429,10 @@ app.get('/incoming', (req, res) => {
   res.type('html').send(renderIncomingPage());
 });
 
+app.get('/settlement-review', (req, res) => {
+  res.type('html').send(renderSettlementReviewPage());
+});
+
 const SOURCE_FIELDS = new Set([
   'name', 'seed_url', 'type', 'region', 'categories', 'scan_frequency_hours',
   'is_active', 'source_trust_score', 'is_trusted',
@@ -2771,27 +2776,258 @@ app.post('/api/incoming/:id/resolve-missing', async (req, res) => {
   }
 });
 
+// ---- בדיקת settlement_scan_review_cases (282 מקרים מהסריקה הארצית שהושלמה) ----
+// שום מסלול כאן לא נוגע ב-activities/locations בכלל - "כפילות"/"להשאיר לבדיקה" רק רושמים
+// החלטה על review_cases עצמו (+ שורת-audit, settlement_scan_review_decisions); "פעילות חדשה"
+// לא יוצרת רשומה אוטומטית - רק מסמנת את ההחלטה ומפנה לטופס ההוספה הידני הקיים (/import),
+// המנהל ממלא/שומר שם בעצמו כרגיל. matched_existing_activity_id/existing_activity_id אינם FK
+// אמיתיים (ראו 0066/0073) אז אי-אפשר embed יחסי של PostgREST - שולפים בנפרד ומאחדים כאן,
+// אותו דפוס בדיוק כמו fetchByIds ב-/api/incoming.
+const SUSPECTED_DUPLICATE_TYPES = ['strong_match', 'possible_duplicate', 'needs_review_possible_duplicate'];
+const DECISION_STATUS = new Set(['approved_duplicate', 'approved_distinct', 'dismissed']);
+
+async function latestCandidateByPlaceId(client, placeIds) {
+  if (!placeIds.length) return new Map();
+  const rows = await fetchByIds(client, 'settlement_scan_candidates',
+    'google_place_id, name, formatted_address, settlement_name, lat, lon, place_kind, source, source_url, house_number_match, city_match, neighborhood_match, created_at',
+    placeIds, 150, 'google_place_id');
+  const byPlace = new Map();
+  for (const r of rows) {
+    const prev = byPlace.get(r.google_place_id);
+    if (!prev || new Date(r.created_at) > new Date(prev.created_at)) byPlace.set(r.google_place_id, r);
+  }
+  return byPlace;
+}
+
+async function enrichReviewCases(client, rows) {
+  const activityIds = [...new Set(rows.map((r) => r.existing_activity_id).filter(Boolean))];
+  const placeIds = [...new Set(rows.map((r) => r.google_place_id).filter(Boolean))];
+  const [activities, candidatesByPlace] = await Promise.all([
+    fetchByIds(client, 'activities', 'id, name, category, google_place_id, location:locations(name, address, city, region, lat, lng), activity_images(url, status)', activityIds),
+    latestCandidateByPlaceId(client, placeIds),
+  ]);
+  const activityById = new Map(activities.map((a) => [a.id, a]));
+
+  return rows.map((r) => {
+    const cand = candidatesByPlace.get(r.google_place_id) || {};
+    const activity = r.existing_activity_id ? activityById.get(r.existing_activity_id) : null;
+    const approvedImg = activity ? (activity.activity_images || []).find((i) => i.status === 'approved') : null;
+    return {
+      id: r.id, google_place_id: r.google_place_id, case_type: r.case_type, status: r.status,
+      candidate_name: r.candidate_name || cand.name, candidate_address: r.candidate_address || cand.formatted_address,
+      candidate_settlement: cand.settlement_name || null, candidate_image: null,
+      place_kind: cand.place_kind || null, source: cand.source || null, source_url: cand.source_url || null,
+      candidate: {
+        lat: cand.lat ?? null, lon: cand.lon ?? null, settlement_name: cand.settlement_name || null,
+        place_kind: cand.place_kind || null, source: cand.source || null, source_url: cand.source_url || null,
+      },
+      first_seen_at: r.first_seen_at, last_seen_at: r.last_seen_at, detection_count: r.detection_count,
+      latest_distance_m: r.latest_distance_m, name_similarity_score: r.latest_name_similarity_score,
+      street_similarity_score: r.latest_street_similarity_score, address_similarity_score: r.latest_address_similarity_score,
+      house_number_match: cand.house_number_match, city_match: cand.city_match, neighborhood_match: cand.neighborhood_match,
+      canonical_settlement_match: cand.city_match, same_street: r.case_type === 'same_street_review',
+      status_: r.status, reviewed_by: r.reviewed_by, resolved_at: r.resolved_at, resolution_note: r.resolution_note,
+      resolved_by: r.resolved_by || null, resolution: r.resolution || null,
+      existingActivity: activity ? {
+        id: activity.id, name: activity.name, category: activity.category, google_place_id: activity.google_place_id,
+        address: activity.location?.address || null, city: activity.location?.city || null, region: activity.location?.region || null,
+        lat: activity.location?.lat ?? null, lng: activity.location?.lng ?? null,
+        image: approvedImg ? approvedImg.url : null,
+      } : null,
+    };
+  });
+}
+
+app.get('/api/settlement-review/summary', async (req, res) => {
+  try {
+    const { client } = await getClient();
+    const rows = await fetchAllRows(() => client.from('settlement_scan_review_cases').select('case_type, status, detection_count'));
+    res.json({
+      total: rows.length,
+      needs_review: rows.filter((r) => r.status === 'needs_review').length,
+      recurring: rows.filter((r) => r.detection_count > 1).length,
+      suspected_duplicate: rows.filter((r) => SUSPECTED_DUPLICATE_TYPES.includes(r.case_type) && r.status === 'needs_review').length,
+      new_candidates: rows.filter((r) => r.case_type === 'needs_review_uncertain_type' && r.status === 'needs_review').length,
+      same_street: rows.filter((r) => r.case_type === 'same_street_review').length,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || 'שגיאה בטעינת סיכום' });
+  }
+});
+
+app.get('/api/settlement-review', async (req, res) => {
+  try {
+    const { client } = await getClient();
+    const f = req.query;
+    let query = client.from('settlement_scan_review_cases').select('*');
+    if (f.case_type) query = query.eq('case_type', f.case_type);
+    if (f.status) query = query.eq('status', f.status);
+    if (f.recurring === 'recurring') query = query.gt('detection_count', 1);
+    if (f.recurring === 'new') query = query.eq('detection_count', 1);
+    if (f.dist_min) query = query.gte('latest_distance_m', Number(f.dist_min));
+    if (f.dist_max) query = query.lte('latest_distance_m', Number(f.dist_max));
+    if (f.q_candidate) query = query.ilike('candidate_name', '%' + f.q_candidate + '%');
+    const directRows = await fetchAllRows(() => query);
+
+    let enriched = await enrichReviewCases(client, directRows);
+
+    if (f.settlement) {
+      const needle = f.settlement.toLowerCase();
+      enriched = enriched.filter((r) => (r.candidate_settlement || '').toLowerCase().includes(needle) || (r.existingActivity?.city || '').toLowerCase().includes(needle));
+    }
+    if (f.region) enriched = enriched.filter((r) => r.existingActivity?.region === f.region);
+    if (f.q_existing) {
+      const needle = f.q_existing.toLowerCase();
+      enriched = enriched.filter((r) => (r.existingActivity?.name || '').toLowerCase().includes(needle));
+    }
+
+    const severity = { strong_match: 0, possible_duplicate: 1, needs_review_possible_duplicate: 2, same_street_review: 3, needs_review_uncertain_type: 4, duplicate_exact_place_id: 5 };
+    const sorters = {
+      strongest: (a, b) => (severity[a.case_type] ?? 9) - (severity[b.case_type] ?? 9) || (a.latest_distance_m ?? 1e9) - (b.latest_distance_m ?? 1e9),
+      closest: (a, b) => (a.latest_distance_m ?? 1e9) - (b.latest_distance_m ?? 1e9),
+      recurring: (a, b) => b.detection_count - a.detection_count,
+      newest: (a, b) => new Date(b.last_seen_at) - new Date(a.last_seen_at),
+      oldest: (a, b) => new Date(a.first_seen_at) - new Date(b.first_seen_at),
+      az: (a, b) => (a.candidate_name || '').localeCompare(b.candidate_name || '', 'he'),
+      settlement: (a, b) => (a.candidate_settlement || '').localeCompare(b.candidate_settlement || '', 'he'),
+    };
+    enriched.sort(sorters[f.sort] || sorters.strongest);
+
+    const page = Math.max(1, Number(f.page) || 1);
+    const pageSize = Math.min(100, Math.max(1, Number(f.page_size) || 20));
+    const total = enriched.length;
+    const items = enriched.slice((page - 1) * pageSize, page * pageSize);
+    res.json({ items, total, page, page_size: pageSize });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || 'שגיאה בטעינת רשימת הבדיקה' });
+  }
+});
+
+app.get('/api/settlement-review/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const { client } = await getClient();
+    const { data: row, error } = await client.from('settlement_scan_review_cases').select('*').eq('id', id).maybeSingle();
+    if (error) throw error;
+    if (!row) return res.status(404).json({ error: 'המקרה לא נמצא' });
+    const [enriched] = await enrichReviewCases(client, [row]);
+
+    // כל הזיהויים ההיסטוריים של אותו google_place_id (לא רק זה שנקשר ל-review_case הזה) -
+    // "מאיזה יישובים זוהה" (בקשה מפורשת בסעיף "RECURRING CASES").
+    const candidateRows = await fetchAllRows(() => client
+      .from('settlement_scan_candidates').select('settlement_name').eq('google_place_id', row.google_place_id));
+    const detectedSettlements = [...new Set(candidateRows.map((c) => c.settlement_name).filter(Boolean))];
+
+    const decisions = await fetchAllRows(() => client
+      .from('settlement_scan_review_decisions').select('*').eq('review_case_id', id).order('decided_at', { ascending: false }));
+
+    let nearby = [];
+    const anchorLat = enriched.existingActivity?.lat ?? null;
+    const anchorLng = enriched.existingActivity?.lng ?? null;
+    // מרחק חצי-מעלה (~5 ק"מ) - קופסה גסה מספיק, לא צריך דיוק גיאומטרי, רק "לתת הקשר מרחבי"
+    // (בקשה: "nearby existing playgrounds if available", לא חישוב-מרחק מדויק לכל המאגר).
+    if (anchorLat != null && anchorLng != null) {
+      // best-effort בלבד: "nearby ... if available" - כישלון כאן (למשל אם ה-embed relational
+      // הפוך locations->activities לא נתמך בגרסת PostgREST הנוכחית) לא אמור להפיל את כל
+      // מסך-הפרטים, רק להשאיר "קרוב" ריק.
+      try {
+        const { data: box, error: boxErr } = await client.from('locations')
+          .select('lat, lng, activities!inner(id, name, category)')
+          .gte('lat', anchorLat - 0.03).lte('lat', anchorLat + 0.03)
+          .gte('lng', anchorLng - 0.03).lte('lng', anchorLng + 0.03)
+          .in('activities.category', ['גן שעשועים', 'פארק שעשועים']);
+        if (boxErr) throw boxErr;
+        const toRad = (d) => (d * Math.PI) / 180;
+        const haversineM = (lat1, lon1, lat2, lon2) => {
+          const R = 6371000;
+          const dLat = toRad(lat2 - lat1); const dLon = toRad(lon2 - lon1);
+          const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+          return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        };
+        nearby = (box || [])
+          .flatMap((l) => (l.activities || []).map((a) => ({ name: a.name, distance_m: Math.round(haversineM(anchorLat, anchorLng, l.lat, l.lng)) })))
+          .filter((n) => n.distance_m > 0 && n.name !== enriched.existingActivity?.name)
+          .sort((a, b) => a.distance_m - b.distance_m)
+          .slice(0, 5);
+      } catch (nearbyErr) {
+        console.error('settlement-review nearby lookup failed (non-fatal):', nearbyErr.message);
+      }
+    }
+
+    res.json({ ...enriched, decisions, detectedSettlements, nearby });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || 'שגיאה בטעינת פרטי המקרה' });
+  }
+});
+
+// שלוש ההחלטות היחידות שקיימות (checked ע"י ה-CHECK constraint על settlement_scan_review_
+// decisions.decision, 0085) - אף אחת מהן לא נוגעת ב-activities/locations. "פעילות חדשה" לא
+// יוצרת פעילות - "Do NOT automatically publish" מהמשימה - רק מחזירה קישור לטופס ההוספה הידני.
+app.post('/api/settlement-review/:id/decide', async (req, res) => {
+  const { id } = req.params;
+  const { decision, note } = req.body || {};
+  if (!DECISION_STATUS.has(decision)) return res.status(400).json({ error: 'החלטה לא תקינה' });
+  try {
+    const { client, userId } = await getClient();
+    const { data: row, error: findErr } = await client.from('settlement_scan_review_cases').select('id, status').eq('id', id).maybeSingle();
+    if (findErr) throw findErr;
+    if (!row) return res.status(404).json({ error: 'המקרה לא נמצא' });
+    const previousStatus = row.status;
+
+    const { error: updErr } = await client.from('settlement_scan_review_cases').update({
+      status: decision, reviewed_by: userId, resolved_at: new Date().toISOString(),
+      resolution_note: note || null, updated_at: new Date().toISOString(),
+    }).eq('id', id);
+    if (updErr) throw updErr;
+
+    const { error: decErr } = await client.from('settlement_scan_review_decisions').insert({
+      review_case_id: id, decided_by: userId, decision, previous_status: previousStatus, new_status: decision, note: note || null,
+    });
+    if (decErr) throw decErr;
+
+    res.json({ ok: true, prefillUrl: decision === 'approved_distinct' ? '/import' : null });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || 'שגיאה בשמירת ההחלטה' });
+  }
+});
+
 // ---- THE CLEANER - observability only (the job itself is tools/import-tool/cleaner.js) ----
 app.get('/cleaner', (req, res) => { res.type('html').send(renderCleanerPage()); });
 
 app.get('/api/cleaner/summary', async (req, res) => {
   try {
     const { client } = await getClient();
-    const cases = await fetchAllRows(() => client.from('cleaner_cases').select('issue, status, archive_reason, next_attempt_at, created_at, attempts'));
-    const { data: runs } = await client.from('cleaner_runs').select('*').order('started_at', { ascending: false }).limit(1);
+    const cases = await fetchAllRows(() => client.from('cleaner_cases').select('issue, status, archive_reason, next_attempt_at, created_at, attempts, source_id, resolution, lease_until'));
+    const { data: runs } = await client.from('cleaner_runs').select('*').order('started_at', { ascending: false }).limit(200);
     const { data: settingsRows } = await client.from('automation_settings').select('key, value').in('key', ['cleaner_backoff_hours']);
     const backoff = (settingsRows?.[0]?.value && Array.isArray(settingsRows[0].value)) ? settingsRows[0].value : [6, 24, 72];
     const windowMs = (backoff.reduce((a, b) => a + Number(b), 0) + 24) * 3600 * 1000;
     const now = Date.now();
     const byIssue = {}; const byArchiveReason = {};
-    let open = 0, resolved = 0, archived = 0, due = 0, stuck = 0;
+    let open = 0, resolved = 0, archived = 0, due = 0, stuck = 0, awaiting = 0, leased = 0, noGain = 0;
     for (const c of cases) {
       (byIssue[c.issue] ||= { open: 0, resolved: 0, archived: 0 })[c.status]++;
-      if (c.status === 'open') { open++; if (new Date(c.next_attempt_at).getTime() <= now) due++; if (now - new Date(c.created_at).getTime() > windowMs) stuck++; }
-      else if (c.status === 'resolved') resolved++;
+      if (c.status === 'open') { open++; if (new Date(c.next_attempt_at).getTime() <= now) due++; else awaiting++; if (now - new Date(c.created_at).getTime() > windowMs) stuck++; if (c.lease_until && new Date(c.lease_until).getTime() > now) leased++; }
+      else if (c.status === 'resolved') { resolved++; if (['resolved_externally', 'already_filled', 'unsupported_issue'].includes(c.resolution?.outcome)) noGain++; }
       else { archived++; byArchiveReason[c.archive_reason || '(none)'] = (byArchiveReason[c.archive_reason || '(none)'] || 0) + 1; }
     }
-    res.json({ open, due, resolved, archived, stuck, byIssue, byArchiveReason, lastRun: runs?.[0] || null });
+    // information gain + venue effects: sum of finished run counters (each run counts what it wrote)
+    const finished = (runs || []).filter((r) => r.finished_at && r.counters);
+    const gain = {}; const effects = { venueClustersResolved: 0, resolvedViaCluster: 0, resolvedViaVenue: 0, externalLookupsAvoided: 0 };
+    for (const r of finished) { for (const [k, v] of Object.entries(r.counters.gain || {})) gain[k] = (gain[k] || 0) + v; for (const k of Object.keys(effects)) effects[k] += r.counters[k] || 0; }
+    // source debt (top 15 by cases) with the dominant issue
+    const bySrc = {}; for (const c of cases) { if (c.source_id) (bySrc[c.source_id] ||= []).push(c); }
+    const srcRows = await fetchByIds(client, 'sources', 'id, name', Object.keys(bySrc));
+    const srcName = new Map(srcRows.map((s) => [s.id, s.name]));
+    const sourceDebt = Object.entries(bySrc).map(([id, cs]) => { const issues = {}; cs.forEach((c) => { issues[c.issue] = (issues[c.issue] || 0) + 1; }); const dom = Object.entries(issues).sort((a, b) => b[1] - a[1])[0]; return { source: srcName.get(id) || id, cases: cs.length, open: cs.filter((c) => c.status === 'open').length, dominantIssue: dom ? `${dom[0]} (${dom[1]})` : null }; }).sort((a, b) => b.cases - a.cases).slice(0, 15);
+    // new debt = cases created after the first finished run (the report script splits by subject entry time)
+    const firstRunAt = finished.length ? new Date(finished[finished.length - 1].started_at).getTime() : 0;
+    const newDebt = cases.filter((c) => new Date(c.created_at).getTime() > firstRunAt + 60000).length;
+    res.json({ open, due, awaiting, leased, resolved, resolvedNoGain: noGain, archived, stuck, byIssue, byArchiveReason, gain, effects, sourceDebt, newDebt, historicalDebt: cases.length - newDebt, lastRun: runs?.[0] || null });
   } catch (err) { console.error(err); res.status(500).json({ error: err.message }); }
 });
 

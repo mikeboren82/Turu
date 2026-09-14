@@ -178,24 +178,35 @@ function findEventCard(html, baseUrl, name) {
 // Bounded detail-link discovery for a listing page: links whose text/href say "more details",
 // event title links, booking links, and card links. Same host by default; `allowHosts` extends it
 // (ticketing hosts a municipality links to). Returns at most `max` absolute URLs, listing order.
-const DETAIL_TEXT = /פרטים נוספים|מידע נוסף|לפרטים|קרא עוד|קראו עוד|להזמנת כרטיסים|לרכישת כרטיסים|הרשמה|לפרטים והרשמה|read more|more info|details|tickets|register/i;
-const DETAIL_HREF = /\/event(s)?\/[^/]+|\/activity\/|\/show\/|\/item\/|\/page\/\d+\/[^/]+|[?&](?:event|item|id|eventid|activityid)=\d+/i;
-function findEventDetailLinks(html, baseUrl, { max = 20, allowHosts = [] } = {}) {
+const DETAIL_TEXT = /פרטים נוספים|מידע נוסף|לפרטים|קרא עוד|קראו עוד|להזמנת כרטיסים|לרכישת כרטיסים|לפרטים והרשמה|read more|more info/i;
+const DETAIL_HREF = /\/event(s)?\/[^/]+|\/activity\/|\/show\/|\/item\/|[?&](?:event|item|eventid|activityid)=\d+/i;
+// an event card carries a date/time; site navigation ("מכרזים", "צור קשר", "דבר ראש העיר") does not
+const EVENT_CONTEXT = /\b\d{1,2}[./]\d{1,2}(?:[./]\d{2,4})?\b|\b\d{1,2}:\d{2}\b|בשעה|יום (?:ראשון|שני|שלישי|רביעי|חמישי|שישי|שבת)|בתאריך/;
+const NAV_TEXT = /מכרז|צור קשר|אודות|דבר ראש|הנהלה|תנאי שימוש|נגישות|מפת האתר|כניסה|התחברות|חיפוש|עמוד הבית|דף הבית|הצטרפו|ניוזלטר|תשלומים|טפסים/;
+// alternate-language / mirrored sections of a site ("/ru/events/...", "/en/...") are the same events
+// again - never traverse into them from a Hebrew listing
+const LANG_SECTION = /^\/(ru|en|ar|fr|es|de|uk)(\/|$)/i;
+function findEventDetailLinks(html, baseUrl, { max = 20, allowHosts = [], sameSection = true } = {}) {
   const $ = cheerio.load(html);
   const base = new URL(baseUrl);
   const resolveBase = resolveBaseHref($, baseUrl);
   const norm = (h) => h.replace(/^www\./, '');
   const allowed = new Set([norm(base.hostname), ...allowHosts.map(norm)]);
+  const baseLang = LANG_SECTION.test(base.pathname);
   const seen = new Set([baseUrl.split('#')[0]]); const out = [];
   $('a[href]').each((_, el) => {
     if (out.length >= max) return false;
     const href = $(el).attr('href'); if (!href || href.startsWith('#') || /^(mailto|tel|javascript):/i.test(href)) return;
     let u; try { u = new URL(href, resolveBase); } catch { return; }
     if (!['http:', 'https:'].includes(u.protocol) || !allowed.has(norm(u.hostname))) return;
+    if (sameSection && !baseLang && LANG_SECTION.test(u.pathname)) return;
     u.hash = ''; const key = u.toString(); if (seen.has(key)) return;
     const text = ($(el).text() || '').replace(/\s+/g, ' ').trim();
-    const inHeading = $(el).closest('h1, h2, h3, h4, .title, .name, article, .event, .card, li').length > 0;
-    const ok = DETAIL_TEXT.test(text) || DETAIL_HREF.test(u.pathname + u.search) || (inHeading && text.length >= 6 && text.length <= 120);
+    if (NAV_TEXT.test(text) || $(el).closest('nav, header, footer, .menu, .nav, .breadcrumb, .footer, .header').length) return;
+    const card = $(el).closest('article, li, .event, .card, .item, .post, [class*="event"], [class*="card"]');
+    const cardText = card.length ? (card.text() || '').replace(/\s+/g, ' ').trim().slice(0, 600) : '';
+    const eventContext = EVENT_CONTEXT.test(cardText) || EVENT_CONTEXT.test(text);
+    const ok = DETAIL_TEXT.test(text) || (DETAIL_HREF.test(u.pathname + u.search) && (eventContext || text.length >= 6)) || (eventContext && text.length >= 6 && text.length <= 120);
     if (!ok) return;
     seen.add(key); out.push({ url: key, text: text.slice(0, 120) });
   });

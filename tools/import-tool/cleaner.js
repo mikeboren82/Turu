@@ -20,7 +20,7 @@ require('dotenv').config();
 const os = require('os');
 const { getClient } = require('./supabase');
 const { discoverCases, upsertCases, all } = require('./cleaner/discover');
-const { settingsFrom, markAttemptFailed, resolveCase, archiveCase, archiveExpired, reopenWhereEvidenceChanged, stagesForAttempt, LOCATION_ISSUES } = require('./cleaner/lifecycle');
+const { settingsFrom, markAttemptFailed, resolveCase, releaseCase, archiveCase, archiveExpired, reopenWhereEvidenceChanged, stagesForAttempt, LOCATION_ISSUES } = require('./cleaner/lifecycle');
 const { resolveLocation } = require('./cleaner/locationResolver');
 const { resolveImage } = require('./cleaner/imageResolver');
 const { enrichFields } = require('./cleaner/fieldEnricher');
@@ -29,6 +29,9 @@ const { resolveVenueClusters } = require('./cleaner/venueClusters');
 const { auditCityCentroids } = require('./cleaner/centroidAudit');
 const { wordOverlapScore } = require('./cleaner/matching');
 const { isLearnableLabel } = require('./venueLearning');
+const { proposeOutcome, applyOutcome } = require('./cleaner/settlementResolver');
+const fs = require('fs');
+const path = require('path');
 
 const args = Object.fromEntries(process.argv.slice(2).filter((a) => a.startsWith('--')).map((a) => { const [k, v] = a.slice(2).split('='); return [k, v === undefined ? true : v]; }));
 const DRY = !!args['dry-run'];
@@ -56,6 +59,27 @@ async function processCase(client, c, ctx) {
   counters.inspected++;
   const isNewDebt = (ts) => ts && new Date(ts).getTime() > ctx.newDebtSince;
   try {
+    if (c.subject_kind === 'settlement_review') {
+      // legacy settlement-review backlog (0089): one identity decision per review case
+      const { data: rc } = await client.from('settlement_scan_review_cases').select('*').eq('id', c.subject_id).maybeSingle();
+      if (!rc || rc.status !== 'needs_review') { counters.resolvedNoGain++; return resolveCase(client, c, { outcome: 'resolved_externally', status: rc?.status }); }
+      const p = await proposeOutcome(client, rc, { ...ctx, dry: DRY, allowNetwork: true });
+      counters.settlement = counters.settlement || {}; counters.settlement[p.outcome] = (counters.settlement[p.outcome] || 0) + 1;
+      if (DRY) { ctx.proposals.push({ review_case_id: rc.id, case_type: rc.case_type, candidate: rc.candidate_name, address: rc.candidate_address, legacy_distance_m: rc.latest_distance_m, detection_count: rc.detection_count, existing_activity_id: rc.existing_activity_id, ...p }); return { outcome: 'dry:' + p.outcome, confidence: p.confidence, method: p.decisive || p.signals.slice(-1)[0] }; }
+      // controlled apply (Phase L): only one outcome class per batch; everything else is given back untouched
+      if (args['settlement-only'] && p.outcome !== String(args['settlement-only'])) { counters.inspected--; return { ...(await releaseCase(client, c)), outcome: 'released:' + p.outcome }; }
+      if (['DUPLICATE', 'INVALID', 'NEW_VALID'].includes(p.outcome) && p.confidence === 'HIGH') {
+        const a = await applyOutcome(client, rc, p, ctx);
+        if (a.applied) { counters.resolved++; gain(counters, a.gain || []); if (a.activity_id) counters.published++; return resolveCase(client, c, { outcome: 'settlement_' + (a.converted || p.outcome).toLowerCase(), confidence: p.confidence, method: p.decisive || null, match: p.match || null, activity_id: a.activity_id || null, gain: a.gain || [], signals: p.signals }); }
+        const r = await markAttemptFailed(client, c, { method: ['canonical_db', 'osm_reverse'], error: a.why || 'apply failed', settings, evidence: { proposal: p.outcome, why: a.why } });
+        countArchive(counters, r); return r;
+      }
+      // not auto-resolvable: record the analysis on the review case (visible on /settlement-review), keep needs_review
+      await client.from('settlement_scan_review_cases').update({ resolution: { outcome: p.outcome, confidence: p.confidence, signals: p.signals, match: p.match || null, missing: p.missing || null, next_action: p.next_action, evidence: p.evidence, cleaner_rule: 'settlementResolver v1 (2026-09-14)', analyzed_at: new Date().toISOString() }, resolution_note: `המנקה: ${p.outcome} (${p.confidence}) - ${p.signals.slice(-1)[0]}`, updated_at: new Date().toISOString() }).eq('id', rc.id).eq('status', 'needs_review');
+      const reason = p.outcome === 'GENUINELY_HUMAN' ? 'requires_human_judgment' : 'insufficient_required_data';
+      const r = await archiveCase(client, c, { reason, note: `${p.outcome} (${p.confidence}): ${p.signals.slice(-1)[0]}`, methods: ['canonical_db', 'candidate_data', p.evidence?.osm ? 'osm_reverse' : null].filter(Boolean), evidence: { proposal: p.outcome, match: p.match || null, missing: p.missing || null }, unavailable: [{ stage: 'google_place_details', why: 'no Places key on the Cleaner machine' }] });
+      countArchive(counters, r); return r;
+    }
     if (c.subject_kind === 'incoming') {
       const row = await loadIncoming(client, c.subject_id);
       if (!row || !['new', 'needs_review', 'failed'].includes(row.status)) { counters.resolvedNoGain++; return resolveCase(client, c, { outcome: 'resolved_externally', status: row?.status }); }
@@ -125,12 +149,13 @@ async function processCase(client, c, ctx) {
         const r = await archiveCase(client, c, { reason: 'venue_not_found', note: `התווית "${subject.location_name || subject.organizer_name || ''}" אינה מקום (גנרית / מארגן / מספר מוקדים)`, evidence: { label: subject.location_name, organizer: subject.organizer_name } });
         countArchive(counters, r); return r;
       }
-      const { result, tried, skipped, errors } = await resolveLocation(client, subject, { stages, maxEvidenceStages: args.now ? 6 : 2, cache: ctx.cache, counters: counters.gain, needVenue: c.issue === 'missing_venue' });
+      const weakCoords = c.issue === 'unverified_location' && a.locations?.lat != null ? { lat: a.locations.lat, lng: a.locations.lng } : null;
+      const { result, tried, skipped, errors } = await resolveLocation(client, subject, { stages, maxEvidenceStages: args.now ? 6 : 2, cache: ctx.cache, counters: counters.gain, needVenue: c.issue === 'missing_venue', avoidCoords: weakCoords });
       const ok = result && ['HIGH', 'MEDIUM'].includes(result.confidence) && (c.issue === 'missing_venue' ? !!result.venue_id : (result.address || result.lat != null));
       if (ok) {
         if (DRY) return { outcome: 'dry', result };
         viaVenue(ctx, result);
-        const w = await applyAddressToActivity(client, a, result);
+        const w = await applyAddressToActivity(client, a, result, { replaceWeak: c.issue === 'unverified_location' });
         const allTried = [...new Set([...(c.methods_tried || []), ...tried])];
         if (!w.wrote.length) { counters.resolvedNoGain++; return resolveCase(client, c, { outcome: 'already_filled', method: result.method, skipped: w.skipped, tried: allTried }); }
         gain(counters, w.wrote);
@@ -235,14 +260,23 @@ async function cycleBody(client, userId, ctx) {
     if (ro.scanned) console.log(`reopen: ${ro.reopened}/${ro.scanned} archived cases had new evidence`);
   }
   if (!args['discover-only'] && !args['reopen-only']) {
-    if (!args['no-clusters'] && !args.case) {
+    if (!args['no-clusters'] && !args.case && !DRY) {
       const { clusters, stats } = await resolveVenueClusters(client, ctx, { minSize: settings.clusterMinSize, dry: DRY });
       counters.clusters = stats;
       for (const cl of clusters) console.log(`  cluster ${cl.label} [${cl.city || '?'}] x${cl.size} -> ${cl.outcome}${cl.venue ? ' ' + JSON.stringify(cl.venue).slice(0, 140) : ''}${cl.why ? ' | ' + cl.why.slice(0, 160) : ''}`);
       await heartbeat();
     }
     const max = Number(args.max || settings.batchSize);
-    const due = DRY ? (await client.from('cleaner_cases').select('*').eq('status', 'open').lte('next_attempt_at', new Date().toISOString()).order('priority').limit(max)).data || [] : await claimBatch(client, settings, max);
+    ctx.proposals = [];
+    let due;
+    if (DRY) { let q = client.from('cleaner_cases').select('*').eq('status', 'open').order('priority').limit(max); if (args.issue) q = q.eq('issue', String(args.issue)); if (!args.now) q = q.lte('next_attempt_at', new Date().toISOString()); due = (await q).data || []; }
+    else if (args['members-first'] && ctx.clusterByCase && ctx.clusterByCase.size) {
+      // Phase C (2026-09-14): the members of clusters whose venue was resolved go first - the compounding test
+      const ids = [...ctx.clusterByCase.keys()].slice(0, max);
+      const { data, error } = await client.rpc('cleaner_claim_cases', { p_worker: WORKER, p_limit: ids.length, p_issue: null, p_lease_seconds: settings.leaseSeconds, p_case_ids: ids, p_ignore_backoff: true });
+      if (error) throw error; due = data || [];
+      console.log(`members-first: ${ids.length} cluster members, claimed ${due.length}`);
+    } else due = await claimBatch(client, settings, max);
     console.log(`processing ${due.length} claimed cases (max ${max}, worker ${WORKER})`);
     let n = 0;
     for (const c of due) {
@@ -251,6 +285,12 @@ async function cycleBody(client, userId, ctx) {
       console.log(`  ${tag} ${c.subject_id.slice(0, 8)} -> ${r.outcome}${r.reason ? ' ' + r.reason : ''}${r.method ? ' via ' + r.method + '/' + (r.confidence || '') : ''}${r.gain ? ' +' + r.gain.join(',') : ''}${r.remaining ? ' next:' + (r.remaining[0] || 'existing') : ''}${r.error ? ' | ' + String(r.error).slice(0, 80) : ''}`);
       if (++n % 10 === 0) { await heartbeat(); if (!DRY) await client.rpc('cleaner_extend_lease', { p_worker: WORKER, p_case_ids: due.slice(n).map((x) => x.id), p_lease_seconds: settings.leaseSeconds }); }
     }
+  }
+  if (ctx.proposals && ctx.proposals.length) {
+    const file = path.join(__dirname, `settlement-dryrun-${new Date().toISOString().slice(0, 10)}.json`);
+    const dist = {}; for (const p of ctx.proposals) { const k = `${p.outcome}/${p.confidence}`; dist[k] = (dist[k] || 0) + 1; }
+    fs.writeFileSync(file, JSON.stringify({ generatedAt: new Date().toISOString(), total: ctx.proposals.length, distribution: dist, proposals: ctx.proposals }, null, 2));
+    console.log('dry-run proposals:', JSON.stringify(dist), '->', path.basename(file));
   }
   const { count: backlog } = await client.from('cleaner_cases').select('id', { count: 'exact', head: true }).eq('status', 'open');
   counters.backlog = backlog; counters.durationMs = Date.now() - t0;
