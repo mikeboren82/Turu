@@ -95,3 +95,26 @@ Deno.test("same page url + same date => still identity (per-item page or genuine
   const c = computeConfidence(candidate, { ...existingBase, venue_id: null }, thresholds);
   assertEquals(c.score, 0.95);
 });
+
+Deno.test("shared LISTING page + a coinciding date but no name agreement is NOT identity (2026-09-14: 'משחקייה בקטנטנים' was matched to a honey workshop this way)", () => {
+  const candidate = {
+    name: "משחקייה בקטנטנים", city: "רעננה", venue_id: null, pageUrl: "https://venue.example/events",
+    one_time_date: "2026-09-27", start_time: "16:30", recurring_days: [],
+    occurrences: [{ date: "2026-09-14", start_time: "16:30", end_time: null }, { date: "2026-09-27", start_time: "16:30", end_time: null }],
+  };
+  const c = computeConfidence(candidate, { ...existingBase, venue_id: null }, thresholds);
+  assertEquals(c.breakdown.exact_url_match, 1);
+  assertEquals(c.breakdown.schedule_match, 1);
+  assertEquals(c.breakdown.name_overlap, 0);
+  assert(c.score < thresholds.needsReview, `score ${c.score} must stay below needsReview`);
+});
+
+Deno.test("enrichment-only diff (exact fingerprint re-detection): fills gaps found on the detail page, ignores wording and never replaces a known price", () => {
+  const candidate = { name: "הצגת ילדים: הקוסם מארץ עוץ", city: "רעננה", venue_id: "venue-renanim", pageUrl: "x", description: "ניסוח אחר לגמרי", one_time_date: "2026-09-27", start_time: "17:00", end_time: "18:00", recurring_days: [], image_urls: [], price_type: "fixed", price_amount: 45, address: "הפלמ\"ח 2 א", address_source: "monster:detail", event_key: "url:https://x/e/1", detail_url: "https://x/e/1" };
+  const d = computeFieldDiff(candidate, { ...existingBase, price_type: null, price_amount: null, address: null }, { enrichmentOnly: true });
+  assertEquals(Object.keys(d).sort(), ["address", "event_key", "price_amount", "price_type"]);
+  const known = computeFieldDiff(candidate, { ...existingBase, price_type: "fixed", price_amount: 30, address: null }, { enrichmentOnly: true });
+  assertEquals("price_amount" in known, false); // never proposes 30 -> 45 as "enrichment"
+  assertEquals("description" in known, false);
+  assertEquals(Object.keys(computeFieldDiff(candidate, existingBase, { enrichmentOnly: true })).sort(), ["address", "event_key"]);
+});

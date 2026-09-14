@@ -26,8 +26,11 @@ import {
 } from '../_shared/extraction.ts';
 import { discoverListingLinks } from '../_shared/discovery.ts';
 import { extractJsonLdEvents, applyJsonLdToCandidate, type JsonLdEvent } from '../_shared/jsonld.ts';
-import { findEventDetailLinks, findEventDetailLinksCheap, detailLinkFor, type DetailLink, type DetailTraversalConfig } from '../_shared/detailLinks.ts';
-import { extractDetailEvidence, applyDetailEvidence } from '../_shared/detailEvidence.ts';
+import { findEventDetailLinks, findEventDetailLinksCheap, detailLinkFor, sharedLinkUrls, type DetailLink, type DetailMatch, type DetailTraversalConfig } from '../_shared/detailLinks.ts';
+import { extractDetailEvidence, applyDetailEvidence, detailPageNamesCandidate } from '../_shared/detailEvidence.ts';
+// EVENT identity (stable across occurrences) - see eventIdentity.ts. event_fingerprint below stays the
+// LEGACY first-occurrence fingerprint used only for the exact pre-checks.
+import { computeEventKey, findEventMatch, type EventKeyKind } from '../_shared/eventIdentity.ts';
 import { fetchJsonApiText, type JsonApiConfig } from '../_shared/adapters.ts';
 import { computeContentHash } from '../_shared/hashing.ts';
 
@@ -36,7 +39,7 @@ const MAX_HTML_BYTES = 1_500_000;
 import { geocodeAddress } from '../_shared/geocoding.ts';
 import {
   findSimilarActivities, computeConfidence, computeFieldDiff, getConfidenceThresholds, computeEventFingerprint,
-  type ExistingActivity,
+  mapExistingRow, EXISTING_ACTIVITY_SELECT, normalizeForMatch, type ExistingActivity,
 } from '../_shared/matching.ts';
 import { generatePlaygroundDisplayName } from '../_shared/playgroundNaming.ts';
 import { normalizeCityName } from '../_shared/cityNaming.ts';
@@ -89,7 +92,9 @@ async function autoApproveNewActivity(
   const venueRow = candidate.venue as { lat: number | null; lng: number | null; city: string | null; address?: string | null } | undefined;
   const candAddress = (candidate.address as string | null) || null;
   const bestAddress = candAddress || venueRow?.address || null;
-  const addressProv = candAddress ? { address_source: 'monster:extracted', address_confidence: 'MEDIUM' } : venueRow?.address ? { address_source: 'monster:venue', address_confidence: 'HIGH' } : {};
+  // an address read from the event's own DETAIL page (official source) is HIGH; the listing extractor's is MEDIUM
+  const fromDetail = candidate.address_source === 'monster:detail';
+  const addressProv = candAddress ? { address_source: fromDetail ? 'monster:detail' : 'monster:extracted', address_confidence: fromDetail ? 'HIGH' : 'MEDIUM' } : venueRow?.address ? { address_source: 'monster:venue', address_confidence: 'HIGH' } : {};
   // an existing location row is matched by venue, else by name WITHIN THE SAME CITY (a global name
   // match bound "ספריית העיר" to another city's row - Cleaner audit 2026-09-14)
   const locQuery = venueId
@@ -171,8 +176,11 @@ async function autoApproveNewActivity(
       weather_suitable: candidate.weather_suitable || [], amenities: candidate.amenities || [],
       family_fit: candidate.family_fit || [], status: 'approved', source: 'scraped',
       source_url: pageUrl || null, source_id: sourceId, venue_id: venueId,
+      // LEGACY first-occurrence fingerprint (exact pre-check); event_key = the stable EVENT identity
       event_fingerprint: (candidate.event_fingerprint as string | null) ?? null,
+      event_key: (candidate.event_key as string | null) ?? null, event_key_kind: (candidate.event_key_kind as string | null) ?? null,
       organizer_name: (candidate.organizer_name as string | null) || null,
+      // registration_url = an explicit booking/registration action only (never the detail page)
       official_url: (candidate.registration_url as string | null) || null,
       created_by: createdBy, last_seen_at: new Date().toISOString(),
     })
@@ -181,9 +189,17 @@ async function autoApproveNewActivity(
   const activityId = (savedActivity as { id: string }).id;
 
   const scheduleRows: Record<string, unknown>[] = [];
+  const occurrences = Array.isArray(candidate.occurrences) ? (candidate.occurrences as { date: string; start_time: string | null; end_time: string | null; external_id?: string | null; booking_url?: string | null }[]) : [];
   if (candidate.schedule_type === 'recurring' && Array.isArray(candidate.recurring_days) && (candidate.recurring_days as unknown[]).length) {
     for (const day of candidate.recurring_days as string[]) {
       scheduleRows.push({ activity_id: activityId, schedule_type: 'recurring', day_of_week: day, start_time: candidate.start_time || null, end_time: candidate.end_time || null });
+    }
+  } else if (candidate.schedule_type === 'one_time' && occurrences.length) {
+    // one row per OCCURRENCE, each with its own time / provider id / purchase link (unique on date+time)
+    const seen = new Set<string>();
+    for (const o of occurrences) {
+      if (!o.date || seen.has(`${o.date}|${o.start_time || ''}`)) continue; seen.add(`${o.date}|${o.start_time || ''}`);
+      scheduleRows.push({ activity_id: activityId, schedule_type: 'one_time', one_time_date: o.date, start_time: o.start_time || null, end_time: o.end_time || null, external_id: o.external_id || null, booking_url: o.booking_url || null });
     }
   } else if (candidate.schedule_type === 'one_time') {
     scheduleRows.push({ activity_id: activityId, schedule_type: 'one_time', one_time_date: candidate.one_time_date || null, start_time: candidate.start_time || null, end_time: candidate.end_time || null });
@@ -206,19 +222,24 @@ async function autoApproveNewActivity(
 }
 
 // Provenance row for every detection (created / seen / updated) - idempotent on (activity, page_url).
-async function recordProvenance(client: Client, params: { activityId: string; sourceId: string; pageUrl: string; incomingId: string | null; relation: 'created' | 'seen' | 'updated' }) {
+// url_role (0091) says WHAT the page is: 'listing' (discovery/calendar page), 'detail' (the event's own
+// page), 'booking', 'other'. A listing URL is never event identity; only a verified detail URL may be.
+type UrlRole = 'listing' | 'detail' | 'booking' | 'other';
+async function recordProvenance(client: Client, params: { activityId: string; sourceId: string; pageUrl: string; incomingId: string | null; relation: 'created' | 'seen' | 'updated'; urlRole?: UrlRole }) {
   const now = new Date().toISOString();
-  const { data: existing } = await client.from('activity_sources').select('id, relation')
+  const { data: existing } = await client.from('activity_sources').select('id, relation, url_role')
     .eq('activity_id', params.activityId).eq('page_url', params.pageUrl).maybeSingle();
   if (existing) {
     // never downgrade the historical 'created' relation when the same page re-detects the activity
     const rel = (existing as { relation: string }).relation === 'created' ? 'created' : params.relation;
-    await client.from('activity_sources').update({ last_seen_at: now, relation: rel, source_id: params.sourceId }).eq('id', (existing as { id: string }).id);
+    const patch: Record<string, unknown> = { last_seen_at: now, relation: rel, source_id: params.sourceId };
+    if (params.urlRole && !(existing as { url_role: string | null }).url_role) patch.url_role = params.urlRole;
+    await client.from('activity_sources').update(patch).eq('id', (existing as { id: string }).id);
     return;
   }
   await client.from('activity_sources').insert({
     activity_id: params.activityId, source_id: params.sourceId, page_url: params.pageUrl,
-    incoming_activity_id: params.incomingId, relation: params.relation, first_seen_at: now, last_seen_at: now,
+    incoming_activity_id: params.incomingId, relation: params.relation, url_role: params.urlRole || null, first_seen_at: now, last_seen_at: now,
   });
 }
 
@@ -324,13 +345,19 @@ Deno.serve(async (req: Request) => {
 
   // relay_pages (optional, 0081): pages already fetched + text-extracted by tools/import-tool/
   // relay-scan.js for sources whose sites block cloud IPs. Same pipeline from the hash step on.
-  interface RelayPage { url: string; text: string; hash: string; images?: { url: string; alt: string; context: string }[] }
+  // A relayed page may also be an event DETAIL page (kind 'detail', parent_url = its listing page, html =
+  // the raw page): it is EVIDENCE for the listing candidate of the same name, never a page of its own -
+  // one canonical owner per event (relay-scan.js buildPages).
+  interface RelayPage { url: string; text: string; hash: string; images?: { url: string; alt: string; context: string }[]; kind?: 'listing' | 'detail'; parent_url?: string; link_text?: string; html?: string }
   let body: { source_id?: string; relay_pages?: RelayPage[] };
   try { body = await req.json(); } catch { return jsonResponse({ error: 'invalid body' }, 400); }
   if (!body.source_id) return jsonResponse({ error: 'missing source_id' }, 400);
-  const relayPages = Array.isArray(body.relay_pages) && body.relay_pages.length
-    ? body.relay_pages.filter((p) => p && typeof p.url === 'string' && typeof p.text === 'string' && typeof p.hash === 'string')
+  const relayAll = Array.isArray(body.relay_pages) && body.relay_pages.length
+    ? body.relay_pages.filter((p) => p && typeof p.url === 'string' && (p.kind === 'detail' ? typeof p.html === 'string' : (typeof p.text === 'string' && typeof p.hash === 'string')))
     : null;
+  const relayDetailPages = (relayAll || []).filter((p) => p.kind === 'detail' && p.parent_url);
+  const relayListingPages = relayAll ? relayAll.filter((p) => p.kind !== 'detail') : null;
+  const relayPages = relayListingPages && relayListingPages.length ? relayListingPages : (relayAll && relayAll.length ? [] : null);
 
   const client = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
 
@@ -401,6 +428,7 @@ Deno.serve(async (req: Request) => {
   // Fingerprints already handled in THIS scan (a page can list the same event twice; two pages of one
   // source can repeat it) - the second occurrence must not become a second queue row.
   const seenFingerprints = new Set<string>();
+  const seenEventKeys = new Set<string>(); // EVENT keys handled in this scan (one queue row per event)
 
   // Adapter-controlled bounded DETAIL TRAVERSAL (2026-09-14): sources.adapter_config.detail_traversal =
   // { max_pages, allow_hosts }. A listing card names the event; its detail page carries the address,
@@ -412,8 +440,20 @@ Deno.serve(async (req: Request) => {
   // a heavy listing's AI extraction alone can use the 60 s page budget; detail fetches (8 s each, no AI)
   // get their own ceiling that still stays well under the ~150 s edge kill
   const DETAIL_TIME_BUDGET_MS = 105_000;
-  const detail = { links: 0, attempted: 0, fetched: 0, failed: 0, unchanged: 0, filled: {} as Record<string, number>, ms: 0, unmatched: [] as { name: string; links: string[] }[] };
+  const detail = { links: 0, attempted: 0, fetched: 0, failed: 0, unchanged: 0, relay_primed: 0, shared_links: 0, rejected_title_mismatch: 0, filled: {} as Record<string, number>, ms: 0, unmatched: [] as { name: string; links: string[] }[] };
+  // detail evidence per URL for this scan (null = fetched and failed / rejected: never retried in-scan);
+  // relayed detail pages are primed lazily from their raw html (the candidate's city anchors the address parse)
   const detailCache = new Map<string, ReturnType<typeof extractDetailEvidence> | null>();
+  const relayDetailHtml = new Map<string, string>();
+  const relayDetailLinks = new Map<string, DetailLink[]>();
+  for (const p of relayDetailPages) {
+    const parent = (p.parent_url as string).split('#')[0];
+    if (!relayDetailLinks.has(parent)) relayDetailLinks.set(parent, []);
+    relayDetailLinks.get(parent)!.push({ url: p.url.split('#')[0], text: (p.link_text || '').slice(0, 160), method: 'detail_text' });
+    relayDetailHtml.set(p.url.split('#')[0], (p.html as string).slice(0, MAX_HTML_BYTES));
+    detail.relay_primed++;
+  }
+  const relayDetailEnabled = relayDetailPages.length > 0;
 
   const scanStartedAt = Date.now();
   // Budget after which no NEW page/window is started. One extraction call on a dense listing window
@@ -508,6 +548,12 @@ Deno.serve(async (req: Request) => {
         let hash: string;
         let pageJsonLd: JsonLdEvent[] = []; // structured events on this page (non-relay, non-heavy pages)
         let pageDetailLinks: DetailLink[] = []; // detail links of this listing page (adapter-controlled)
+        // detail pages fetched CONCURRENTLY WITH the AI extraction (the extraction alone can use most of
+        // the detail time budget on a dense listing - observed 2026-09-14: 5 of 27 links reached);
+        // null = fetched and failed. Links never recorded as detail provenance go first, so rescans
+        // rotate through the listing instead of refetching the same first N pages every time.
+        const prefetched = new Map<string, string | null>();
+        let prefetch: Promise<void> | null = null;
         if (relayPage) {
           candidateImages = (relayPage.images || []).slice(0, 40);
           text = relayPage.text.slice(0, PAGE_TEXT_CHAR_LIMIT * MAX_TEXT_CHUNKS);
@@ -532,17 +578,19 @@ Deno.serve(async (req: Request) => {
           if (html.length > HEAVY_HTML_BYTES) {
             // DOM-free path: no images (they would need the DOM), text via regex stripping
             candidateImages = [];
-            if (detailMaxPerPage > 0) { pageDetailLinks = findEventDetailLinksCheap(html, pageUrl, { max: 40, allowHosts: detailCfg?.allow_hosts || [] }); detail.links += pageDetailLinks.length; }
+            if (detailMaxPerPage > 0) { pageDetailLinks = findEventDetailLinksCheap(html, pageUrl, { max: 40, allowHosts: detailCfg?.allow_hosts || [], urlPattern: detailCfg?.url_pattern, listingUrls: pageUrls }); detail.links += pageDetailLinks.length; }
             text = cheapPageText(html, textBudget);
           } else {
             const $ = cheerio.load(html);
             candidateImages = extractCandidateImages($, pageUrl);
             pageJsonLd = extractJsonLdEvents($);
-            if (detailMaxPerPage > 0) { pageDetailLinks = findEventDetailLinks($, pageUrl, { max: 40, allowHosts: detailCfg?.allow_hosts || [] }); detail.links += pageDetailLinks.length; }
+            if (detailMaxPerPage > 0) { pageDetailLinks = findEventDetailLinks($, pageUrl, { max: 40, allowHosts: detailCfg?.allow_hosts || [], linkSelector: detailCfg?.link_selector, urlPattern: detailCfg?.url_pattern, listingUrls: pageUrls }); detail.links += pageDetailLinks.length; }
             text = pageTextForExtraction($, textBudget);
           }
           hash = await computeContentHash(text);
         }
+        // relayed listing page: its detail pages arrived in the same payload (kind 'detail'), already fetched
+        if (relayPage && relayDetailEnabled) { pageDetailLinks = relayDetailLinks.get(pageUrl.split('#part=')[0]) || []; detail.links += pageDetailLinks.length; }
 
         const { data: snapshot } = await client
           .from('source_page_snapshots').select('content_hash')
@@ -570,6 +618,31 @@ Deno.serve(async (req: Request) => {
           continue;
         }
 
+        if (pageDetailLinks.length && detailMaxPerPage > 0 && !relayPage && detail.attempted < DETAIL_MAX_PER_SCAN && Date.now() - scanStartedAt < DETAIL_TIME_BUDGET_MS) {
+          const urls = pageDetailLinks.map((l) => l.url);
+          const { data: enrichedRows } = await client.from('activity_sources').select('page_url').eq('url_role', 'detail').in('page_url', urls);
+          const enriched = new Set((enrichedRows || []).map((r) => (r as { page_url: string }).page_url));
+          const ordered = [...pageDetailLinks.filter((l) => !enriched.has(l.url)), ...pageDetailLinks.filter((l) => enriched.has(l.url))];
+          const pick = ordered.slice(0, Math.min(detailMaxPerPage, DETAIL_MAX_PER_SCAN - detail.attempted));
+          const queue = [...pick];
+          prefetch = (async () => {
+            const worker = async () => {
+              while (queue.length) {
+                const l = queue.shift()!;
+                if (Date.now() - scanStartedAt >= DETAIL_TIME_BUDGET_MS) break;
+                const t0 = Date.now(); detail.attempted++;
+                try {
+                  const dr = await fetchHtml(l.url, { timeoutMs: Math.min(fetchTimeoutMs, 8000), retries: 0 });
+                  if (dr.ok && dr.html) { detail.fetched++; prefetched.set(l.url, dr.html.length > MAX_HTML_BYTES ? dr.html.slice(0, MAX_HTML_BYTES) : dr.html); }
+                  else { detail.failed++; prefetched.set(l.url, null); }
+                } catch { detail.failed++; prefetched.set(l.url, null); }
+                detail.ms += Date.now() - t0;
+              }
+            };
+            await Promise.all([worker(), worker(), worker(), worker()]);
+          })();
+        }
+
         let extracted: unknown[];
         let pageTruncated = false;
         try {
@@ -588,6 +661,9 @@ Deno.serve(async (req: Request) => {
             const message = await anthropic.messages.create({
               model: EXTRACTION_MODEL,
               max_tokens: EXTRACTION_MAX_TOKENS,
+              // deterministic extraction: rescans of an unchanged listing must yield the same candidates
+              // (2026-09-14: the same 32-card page returned 15-21 events across three runs at the default)
+              temperature: 0,
               system: buildExtractionSystemPrompt(),
               messages: [{
                 role: 'user',
@@ -617,42 +693,90 @@ Deno.serve(async (req: Request) => {
           errorType = errorType ?? 'rate_limited';
         }
 
+        if (prefetch) { try { await prefetch; } catch { /* individual failures are already counted */ } }
+        // ---- pass 1: sanitize + JSON-LD + DETAIL association for every candidate of this page ----
+        // deno-lint-ignore no-explicit-any
+        const prepared: { candidate: any; issues: string[]; link: DetailMatch | null }[] = [];
+        const pageHost = (() => { try { return new URL(pageUrl).hostname.replace(/^www\./, ''); } catch { return ''; } })();
+        const allowedHosts = new Set([pageHost, ...(detailCfg?.allow_hosts || []).map((h) => h.replace(/^www\./, ''))]);
+        const detailActive = (detailMaxPerPage > 0 || relayDetailEnabled) && pageDetailLinks.length > 0;
         for (const rawCandidate of extracted) {
-          if (counters.found >= maxActivitiesPerScan) break;
           const { candidate, issues } = sanitizeCandidate(rawCandidate, pageUrl);
           candidate.pageUrl = pageUrl;
           // deterministic structured data beats nothing: fill address/coordinates/date from the page's
           // JSON-LD Event with the same name (fill-null only - never over what the extractor found)
           if (pageJsonLd.length) { const filled = applyJsonLdToCandidate(candidate, pageJsonLd); if (filled.length) { candidate.jsonld_filled = filled; if (candidate.one_time_date) { const i = issues.indexOf('תאריך'); if (i >= 0) issues.splice(i, 1); } } }
-          // bounded detail traversal: the card link that names THIS candidate -> its page's deterministic evidence
-          if (detailMaxPerPage > 0 && detail.attempted < DETAIL_MAX_PER_SCAN && Date.now() - scanStartedAt < DETAIL_TIME_BUDGET_MS) {
-            const allowedHosts = new Set([new URL(pageUrl).hostname.replace(/^www\./, ''), ...(detailCfg?.allow_hosts || []).map((h) => h.replace(/^www\./, ''))]);
-            const link = detailLinkFor(pageDetailLinks, candidate.name as string | null, candidate.registration_url as string | null, allowedHosts);
-            // diagnostics for the cohort: which names found no link (first 3 per scan)
-            if (!link && pageDetailLinks.length && detail.unmatched.length < 3) detail.unmatched.push({ name: String(candidate.name || '').slice(0, 60), links: pageDetailLinks.slice(0, 3).map((l) => (l.text || decodeURIComponent(l.url.split('/').filter(Boolean).pop() || '')).slice(0, 60)) });
-            if (link) {
-              let ev = detailCache.get(link.url);
-              if (ev === undefined) {
-                if ([...detailCache.keys()].filter((u) => pageDetailLinks.some((l) => l.url === u)).length >= detailMaxPerPage) ev = null;
-                else {
-                  const t0 = Date.now(); detail.attempted++;
-                  const dr = await fetchHtml(link.url, { timeoutMs: Math.min(fetchTimeoutMs, 8000), retries: 0 });
-                  detail.ms += Date.now() - t0;
-                  if (dr.ok && dr.html) { detail.fetched++; ev = extractDetailEvidence(dr.html.length > MAX_HTML_BYTES ? dr.html.slice(0, MAX_HTML_BYTES) : dr.html, todayStr); }
-                  else { detail.failed++; ev = null; }
-                }
-                detailCache.set(link.url, ev);
-              }
-              if (ev) {
-                const pageHost = (() => { try { return new URL(pageUrl).hostname.replace(/^www\./, ''); } catch { return ''; } })();
-                const filled = applyDetailEvidence(candidate, ev, link.url, pageHost);
-                for (const f of filled) detail.filled[f] = (detail.filled[f] || 0) + 1;
-                if (filled.length && candidate.one_time_date) { const i = issues.indexOf('תאריך'); if (i >= 0) issues.splice(i, 1); }
-                // detail-page images go through the same provenance shape sanitizeCandidate builds
-                if (filled.includes('image') && Array.isArray(candidate.images)) candidate.images = (candidate.images as { url: string; source_type: string; needs_rights_review: boolean }[]).slice(0, 3);
-              }
+          const link = detailActive ? detailLinkFor(pageDetailLinks, candidate.name as string | null, candidate.registration_url as string | null, allowedHosts) : null;
+          // diagnostics for the cohort: which names found no link (first 3 per scan)
+          if (detailActive && !link && detail.unmatched.length < 3) detail.unmatched.push({ name: String(candidate.name || '').slice(0, 60), links: pageDetailLinks.slice(0, 3).map((l) => (l.text || decodeURIComponent(l.url.split('/').filter(Boolean).pop() || '')).slice(0, 60)) });
+          prepared.push({ candidate, issues, link });
+        }
+        // a link claimed by two differently-named candidates is a shared page (category / homepage), not
+        // an event's page: nobody gets it
+        const shared = sharedLinkUrls(prepared.filter((p) => p.link).map((p) => ({ url: p.link!.url, name: String(p.candidate.name || '') })));
+        detail.shared_links += shared.size;
+        // bounded detail traversal: fetch (or take the relayed html of) each associated page once, gate it
+        // on naming the candidate, merge its evidence fill-null
+        for (const p of prepared) {
+          if (!p.link || shared.has(p.link.url)) { if (p.link) p.link = null; continue; }
+          const link = p.link; const candidate = p.candidate;
+          let ev = detailCache.get(link.url);
+          if (ev === undefined) {
+            const relayed = relayDetailHtml.get(link.url);
+            const pre = prefetched.get(link.url);
+            if (relayed != null) { ev = extractDetailEvidence(relayed, todayStr, { baseUrl: link.url, city: candidate.city as string | null }); detail.fetched++; }
+            else if (pre != null) ev = extractDetailEvidence(pre, todayStr, { baseUrl: link.url, city: candidate.city as string | null });
+            else if (pre === null) ev = null; // prefetched and failed - never retried in this scan
+            else if (detailMaxPerPage <= 0 || detail.attempted >= DETAIL_MAX_PER_SCAN || Date.now() - scanStartedAt >= DETAIL_TIME_BUDGET_MS) { p.link = null; continue; }
+            else if ([...detailCache.keys()].filter((u) => pageDetailLinks.some((l) => l.url === u)).length >= detailMaxPerPage) ev = null;
+            else {
+              const t0 = Date.now(); detail.attempted++;
+              const dr = await fetchHtml(link.url, { timeoutMs: Math.min(fetchTimeoutMs, 8000), retries: 0 });
+              detail.ms += Date.now() - t0;
+              if (dr.ok && dr.html) { detail.fetched++; ev = extractDetailEvidence(dr.html.length > MAX_HTML_BYTES ? dr.html.slice(0, MAX_HTML_BYTES) : dr.html, todayStr, { baseUrl: link.url, city: candidate.city as string | null }); }
+              else { detail.failed++; ev = null; } // detail failure never discards the listing candidate
             }
+            detailCache.set(link.url, ev);
           }
+          if (!ev) { p.link = null; continue; }
+          // the page must NAME the candidate before any of its evidence is trusted
+          if (!detailPageNamesCandidate(ev, candidate.name as string | null)) { detail.rejected_title_mismatch++; p.link = null; continue; }
+          const filled = applyDetailEvidence(candidate, ev, link.url, pageHost);
+          for (const f of filled) detail.filled[f] = (detail.filled[f] || 0) + 1;
+          if (filled.length && candidate.one_time_date) { const i = p.issues.indexOf('תאריך'); if (i >= 0) p.issues.splice(i, 1); }
+          if (filled.includes('price')) { const i = p.issues.indexOf('מחיר'); if (i >= 0) p.issues.splice(i, 1); }
+          // detail-page images go through the same provenance shape sanitizeCandidate builds
+          if (filled.includes('image') && Array.isArray(candidate.images)) candidate.images = (candidate.images as { url: string; source_type: string; needs_rights_review: boolean }[]).slice(0, 3);
+          candidate.detail_match = { method: link.method, score: link.score, text: link.text.slice(0, 120) };
+          candidate.detail_verified = true; // card/title evidence + single claimant + page names the event
+        }
+        // the same event listed with several dates on ONE page (a calendar repeats a show per performance):
+        // fold the later ones into the first as occurrences instead of queueing N candidates
+        {
+          // deno-lint-ignore no-explicit-any
+          const byKey = new Map<string, any>();
+          const kept: typeof prepared = [];
+          for (const p of prepared) {
+            const c = p.candidate;
+            if (c.schedule_type !== 'one_time' || !c.name || !c.one_time_date) { kept.push(p); continue; }
+            const key = `${normalizeForMatch(c.name as string)}|${normalizeForMatch((c.location_name as string) || '')}|${normalizeForMatch((c.city as string) || '')}|${String(c.start_time || '').slice(0, 5)}`;
+            const first = byKey.get(key);
+            if (!first) { byKey.set(key, c); kept.push(p); continue; }
+            const own: { date: string; start_time: string | null; end_time: string | null }[] = Array.isArray(first.occurrences) ? first.occurrences : [{ date: first.one_time_date, start_time: first.start_time ? String(first.start_time).slice(0, 5) : null, end_time: first.end_time ? String(first.end_time).slice(0, 5) : null }];
+            const seen = new Set(own.map((o) => `${o.date}|${o.start_time || ''}`));
+            const mine: { date: string; start_time: string | null; end_time: string | null }[] = Array.isArray(c.occurrences) ? c.occurrences : [{ date: c.one_time_date, start_time: c.start_time ? String(c.start_time).slice(0, 5) : null, end_time: c.end_time ? String(c.end_time).slice(0, 5) : null }];
+            for (const o of mine) { const k = `${o.date}|${o.start_time || ''}`; if (!seen.has(k)) { seen.add(k); own.push(o); } }
+            own.sort((a, b) => (a.date + (a.start_time || '')).localeCompare(b.date + (b.start_time || '')));
+            first.occurrences = own; first.one_time_date = own[0].date; if (!first.start_time && own[0].start_time) first.start_time = own[0].start_time;
+            first.merged_listing_twins = (first.merged_listing_twins || 0) + 1;
+          }
+          prepared.length = 0; prepared.push(...kept);
+        }
+
+        // ---- pass 2: identity, dedup, routing, persistence ----
+        for (const p of prepared) {
+          if (counters.found >= maxActivitiesPerScan) break;
+          const candidate = p.candidate; const issues = p.issues;
 
           if (issues.length > 0 && !candidate.name) { counters.rejectedCount++; continue; }
           if (isCommitmentActivity(candidate)) { counters.rejectedCount++; continue; }
@@ -676,10 +800,17 @@ Deno.serve(async (req: Request) => {
             // (24 Ramot-mall items sat in review with a valid city because of it, 2026-09-13)
             if (candidate.city) { const i = issues.indexOf('עיר'); if (i >= 0) issues.splice(i, 1); }
           }
+          // LEGACY occurrence-level fingerprint (first/earliest occurrence): exact pre-check only
           candidate.event_fingerprint = computeEventFingerprint({
             name: candidate.name, venueId: candidate.venue_id, city: candidate.city, scheduleType: candidate.schedule_type,
             oneTimeDate: candidate.one_time_date, recurringDays: candidate.recurring_days, startTime: candidate.start_time,
           });
+          // EVENT identity, stable across occurrences (eventIdentity.ts): provider id > verified detail URL >
+          // provider key > exact title + canonical venue + source (conservative fallback)
+          {
+            const ek = computeEventKey({ sourceId: source.id, title: candidate.name as string | null, venueId: candidate.venue_id as string | null, externalEventId: (candidate.external_event_id as string | null) || null, detailUrl: (candidate.detail_url as string | null) || null, detailVerified: !!candidate.detail_verified });
+            candidate.event_key = ek?.key ?? null; candidate.event_key_kind = ek?.kind ?? null;
+          }
 
           // Exact pre-check (the events' google_place_id): identical fingerprint already live => same event.
           let fingerprintMatchId: string | null = null;
@@ -699,8 +830,25 @@ Deno.serve(async (req: Request) => {
               if (pendingRow) { counters.duplicateCount++; continue; }
             }
           }
+          // EVENT match (same event, possibly other performances): by event_key across the live catalogue,
+          // then the occurrence-series fallback among this city's activities
+          let eventMatch: ReturnType<typeof findEventMatch> = null;
+          if (!fingerprintMatchId) {
+            if (candidate.event_key) {
+              if (seenEventKeys.has(candidate.event_key)) { counters.duplicateCount++; continue; }
+              const { data: keyRows } = await client.from('activities').select(EXISTING_ACTIVITY_SELECT).eq('event_key', candidate.event_key).eq('status', 'approved').limit(3);
+              eventMatch = findEventMatch(candidate, (keyRows || []).map((r) => mapExistingRow(r, todayStr)), source.id, todayStr);
+              if (!eventMatch) {
+                const { data: pendingKey } = await client.from('incoming_activities').select('id')
+                  .eq('extracted_data->>event_key', candidate.event_key).in('status', ['new', 'needs_review']).limit(1).maybeSingle();
+                if (pendingKey) { counters.duplicateCount++; continue; }
+              }
+            }
+            if (!eventMatch && candidate.city) eventMatch = findEventMatch(candidate, await findSimilarActivities(client, candidate, cityCache), source.id, todayStr);
+            if (candidate.event_key) seenEventKeys.add(candidate.event_key);
+          }
 
-          const similar = !fingerprintMatchId && candidate.city ? await findSimilarActivities(client, candidate, cityCache) : [];
+          const similar = !fingerprintMatchId && !eventMatch && candidate.city ? await findSimilarActivities(client, candidate, cityCache) : [];
           let bestMatch: { activity: ExistingActivity; confidence: ReturnType<typeof computeConfidence> } | null = null;
           for (const existing of similar) {
             const confidence = computeConfidence(candidate, existing, thresholds);
@@ -712,12 +860,30 @@ Deno.serve(async (req: Request) => {
           let existingActivityId: string | null = null;
           let diff: Record<string, unknown> = {};
           let confidenceScore = 0;
-          let confidenceBreakdown: Record<string, number> = {};
+          let confidenceBreakdown: Record<string, number | string> = {};
 
           if (fingerprintMatchId) {
-            matchType = 'duplicate'; status = 'duplicate'; existingActivityId = fingerprintMatchId;
+            existingActivityId = fingerprintMatchId;
             confidenceScore = 0.97; confidenceBreakdown = { fingerprint_match: 1 };
-            counters.duplicateCount++;
+            // the same occurrence re-detected: still an UPDATE when this scan carries ENRICHMENT the record
+            // lacks (detail-page price / address / performances / ages / identity / image) - otherwise the
+            // Monster would knowingly leave Cleaner debt it just found the answer to. Wording-only
+            // differences (description) are ignored here: they are extraction variance, not evidence.
+            let enrichment: Record<string, unknown> = {};
+            if (candidate.detail_url || candidate.event_key) {
+              const { data: exRow } = await client.from('activities').select(EXISTING_ACTIVITY_SELECT).eq('id', fingerprintMatchId).maybeSingle();
+              if (exRow) enrichment = computeFieldDiff(candidate, mapExistingRow(exRow, todayStr), { enrichmentOnly: true });
+            }
+            if (Object.keys(enrichment).length) { matchType = 'update'; status = 'needs_review'; diff = enrichment; counters.updatedCount++; }
+            else { matchType = 'duplicate'; status = 'duplicate'; counters.duplicateCount++; }
+          } else if (eventMatch) {
+            // same EVENT: new occurrences / stronger evidence become an UPDATE for review, else a duplicate.
+            // Enrichment only - a re-detected event must not re-enter the queue for wording variance.
+            const fieldDiff = computeFieldDiff(candidate, eventMatch.activity, { enrichmentOnly: true });
+            existingActivityId = eventMatch.activity.id;
+            confidenceScore = eventMatch.reason === 'event_key' ? 0.96 : 0.93; confidenceBreakdown = { ...eventMatch.breakdown, [eventMatch.reason]: 1 };
+            if (Object.keys(fieldDiff).length === 0) { matchType = 'duplicate'; status = 'duplicate'; counters.duplicateCount++; }
+            else { matchType = 'update'; status = 'needs_review'; diff = fieldDiff; counters.updatedCount++; }
           } else if (bestMatch && bestMatch.confidence.score >= thresholds.duplicate) {
             const fieldDiff = computeFieldDiff(candidate, bestMatch.activity);
             existingActivityId = bestMatch.activity.id;
@@ -755,8 +921,10 @@ Deno.serve(async (req: Request) => {
                   min_age: candidate.min_age, max_age: candidate.max_age, price_type: candidate.price_type, price_amount: candidate.price_amount,
                   booking_requirement: candidate.booking_requirement, source_url: pageUrl, location_name: candidate.location_name, city: candidate.city,
                   lat: approved.lat, lng: approved.lng, venue_id: candidate.venue_id, event_fingerprint: candidate.event_fingerprint,
+                  event_key: candidate.event_key ?? null, event_key_kind: candidate.event_key_kind ?? null, official_url: candidate.registration_url ?? null, source_id: source.id,
                   schedule_type: candidate.schedule_type, one_time_date: candidate.one_time_date, start_time: candidate.start_time, end_time: candidate.end_time,
                   recurring_days: candidate.recurring_days || [], has_image: Array.isArray(candidate.images) && candidate.images.length > 0,
+                  occurrences: Array.isArray(candidate.occurrences) ? candidate.occurrences.map((o: { date: string; start_time: string | null; end_time: string | null }) => ({ date: o.date, start_time: o.start_time, end_time: o.end_time })) : (candidate.one_time_date ? [{ date: candidate.one_time_date, start_time: candidate.start_time ? String(candidate.start_time).slice(0, 5) : null, end_time: candidate.end_time ? String(candidate.end_time).slice(0, 5) : null }] : []),
                 });
                 cityCache.set(candidate.city, list);
               }
@@ -780,11 +948,12 @@ Deno.serve(async (req: Request) => {
 
           if (autoApprovedActivityId) {
             counters.autoApprovedCount++;
-            await recordProvenance(client, { activityId: autoApprovedActivityId, sourceId: source.id, pageUrl, incomingId, relation: 'created' });
-            // both the listing and the detail page are provenance (detail traversal)
-            if (candidate.detail_url) await recordProvenance(client, { activityId: autoApprovedActivityId, sourceId: source.id, pageUrl: candidate.detail_url as string, incomingId, relation: 'seen' });
+            await recordProvenance(client, { activityId: autoApprovedActivityId, sourceId: source.id, pageUrl, incomingId, relation: 'created', urlRole: 'listing' });
+            // both the listing and the detail page are provenance (detail traversal) - with their roles
+            if (candidate.detail_url) await recordProvenance(client, { activityId: autoApprovedActivityId, sourceId: source.id, pageUrl: candidate.detail_url as string, incomingId, relation: 'seen', urlRole: 'detail' });
           } else if (existingActivityId) {
-            await recordProvenance(client, { activityId: existingActivityId, sourceId: source.id, pageUrl, incomingId, relation: matchType === 'update' ? 'updated' : 'seen' });
+            await recordProvenance(client, { activityId: existingActivityId, sourceId: source.id, pageUrl, incomingId, relation: matchType === 'update' ? 'updated' : 'seen', urlRole: 'listing' });
+            if (candidate.detail_url) await recordProvenance(client, { activityId: existingActivityId, sourceId: source.id, pageUrl: candidate.detail_url as string, incomingId, relation: 'seen', urlRole: 'detail' });
           }
           counters.found++;
         }

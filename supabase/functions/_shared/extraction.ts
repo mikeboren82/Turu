@@ -280,11 +280,23 @@ const CHILD_MARKERS = [
   'תיאטרון ילדים', 'סדנת יצירה', 'קטנטנים', 'בייבי', 'לכל הגילאים', 'לכל המשפחה', 'הפעלה', 'מתנפחים', 'קוסם', 'ליצן', 'בובות',
   'גילאי', 'כיתות', 'נוער', 'קייטנה', 'חופש הגדול', 'חנוכה לילדים', 'פורים', 'סוכות', 'שעשועים', 'משחקים', 'משחקייה',
 ];
+// an explicit child age in the title/description ("לגיל 2-4", "גילאי 3-6", "בני 5+") - a ticketing site
+// tagging a toddlers' show for both "ילדים ומשפחה" and "אזרחים ותיקים" (grandparents) made the model label
+// it adults and the gate reject it (Ra'anana, 2026-09-14)
+const CHILD_AGE_RE = /(?:לגיל|לגילאי|גילאי|גיל|בני)\s*(\d{1,2})\s*(?:[-–]|עד)?\s*(\d{1,2})?/;
+export function hasExplicitChildAge(text: string): boolean {
+  const m = CHILD_AGE_RE.exec(text); if (!m) return false;
+  const a = Number(m[1]), b = m[2] ? Number(m[2]) : NaN;
+  const lo = Number.isNaN(b) ? a : Math.min(a, b), hi = Number.isNaN(b) ? a : Math.max(a, b);
+  return lo <= 12 && hi <= 16;
+}
 export function assessChildRelevance(candidate: { audience?: unknown; name?: unknown; description?: unknown; min_age?: unknown; max_age?: unknown; category?: unknown }): 'reject' | 'review' | 'ok' {
   const text = `${candidate.name ?? ''} ${candidate.description ?? ''}`.toLowerCase();
-  const hasChild = CHILD_MARKERS.some((m) => text.includes(m.toLowerCase())) || (typeof candidate.max_age === 'number' && candidate.max_age <= 18) || (typeof candidate.min_age === 'number' && candidate.min_age <= 12);
+  const explicitChildAge = hasExplicitChildAge(text) || (typeof candidate.max_age === 'number' && candidate.max_age <= 12);
+  const hasChild = CHILD_MARKERS.some((m) => text.includes(m.toLowerCase())) || (typeof candidate.max_age === 'number' && candidate.max_age <= 18) || (typeof candidate.min_age === 'number' && candidate.min_age <= 12) || explicitChildAge;
   const hasAdult = ADULT_MARKERS.some((m) => text.includes(m.toLowerCase()));
-  if (candidate.audience === 'adults') return 'reject';
+  // an "adults" label contradicted by an explicit child age is reviewable, never silently dropped
+  if (candidate.audience === 'adults') return explicitChildAge ? 'review' : 'reject';
   if (hasAdult && !hasChild) return 'reject';
   if (candidate.audience === 'children' || candidate.audience === 'family') return hasAdult ? 'review' : 'ok';
   // unknown / missing audience: only explicit child evidence passes silently

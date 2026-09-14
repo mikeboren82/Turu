@@ -171,6 +171,11 @@ async function enrichFields(client, target, ctx) {
     tried.push('creating_incoming_row');
     const rows = [];
     if (ed.schedule_type === 'recurring' && Array.isArray(ed.recurring_days) && ed.recurring_days.length) for (const d of ed.recurring_days) rows.push({ activity_id: a.id, schedule_type: 'recurring', day_of_week: d, start_time: ed.start_time || null, end_time: ed.end_time || null });
+    else if (ed.schedule_type === 'one_time' && Array.isArray(ed.occurrences) && ed.occurrences.length) {
+      // occurrence model (0091): one row per future performance, each with its own time / purchase link
+      const seen = new Set();
+      for (const o of ed.occurrences) { const k = `${o.date}|${(o.start_time || '').slice(0, 5)}`; if (!o.date || o.date < ctx.today || seen.has(k)) continue; seen.add(k); rows.push({ activity_id: a.id, schedule_type: 'one_time', one_time_date: o.date, start_time: o.start_time || null, end_time: o.end_time || null, external_id: o.external_id || null, booking_url: o.booking_url || null }); }
+    }
     else if (ed.schedule_type === 'one_time' && ed.one_time_date && ed.one_time_date >= ctx.today) rows.push({ activity_id: a.id, schedule_type: 'one_time', one_time_date: ed.one_time_date, start_time: ed.start_time || null, end_time: ed.end_time || null });
     else if (ed.schedule_type === 'fixed_hours') rows.push({ activity_id: a.id, schedule_type: 'fixed_hours', start_time: ed.start_time || null, end_time: ed.end_time || null });
     if (rows.length) { const { error } = await client.from('activity_schedules').insert(rows); if (!error) filled.push('schedule'); }

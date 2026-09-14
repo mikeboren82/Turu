@@ -578,6 +578,21 @@ export default function ActivityScreen() {
             <InfoCell Icon={ClockIcon} label="שעות" value={activity.hours} tint={colors.yellowTint} />
           </View>
 
+          {activity.occurrences?.length > 1 ? (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>📅 מועדים קרובים</Text>
+              {activity.occurrences.slice(0, 12).map((o) => (
+                <View key={`${o.date}-${o.start || ''}`} style={{ flexDirection: 'row-reverse', justifyContent: 'space-between', paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: colors.border }}>
+                  <Text style={{ fontFamily: fonts.bold, color: colors.textPrimary }}>{new Date(o.date).toLocaleDateString('he-IL', { weekday: 'short', day: 'numeric', month: 'numeric' })}{o.start ? ` · ${o.start}${o.end ? `–${o.end}` : ''}` : ''}</Text>
+                  {o.bookingUrl ? (
+                    <Pressable onPress={() => Linking.openURL(o.bookingUrl)}><Text style={{ fontFamily: fonts.bold, color: colors.accent }}>🎟️ רכישה</Text></Pressable>
+                  ) : null}
+                </View>
+              ))}
+              {activity.occurrences.length > 12 ? <Text style={{ fontFamily: fonts.regular, color: colors.textSecondary, textAlign: 'right', marginTop: 6 }}>ועוד {activity.occurrences.length - 12} מועדים</Text> : null}
+            </View>
+          ) : null}
+
           {activity.requiresTicket ? (
             <Pressable onPress={() => Linking.openURL(activity.sourceUrl)} style={styles.ticketBtnWrap}>
               <LinearGradient colors={['#ffbb4d', '#ff8a3d']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.ticketBtn}>

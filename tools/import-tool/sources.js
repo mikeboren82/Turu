@@ -163,6 +163,7 @@ function renderSourcesPage() {
       <div class="field"><label>שם המפרסם</label><input id="fPublisherName" type="text" placeholder="למשל: עיריית חיפה / אמות קניונים"></div>
       <div class="field"><label>מקום קנוני (WHERE) - רק אם זה העמוד של המקום עצמו</label><select id="fVenue"><option value="">-- ללא --</option></select></div>
       <div class="field"><label>עדיפות (1-10, 8+ = מקור בעל ערך גבוה, לא מושהה אוטומטית)</label><input id="fPriority" type="number" min="1" max="10" value="5"></div>
+      <div class="field full"><label>adapter_config (JSON) - למשל {"detail_traversal":{"max_pages":8,"allow_hosts":[],"link_selector":"","url_pattern":""}} - ריק = ללא</label><textarea id="fAdapterConfig" rows="2" style="direction:ltr; text-align:left; font-family:monospace; font-size:12px; width:100%;"></textarea></div>
       <div class="field full">
         <label>קטגוריות רלוונטיות (אופציונלי - להנחיה/סינון עתידי)</label>
         <div id="fCategories" class="cat-checks"></div>
@@ -266,6 +267,7 @@ function renderSourcesPage() {
     document.getElementById('fPublisherType').value = source ? (source.publisher_type || '') : '';
     document.getElementById('fPublisherName').value = source ? (source.publisher_name || '') : '';
     document.getElementById('fPriority').value = source ? String(source.priority ?? 5) : '5';
+    document.getElementById('fAdapterConfig').value = source && source.adapter_config ? JSON.stringify(source.adapter_config) : '';
     renderVenueOptions(source ? source.venue_id : '');
     renderRegionOptions(source ? source.region : '');
     renderCategoryChecks(source ? source.categories : []);
@@ -299,6 +301,9 @@ function renderSourcesPage() {
       venue_id: document.getElementById('fVenue').value || null,
       priority: Math.min(10, Math.max(1, Number(document.getElementById('fPriority').value) || 5)),
     };
+    const adapterRaw = document.getElementById('fAdapterConfig').value.trim();
+    if (adapterRaw) { try { fields.adapter_config = JSON.parse(adapterRaw); } catch { alert('adapter_config אינו JSON תקין'); return; } }
+    else fields.adapter_config = null;
     $saveSourceBtn.disabled = true;
     try {
       const url = editingId ? '/api/sources/' + editingId : '/api/sources';
@@ -405,6 +410,7 @@ function renderSourcesPage() {
         healthBadge(s) +
         trustBadge(s) +
         (s.is_trusted ? '<span class="badge trusted">⭐ מהימן</span>' : '') +
+        (s.adapter_config && s.adapter_config.detail_traversal ? '<span class="badge trusted" title="detail traversal">🔗 דפי פרטים' + (s.detail_yield ? ': ' + s.detail_yield : '') + '</span>' : '') +
         ((s.priority || 5) >= 8 ? '<span class="badge trusted">🔝 עדיפות ' + s.priority + '</span>' : '') +
         statusBadge +
       '</div>' +

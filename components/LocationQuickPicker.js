@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { Modal, View, Text, Pressable, StyleSheet, Platform, LayoutAnimation, UIManager } from 'react-native';
 import * as Location from 'expo-location';
-import { LocationPinIcon } from './icons';
+import { LocationPinIcon, ChevronDownIcon } from './icons';
 import CityAutocomplete from './CityAutocomplete';
 import { locationWithDrivingTime, locationWithAnyDistance } from '../lib/filterActivities';
-import { WALKING_RADIUS_KM } from '../constants/filterSchema';
+import { WALKING_RADIUS_KM, REGION_OPTIONS } from '../constants/filterSchema';
 import { colors, fonts, radii, spacing } from '../constants/theme';
 
 // אותה תשתית אנימציה בדיוק כמו components/FiltersSheet.js (LayoutAnimation מובנה ב-RN, לא
@@ -21,7 +21,11 @@ const animate = () => LayoutAnimation.configureNext(LayoutAnimation.create(220, 
 // נשאר display-only (travelMinutes לא ממופה ל-radiusKm אמיתי - לטורו אין מנוע ניווט/ETA, ראו
 // ההערה המקבילה ב-app/activities.js ליד buildSpontaneousBadge). "לא משנה לי המרחק" (travelMode
 // 'any') מסיר את אילוץ-המרחק המפורש לגמרי (lib/filterActivities.js: locationWithAnyDistance).
-const DRIVING_TIME_OPTIONS = [10, 15, 30, 45];
+const DRIVING_TIME_OPTIONS = [15, 30, 45];
+
+// "10" הוסר מהאפשרויות (מיוצג כבר ע"י 🚶 הליכה) - ערך ישן/זכור מ-state קודם נופל בחזרה ל-15
+// בלי לשבור כלום, במקום להישאר "תקוע" על ערך שאין לו יותר צ'יפ תואם.
+const normalizeDrivingMinutes = (minutes) => (DRIVING_TIME_OPTIONS.includes(minutes) ? minutes : 15);
 
 export function locationSummary(location) {
   if (!location) return 'באזור שלי';
@@ -51,9 +55,12 @@ export function locationSummary(location) {
 
 // "נבחר מיקום תקין" - אותו סף בדיוק שהיה קיים תמיד באפליקציה (mode+city לא ריקים), לא validation
 // חדש מול רשימת הערים: constants/israeliCities.js מתעד בפירוש שהשדה טקסט-חופשי גם ליישובים
-// שלא ברשימה, אז דרישת "match מדויק" הייתה חוסמת יישובים אמיתיים.
+// שלא ברשימה, אז דרישת "match מדויק" הייתה חוסמת יישובים אמיתיים. mode==='region' נוסף כדי
+// לתמוך בבחירת אזור רחב (REGION_OPTIONS, בדיוק כמו ב-FiltersSheet) - locationSummary למעלה כבר
+// ידע להציג אותו מזמן, רק אף UI כאן לא איפשר לבחור אותו.
 function isValidLocation(loc) {
-  return loc.mode === 'current' || (loc.mode === 'city' && !!(loc.city || '').trim()) || (loc.mode === 'address' && !!loc.coords);
+  return loc.mode === 'current' || (loc.mode === 'city' && !!(loc.city || '').trim())
+    || (loc.mode === 'address' && !!loc.coords) || (loc.mode === 'region' && !!(loc.region || []).length);
 }
 
 // "precise" (למטרת 🚶 הליכה בלבד) - חמור יותר מ-isValidLocation: city-mode תקין-לחיפוש-רגיל
@@ -83,14 +90,17 @@ function TravelModeOption({ icon, title, subtitle, selected, disabled, hint, onP
           </View>
         </Pressable>
         {children}
+        {/* הסיבה לחסימה (למשל "זמין כשמשתמשים במיקום מדויק") נשארת בתוך אותו כרטיס ממש - לא
+            כפסקה נפרדת מתחתיו - כדי שהכרטיס+ההסבר ייקראו כיחידה חזותית אחת. */}
+        {hint ? <Text style={styles.walkHint}>{hint}</Text> : null}
       </View>
-      {hint ? <Text style={styles.walkHint}>{hint}</Text> : null}
     </View>
   );
 }
 
 export default function LocationQuickPicker({ visible, value, onChange, onCoordsResolved, onClose, deviceCoords }) {
   const [busy, setBusy] = useState(false);
+  const [regionOpen, setRegionOpen] = useState(false);
 
   // מגדיר ברירת מחדל של נסיעה+15 דקות ברגע שהמיקום הופך לתקין לראשונה (travelMode עדיין
   // undefined) - אם כבר יש בחירה, לא דורסים אותה. זה גם המקום שמבטל "🚶 הליכה" אם המיקום השתנה
@@ -102,7 +112,7 @@ export default function LocationQuickPicker({ visible, value, onChange, onCoords
     let out = next;
     if (isValidLocation(out)) {
       if (out.travelMode === 'walking' && !isPreciseLocation(out, deviceCoords)) {
-        out = locationWithDrivingTime(out, out.travelMinutes !== undefined ? out.travelMinutes : 15);
+        out = locationWithDrivingTime(out, normalizeDrivingMinutes(out.travelMinutes));
       } else if (out.travelMode === undefined) {
         out = locationWithDrivingTime(out, 15);
       }
@@ -125,8 +135,25 @@ export default function LocationQuickPicker({ visible, value, onChange, onCoords
     setBusy(false);
   };
 
+  // בחירת אזור רחב - נשאר mode נפרד מ-'current'/'city'/'address' (matchesLocation ב-
+  // lib/filterActivities.js משווה ישירות מול activity.region, בלי שום נקודת-קואורדינטות) - לכן
+  // isPreciseLocation למעלה תמיד false עבורו, וההליכה נשארת חסומה כמצופה. לחיצה חוזרת על אותו
+  // אזור מבטלת את הבחירה (toggle), כמו הצ'יפים המקבילים ב-FiltersSheet. עיר ואזור הם מקורות-חיפוש
+  // חלופיים, לא משלימים - בחירת אזור מנקה עיר שהוקלדה קודם (ולהפך, בשדה העיר למטה), כדי שלא יהיו
+  // שני מקורות "פעילים" בו-זמנית שסותרים זה את זה.
+  const selectRegion = (id) => {
+    animate();
+    const isSame = value.mode === 'region' && value.region?.[0] === id;
+    commitLocation({ ...value, mode: isSame ? null : 'region', region: isSame ? [] : [id], city: '' });
+    setRegionOpen(false);
+  };
+
   const precise = isPreciseLocation(value, deviceCoords);
+  // "הצלחה" (לצורך טקסט/מצב הכפתור) מחמירה יותר מ-precise הכללי: מדובר ספציפית בלחיצה על
+  // "השתמשו במיקום שלי" שהניבה קואורדינטות אמיתיות, לא במצב 'address' שמגיע מ"חיפוש חכם".
+  const locationConfirmed = value.mode === 'current' && !!deviceCoords;
   const travelMode = value.travelMode;
+  const selectedRegionLabel = value.mode === 'region' ? REGION_OPTIONS.find((r) => r.id === value.region?.[0])?.label : null;
 
   const selectWalking = () => {
     if (!precise) return;
@@ -140,7 +167,7 @@ export default function LocationQuickPicker({ visible, value, onChange, onCoords
   // travelMinutes כבר לא נמחק אף פעם בעת מעבר ל-walking/any, אז הוא פשוט מחכה כאן.
   const selectDriving = () => {
     animate();
-    onChange(locationWithDrivingTime(value, value.travelMinutes !== undefined ? value.travelMinutes : 15));
+    onChange(locationWithDrivingTime(value, normalizeDrivingMinutes(value.travelMinutes)));
   };
 
   const selectDrivingMinutes = (minutes) => {
@@ -163,34 +190,56 @@ export default function LocationQuickPicker({ visible, value, onChange, onCoords
           <Text style={styles.title}>איפה נוח לכם? 📍</Text>
           <Text style={styles.subtitle}>נמצא פעילויות באזור שמתאים לכם</Text>
 
-          <Pressable style={[styles.modeBtn, value.mode === 'current' && styles.modeBtnActive]} onPress={useCurrentLocation} disabled={busy}>
-            <LocationPinIcon size={14} color={value.mode === 'current' ? colors.accent : colors.textSecondary} />
-            <Text style={[styles.modeBtnText, value.mode === 'current' && styles.modeBtnTextActive]}>
-              {busy ? 'מאתר...' : 'השתמשו במיקום שלי'}
+          <Pressable style={[styles.modeBtn, locationConfirmed && styles.modeBtnActive]} onPress={useCurrentLocation} disabled={busy}>
+            <LocationPinIcon size={14} color={locationConfirmed ? colors.accent : colors.textSecondary} />
+            <Text style={[styles.modeBtnText, locationConfirmed && styles.modeBtnTextActive]}>
+              {busy ? 'מאתר...' : locationConfirmed ? 'המיקום שלכם נבחר ✓' : 'השתמשו במיקום שלי'}
             </Text>
           </Pressable>
 
           <Text style={styles.orText}>או</Text>
 
+          <Text style={styles.cityLabel}>חפשו יישוב:</Text>
           <CityAutocomplete
             inputStyle={styles.input}
-            placeholder="הזינו עיר או יישוב..."
+            placeholder="הקלידו עיר או יישוב..."
             value={value.mode === 'city' ? value.city : ''}
-            onChangeText={(t) => commitLocation({ ...value, mode: t ? 'city' : null, city: t })}
+            onChangeText={(t) => commitLocation({ ...value, mode: t ? 'city' : null, city: t, region: t ? [] : value.region })}
             onSubmitEditing={onClose}
           />
 
+          <Pressable style={styles.regionLink} onPress={() => { animate(); setRegionOpen((o) => !o); }}>
+            <Text style={[styles.regionLinkText, selectedRegionLabel && styles.regionLinkTextActive]}>
+              {selectedRegionLabel ? `אזור: ${selectedRegionLabel}` : 'או חפשו לפי אזור'}
+            </Text>
+            <View style={{ transform: [{ rotate: regionOpen ? '180deg' : '0deg' }] }}>
+              <ChevronDownIcon size={11} color={selectedRegionLabel ? colors.accent : colors.textMuted} />
+            </View>
+          </Pressable>
+          {regionOpen && (
+            <View style={styles.regionChipsWrap}>
+              {REGION_OPTIONS.map((r) => {
+                const selected = value.mode === 'region' && value.region?.[0] === r.id;
+                return (
+                  <Pressable key={r.id} onPress={() => selectRegion(r.id)} style={[styles.regionChip, selected && styles.regionChipSelected]}>
+                    <Text style={[styles.regionChipText, selected && styles.regionChipTextSelected]}>{r.label}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          )}
+
           {locationValid ? (
             <View style={styles.travelSection}>
-              <Text style={styles.travelTitle}>איך וכמה רחוק מתאים לכם?</Text>
+              <Text style={styles.travelTitle}>כמה רחוק מתאים לכם?</Text>
 
               <TravelModeOption
                 icon="🚶"
                 title="במרחק הליכה"
-                subtitle="עד כ-10 דקות הליכה"
+                subtitle="עד 10 דקות הליכה"
                 selected={travelMode === 'walking'}
                 disabled={!precise}
-                hint={!precise ? 'כדי לחפש במרחק הליכה, השתמשו במיקום הנוכחי או בכתובת מדויקת' : null}
+                hint={!precise ? 'זמין כשמשתמשים במיקום מדויק' : null}
                 onPress={selectWalking}
               />
 
@@ -234,7 +283,7 @@ const styles = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: 'rgba(20,30,35,0.4)', justifyContent: 'center', padding: spacing.xl },
   card: { backgroundColor: colors.card, borderRadius: radii.xl, padding: spacing.xl },
   title: { fontFamily: fonts.extraBold, fontSize: 17, color: colors.textPrimary, textAlign: 'center' },
-  subtitle: { fontFamily: fonts.regular, fontSize: 12.5, color: colors.textSecondary, textAlign: 'center', marginTop: 4, marginBottom: 18 },
+  subtitle: { fontFamily: fonts.regular, fontSize: 12.5, color: colors.textSecondary, textAlign: 'center', marginTop: 4, marginBottom: 14 },
   modeBtn: {
     flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'center', gap: 8,
     borderWidth: 1.5, borderColor: colors.border, borderRadius: radii.pill, paddingVertical: 12,
@@ -242,13 +291,28 @@ const styles = StyleSheet.create({
   modeBtnActive: { borderColor: colors.accent, backgroundColor: colors.accentTintLight },
   modeBtnText: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.textSecondary },
   modeBtnTextActive: { color: colors.accent },
-  orText: { fontFamily: fonts.semiBold, fontSize: 12, color: colors.textMuted, textAlign: 'center', marginVertical: 12 },
+  orText: { fontFamily: fonts.semiBold, fontSize: 12, color: colors.textMuted, textAlign: 'center', marginVertical: 8 },
+  cityLabel: { fontFamily: fonts.bold, fontSize: 12, color: colors.textSecondary, textAlign: 'right', marginBottom: 6 },
   input: {
     borderWidth: 1, borderColor: colors.border, borderRadius: radii.md, padding: 12,
     fontFamily: fonts.regular, fontSize: 14, color: colors.textPrimary, backgroundColor: colors.bg,
   },
-  travelSection: { marginTop: 18, paddingTop: 16, borderTopWidth: 1, borderTopColor: colors.borderLight },
-  travelTitle: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.textPrimary, textAlign: 'center', marginBottom: 12 },
+  regionLink: {
+    flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'center', gap: 4,
+    alignSelf: 'center', marginTop: 8, paddingVertical: 4, paddingHorizontal: 6,
+  },
+  regionLinkText: { fontFamily: fonts.semiBold, fontSize: 12, color: colors.textMuted },
+  regionLinkTextActive: { color: colors.accent, fontFamily: fonts.bold },
+  regionChipsWrap: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 8, marginTop: 8 },
+  regionChip: {
+    backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border,
+    borderRadius: radii.pill, paddingVertical: 8, paddingHorizontal: 13,
+  },
+  regionChipSelected: { backgroundColor: colors.accentTintLight, borderColor: colors.accent },
+  regionChipText: { fontFamily: fonts.semiBold, fontSize: 12.5, color: colors.textSecondary },
+  regionChipTextSelected: { color: colors.accent, fontFamily: fonts.bold },
+  travelSection: { marginTop: 14, paddingTop: 12, borderTopWidth: 1, borderTopColor: colors.borderLight },
+  travelTitle: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.textPrimary, textAlign: 'center', marginBottom: 10 },
 
   travelOptionWrap: { marginBottom: 10 },
   travelCard: {
@@ -281,7 +345,7 @@ const styles = StyleSheet.create({
   anyRowText: { fontFamily: fonts.semiBold, fontSize: 12.5, color: colors.textSecondary },
   anyRowTextSelected: { color: colors.accent, fontFamily: fonts.bold },
 
-  doneBtn: { marginTop: 18, backgroundColor: colors.accent, borderRadius: radii.pill, paddingVertical: 13, alignItems: 'center' },
+  doneBtn: { marginTop: 16, backgroundColor: colors.accent, borderRadius: radii.pill, paddingVertical: 13, alignItems: 'center' },
   doneBtnDisabled: { opacity: 0.4 },
   doneBtnText: { fontFamily: fonts.bold, fontSize: 14, color: '#fff' },
 });

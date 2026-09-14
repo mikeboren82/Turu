@@ -27,8 +27,10 @@ function isPlacesShape(ed) {
 function normalizeIncomingCandidate(ed) {
   if (!ed || typeof ed !== 'object') return ed;
   if (!isPlacesShape(ed)) {
-    // page-extraction shape: only make sure city is canonical
-    return { ...ed, city: ed.city ? normalizeCityName(ed.city) : ed.city };
+    // page-extraction shape: only make sure city is canonical - and that a dated candidate is never
+    // defaulted to a never-expiring fixed_hours place
+    const schedule_type = ed.schedule_type || (ed.one_time_date || (Array.isArray(ed.occurrences) && ed.occurrences.length) ? 'one_time' : ed.schedule_type);
+    return { ...ed, schedule_type, city: ed.city ? normalizeCityName(ed.city) : ed.city };
   }
   const { street, city } = splitFormattedAddress(ed.formatted_address);
   const name = ed.name || null;

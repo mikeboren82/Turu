@@ -181,38 +181,155 @@ function findEventCard(html, baseUrl, name) {
 const DETAIL_TEXT = /פרטים נוספים|מידע נוסף|לפרטים|קרא עוד|קראו עוד|להזמנת כרטיסים|לרכישת כרטיסים|לפרטים והרשמה|read more|more info/i;
 const DETAIL_HREF = /\/event(s)?\/(?!calendar|category|page|\?|#)[^/?#]+|\/activity\/|\/show\/|\/item\/|[?&](?:event|item|eventid|activityid)=\d+/i;
 // an event card carries a date/time; site navigation ("מכרזים", "צור קשר", "דבר ראש העיר") does not
-const EVENT_CONTEXT = /\b\d{1,2}[./]\d{1,2}(?:[./]\d{2,4})?\b|\b\d{1,2}:\d{2}\b|בשעה|יום (?:ראשון|שני|שלישי|רביעי|חמישי|שישי|שבת)|בתאריך/;
-const NAV_TEXT = /מכרז|צור קשר|אודות|דבר ראש|הנהלה|תנאי שימוש|נגישות|מפת האתר|כניסה|התחברות|חיפוש|עמוד הבית|דף הבית|הצטרפו|ניוזלטר|תשלומים|טפסים/;
+const EVENT_CONTEXT = /\b\d{1,2}[./]\d{1,2}(?:[./]\d{2,4})?\b|\b\d{1,2}:\d{2}\b|בשעה|יום (?:ראשון|שני|שלישי|רביעי|חמישי|שישי|שבת)|בתאריך|ב(?:ינואר|פברואר|מרץ|אפריל|מאי|יוני|יולי|אוגוסט|ספטמבר|אוקטובר|נובמבר|דצמבר)/;
+const NAV_TEXT = /מכרז|הליך איתור|צור קשר|צרו קשר|אודות|דבר ראש|הנהלה|תנאי שימוש|תקנון|נגישות|הצהרת נגישות|מפת האתר|כניסה|התחברות|הרשמה לאתר|חיפוש|עמוד הבית|דף הבית|הצטרפו|ניוזלטר|תשלומים|טפסים|מדיניות פרטיות|שוברים|סל הקניות|עגלה/;
 // alternate-language / mirrored sections of a site ("/ru/events/...", "/en/...") are the same events
 // again - never traverse into them from a Hebrew listing
 const LANG_SECTION = /^\/(ru|en|ar|fr|es|de|uk)(\/|$)/i;
-function findEventDetailLinks(html, baseUrl, { max = 20, allowHosts = [], sameSection = true } = {}) {
+const { isListingShapedUrl } = require('./eventIdentity');
+// the anchor's aria-label / title attributes are part of its text (whole-card anchors with an image and
+// no visible text still name the event that way); listing-shaped URLs (category / paginated / search /
+// host root) are never an event's page. Mirror of _shared/detailLinks.ts findEventDetailLinks.
+function findEventDetailLinks(html, baseUrl, { max = 20, allowHosts = [], sameSection = true, linkSelector = null, urlPattern = null, listingUrls = [] } = {}) {
   const $ = cheerio.load(html);
   const base = new URL(baseUrl);
   const resolveBase = resolveBaseHref($, baseUrl);
   const norm = (h) => h.replace(/^www\./, '');
   const allowed = new Set([norm(base.hostname), ...allowHosts.map(norm)]);
   const baseLang = LANG_SECTION.test(base.pathname);
+  let pattern = null; if (urlPattern) { try { pattern = new RegExp(urlPattern, 'i'); } catch { pattern = null; } }
   const seen = new Set([baseUrl.split('#')[0]]); const out = [];
   $('a[href]').each((_, el) => {
     if (out.length >= max) return false;
-    const href = $(el).attr('href'); if (!href || href.startsWith('#') || /^(mailto|tel|javascript):/i.test(href)) return;
+    const $el = $(el);
+    const href = $el.attr('href'); if (!href || href.startsWith('#') || /^(mailto|tel|javascript):/i.test(href)) return;
     let u; try { u = new URL(href, resolveBase); } catch { return; }
     if (!['http:', 'https:'].includes(u.protocol) || !allowed.has(norm(u.hostname))) return;
     if (sameSection && !baseLang && LANG_SECTION.test(u.pathname)) return;
     u.hash = ''; const key = u.toString(); if (seen.has(key)) return;
-    const text = ($(el).text() || '').replace(/\s+/g, ' ').trim();
-    if (NAV_TEXT.test(text) || $(el).closest('nav, header, footer, .menu, .nav, .breadcrumb, .footer, .header').length) return;
-    const card = $(el).closest('article, li, .event, .card, .item, .post, [class*="event"], [class*="card"]');
+    if (isListingShapedUrl(key, { seedUrl: baseUrl, listingUrls })) return;
+    const text = [$el.text() || '', $el.attr('aria-label') || '', $el.attr('title') || ''].join(' ').replace(/\s+/g, ' ').trim();
+    if (NAV_TEXT.test(text) || $el.closest('nav, header, footer, .menu, .nav, .breadcrumb, .footer, .header').length) return;
+    const card = $el.closest('article, li, .event, .card, .item, .post, .show, [class*="event"], [class*="card"], [class*="show"]');
     const cardText = card.length ? (card.text() || '').replace(/\s+/g, ' ').trim().slice(0, 600) : '';
     const eventContext = EVENT_CONTEXT.test(cardText) || EVENT_CONTEXT.test(text);
-    const ok = DETAIL_TEXT.test(text) || (DETAIL_HREF.test(u.pathname + u.search) && (eventContext || text.length >= 6)) || (eventContext && text.length >= 6 && text.length <= 120);
-    if (!ok) return;
-    seen.add(key); out.push({ url: key, text: text.slice(0, 120) });
+    let method = null;
+    if (linkSelector && (() => { try { return $el.is(linkSelector); } catch { return false; } })()) method = 'adapter_rule';
+    else if (pattern && pattern.test(u.pathname + u.search)) method = 'adapter_rule';
+    else if (DETAIL_TEXT.test(text)) method = 'detail_text';
+    else if (DETAIL_HREF.test(u.pathname + u.search) && (eventContext || text.length >= 6)) method = 'href_shape';
+    else if (eventContext && text.length >= 6 && text.length <= 400) method = 'event_context';
+    if (!method) return;
+    seen.add(key); out.push({ url: key, text: text.slice(0, 160), method });
   });
   return out;
 }
 
 function dedupeBy(arr, key) { const seen = new Set(); return arr.filter((x) => { const k = key(x); if (seen.has(k)) return false; seen.add(k); return true; }); }
 
-module.exports = { extractJsonLd, extractMetaImages, extractMapLinks, extractAddressTexts, extractPageImages, pageText, inIsrael, findEventCard, containsScore, findEventDetailLinks, resolveBaseHref };
+// ---- Node twins of supabase/functions/_shared/detailEvidence.ts (keep in lockstep; tests/pageExtract.test.js) ----
+// OCCURRENCES: only the specific Hebrew textual form (month name + 4-digit year, optional weekday) may
+// produce dated performances; loose dd.mm never does. Each occurrence keeps its own time and, when the
+// anchor that carries it has a booking shape (?id=NNN / booking verb), its purchase link + provider id.
+const HEBREW_MONTHS = { 'ינואר': 1, 'פברואר': 2, 'מרץ': 3, 'מרס': 3, 'אפריל': 4, 'מאי': 5, 'יוני': 6, 'יולי': 7, 'אוגוסט': 8, 'ספטמבר': 9, 'אוקטובר': 10, 'נובמבר': 11, 'דצמבר': 12 };
+const WEEKDAYS = 'ראשון|שני|שלישי|רביעי|חמישי|שישי|שבת';
+const TEXTUAL_DATE_RE = new RegExp(`(?:ב?יום\\s+(?:${WEEKDAYS})\\s*,?\\s*)?(\\d{1,2})\\s+ב?(${Object.keys(HEBREW_MONTHS).join('|')})\\s+(\\d{4})`, 'g');
+const AT_TIME_RE = /(?:בשעה|בשעות|שעה)\s*(\d{1,2}:\d{2})(?:\s*(?:[-–]|עד)\s*(\d{1,2}:\d{2}))?/;
+const BOOKING_HREF = /[?&](?:id|eventid|event_id|showid|show_id|performance|perf|occurrence|ticket)=([\w-]+)/i;
+const BOOKING_TEXT = /רכישה|לרכישה|לרכישת כרטיסים|להזמנה|הזמנה|הזמנת כרטיסים|הרשמה|להרשמה|כרטיסים|קנה כרטיס|קנו כרטיסים|\b(?:buy|tickets?|register|book now)\b/i;
+const MAX_OCCURRENCES = 40, MAX_DAYS_AHEAD = 365;
+const plainText = (html) => (html || '').replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>|<noscript[\s\S]*?<\/noscript>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
+const padTime = (t) => { const [h, m] = t.split(':'); return `${h.padStart(2, '0')}:${m}`; };
+function withinAhead(iso, today) { const d = new Date(iso + 'T00:00:00Z').getTime(), t = new Date(today + 'T00:00:00Z').getTime(); return !Number.isNaN(d) && d >= t && d - t <= MAX_DAYS_AHEAD * 86400000; }
+
+function textualOccurrences(text, today) {
+  const out = [];
+  for (const m of (text || '').matchAll(TEXTUAL_DATE_RE)) {
+    const d = Number(m[1]), mo = HEBREW_MONTHS[m[2]], y = Number(m[3]);
+    if (!mo || d < 1 || d > 31) continue;
+    const iso = `${y}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    if (!withinAhead(iso, today)) continue;
+    const after = text.slice(m.index + m[0].length, m.index + m[0].length + 40);
+    const t = AT_TIME_RE.exec(after);
+    out.push({ date: iso, start_time: t ? padTime(t[1]) : null, end_time: t && t[2] ? padTime(t[2]) : null, evidence: (m[0] + (t ? ' ' + t[0] : '')).trim() });
+    if (out.length >= MAX_OCCURRENCES * 3) break;
+  }
+  return out;
+}
+function anchorOccurrences(html, today, baseUrl) {
+  const out = [];
+  for (const m of (html || '').matchAll(/<a\b([^>]*)>([\s\S]{0,1500}?)<\/a>/gi)) {
+    const attrs = m[1]; const inner = plainText(m[2]);
+    const href = (/\shref=["']([^"']+)["']/i.exec(attrs) || [])[1] || '';
+    const aria = (/\saria-label=["']([^"']+)["']/i.exec(attrs) || [])[1] || '';
+    const title = (/\stitle=["']([^"']+)["']/i.exec(attrs) || [])[1] || '';
+    const occ = textualOccurrences([aria, title, inner].filter(Boolean).join(' '), today);
+    if (!occ.length) continue;
+    let absUrl = null; if (href && !/^(#|mailto:|tel:|javascript:)/i.test(href)) { try { absUrl = new URL(href, baseUrl || undefined).toString(); } catch { absUrl = null; } }
+    const bm = absUrl ? BOOKING_HREF.exec(absUrl) : null;
+    const isBooking = !!absUrl && (!!bm || BOOKING_TEXT.test(inner) || BOOKING_TEXT.test(aria));
+    for (const o of occ.slice(0, 3)) out.push({ ...o, external_id: bm ? bm[1] : null, booking_url: isBooking ? absUrl : null, evidence: (aria || o.evidence).slice(0, 120) });
+    if (out.length >= MAX_OCCURRENCES * 3) break;
+  }
+  return out;
+}
+function extractOccurrences(html, today, baseUrl = null) {
+  const text = plainText(html).slice(0, 12000);
+  const byKey = new Map();
+  const put = (o) => { const k = `${o.date}|${o.start_time || ''}`; const prev = byKey.get(k); if (!prev) { byKey.set(k, o); return; } if (!prev.booking_url && o.booking_url) prev.booking_url = o.booking_url; if (!prev.external_id && o.external_id) prev.external_id = o.external_id; if (!prev.end_time && o.end_time) prev.end_time = o.end_time; };
+  for (const o of anchorOccurrences(html, today, baseUrl)) put(o);
+  for (const o of textualOccurrences(text, today)) {
+    if (o.start_time == null && [...byKey.keys()].some((k) => k.startsWith(o.date + '|') && !k.endsWith('|'))) continue;
+    put({ ...o, external_id: null, booking_url: null });
+  }
+  return [...byKey.values()].sort((a, b) => (a.date + (a.start_time || '')).localeCompare(b.date + (b.start_time || ''))).slice(0, MAX_OCCURRENCES);
+}
+
+// PRICE with tiers: "free" only when no positive amount exists and the free phrase is not the adult tier
+const AMOUNT_RE = /(?:(ילד(?:ים)?|לילד(?:ים)?|מבוגר(?:ים)?|למבוגר(?:ים)?|מלווה|למלווה|תושב(?:ים)?|לתושב(?:ים)?|מנוי(?:ים)?|למנויים|כרטיס|מחיר|החל מ[־-]?|עלות)\s*:?\s*)?(?:₪\s*(\d{1,4})|(\d{1,4})\s*(?:₪|ש"ח|ש״ח|שח\b|שקל(?:ים)?))/g;
+const FREE_RE = /חינם|בחינם|כניסה חופשית|ללא תשלום|ללא עלות/g;
+const ADULT_WORDS = /(מבוגר|למבוגר|מבוגרים|מלווה|למלווה|מלווים|הורה|להורה)/;
+const TIER_LABELS = { 'ילד': 'ילד', 'ילדים': 'ילד', 'לילד': 'ילד', 'לילדים': 'ילד', 'מבוגר': 'מבוגר', 'מבוגרים': 'מבוגר', 'למבוגר': 'מבוגר', 'למבוגרים': 'מבוגר', 'מלווה': 'מבוגר', 'למלווה': 'מבוגר', 'תושב': 'תושב', 'תושבים': 'תושב', 'לתושב': 'תושב', 'לתושבים': 'תושב', 'מנוי': 'מנוי', 'מנויים': 'מנוי', 'למנויים': 'מנוי' };
+function extractPriceTiers(text) {
+  const window = (text || '').slice(0, 6000);
+  const tiers = []; const evid = [];
+  for (const m of window.matchAll(AMOUNT_RE)) {
+    const amount = Number(m[2] || m[3]); if (!(amount > 0) || amount > 2000) continue;
+    const rawLabel = (m[1] || '').replace(/[:\s]+$/, '').trim();
+    const label = TIER_LABELS[rawLabel] || (rawLabel && /החל/.test(rawLabel) ? 'החל מ' : rawLabel || 'כרטיס');
+    if (!tiers.some((t) => t.label === label && t.amount === amount)) { tiers.push({ label, amount }); evid.push(m[0].trim()); }
+    if (tiers.length >= 8) break;
+  }
+  for (const m of window.matchAll(FREE_RE)) {
+    const before = window.slice(Math.max(0, m.index - 14), m.index);
+    if (ADULT_WORDS.test(before)) { if (!tiers.some((t) => t.label === 'מבוגר')) { tiers.push({ label: 'מבוגר', amount: 0 }); evid.push((before + m[0]).trim()); } }
+    else if (!tiers.some((t) => t.label === 'חינם')) { tiers.push({ label: 'חינם', amount: 0 }); evid.push(m[0]); }
+  }
+  const positive = tiers.filter((t) => t.amount > 0);
+  if (!positive.length) return tiers.some((t) => t.label === 'חינם') ? { price_type: 'free', price_amount: 0, tiers, evidence: evid.join(' | ') } : null;
+  const child = positive.find((t) => t.label === 'ילד') || positive.find((t) => t.label === 'החל מ') || positive.reduce((a, b) => (b.amount < a.amount ? b : a));
+  return { price_type: 'fixed', price_amount: child.amount, tiers, evidence: evid.join(' | ') };
+}
+
+// ADDRESS candidates: "רחוב X 12", or "<street words> 12[ א]" right before the known city
+const isSinglePlace = (s) => !!s && s.trim().length <= 60 && (s.match(/,/g) || []).length <= 1;
+function extractAddressCandidates(text, city) {
+  const out = []; const t = (text || '').replace(/\s+/g, ' ');
+  const a = new RegExp(`${STREET_WORDS}\\s+([\\u0590-\\u05FF"'׳״\\-\\s]{2,40}?)\\s+(\\d{1,4})(?:\\s?([א-ת])(?![\\u0590-\\u05FF]))?`, 'u').exec(t);
+  if (a) out.push(`${a[1].trim()} ${a[2]}${a[3] ? ' ' + a[3] : ''}`);
+  if (city) {
+    const c = city.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/[\s-]+/g, '[\\s-]+');
+    const re = new RegExp(`([\\u0590-\\u05FF"'׳״\\-]{2,25}(?:\\s[\\u0590-\\u05FF"'׳״\\-]{2,25}){0,2})\\s+(\\d{1,4})(?:\\s?([א-ת])(?![\\u0590-\\u05FF]))?(?:\\s*,\\s*|\\s+)${c}(?![\\u0590-\\u05FF])`, 'gu');
+    for (const m of t.matchAll(re)) { const cand = `${m[1].trim()} ${m[2]}${m[3] ? ' ' + m[3] : ''}`; if (!out.includes(cand)) out.push(cand); if (out.length >= 5) break; }
+  }
+  return out.filter(isSinglePlace);
+}
+
+// links claimed by more than one differently-named candidate are shared pages, not detail pages
+function sharedLinkUrls(claims) {
+  const names = new Map();
+  for (const c of claims) { const key = (c.name || '').toLowerCase().replace(/\s+/g, ' ').trim(); if (!names.has(c.url)) names.set(c.url, new Set()); names.get(c.url).add(key); }
+  return new Set([...names.entries()].filter(([, s]) => s.size > 1).map(([u]) => u));
+}
+
+module.exports = { extractJsonLd, extractMetaImages, extractMapLinks, extractAddressTexts, extractPageImages, pageText, inIsrael, findEventCard, containsScore, findEventDetailLinks, resolveBaseHref, extractOccurrences, textualOccurrences, extractPriceTiers, extractAddressCandidates, sharedLinkUrls };

@@ -1,0 +1,269 @@
+{
+  "generatedAt": "2026-09-14T18:25:09.735Z",
+  "counts": {
+    "total": 19,
+    "HIGH": 0,
+    "MEDIUM": 19,
+    "DISTINCT": 0,
+    "INSUFFICIENT": 0
+  },
+  "groups": [
+    {
+      "cls": "MEDIUM",
+      "why": "no detail-page provenance to verify against (MEDIUM)",
+      "keeper": "2d6b4fa4-056d-4cf0-80a2-20c67f71ddb3",
+      "name": "שעת סיפור, האריה שטעם תות",
+      "losers": [
+        "a52ed3aa-ec4a-4b1c-9d94-76c147ea0342"
+      ],
+      "dates": [
+        "2026-09-15",
+        "2026-09-15"
+      ]
+    },
+    {
+      "cls": "MEDIUM",
+      "why": "no detail-page provenance to verify against (MEDIUM)",
+      "keeper": "9a20112f-46be-4963-8b39-2d45e175e057",
+      "name": "פסטיבל הקוסם מארץ עוץ",
+      "losers": [
+        "2ea6aa64-0395-461d-a54d-350c8c1c5939"
+      ],
+      "dates": [
+        "2026-09-27",
+        "2026-09-27"
+      ]
+    },
+    {
+      "cls": "MEDIUM",
+      "why": "no detail-page provenance to verify against (MEDIUM)",
+      "keeper": "40c3f0d8-514e-46a5-bd3d-b5a39ae16dfe",
+      "name": "בוקר טוב אמאבא",
+      "losers": [
+        "e3fbd731-9a98-4cc1-a157-0b3c50123d54"
+      ],
+      "dates": [
+        "2026-09-16",
+        "2026-09-23"
+      ]
+    },
+    {
+      "cls": "MEDIUM",
+      "why": "no detail-page provenance to verify against (MEDIUM)",
+      "keeper": "39618c4c-b62c-4934-94c5-10552a9a3894",
+      "name": "גשר של חגיגה",
+      "losers": [
+        "e9ac3172-f38a-499e-8525-56bd6902d7c5",
+        "a5451bf0-997a-4360-ac1f-06fe6d3a153f"
+      ],
+      "dates": [
+        "2026-09-22",
+        "2026-09-23",
+        "2026-09-24"
+      ]
+    },
+    {
+      "cls": "MEDIUM",
+      "why": "no detail-page provenance to verify against (MEDIUM)",
+      "keeper": "91b5276e-0ddc-48d9-91b4-53bb81bfcca1",
+      "name": "חוגגים חנוכה במכוורת לין - הצצה מרתקת לעולמן המופלא של הדבורים",
+      "losers": [
+        "0e4868de-6e44-4206-9c98-c082295369e5"
+      ],
+      "dates": [
+        "2026-12-08",
+        "2026-12-08"
+      ]
+    },
+    {
+      "cls": "MEDIUM",
+      "why": "no detail-page provenance to verify against (MEDIUM)",
+      "keeper": "3263b105-dc38-40f2-9665-746ad8c27217",
+      "name": "בואי ליצור את העתיד שלך",
+      "losers": [
+        "cb5795f4-6eea-4955-91bf-82ffd500349e"
+      ],
+      "dates": [
+        "2026-09-16",
+        "2026-09-16"
+      ]
+    },
+    {
+      "cls": "MEDIUM",
+      "why": "no detail-page provenance to verify against (MEDIUM)",
+      "keeper": "b0da4be6-1656-43ed-8bb2-783ba94c4491",
+      "name": "גשר של חגיגה",
+      "losers": [
+        "3794a77b-0bf5-47e5-a309-5434185a1f09",
+        "29de2029-6702-4aac-9161-ac25db91e107"
+      ],
+      "dates": [
+        "2026-09-22",
+        "2026-09-23",
+        "2026-09-24"
+      ]
+    },
+    {
+      "cls": "MEDIUM",
+      "why": "no detail-page provenance to verify against (MEDIUM)",
+      "keeper": "c1781d2f-3d0e-4ff8-b5d5-2cab0ef9624f",
+      "name": "גן עם אימא (או) אבא - הבית לגיל הרך",
+      "losers": [
+        "4454e419-0c74-461a-af5b-0557574ab37d"
+      ],
+      "dates": [
+        "2026-09-14",
+        "2026-09-16"
+      ]
+    },
+    {
+      "cls": "MEDIUM",
+      "why": "no detail-page provenance to verify against (MEDIUM)",
+      "keeper": "3b6ff4c9-29dc-42df-933d-ee035c5c2bab",
+      "name": "המשחקייה החדשה במרכז לגיל הרך נפתחת!",
+      "losers": [
+        "7087308e-319e-4363-9f7a-da8be0b50db4"
+      ],
+      "dates": [
+        "2026-09-14",
+        "2026-09-16"
+      ]
+    },
+    {
+      "cls": "MEDIUM",
+      "why": "no detail-page provenance to verify against (MEDIUM)",
+      "keeper": "e478931a-c0c9-45b7-8d01-6ada44f65710",
+      "name": "מפגש עם הסופר נדב נוה",
+      "losers": [
+        "c419b4a0-cc45-4f20-870c-70720ea76103"
+      ],
+      "dates": [
+        "2026-09-16",
+        "2026-09-16"
+      ]
+    },
+    {
+      "cls": "MEDIUM",
+      "why": "no detail-page provenance to verify against (MEDIUM)",
+      "keeper": "22095756-97fe-4f09-a58c-119230a504af",
+      "name": "שעת סיפור, הסוכה של שובב הכלבלב",
+      "losers": [
+        "d951bdba-14e8-4e95-b76b-5938093d849d"
+      ],
+      "dates": [
+        "2026-09-22",
+        "2026-09-22"
+      ]
+    },
+    {
+      "cls": "MEDIUM",
+      "why": "no detail-page provenance to verify against (MEDIUM)",
+      "keeper": "12071226-c7cc-45c0-afbf-359ac8458c09",
+      "name": "חגיגת מורשת בגבעת התיתורה",
+      "losers": [
+        "5a6b22e7-23e0-4087-9a5c-5d623995e7a0"
+      ],
+      "dates": [
+        "2026-09-23",
+        "2026-09-23"
+      ]
+    },
+    {
+      "cls": "MEDIUM",
+      "why": "no detail-page provenance to verify against (MEDIUM)",
+      "keeper": "b8fb2d78-e6fd-4ee3-9810-a4828d4ec733",
+      "name": "חופשת לידה בעזריאלי ראשונים",
+      "losers": [
+        "7c7adbb4-292d-4da0-aeb5-1f702d303550"
+      ],
+      "dates": [
+        "2026-09-15",
+        "2026-09-15"
+      ]
+    },
+    {
+      "cls": "MEDIUM",
+      "why": "no detail-page provenance to verify against (MEDIUM)",
+      "keeper": "350b6d39-d731-40f4-86b8-787c89df3975",
+      "name": "ג'ימבורי בית רחל",
+      "losers": [
+        "71c4c542-25fb-4255-bd85-9a14e373c3b4",
+        "7a8d6b6f-674d-4306-87e6-c1d0f6a40a14",
+        "701bb540-3129-4ccf-94b5-abe0eac65f1f",
+        "5fb97803-c3b8-4836-a2aa-d02d333ce05c"
+      ],
+      "dates": [
+        "2026-09-27",
+        "2026-09-28",
+        "2026-09-29",
+        "2026-09-30",
+        "2026-10-01"
+      ]
+    },
+    {
+      "cls": "MEDIUM",
+      "why": "no detail-page provenance to verify against (MEDIUM)",
+      "keeper": "49325644-d6e9-43cc-9cd6-17138ad1b072",
+      "name": "פסטיבל קסמים ואשליות",
+      "losers": [
+        "7a627989-373a-483f-9ba9-4ae5fcc80f65"
+      ],
+      "dates": [
+        "2026-09-28",
+        "2026-09-29"
+      ]
+    },
+    {
+      "cls": "MEDIUM",
+      "why": "no detail-page provenance to verify against (MEDIUM)",
+      "keeper": "032bea13-e1e7-4730-b9f9-d9f05814b658",
+      "name": "סדנת לימוד קסמים עם איילון גאון - קוסם ילדים",
+      "losers": [
+        "fe426753-1af0-4132-b6b7-414e3a369185"
+      ],
+      "dates": [
+        "2026-09-28",
+        "2026-09-29"
+      ]
+    },
+    {
+      "cls": "MEDIUM",
+      "why": "no detail-page provenance to verify against (MEDIUM)",
+      "keeper": "d8c384d8-eb2e-4423-a34e-db99372f84ea",
+      "name": "המטבח של מסייה ללוש",
+      "losers": [
+        "4bf82a01-31d6-4d18-9d8c-ed55f39ab7fc"
+      ],
+      "dates": [
+        "2026-09-28",
+        "2026-09-29"
+      ]
+    },
+    {
+      "cls": "MEDIUM",
+      "why": "no detail-page provenance to verify against (MEDIUM)",
+      "keeper": "79865fe2-3dcd-4e53-a948-a46aca9c6bad",
+      "name": "עוגיות שנה טובה",
+      "losers": [
+        "a1848190-35df-433c-aab4-eb93038722b0"
+      ],
+      "dates": [
+        "2026-09-16",
+        "2026-09-15"
+      ]
+    },
+    {
+      "cls": "MEDIUM",
+      "why": "no detail-page provenance to verify against (MEDIUM)",
+      "keeper": "934861aa-fe30-45fc-8c8b-615f59044a67",
+      "name": "קסם של קוסם",
+      "losers": [
+        "9bd31999-7787-4f4a-be8a-7b6c78b817bc"
+      ],
+      "dates": [
+        "2026-10-04",
+        "2026-10-05"
+      ]
+    }
+  ]
+}

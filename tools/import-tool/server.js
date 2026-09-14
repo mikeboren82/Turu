@@ -22,6 +22,9 @@ const { classifyPlaceholderGroup } = require('./placeholderGroup');
 const { normalizeIncomingCandidate } = require('./incomingShape');
 const { repairModelJson, resolveVenue, normalizeVenueAlias } = require('./venueNaming');
 const { computeEventFingerprint } = require('./eventFingerprint');
+// EVENT identity (stable across occurrences) + occurrence persistence planning (0091 model)
+const { computeEventKey } = require('./lib/eventIdentity');
+const { planScheduleChange, occurrencesPersisted, normalizeOccurrence, occKey } = require('./lib/occurrences');
 
 // Supabase/PostgREST מגביל תגובת select ל-1000 שורות כברירת מחדל בשקט (בלי שגיאה!) - באג
 // שנתקלנו בו שוב ושוב במקומות נפרדים בקובץ הזה (activities/contributors/duplicates/geocode-
@@ -161,9 +164,11 @@ function buildExtractionSystemPrompt() {
   * "השרון": נתניה, כפר סבא, רעננה, הוד השרון, חדרה, אזור עמק חפר, וכן ספציפית "הרצליה פיתוח" או "הרצליה הירוקה" (אך לא "הרצליה" סתם - זו גוש דן, ראו למעלה)
   * "ירושלים והסביבה": ירושלים, מבשרת ציון, מעלה אדומים, בית שמש, גוש עציון
   * "חיפה והקריות": חיפה, טבעון, נשר, וכל ערי "קריית X" ליד מפרץ חיפה בלבד - קריית ביאליק, קריית אתא, קריית ים, קריית מוצקין, קריית חיים
-  * "הצפון והעמק": עכו, נהריה, כרמיאל, עפולה, טבריה, קצרין, ראש פינה, קרית שמונה, מגדל העמק, בית שאן, וכלל יישובי העמקים (יזרעאל/חולה) והגליל.
+  * "הצפון והגליל": עכו, נהריה, כרמיאל, צפת, קצרין, ראש פינה, קרית שמונה, נוף הגליל, וכלל יישובי הגליל (עליון/תחתון/מערבי) והגולן.
     חשוב: "עכו" ו"נהריה" שייכות לכאן, לצפון - לא לחיפה והקריות, למרות הקרבה הגאוגרפית לחיפה.
-  * "השפלה והדרום": רחובות, מודיעין, רמלה, לוד, אשדוד, אשקלון, באר שבע, וכלל יישובי עוטף עזה והערבה
+  * "עמק יזרעאל והעמקים": עפולה, מגדל העמק, יקנעם עילית, טבריה, בית שאן, כפר תבור, נצרת, וכלל יישובי עמק יזרעאל, עמק הירדן וסביבות הכנרת.
+  * "השפלה": רחובות, מודיעין, רמלה, לוד, אשדוד, נס ציונה, יבנה, קריית גת, וכלל יישובי השפלה (הפנימית והחוף) שאינם עוטף עזה/הנגב.
+  * "הדרום והנגב": באר שבע, אשקלון, אילת, שדרות, דימונה, ערד, וכלל יישובי הנגב, עוטף עזה והערבה.
   * "יו\"ש והבנימין": אריאל, מודיעין עילית, ביתר עילית, וכלל יישובי השומרון והבנימין
 
 בהודעת המשתמש תקבל גם "רשימת תמונות מהעמוד" - מערך של אובייקטים {url, alt, context} שנאספו מתגי <img> בעמוד.
@@ -1031,10 +1036,19 @@ async function saveNewActivity(client, userId, sourceUrl, activity, meta = {}) {
         venue_id: activity.venue_id || null,
         organizer_name: activity.organizer_name || null,
         google_place_id: activity.google_place_id || null,
+        // LEGACY first-occurrence fingerprint (exact pre-check only) - event_key is the stable EVENT identity
         event_fingerprint: computeEventFingerprint({
           name: finalName, venueId: activity.venue_id || null, city: activity.city, scheduleType: activity.schedule_type,
           oneTimeDate: activity.one_time_date, recurringDays: activity.recurring_days, startTime: activity.start_time,
         }),
+        ...(() => {
+          const ek = activity.event_key
+            ? { key: activity.event_key, kind: activity.event_key_kind || null }
+            : computeEventKey({ sourceId: meta.sourceId || null, title: finalName, venueId: activity.venue_id || null, externalEventId: activity.external_event_id || null, detailUrl: activity.detail_url || null, detailVerified: !!activity.detail_verified });
+          return ek ? { event_key: ek.key, event_key_kind: ek.kind } : {};
+        })(),
+        // registration_url = an explicit booking/registration action only (never the detail page)
+        official_url: activity.registration_url || null,
         created_by: userId,
         last_seen_at: new Date().toISOString(),
       })
@@ -1045,12 +1059,21 @@ async function saveNewActivity(client, userId, sourceUrl, activity, meta = {}) {
     if (sourceUrl) {
       const { error: provErr } = await client.from('activity_sources').insert({
         activity_id: savedActivity.id, source_id: meta.sourceId || null, page_url: sourceUrl,
-        incoming_activity_id: meta.incomingId || null, relation: 'created',
+        incoming_activity_id: meta.incomingId || null, relation: 'created', url_role: 'listing',
       });
       if (provErr) console.error('activity_sources insert failed (non-fatal):', provErr.message);
     }
+    // the event's DETAIL page (detail traversal) is provenance too, with its role - never registration_url
+    if (activity.detail_url && activity.detail_url !== sourceUrl) {
+      const { error: detErr } = await client.from('activity_sources').upsert({
+        activity_id: savedActivity.id, source_id: meta.sourceId || null, page_url: activity.detail_url,
+        incoming_activity_id: meta.incomingId || null, relation: 'seen', url_role: 'detail', last_seen_at: new Date().toISOString(),
+      }, { onConflict: 'activity_id,page_url' });
+      if (detErr) console.error('activity_sources detail insert failed (non-fatal):', detErr.message);
+    }
 
     const scheduleRows = [];
+    const occurrences = Array.isArray(activity.occurrences) ? activity.occurrences.map(normalizeOccurrence).filter(Boolean) : [];
     if (activity.schedule_type === 'recurring' && Array.isArray(activity.recurring_days) && activity.recurring_days.length) {
       for (const day of activity.recurring_days) {
         scheduleRows.push({
@@ -1060,6 +1083,13 @@ async function saveNewActivity(client, userId, sourceUrl, activity, meta = {}) {
           start_time: activity.start_time || null,
           end_time: activity.end_time || null,
         });
+      }
+    } else if (activity.schedule_type === 'one_time' && occurrences.length) {
+      // one row per OCCURRENCE, each with its own time / provider id / purchase link (unique on date+time)
+      const seen = new Set();
+      for (const o of occurrences) {
+        if (seen.has(occKey(o))) continue; seen.add(occKey(o));
+        scheduleRows.push({ activity_id: savedActivity.id, schedule_type: 'one_time', one_time_date: o.date, start_time: o.start_time, end_time: o.end_time, external_id: o.external_id, booking_url: o.booking_url });
       }
     } else if (activity.schedule_type === 'one_time') {
       scheduleRows.push({
@@ -1129,8 +1159,9 @@ async function saveNewActivity(client, userId, sourceUrl, activity, meta = {}) {
       }
     }
 
-    // חיפוש אתר רשמי - כנ"ל, רק לפעילויות שבאמת יוצגו באפליקציה.
-    if (!archived) {
+    // חיפוש אתר רשמי - כנ"ל, רק לפעילויות שבאמת יוצגו באפליקציה - ורק כשאין כבר קישור הרשמה/רכישה
+    // מפורש מהמקור (registration_url -> official_url למעלה): אין טעם לשלם על חיפוש למה שכבר ידוע.
+    if (!archived && !activity.registration_url) {
       const officialUrl = await findOfficialWebsite(activity.name, activity.city);
       if (officialUrl) {
         const { error: officialUrlErr } = await client
@@ -1268,7 +1299,7 @@ app.post('/api/merge', async (req, res) => {
 // הקיימת. שונה במכוון מ-applyMergedFields (MERGE_ALLOWED_FIELDS) - diff יכול לכלול שדות מיקום/
 // לוח-זמנים שלא קיימים ב-activities עצמה, אז אלה מטופלים כאן בנפרד (באותו דפוס בדיוק כמו
 // /api/manage/update - location דרך locations, שעות/תאריך דרך activity_schedules).
-const INCOMING_UPDATE_SCALAR_KEYS = new Set(['price_amount', 'price_type', 'min_age', 'max_age', 'booking_requirement', 'description']);
+const INCOMING_UPDATE_SCALAR_KEYS = new Set(['price_amount', 'price_type', 'min_age', 'max_age', 'booking_requirement', 'description', 'entity_type']);
 
 async function applyIncomingUpdate(client, userId, existingActivityId, diff, candidate) {
   const scalarFields = {};
@@ -1301,16 +1332,65 @@ async function applyIncomingUpdate(client, userId, existingActivityId, diff, can
     }
   }
 
-  if (diff?.one_time_date || diff?.start_time || diff?.end_time) {
+  // SCHEDULE / OCCURRENCES (0091 model): read the activity's rows first - never a blind "row #1" update,
+  // never a date written onto a recurring row (that produced weekday+date rows before 2026-09-14).
+  if (diff?.one_time_date || diff?.start_time || diff?.end_time || diff?.occurrences || diff?.schedule_type) {
+    const today = new Date().toISOString().slice(0, 10);
     const { data: schedules, error: schedErr } = await client
-      .from('activity_schedules').select('id').eq('activity_id', existingActivityId).limit(1);
+      .from('activity_schedules').select('id, schedule_type, one_time_date, start_time, end_time, day_of_week').eq('activity_id', existingActivityId);
     if (schedErr) throw schedErr;
-    if (schedules && schedules[0]) {
-      const schedFields = {};
-      if (diff.one_time_date) schedFields.one_time_date = diff.one_time_date.after;
+    const rows = schedules || [];
+    const oneTime = rows.filter((r) => r.schedule_type === 'one_time');
+    const candOcc = Array.isArray(candidate?.occurrences) && candidate.occurrences.length
+      ? candidate.occurrences
+      : (candidate?.one_time_date ? [{ date: candidate.one_time_date, start_time: candidate.start_time || null, end_time: candidate.end_time || null }] : []);
+    const converting = !!diff?.schedule_type && diff.schedule_type.after === 'one_time' && candOcc.length >= 2;
+    if (diff?.occurrences || converting) {
+      // add the MISSING future occurrences; on a recurring->one_time conversion insert first, verify every
+      // expected row is persisted, and only then remove the weekday rows (a partial insert keeps them)
+      const plan = planScheduleChange(rows, candOcc, today, { convertRecurring: converting });
+      if (plan.insert.length) {
+        const { error } = await client.from('activity_schedules').insert(plan.insert.map((r) => ({ ...r, activity_id: existingActivityId })));
+        if (error) throw error;
+      }
+      if (converting) {
+        const { data: after, error: afterErr } = await client.from('activity_schedules').select('id, schedule_type, one_time_date, start_time').eq('activity_id', existingActivityId);
+        if (afterErr) throw afterErr;
+        const expected = candOcc.map(normalizeOccurrence).filter((o) => o && o.date >= today);
+        if (!occurrencesPersisted(after, expected)) throw new Error('המרת לוח הזמנים בוטלה: לא כל המועדים נשמרו - שורות ה-recurring נשארו במקום');
+        if (plan.deleteRecurring.length) {
+          const { error: delErr } = await client.from('activity_schedules').delete().in('id', plan.deleteRecurring).eq('schedule_type', 'recurring');
+          if (delErr) throw delErr;
+        }
+      }
+    } else if (diff?.one_time_date && oneTime.length <= 1) {
+      // single-occurrence legacy diff: move THAT one_time row (create it when the record had none)
+      const schedFields = { one_time_date: diff.one_time_date.after };
       if (diff.start_time) schedFields.start_time = diff.start_time.after;
       if (diff.end_time) schedFields.end_time = diff.end_time.after;
-      const { error } = await client.from('activity_schedules').update(schedFields).eq('id', schedules[0].id);
+      if (oneTime[0]) { const { error } = await client.from('activity_schedules').update(schedFields).eq('id', oneTime[0].id); if (error) throw error; }
+      else if (!rows.length) { const { error } = await client.from('activity_schedules').insert({ activity_id: existingActivityId, schedule_type: 'one_time', ...schedFields }); if (error) throw error; }
+    }
+    if ((diff?.start_time || diff?.end_time) && !diff?.one_time_date) {
+      // time change: apply to the occurrence row(s) that carried the old time, else to all rows of the type
+      const timeFields = {}; if (diff.start_time) timeFields.start_time = diff.start_time.after; if (diff.end_time) timeFields.end_time = diff.end_time.after;
+      const before = diff.start_time?.before ? String(diff.start_time.before).slice(0, 5) : null;
+      const targets = rows.filter((r) => (r.schedule_type === 'one_time' || r.schedule_type === 'recurring' || r.schedule_type === 'fixed_hours') && (!before || String(r.start_time || '').slice(0, 5) === before));
+      if (targets.length) { const { error } = await client.from('activity_schedules').update(timeFields).in('id', targets.map((r) => r.id)); if (error) throw error; }
+    }
+  }
+  if (diff?.event_key && diff.event_key.after) {
+    const { error } = await client.from('activities').update({ event_key: diff.event_key.after, event_key_kind: candidate?.event_key_kind || null }).eq('id', existingActivityId).is('event_key', null);
+    if (error) throw error;
+  }
+  // an address from the event's OFFICIAL detail page replaces a merely derived one (reverse geocode /
+  // centroid) - admin-approved through this diff, stamped with its provenance
+  if (diff?.address && diff.address.after) {
+    const { data: cur } = await client.from('activities').select('location_id, locations(address_source)').eq('id', existingActivityId).maybeSingle();
+    const src = cur?.locations?.address_source || null;
+    if (cur?.location_id && (!diff.address.before || /^(cleaner:reverse_geocode|geocode:)/.test(src || ''))) {
+      const fromDetail = candidate?.address_source === 'monster:detail';
+      const { error } = await client.from('locations').update({ address: diff.address.after, address_source: fromDetail ? 'monster:detail' : 'monster:extracted', address_confidence: fromDetail ? 'HIGH' : 'MEDIUM', address_resolved_at: new Date().toISOString() }).eq('id', cur.location_id);
       if (error) throw error;
     }
   }
@@ -1499,6 +1579,10 @@ app.post('/api/manage/fill-missing-info', async (req, res) => {
       const { error } = await client.from('locations').update({ address: found.address }).eq('id', activity.location.id);
       if (error) throw error;
     } else if (issueCode === 'missing_hours' && found.start_time) {
+      // only for an activity with NO schedule rows: a fixed_hours row next to dated occurrences would mark
+      // every day "available" and keep the event from ever expiring
+      const { data: existingRows } = await client.from('activity_schedules').select('id').eq('activity_id', id).limit(1);
+      if (existingRows && existingRows.length) return res.json({ ok: true, found: false, reason: 'activity already has schedule rows' });
       const { error } = await client.from('activity_schedules').insert({
         activity_id: id, schedule_type: 'fixed_hours', start_time: found.start_time, end_time: found.end_time || null,
       });
@@ -2438,6 +2522,8 @@ const SOURCE_FIELDS = new Set([
   'is_active', 'source_trust_score', 'is_trusted',
   // 0077 registry fields (WHO publishes / owning venue / health / adapter strategy)
   'source_kind', 'publisher_name', 'publisher_type', 'venue_id', 'priority', 'strategy', 'discovery_batch', 'disabled_reason',
+  // 0082 adapter configuration (api_json request shape / detail_traversal {max_pages, allow_hosts, link_selector, url_pattern})
+  'adapter_config',
 ]);
 function pickSourceFields(body) {
   const safe = {};
@@ -2452,6 +2538,19 @@ app.get('/api/sources', async (req, res) => {
     const { client } = await getClient();
     const { data, error } = await client.from('sources').select('*').order('created_at', { ascending: false });
     if (error) throw error;
+    // detail-traversal yield badge: the last scan's detail_metrics (0090) per configured source
+    const configured = (data || []).filter((s) => s.adapter_config && s.adapter_config.detail_traversal).map((s) => s.id);
+    if (configured.length) {
+      const { data: logs } = await client.from('source_scan_logs').select('source_id, started_at, detail_metrics')
+        .in('source_id', configured).not('detail_metrics', 'is', null).order('started_at', { ascending: false }).limit(configured.length * 3);
+      const seen = new Set();
+      for (const l of logs || []) {
+        if (seen.has(l.source_id)) continue; seen.add(l.source_id);
+        const m = l.detail_metrics || {}; const filled = Object.values(m.filled || {}).reduce((n, v) => n + (Number(v) || 0), 0);
+        const s = data.find((x) => x.id === l.source_id);
+        if (s) s.detail_yield = `${m.fetched || 0}/${m.attempted || 0} דפים, ${filled} שדות`;
+      }
+    }
     res.json({ sources: data });
   } catch (err) {
     console.error(err);
@@ -2686,8 +2785,16 @@ app.post('/api/incoming/:id/approve', async (req, res) => {
       if (updErr) throw updErr;
       await client.from('activity_sources').upsert({
         activity_id: item.existing_activity_id, source_id: item.source_id, page_url: item.page_url,
-        incoming_activity_id: item.id, relation: 'updated', last_seen_at: new Date().toISOString(),
+        incoming_activity_id: item.id, relation: 'updated', url_role: 'listing', last_seen_at: new Date().toISOString(),
       }, { onConflict: 'activity_id,page_url' });
+      // the event's DETAIL page (detail traversal) is provenance too, with its role
+      const detailUrl = item.extracted_data?.detail_url;
+      if (detailUrl && detailUrl !== item.page_url) {
+        await client.from('activity_sources').upsert({
+          activity_id: item.existing_activity_id, source_id: item.source_id, page_url: detailUrl,
+          incoming_activity_id: item.id, relation: 'seen', url_role: 'detail', last_seen_at: new Date().toISOString(),
+        }, { onConflict: 'activity_id,page_url' });
+      }
       return res.json({ ok: true, activityId: item.existing_activity_id });
     }
 

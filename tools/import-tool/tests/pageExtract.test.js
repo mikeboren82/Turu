@@ -23,3 +23,32 @@ test('event card: an image reused by other cards on the page is reported as shar
   const c3 = findEventCard(html, 'https://x.il/events', 'הצגה: הנעל הכתומה');
   assert.deepEqual(c3.images, ['https://x.il/img/own.jpg']); assert.deepEqual(c3.sharedImages, []);
 });
+
+// ---- Node twins of the detail-evidence parsers (lockstep with _shared/detailEvidence.ts; Ra'anana fixtures) ----
+const fs = require('node:fs');
+const path = require('node:path');
+const { extractOccurrences, extractPriceTiers, extractAddressCandidates, pageText, sharedLinkUrls } = require('../lib/pageExtract');
+const FIX = (f) => fs.readFileSync(path.join(__dirname, '../../../supabase/functions/_shared/fixtures', f), 'utf8');
+const GULI_URL = 'https://tickets.raanana.muni.il/גולי_והגיטרה_ששרה_לגיל_2-4';
+
+test('Ra\'anana detail (Node twin): 8 performances with own times + purchase links, price 45 (adult free tier), address', () => {
+  const html = FIX('raanana-detail-guli.html');
+  const occ = extractOccurrences(html, '2026-09-14', GULI_URL);
+  assert.equal(occ.length, 8);
+  assert.deepEqual([...new Set(occ.map((o) => o.start_time))].sort(), ['16:30', '17:30']);
+  assert.equal(occ[0].external_id, '31436'); assert.ok(occ[0].booking_url.includes('?id=31436'));
+  const price = extractPriceTiers(pageText(html));
+  assert.equal(price.price_type, 'fixed'); assert.equal(price.price_amount, 45); assert.ok(price.tiers.some((t) => t.label === 'מבוגר' && t.amount === 0));
+  assert.deepEqual(extractAddressCandidates(pageText(html), 'רעננה'), ['הפלמ"ח 2 א']);
+  assert.deepEqual(extractOccurrences('<p>עודכן 03.09.2026</p>', '2026-09-14', null), []);
+});
+
+test('Ra\'anana listing (Node twin): aria-label / whole-card anchors are detail links; nav, tender, category and ticketing homepage are not', () => {
+  const links = findEventDetailLinks(FIX('raanana-listing.html'), 'https://tickets.raanana.muni.il/ילדים_ומשפחה', { max: 40 });
+  const urls = links.map((l) => decodeURIComponent(l.url));
+  assert.equal(urls.length, 4); assert.ok(urls.includes(GULI_URL));
+  for (const bad of ['page_67', 'page_83', 'צור_קשר', 'smarticket', 'מכרזים', 'ילדים_ומשפחה']) assert.ok(!urls.some((u) => u.includes(bad)), bad);
+  const aria = findEventDetailLinks('<div class="show"><a href="/e/77" aria-label="מופע הקסמים ביום שני, 12 באוקטובר 2026"><img src="/i.jpg"></a></div>', 'https://x.il/events/', {});
+  assert.deepEqual(aria.map((l) => l.url), ['https://x.il/e/77']);
+  assert.deepEqual([...sharedLinkUrls([{ url: 'u1', name: 'א' }, { url: 'u1', name: 'ב' }, { url: 'u2', name: 'א' }, { url: 'u2', name: 'א' }])], ['u1']);
+});

@@ -179,7 +179,9 @@ function renderIncomingPage() {
     if (c.location_name) parts.push('<b>מיקום:</b> ' + escapeHtml(c.location_name));
     if (c.price_type) parts.push('<b>מחיר:</b> ' + escapeHtml(c.price_type) + (c.price_amount != null ? ' (' + c.price_amount + ' ₪)' : ''));
     if (c.min_age != null || c.max_age != null) parts.push('<b>גילאים:</b> ' + (c.min_age ?? '?') + '-' + (c.max_age ?? '?'));
-    if (c.schedule_type === 'one_time' && c.one_time_date) parts.push('<b>תאריך:</b> ' + escapeHtml(c.one_time_date));
+    if (c.schedule_type === 'one_time' && c.one_time_date) parts.push('<b>תאריך:</b> ' + escapeHtml(c.one_time_date) + (Array.isArray(c.occurrences) && c.occurrences.length > 1 ? ' <span title="' + escapeHtml(c.occurrences.map((o) => o.date + (o.start_time ? ' ' + o.start_time : '')).join(', ')) + '">(+' + (c.occurrences.length - 1) + ' מועדים)</span>' : ''));
+    if (c.detail_url) parts.push('<b>דף פרטים:</b> <a href="' + escapeHtml(c.detail_url) + '" target="_blank" rel="noopener">🔗</a>' + (c.detail_filled ? ' <small>' + escapeHtml(c.detail_filled.join(', ')) + '</small>' : ''));
+    if (c.price_evidence && Array.isArray(c.price_evidence.tiers)) parts.push('<b>מחירון:</b> ' + escapeHtml(c.price_evidence.tiers.map((t) => t.label + ' ' + t.amount + ' ₪').join(', ')));
     if (c.start_time) parts.push('<b>שעה:</b> ' + escapeHtml(c.start_time) + (c.end_time ? '-' + escapeHtml(c.end_time) : ''));
     if (c.description) parts.push('<div style="margin-top:4px;">' + escapeHtml(c.description) + '</div>');
     return '<div class="fields-summary">' + parts.join(' &nbsp;·&nbsp; ') + '</div>';

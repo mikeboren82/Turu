@@ -7,7 +7,7 @@ const fs = require('fs');
 const path = require('path');
 const { getClient } = require('./supabase');
 
-const REGIONS = ['הצפון והעמק', 'חיפה והקריות', 'השרון', 'גוש דן והמרכז', 'ירושלים והסביבה', 'השפלה והדרום', 'יו"ש והבנימין'];
+const REGIONS = ['הצפון והגליל', 'עמק יזרעאל והעמקים', 'חיפה והקריות', 'השרון', 'גוש דן והמרכז', 'ירושלים והסביבה', 'השפלה', 'הדרום והנגב', 'יו"ש והבנימין'];
 const FAMILY_OF_KIND = { municipality_calendar: 'municipality', chain_events_page: 'mall', aggregator: 'aggregator', facebook: 'social', instagram: 'social', ticketing: 'ticketing' };
 const FAMILY_OF_PUBLISHER = { municipality: 'municipality', local_council: 'municipality', regional_council: 'municipality', mall_chain: 'mall', community_center_network: 'community_center', library_network: 'library', aggregator: 'aggregator' };
 const FAMILY_OF_VENUE_TYPE = { mall: 'mall', shopping_center: 'mall', museum: 'museum', library: 'library', community_center: 'community_center', theater: 'theater', cultural_center: 'theater', park: 'nature', farm: 'farm', petting_zoo: 'farm', visitor_center: 'nature', nature_site: 'nature', attraction: 'attraction', sports_center: 'sports' };
@@ -24,7 +24,7 @@ const tally = (arr, fn) => { const m = {}; arr.forEach((x) => { const k = fn(x) 
     all(client, 'sources', '*, venue:venues(venue_type, city, region)'),
     all(client, 'venues', 'id, name_he, venue_type, city, region, is_active, facebook_url, instagram_url, website_url, events_url'),
     all(client, 'activities', 'id, status, category, venue_id, source_id, created_at, last_seen_at, location:locations(region, city), activity_schedules(schedule_type)'),
-    all(client, 'source_scan_logs', 'source_id, started_at, status, activities_found, new_count, updated_count, duplicate_count, auto_approved_count, failure_kind', (q) => q.gte('started_at', new Date(Date.now() - 30 * 86400000).toISOString())),
+    all(client, 'source_scan_logs', 'source_id, started_at, status, activities_found, new_count, updated_count, duplicate_count, auto_approved_count, failure_kind, detail_metrics', (q) => q.gte('started_at', new Date(Date.now() - 30 * 86400000).toISOString())),
     // only the JSON keys we need - pulling whole extracted_data blobs for ~1.5k rows timed out PostgREST
     all(client, 'incoming_activities', 'source_id, status, match_type, found_at, location_name:extracted_data->>location_name, city:extracted_data->>city, venue_id:extracted_data->>venue_id', (q) => q.gte('found_at', new Date(Date.now() - 30 * 86400000).toISOString())),
   ]);
@@ -70,6 +70,17 @@ const tally = (arr, fn) => { const m = {}; arr.forEach((x) => { const k = fn(x) 
     return 'zero_yield';                        // scans succeed, nothing extracted
   };
 
+  // DETAIL ENRICHMENT YIELD (30d, per source with detail traversal configured): links found, pages
+  // attempted/fetched/failed, shared-link and title-mismatch rejections, fields filled by name
+  // (occurrences / price / address / image / ages / audience / registration_url / jsonld:*).
+  const detailYield = {};
+  for (const l of logs) {
+    const m = l.detail_metrics; if (!m) continue;
+    const d = (detailYield[l.source_id] ||= { scans: 0, links: 0, attempted: 0, fetched: 0, failed: 0, relayPrimed: 0, sharedLinks: 0, titleMismatch: 0, filled: {}, filledTotal: 0 });
+    d.scans++; d.links += m.links || 0; d.attempted += m.attempted || 0; d.fetched += m.fetched || 0; d.failed += m.failed || 0; d.relayPrimed += m.relay_primed || 0; d.sharedLinks += m.shared_links || 0; d.titleMismatch += m.rejected_title_mismatch || 0;
+    for (const [k, v] of Object.entries(m.filled || {})) { d.filled[k] = (d.filled[k] || 0) + (Number(v) || 0); d.filledTotal += Number(v) || 0; }
+  }
+
   const report = {
     generatedAt: new Date().toISOString(),
     totals: {
@@ -96,6 +107,7 @@ const tally = (arr, fn) => { const m = {}; arr.forEach((x) => { const k = fn(x) 
     lowYieldSources: active.filter((s) => (yieldBySource[s.id]?.scans || 0) >= 2 && (yieldBySource[s.id]?.found || 0) === 0).map((s) => ({ name: s.name, scans: yieldBySource[s.id].scans, failKinds: yieldBySource[s.id].failKinds })),
     topYieldSources: Object.entries(yieldBySource).map(([id, y]) => ({ name: sources.find((s) => s.id === id)?.name || id, ...y })).sort((a, b) => b.found - a.found).slice(0, 15),
     productivity: tally(sources, productivity),
+    detailYield: sources.filter((s) => s.adapter_config && s.adapter_config.detail_traversal).map((s) => ({ id: s.id, name: s.name, ...(detailYield[s.id] || { scans: 0, links: 0, attempted: 0, fetched: 0, failed: 0, relayPrimed: 0, sharedLinks: 0, titleMismatch: 0, filled: {}, filledTotal: 0 }) })).sort((a, b) => b.filledTotal - a.filledTotal),
     sourceYield: sources.map((s) => ({ id: s.id, name: s.name, region: regionOf(s), family: familyOf(s), active: !!s.is_active, health: s.health_status, trust: s.source_trust_score, productivity: productivity(s), ...(yieldBySource[s.id] || blankYield()) }))
       .sort((a, b) => (b.live + b.created) - (a.live + a.created)),
     gaps: [],
@@ -119,6 +131,8 @@ const tally = (arr, fn) => { const m = {}; arr.forEach((x) => { const k = fn(x) 
   const queueOnly = report.sourceYield.filter((s) => s.productivity === 'queue_only' && s.pending >= 10);
   if (queueOnly.length) gaps.push({ severity: 'medium', kind: 'queue_only_sources', message: `${queueOnly.length} sources feed the review queue (>=10 pending each) but have nothing approved: ${queueOnly.slice(0, 6).map((s) => s.name).join(', ')}`, action: 'review a sample per source; promote trust to >=80 where quality holds so routine items auto-publish' });
   report.unresolvedVenueLabels.filter((u) => u.detections >= 5).slice(0, 10).forEach((u) => gaps.push({ severity: 'medium', kind: 'venue_missing', message: `"${u.label}" seen ${u.detections}× without a canonical venue`, action: 'create the venue (+aliases) in the admin "מקומות" page or source-manifest.json' }));
+  // a source is not "detail-supported" because traversal is configured: it must actually fill fields
+  for (const d of report.detailYield) if (d.scans >= 2 && d.filledTotal === 0) gaps.push({ severity: 'medium', kind: 'detail_zero_yield', message: `${d.name}: detail traversal configured, ${d.scans} scans, ${d.links} links, ${d.attempted} attempted, ${d.titleMismatch} title mismatches, 0 fields filled`, action: 'inspect detail_metrics.unmatched (card link text vs. candidate names) - add link_selector/url_pattern to adapter_config.detail_traversal or fix the seed page' });
   report.gaps = gaps.sort((a, b) => ({ high: 0, medium: 1, low: 2 })[a.severity] - ({ high: 0, medium: 1, low: 2 })[b.severity]);
 
   const file = path.join(__dirname, `coverage-report-${new Date().toISOString().slice(0, 10)}.json`);
@@ -133,6 +147,8 @@ const tally = (arr, fn) => { const m = {}; arr.forEach((x) => { const k = fn(x) 
     console.log('=== SOCIAL-ONLY VENUES ===', report.socialOnlyVenues.length, report.socialOnlyVenues.slice(0, 10).map((v) => v.name).join(', '));
     console.log('=== LOW YIELD ===', report.lowYieldSources.map((s) => s.name).join(', ') || '-');
     console.log('=== PRODUCTIVITY (all sources) ===', report.productivity);
+    console.log('=== DETAIL YIELD (30d, sources with detail traversal) ===');
+    for (const d of report.detailYield) console.log(`${d.name.slice(0, 40).padEnd(40)} scans ${d.scans} links ${d.links} att ${d.attempted} ok ${d.fetched} fail ${d.failed} primed ${d.relayPrimed} shared ${d.sharedLinks} mismatch ${d.titleMismatch} filled ${d.filledTotal} ${JSON.stringify(d.filled)}`);
     console.log('=== BY REGION YIELD (active: productive / queue-only / zero-yield / failing / unscanned | created30d | pending) ===');
     for (const [r, y] of Object.entries(report.byRegionYield)) console.log(`${r.padEnd(18)} ${String(y.activeSources).padStart(3)}: ${y.productive}/${y.queueOnly}/${y.zeroYield}/${y.failing}/${y.unscanned} | ${y.created30d} | ${y.pending}`);
     console.log('\n=== GAPS (ranked) ===');

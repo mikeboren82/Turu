@@ -103,7 +103,15 @@ function splitText(text, limit) {
   return parts;
 }
 
-async function buildPages(seedUrl, detail = { maxPages: 0, allowHosts: [] }) {
+// DETAIL PAGES ARE EVIDENCE, NOT CANDIDATES (2026-09-14): a listing page's event detail pages are relayed
+// as {kind:'detail', parent_url, link_text, html} entries - scan-source primes its detail cache from the
+// html and merges the evidence (occurrences / price / address / image) into the LISTING candidate of the
+// same name, exactly like its own bounded traversal. They are never text-extracted as pages of their own,
+// so one event has one canonical owner (the listing candidate) and no second queue row.
+const DETAIL_HTML_MAX = 300_000;
+function stripForRelay(html) { return html.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>|<svg[\s\S]*?<\/svg>|<noscript[\s\S]*?<\/noscript>/gi, ' ').slice(0, DETAIL_HTML_MAX); }
+
+async function buildPages(seedUrl, detail = { maxPages: 0, allowHosts: [], linkSelector: null, urlPattern: null }) {
   const seed = await fetchHtml(seedUrl);
   if (!seed.ok) throw new Error(`seed HTTP ${seed.status}`);
   const $seed = cheerio.load(seed.html);
@@ -111,17 +119,26 @@ async function buildPages(seedUrl, detail = { maxPages: 0, allowHosts: [] }) {
   const pages = [];
   const seen = new Set(urls);
   let detailBudget = Math.min(Number(detail.maxPages) || 0, MAX_DETAIL_PAGES_HARD) * urls.length;
-  const detailUrls = new Set(); // pages added as detail pages never spawn further traversal (depth 1)
+  const perPage = Math.min(Number(detail.maxPages) || 0, MAX_DETAIL_PAGES_HARD);
   for (const url of urls) {
     try {
       const res = url === seedUrl ? seed : await fetchHtml(url);
       if (!res.ok) continue;
-      // bounded detail traversal: event detail pages of this listing page ride along as pages of their own
-      // (only from listing pages, never from a detail page - depth 1; never into alternate-language sections)
-      if (detailBudget > 0 && !detailUrls.has(url)) {
-        const links = findEventDetailLinks(res.html, url, { max: Math.min(detailBudget, Number(detail.maxPages) || 0), allowHosts: detail.allowHosts || [] });
-        for (const l of links) { if (seen.has(l.url)) continue; seen.add(l.url); urls.push(l.url); detailUrls.add(l.url); detailBudget--; }
-        if (links.length) console.log(`   detail pages from ${url}: +${links.length}`);
+      // bounded detail traversal (depth 1, listing pages only): fetch the event pages this listing links to
+      // and relay them as EVIDENCE for this listing page
+      if (detailBudget > 0) {
+        const links = findEventDetailLinks(res.html, url, { max: Math.min(detailBudget, perPage), allowHosts: detail.allowHosts || [], linkSelector: detail.linkSelector || null, urlPattern: detail.urlPattern || null, listingUrls: urls });
+        let got = 0;
+        for (const l of links) {
+          if (seen.has(l.url)) continue; seen.add(l.url); detailBudget--;
+          try {
+            const dr = await fetchHtml(l.url);
+            if (!dr.ok || !dr.html) continue;
+            pages.push({ url: l.url, kind: 'detail', parent_url: url, link_text: (l.text || '').slice(0, 160), html: stripForRelay(dr.html), text: '', hash: sha256(l.url) });
+            got++;
+          } catch (e) { console.log('   detail page failed:', l.url, e.message.slice(0, 60)); }
+        }
+        if (links.length) console.log(`   detail pages from ${url}: ${got}/${links.length} relayed as evidence`);
       }
       const $ = cheerio.load(res.html.length > 1_500_000 ? res.html.slice(0, 1_500_000) : res.html);
       const images = extractCandidateImages($, url);
@@ -176,23 +193,28 @@ async function buildPages(seedUrl, detail = { maxPages: 0, allowHosts: [] }) {
           // matches them to events by context like page images
           return parts.map((text, i) => ({ url: `${s.seed_url}#part=${i + 1}`, text, hash: sha256(text), images: i === 0 ? (api.images || []) : [] }));
         })()
-        : await buildPages(s.seed_url, { maxPages: args['detail-pages'] != null ? Number(args['detail-pages']) : Number(s.adapter_config?.detail_traversal?.max_pages || 0), allowHosts: s.adapter_config?.detail_traversal?.allow_hosts || [] });
+        : await buildPages(s.seed_url, { maxPages: args['detail-pages'] != null ? Number(args['detail-pages']) : Number(s.adapter_config?.detail_traversal?.max_pages || 0), allowHosts: s.adapter_config?.detail_traversal?.allow_hosts || [], linkSelector: s.adapter_config?.detail_traversal?.link_selector || null, urlPattern: s.adapter_config?.detail_traversal?.url_pattern || null });
       if (!pages.length) { console.log(`✗ ${s.name}: no usable pages`); continue; }
       // One edge invocation extracts ~2-3 dense windows before its time budget (SCAN_TIME_BUDGET_MS)
       // defers the rest, so the pages go in batches: post a batch, wait for that scan to finish
       // (poll source_scan_logs), post the next. Unchanged parts are hash-skipped, so re-runs are cheap.
       const BATCH = Number(args.batch || 3);
       let sent = 0, total = 0;
-      for (let i = 0; i < pages.length; i += BATCH) {
-        const batch = pages.slice(i, i + BATCH);
+      // a listing page and its detail-evidence pages must travel in the SAME batch (scan-source primes
+      // its detail cache from the payload it received) - batch by listing page, detail pages ride along
+      const listing = pages.filter((p) => p.kind !== 'detail');
+      const detailsOf = (p) => pages.filter((d) => d.kind === 'detail' && d.parent_url === p.url.split('#part=')[0]);
+      const batches = []; for (let i = 0; i < listing.length; i += BATCH) { const b = listing.slice(i, i + BATCH); const seenD = new Set(); const ds = []; for (const p of b) for (const d of detailsOf(p)) { if (!seenD.has(d.url)) { seenD.add(d.url); ds.push(d); } } batches.push([...b, ...ds]); }
+      for (let i = 0; i < batches.length; i++) {
+        const batch = batches[i];
         const startedAfter = new Date().toISOString();
         const { error: rpcErr } = await client.rpc('relay_scan_source', { p_source_id: s.id, p_pages: batch });
         if (rpcErr) throw rpcErr;
-        sent += batch.length; total += batch.reduce((n, p) => n + p.text.length, 0);
-        if (i + BATCH < pages.length) {
+        sent += batch.length; total += batch.reduce((n, p) => n + (p.text || '').length + (p.html || '').length, 0);
+        if (i + 1 < batches.length) {
           const done = await waitForScan(client, s.id, startedAfter, 240_000);
-          if (!done) { console.log(`   batch ${Math.floor(i / BATCH) + 1}: scan did not finish in time - remaining ${pages.length - sent} pages left for the next run`); break; }
-          console.log(`   batch ${Math.floor(i / BATCH) + 1}: ${done.status} found ${done.activities_found} new ${done.new_count} dup ${done.duplicate_count} rej ${done.rejected_count}`);
+          if (!done) { console.log(`   batch ${i + 1}: scan did not finish in time - remaining ${pages.length - sent} pages left for the next run`); break; }
+          console.log(`   batch ${i + 1}: ${done.status} found ${done.activities_found} new ${done.new_count} dup ${done.duplicate_count} rej ${done.rejected_count}`);
         }
       }
       console.log(`✓ ${s.name}: relayed ${sent}/${pages.length} pages (${total} chars)`);

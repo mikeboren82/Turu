@@ -33,27 +33,41 @@ async function getExistingActivitiesForCity(client, city, cache) {
   if (cache.has(norm)) return cache.get(norm);
   const cityVariants = [...new Set([norm, city].filter(Boolean))];
   const { data, error } = await client.from('activities')
-    .select('id, name, name_source, description, category, min_age, max_age, price_type, price_amount, booking_requirement, source_url, venue_id, event_fingerprint, location:locations!inner(name, city, lat, lng, address), activity_schedules(schedule_type, one_time_date, start_time, end_time, day_of_week), activity_images(url)')
+    .select('id, name, name_source, description, category, entity_type, min_age, max_age, price_type, price_amount, booking_requirement, source_url, venue_id, event_fingerprint, event_key, event_key_kind, official_url, source_id, location:locations!inner(name, city, lat, lng, address, address_source), activity_schedules(schedule_type, one_time_date, start_time, end_time, day_of_week), activity_images(url)')
     .in('location.city', cityVariants).eq('status', 'approved');
   if (error) throw error;
-  const mapped = (data || []).map((a) => {
-    const sched = (a.activity_schedules || [])[0] || {};
-    return {
-      id: a.id, name: a.name, name_source: a.name_source, description: a.description, category: a.category,
-      min_age: a.min_age, max_age: a.max_age, price_type: a.price_type, price_amount: a.price_amount,
-      booking_requirement: a.booking_requirement, source_url: a.source_url,
-      location_name: a.location?.name ?? null, address: a.location?.address ?? null, city: normalizeCityName(a.location?.city ?? null),
-      lat: a.location?.lat ?? null, lng: a.location?.lng ?? null,
-      venue_id: a.venue_id ?? null, event_fingerprint: a.event_fingerprint ?? null,
-      schedule_type: sched.schedule_type ?? null, one_time_date: sched.one_time_date ?? null,
-      start_time: sched.start_time ?? null, end_time: sched.end_time ?? null,
-      recurring_days: (a.activity_schedules || []).map((s) => s.day_of_week).filter(Boolean),
-      has_image: (a.activity_images || []).length > 0,
-    };
-  });
+  const mapped = (data || []).map((a) => mapExistingRow(a));
   cache.set(norm, mapped);
   return mapped;
 }
+
+// mirror of matching.ts mapExistingRow: every dated performance is an occurrence; the scalar
+// one_time_date/start_time are the EARLIEST UPCOMING one (PostgREST returns child rows unordered)
+function mapExistingRow(a, today = new Date().toISOString().slice(0, 10)) {
+  const rows = a.activity_schedules || [];
+  const occ = rows.filter((s) => s.schedule_type === 'one_time' && s.one_time_date)
+    .map((s) => ({ date: String(s.one_time_date), start_time: s.start_time ? String(s.start_time).slice(0, 5) : null, end_time: s.end_time ? String(s.end_time).slice(0, 5) : null }))
+    .sort((x, y) => (x.date + (x.start_time || '')).localeCompare(y.date + (y.start_time || '')));
+  const next = occ.find((o) => o.date >= today) || occ[0] || null;
+  const sched = next ? null : (rows[0] || {});
+  return {
+    id: a.id, name: a.name, name_source: a.name_source, description: a.description, category: a.category,
+    min_age: a.min_age, max_age: a.max_age, price_type: a.price_type, price_amount: a.price_amount,
+    booking_requirement: a.booking_requirement, source_url: a.source_url,
+    location_name: a.location?.name ?? null, address: a.location?.address ?? null, city: normalizeCityName(a.location?.city ?? null),
+    address_source: a.location?.address_source ?? null,
+    lat: a.location?.lat ?? null, lng: a.location?.lng ?? null,
+    venue_id: a.venue_id ?? null, event_fingerprint: a.event_fingerprint ?? null,
+    event_key: a.event_key ?? null, event_key_kind: a.event_key_kind ?? null, official_url: a.official_url ?? null, source_id: a.source_id ?? null, entity_type: a.entity_type ?? null,
+    schedule_type: next ? 'one_time' : (sched?.schedule_type ?? null), one_time_date: next ? next.date : (sched?.one_time_date ?? null),
+    start_time: next ? next.start_time : (sched?.start_time ? String(sched.start_time).slice(0, 5) : null), end_time: next ? next.end_time : (sched?.end_time ? String(sched.end_time).slice(0, 5) : null),
+    recurring_days: rows.map((s) => s.day_of_week).filter(Boolean),
+    occurrences: occ,
+    has_image: (a.activity_images || []).length > 0,
+  };
+}
+function candidateDates(c) { const s = new Set((Array.isArray(c?.occurrences) ? c.occurrences : []).map((o) => o.date).filter(Boolean)); if (c?.one_time_date) s.add(c.one_time_date); return [...s].sort(); }
+function existingDates(e) { const s = new Set((e.occurrences || []).map((o) => o.date)); if (e.one_time_date) s.add(e.one_time_date); return [...s].sort(); }
 
 async function findSimilarActivities(client, candidate, cache) {
   if (!candidate.name || !candidate.city) return [];
@@ -77,14 +91,15 @@ function computeConfidence(candidate, existing, thresholds) {
     const km = haversineKm(candidate.lat, candidate.lng, existing.lat, existing.lng);
     breakdown.proximity = km <= thresholds.proximityKm ? 1 : Math.max(0, 1 - km / (thresholds.proximityKm * 4));
   } else breakdown.proximity = 0;
-  if (candidate.one_time_date && existing.one_time_date) breakdown.schedule_match = candidate.one_time_date === existing.one_time_date ? 1 : 0;
+  const cDates = candidateDates(candidate), eDates = existingDates(existing);
+  if (cDates.length && eDates.length) breakdown.schedule_match = cDates.some((d) => eDates.includes(d)) ? 1 : 0; // any-date overlap
   else if (candidate.recurring_days?.length && existing.recurring_days?.length) {
     const overlap = candidate.recurring_days.filter((d) => existing.recurring_days.includes(d)).length;
     breakdown.schedule_match = overlap > 0 ? overlap / Math.max(candidate.recurring_days.length, existing.recurring_days.length) : 0;
   } else breakdown.schedule_match = 0;
 
   let score;
-  const urlIdentity = breakdown.exact_url_match >= 1 && (breakdown.name_overlap >= 0.5 || breakdown.schedule_match >= 1);
+  const urlIdentity = breakdown.exact_url_match >= 1 && breakdown.name_overlap >= 0.5; // a shared listing page + same date is not identity
   if (breakdown.fingerprint_match >= 1 || urlIdentity) score = 0.95;
   else if (breakdown.venue_match >= 1) {
     score = (breakdown.name_overlap * 0.3) + (breakdown.venue_match * 0.3) + (breakdown.schedule_match * 0.3) + (breakdown.city_match * 0.1);
@@ -106,4 +121,4 @@ async function bestMatch(client, candidate, thresholds, cache) {
   return best;
 }
 
-module.exports = { wordOverlapScore, haversineKm, getConfidenceThresholds, getExistingActivitiesForCity, findSimilarActivities, computeConfidence, bestMatch };
+module.exports = { wordOverlapScore, haversineKm, getConfidenceThresholds, getExistingActivitiesForCity, findSimilarActivities, computeConfidence, bestMatch, mapExistingRow, candidateDates, existingDates };

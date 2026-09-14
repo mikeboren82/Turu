@@ -20,11 +20,14 @@ const APPLY = process.argv.includes('--apply');
   console.log(`activities: ${all.length}, candidates for fingerprint: ${targets.length} (${APPLY ? 'APPLY' : 'DRY RUN'})`);
   let done = 0;
   for (const a of targets) {
-    const s = a.activity_schedules;
-    const type = s[0].schedule_type;
+    // occurrence model (0091): rows are unordered and there may be several dated ones - the LEGACY
+    // fingerprint is the earliest occurrence's (never rotated afterwards; event_key is the event identity)
+    const s = [...a.activity_schedules].sort((x, y) => String(x.one_time_date || '').localeCompare(String(y.one_time_date || '')) || String(x.start_time || '').localeCompare(String(y.start_time || '')));
+    const first = s.find((x) => x.schedule_type === 'one_time' && x.one_time_date) || s[0];
+    const type = first.schedule_type;
     const fp = computeEventFingerprint({
       name: a.name, venueId: a.venue_id, city: a.location?.city, scheduleType: type,
-      oneTimeDate: s[0].one_time_date, recurringDays: s.map((x) => x.day_of_week).filter(Boolean), startTime: s[0].start_time,
+      oneTimeDate: first.one_time_date, recurringDays: s.map((x) => x.day_of_week).filter(Boolean), startTime: first.start_time,
     });
     if (!fp) continue;
     if (APPLY) { const { error } = await client.from('activities').update({ event_fingerprint: fp }).eq('id', a.id); if (error) console.error(a.id, error.message); }

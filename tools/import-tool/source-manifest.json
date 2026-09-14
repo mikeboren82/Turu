@@ -1686,7 +1686,13 @@
       "region": "גוש דן והמרכז",
       "scan_frequency_hours": 72,
       "priority": 7,
-      "source_trust_score": 85
+      "source_trust_score": 85,
+      "adapter_config": {
+        "detail_traversal": {
+          "max_pages": 8,
+          "allow_hosts": []
+        }
+      }
     },
     {
       "name": "עיריית רמת השרון - תרבות ואירועים",
@@ -1764,7 +1770,13 @@
       "region": "השרון",
       "scan_frequency_hours": 72,
       "priority": 8,
-      "source_trust_score": 85
+      "source_trust_score": 85,
+      "adapter_config": {
+        "detail_traversal": {
+          "max_pages": 8,
+          "allow_hosts": []
+        }
+      }
     },
     {
       "name": "עיריית רעננה - קטנטנים (גיל הרך)",
@@ -2092,7 +2104,13 @@
       "publisher_type": "venue_operator",
       "scan_frequency_hours": 72,
       "priority": 7,
-      "source_trust_score": 85
+      "source_trust_score": 85,
+      "adapter_config": {
+        "detail_traversal": {
+          "max_pages": 8,
+          "allow_hosts": []
+        }
+      }
     },
     {
       "name": "היכל התרבות עכו",
@@ -2388,7 +2406,13 @@
       "scan_frequency_hours": 72,
       "priority": 7,
       "source_trust_score": 85,
-      "publisher_name": "עיריית אשדוד (תיירות)"
+      "publisher_name": "עיריית אשדוד (תיירות)",
+      "adapter_config": {
+        "detail_traversal": {
+          "max_pages": 8,
+          "allow_hosts": []
+        }
+      }
     },
     {
       "name": "רשת המתנ\"סים בית שמש - לוח אירועים",
@@ -3309,7 +3333,13 @@
       "scan_frequency_hours": 72,
       "priority": 6,
       "source_trust_score": 75,
-      "publisher_name": "רשת המתנ\"סים יבנה"
+      "publisher_name": "רשת המתנ\"סים יבנה",
+      "adapter_config": {
+        "detail_traversal": {
+          "max_pages": 8,
+          "allow_hosts": []
+        }
+      }
     },
     {
       "name": "רשת המתנ\"סים קריית אתא - אירועים",

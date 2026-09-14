@@ -7,7 +7,7 @@ import {
   repairHebrewGershayim, repairUnescapedQuotes, parseExtractionResponse, filterPastOneTimeActivities, isPlausibleEventDate, looksLikeStaleRepost,
 } from "./extraction.ts";
 
-import { assessChildRelevance, cheapPageText, cheapDiscoverLinks } from "./extraction.ts";
+import { assessChildRelevance, hasExplicitChildAge, cheapPageText, cheapDiscoverLinks } from "./extraction.ts";
 
 Deno.test("cheapPageText strips scripts/tags/entities without a DOM", () => {
   const html = '<html><head><script>var x = "<b>no</b>";</script><style>.a{}</style></head><body><nav>x</nav><h1>פסטיבל הקוסם</h1><p>27.09 &amp; 28.09 &nbsp; ב-<a href="/x">קניון</a></p><!-- c --></body></html>';
@@ -103,4 +103,11 @@ Deno.test("looksLikeStaleRepost: old published post offered as a one-time event"
   assertEquals(looksLikeStaleRepost({ schedule_type: "one_time", source_published_date: "2026-08-01" }, "2026-09-13"), false);
   assertEquals(looksLikeStaleRepost({ schedule_type: "fixed_hours", source_published_date: "2020-01-01" }, "2026-09-13"), false);
   assertEquals(looksLikeStaleRepost({ schedule_type: "one_time", source_published_date: null }, "2026-09-13"), false);
+});
+
+Deno.test("child relevance: an 'adults' label contradicted by an explicit child age is reviewable, not rejected (dual-tagged toddlers' show)", () => {
+  assertEquals(assessChildRelevance({ audience: 'adults', name: 'גולי והגיטרה ששרה לגיל 2-4', description: 'הפעלה מוסיקלית לקטנטנים. ילדים ומשפחה, אזרחים ותיקים' }), 'review');
+  assertEquals(assessChildRelevance({ audience: 'adults', name: 'הרצאה: המוח החברתי', description: 'לגיל הזהב' }), 'reject');
+  assertEquals(assessChildRelevance({ audience: 'adults', name: 'סדנה למבוגרים בני 40+', description: '' }), 'reject');
+  assertEquals(hasExplicitChildAge('תיאטרון סיפור לגילאי 4 -2'), true);
 });

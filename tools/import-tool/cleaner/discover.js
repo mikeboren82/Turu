@@ -60,11 +60,13 @@ async function discoverCases(client, { today }) {
   for (const a of acts) {
     const pg = a.category === 'גן שעשועים';
     const loc = a.locations; const sched = a.activity_schedules || [];
-    const oneTime = sched.find((s) => s.schedule_type === 'one_time');
-    const eventDate = validDate(oneTime?.one_time_date || null);
+    // occurrence model: several dated rows per event - the event is live until its LAST date passes;
+    // the case's event_date is the earliest upcoming performance
+    const dates = sched.filter((s) => s.schedule_type === 'one_time').map((s) => validDate(s.one_time_date || null)).filter(Boolean).sort();
+    const eventDate = dates.find((d) => d >= today) || dates[dates.length - 1] || null;
     const recurring = sched.some((s) => s.schedule_type === 'recurring');
     const ctx = { eventDate, live: true, recurring, today };
-    if (eventDate && eventDate < today) continue; // expired: the cron archives it, nothing to repair
+    if (dates.length && dates.every((d) => d < today)) continue; // expired: the cron archives it, nothing to repair
     // weak coordinates = provenance says city-centroid geocode (prospective stamp by the approve path,
     // or the multi-signal historical audit) - not a verified location, repairable with stronger evidence
     const weakCoords = loc && loc.lat != null && (loc.address_source === 'geocode:city_centroid' || loc.address_source === 'geocode:city_centroid_suspected');
