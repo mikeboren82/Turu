@@ -19,7 +19,7 @@ import { friendlyAuthError } from '../lib/authErrors';
 // (עברית/אנגלית) כשתיבנה, בלי לחפש מחרוזות בתוך ה-JSX.
 const COPY = {
   // רווח לא-שביר לפני האימוג'י - שלא יישאר לבד בשורה כשהכותרת נשברת במסכים צרים
-  registerTitle: 'נרשמים, ותורו מתחילה להכיר אתכם 💛',
+  registerTitle: 'הופכים את תורו לשלכם 💛',
   loginTitle: 'התחברות לתורו 👋',
   loginSubtitle: 'בחרו את הדרך שבה נרשמתם',
   benefits: [
@@ -46,9 +46,10 @@ const COPY = {
   noAccountAction: 'הרשמה',
   consentRegister: 'בהרשמה לתורו אתם מאשרים את',
   consentLogin: 'בהתחברות לתורו אתם מאשרים את',
-  terms: 'תנאי השימוש',
+  // רווח לא-שביר - שהקישור לא יישבר באמצע שורה
+  terms: 'תנאי השימוש',
   and: 'ואת',
-  privacy: 'מדיניות הפרטיות',
+  privacy: 'מדיניות הפרטיות',
 };
 
 function isValidEmail(v) {
@@ -521,15 +522,16 @@ const styles = StyleSheet.create({
   welcomeSub: { fontFamily: fonts.regular, fontSize: 14, color: colors.textSecondary, textAlign: 'center', marginBottom: 36 },
   welcomeName: { fontFamily: fonts.bold, color: colors.textPrimary },
 
-  registerTitle: { fontFamily: fonts.extraBold, fontSize: 18, color: colors.textPrimary, textAlign: 'center', marginTop: 4, marginBottom: 14 },
+  registerTitle: { fontFamily: fonts.extraBold, fontSize: 20, color: colors.textPrimary, textAlign: 'center', marginTop: 4, marginBottom: 18 },
   loginSubtitle: { fontFamily: fonts.regular, fontSize: 14, color: colors.textSecondary, textAlign: 'center', marginBottom: 22 },
-  benefitsList: { width: '100%', marginBottom: 14, gap: 10 },
+  benefitsList: { width: '100%', marginBottom: 18, gap: 12 },
   benefitRow: { width: '100%', flexDirection: 'row-reverse', alignItems: 'flex-start', gap: 10 },
   benefitEmoji: { fontSize: 17, lineHeight: 22, width: 22, textAlign: 'center' },
   benefitTextWrap: { flex: 1 },
   benefitTitle: { fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary, textAlign: 'right', lineHeight: 20 },
   benefitDesc: { fontFamily: fonts.regular, fontSize: 12.5, color: colors.textSecondary, textAlign: 'right', lineHeight: 17 },
-  registerTagline: { fontFamily: fonts.semiBold, fontSize: 13, color: colors.textSecondary, textAlign: 'center', marginBottom: 14 },
+  // המעבר מ"למה להירשם" אל "נרשמים עכשיו" - מודגש מעט יותר מטקסט משני, בלי להפוך לכותרת
+  registerTagline: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.textPrimary, textAlign: 'center', marginBottom: 14 },
 
   // כפתורי ההתחברות (Google/Apple/אימייל) - אותה גאומטריה בדיוק לשלושתם, גובה מגע של לפחות 48
   authBtn: {
@@ -547,9 +549,10 @@ const styles = StyleSheet.create({
   submitBtnText: { fontFamily: fonts.bold, fontSize: 14.5, color: '#fff' },
   fieldHint: { fontFamily: fonts.regular, fontSize: 11.5, color: colors.textMuted, textAlign: 'center', marginBottom: 4 },
   rtlInput: { textAlign: 'right', writingDirection: 'rtl' },
-  phoneLink: { paddingVertical: 8, marginTop: 4, marginBottom: 6 },
+  phoneLink: { paddingVertical: 8, marginTop: 4, marginBottom: 0 },
   secondaryLinkText: { fontFamily: fonts.semiBold, fontSize: 13, color: colors.textSecondary, textDecorationLine: 'underline' },
-  switchModeRow: { flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'center', gap: 5, marginTop: 10, marginBottom: 14 },
+  // מרווח גדול יותר מעל "כבר יש לכם חשבון?" - שלא ייקרא כחלק מקישור הטלפון שמעליו
+  switchModeRow: { flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'center', gap: 5, marginTop: 22, marginBottom: 14 },
   switchModeText: { fontFamily: fonts.regular, fontSize: 13.5, color: colors.textSecondary },
   switchModeAction: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.accent, textDecorationLine: 'underline' },
 
@@ -580,7 +583,7 @@ const styles = StyleSheet.create({
   },
 
   errorText: { fontFamily: fonts.semiBold, fontSize: 12.5, color: colors.danger, textAlign: 'center', marginBottom: 16 },
-  consentText: { fontFamily: fonts.regular, fontSize: 11.5, color: colors.textMuted, textAlign: 'center', marginTop: 4, lineHeight: 17 },
+  consentText: { fontFamily: fonts.regular, fontSize: 12, color: colors.textMuted, textAlign: 'center', marginTop: 4, lineHeight: 18 },
   consentLink: { fontFamily: fonts.semiBold, color: colors.textSecondary, textDecorationLine: 'underline' },
 
   linkBtn: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.textSecondary, textDecorationLine: 'underline' },

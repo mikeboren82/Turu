@@ -24,7 +24,18 @@
       "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:4321/)",
       "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:4321/messages)",
       "Bash(curl -s http://localhost:4321/api/manage/activities)",
-      "Bash(awk '{print $5, $NF}')"
+      "Bash(awk '{print $5, $NF}')",
+      "WebSearch",
+      "Bash(mkdir -p icons-out)",
+      "Bash(node make-icons.js \"C:/Users/mbore/AppData/Local/Temp/claude/C--Users-mbore-KidsApp/a5cf0fa4-8937-422b-9301-b80aa9a06f0f/scratchpad/icons-out\")",
+      "Bash(grep -iE \"^\\(i18next|react-i18next|expo-localization|i18n-js|lingui\\)$\")",
+      "Bash(sed -i 's/QA done at 375\\\\/360\\\\/320, report given; return-to-intent NOT implemented \\(gap\\); NOT committed/COMMITTED 3fb7bd5 \\(not pushed\\); return-to-intent NOT implemented \\(gap\\)/' MEMORY.md)",
+      "Bash(sed -i 's/Activities header now 2 rows \\(title+count, Search\\\\/Filter-summary\\\\/Display-Sort\\); permanent chip row deleted; \"⚡ עכשיו\" moved from FiltersSheet to a logged-in-only Home link; DONE, browser-verified, NOT committed/Activities header now 2 rows; chip row deleted; \"⚡ עכשיו\" moved out of FiltersSheet; COMMITTED 3fb7bd5 \\(not pushed\\)/' MEMORY.md)",
+      "Bash(sed -i 's/Status: DONE, final report given to the user. NOT committed./Status: DONE. Committed in 3fb7bd5 \\(2026-09-16, not pushed\\) together with the Activities header, icon, city line, sky backgrounds, about page and biometric prompt changes. Excluded: .claude\\\\/settings.local.json \\(personal permissions\\) and tools\\\\/import-tool\\\\/_tmp_reclassify_escape_rooms.sql./' project_registration_ux_2026-09-16.md)",
+      "Read(//c/Users/mbore/TuruBackups/turu-backup-2026-09-16/code/local-only/**)",
+      "PowerShell(Get-PSDrive -PSProvider FileSystem | Select-Object Name, Root, Description | Format-Table -AutoSize | Out-String; foreach \\($p in @\\(\"$env:USERPROFILE\\\\Google Drive\", \"$env:USERPROFILE\\\\My Drive\", \"G:\\\\My Drive\", \"G:\\\\האחסון שלי\"\\)\\) { if \\(Test-Path $p\\) { \"FOUND: $p\" } }; Get-Process -Name GoogleDriveFS -ErrorAction SilentlyContinue | Select-Object -First 1 Name)",
+      "Bash(git add *)",
+      "Bash(git commit *)"
     ]
   }
 }
