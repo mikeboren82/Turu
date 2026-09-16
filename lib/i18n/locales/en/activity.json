@@ -1,0 +1,192 @@
+{
+  "detail": {
+    "loadError": "Couldn't load this activity. Please try again.",
+    "notFound": "We couldn't find this activity",
+    "locationNotSpecified": "Location not specified",
+    "recommendedBy": "Recommended by {{name}} ⭐{{stars}}",
+    "info": {
+      "ages": "Ages",
+      "price": "Price",
+      "hours": "Hours"
+    },
+    "upcomingDates": "📅 Upcoming dates",
+    "occurrenceBuy": "🎟️ Tickets",
+    "moreDates_one": "and 1 more date",
+    "moreDates_other": "and {{count}} more dates",
+    "buyTickets": "🎟️ Buy tickets",
+    "about": "About this activity",
+    "officialSite": "🔗 Official website",
+    "sourceLink": "🔗 Info gathered from this website - view source",
+    "location": "Location",
+    "navigate": "Directions",
+    "findSimilar": "🔍 Find similar activities nearby",
+    "fallbackDescription": "{{title}} - {{type}}, suitable for: {{age}}.",
+    "fallbackRegistration": "Advance registration required.",
+    "fallbackIndoor": "Indoor activity.",
+    "fallbackOutdoor": "Outdoor activity.",
+    "entityTypes": {
+      "place": "Venue",
+      "activity": "Activity",
+      "recurringEvent": "Recurring event",
+      "event": "Event"
+    },
+    "hiddenNotice": "You won't see this activity anymore. You can bring it back from \"My page\" → \"Blocked activities\".",
+    "unhiddenNotice": "Activity unhidden",
+    "plannedAdded": "Added to \"Want to do\"",
+    "plannedRemoved": "Removed from \"Want to do\""
+  },
+  "photos": {
+    "title": "Photos",
+    "empty": "No photos yet - be the first to add one",
+    "fromGallery": "📁 From gallery",
+    "takePhoto": "📸 Take a photo",
+    "uploadingShort": "Uploading...",
+    "add": "+ Add photos",
+    "cameraPermission": "Camera access is needed to take a photo",
+    "libraryPermission": "Photo access is needed to choose a photo",
+    "uploading": "Uploading photo...",
+    "sent": "✓ Photo sent - waiting for review",
+    "uploadError": "Upload failed. Please try again."
+  },
+  "notes": {
+    "communityTitle": "Community notes ({{n}})",
+    "communityEmpty": "No notes yet - be the first to write one",
+    "anonymousAuthor": "Parent",
+    "report": "Report",
+    "communityPlaceholder": "Add a note for the community...",
+    "send": "Send",
+    "communityLoginRequired": "Log in to write a community note",
+    "postError": "Couldn't post your note. Please try again.",
+    "personalTitle": "My personal note",
+    "personalHasNote": "📝 You have a personal note on this activity",
+    "edit": "✏️ Edit",
+    "personalPlaceholder": "Write a private note - only you will see it...",
+    "autoSaveHint": "Your note saves automatically when you leave the field - only you can see it",
+    "personalLoginPrompt": "Log in to save a personal note - ",
+    "signUp": "Sign up",
+    "saved": "Saved ✓",
+    "saveError": "Couldn't save. Please try again."
+  },
+  "report": {
+    "activityLink": "🚩 Report this activity",
+    "sent": "✓ Report sent, thank you",
+    "notePlaceholder": "What's wrong with this activity?",
+    "submit": "Send report",
+    "quick": "Quick report",
+    "addNote": "Add a note & report",
+    "sendError": "Couldn't send the report. Please try again.",
+    "fieldLink": "✏️ Something incorrect on this page?",
+    "fieldPrompt": "What's incorrect?",
+    "fieldNotePlaceholder": "Tell us what's wrong (optional)...",
+    "fieldReason": "Incorrect info - {{field}}",
+    "fieldReasonWithNote": "Incorrect info - {{field}}: {{note}}",
+    "fields": {
+      "ageRange": "Ages",
+      "price": "Price",
+      "hours": "Opening hours",
+      "address": "Location / address",
+      "description": "Description",
+      "other": "Something else"
+    },
+    "sheet": {
+      "titles": {
+        "communityNote": "Report a note",
+        "chatMessage": "Report a message",
+        "user": "Report a user",
+        "default": "Report"
+      },
+      "loginRequired": "Log in to send a report",
+      "login": "Log in",
+      "invalidTarget": "It's not clear what you're reporting",
+      "success": "Report sent, thank you! 🙏",
+      "subtitle": "Your report will be reviewed by the Turu team",
+      "reasons": {
+        "offensive": "Offensive or harassing content",
+        "spam": "Spam or advertising",
+        "misleading": "Incorrect or misleading info",
+        "inappropriate": "Not appropriate for kids",
+        "other": "Something else"
+      }
+    }
+  },
+  "benefits": {
+    "sectionTitle": "🎟️ Benefits & discounts",
+    "howToRedeem": "How to redeem: {{text}}",
+    "detailsLink": "Benefit details →",
+    "specialPrice": "Special price: ₪{{price}}",
+    "tagPersonal": "{{headline}} with {{provider}}",
+    "tagPersonalNoHeadline": "You have a benefit with {{provider}}",
+    "tagMembers": "{{headline}} for {{provider}} members",
+    "tagMembersNoHeadline": "Benefit for {{provider}} members",
+    "defaultHeadline": "Special benefit",
+    "validUntil": "Valid until {{date}}.",
+    "couponRedemption": "Redeem with coupon code: {{code}}",
+    "redemption": {
+      "link": "Buy/redeem through the benefit link.",
+      "showCard": "Show your card or membership on site.",
+      "automatic": "Applied automatically - nothing special to do."
+    }
+  },
+  "admin": {
+    "bar": "🛠️ Admin",
+    "edit": "✏️ Edit",
+    "addBenefit": "🎟️ Add benefit",
+    "delete": "🗑️ Delete",
+    "editTitle": "Edit activity",
+    "nameLabel": "Activity name *",
+    "descriptionLabel": "Description",
+    "categoryLabel": "Category",
+    "typeLabel": "Type",
+    "ageFrom": "Age from",
+    "ageTo": "Age to",
+    "priceLabel": "Price",
+    "pricePaid": "Paid",
+    "durationLabel": "Duration (minutes)",
+    "placeTypeLabel": "Place type",
+    "bookingLabel": "Booking",
+    "cityLabel": "City",
+    "placeNameLabel": "Place name",
+    "nameRequired": "Activity name can't be empty",
+    "saveChanges": "Save changes",
+    "saveError": "Couldn't save. Please try again.",
+    "updated": "✓ Activity updated",
+    "deleteError": "Couldn't delete. Please try again.",
+    "entityTypes": {
+      "place": "Permanent venue",
+      "activity": "Class / activity",
+      "recurringEvent": "Recurring event",
+      "event": "One-time event"
+    },
+    "indoorOutdoor": {
+      "indoor": "Indoors",
+      "outdoor": "Outdoors",
+      "both": "Both"
+    },
+    "booking": {
+      "none": "Not specified",
+      "walkIn": "No registration",
+      "registrationRequired": "Registration required",
+      "advanceBooking": "Advance booking required",
+      "availableNow": "Spots available now"
+    },
+    "benefit": {
+      "title": "Add benefit",
+      "provider": "Benefit provider *",
+      "type": "Benefit type *",
+      "value": "Benefit value (e.g. 20%)",
+      "valuePlaceholder": "20% / 1+1 / 2nd child 50% off",
+      "specialPrice": "Special price (₪)",
+      "validUntil": "End date (optional)",
+      "redemption": "How to redeem",
+      "redemptionUrl": "Redemption link",
+      "couponCode": "Coupon code",
+      "terms": "Benefit terms",
+      "required": "Please choose a provider and a benefit type",
+      "submit": "Add benefit",
+      "added": "✓ Benefit added"
+    },
+    "deleteTitle": "Delete \"{{title}}\"?",
+    "deleteText": "This can't be undone - the activity will be permanently deleted.",
+    "deleteConfirm": "Yes, delete"
+  }
+}

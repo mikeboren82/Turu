@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, ActivityIndicator, Modal, Image } from 'react-native';
+import { View, Text, ScrollView, Pressable, TextInput, ActivityIndicator, Modal, Image } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Svg, { Path, Circle, Line } from 'react-native-svg';
@@ -14,7 +14,7 @@ import {
   CATEGORY_OPTIONS, PRICE_OPTIONS, PLACE_TYPE_OPTIONS, WHEN_OPTIONS, FILTER_SCHEMA, REGION_OPTIONS,
   BOOKING_OPTIONS, DURATION_OPTIONS, AMENITY_COMFORT_OPTIONS, BENEFIT_PROVIDER_OPTIONS,
 } from '../constants/filterSchema';
-import { categorySummary, hebrewJoin } from '../lib/filterSummaries';
+import { categorySummary, listJoin } from '../lib/filterSummaries';
 import { supabase } from '../lib/supabase';
 import { clearPin } from '../lib/pin';
 import { normalizeFilters } from '../lib/filterActivities';
@@ -27,31 +27,75 @@ import { fetchAllPersonalNotes, savePersonalNote, fetchHiddenActivities, toggleH
 import { placeholderImageFor, placeholderBgColorFor } from '../lib/placeholderImages';
 import { relativeDate } from '../lib/formatDate';
 import { requestAccountDeletion } from '../lib/legal';
+import { useI18n, createStyles, t as translate, LOCALES, SUPPORTED_LOCALES } from '../lib/i18n';
+import { categoryLabel, regionLabel, placeName } from '../lib/i18n/format';
 
 // אלו הפילטרים שכבר תמיד מופיעים במסך הראשי (קטגוריה/מיקום כפילטרים ראשיים, גיל כקישור
 // עדין קבוע) - לא הגיוני לתת עליהם toggle נפרד. שאר הרשימה (מתי/מחיר/סוג מקום/הזמנה/משך/
 // נגישות) היא מה שמשתמש יכול לבחור להוסיף כקישורים קטנים נוספים במסך הראשי שלו.
 const TOGGLABLE_HOME_FILTERS = FILTER_SCHEMA.filter((f) => !['category', 'location', 'age'].includes(f.key));
 
+// Labels: profile.notifications.items.<key>
 const NOTIFICATION_ITEMS = [
-  { key: 'new_nearby', label: 'פעילויות חדשות באזור שלי' },
-  { key: 'matches_children', label: 'פעילויות שמתאימות לילדים שלי' },
-  { key: 'weekend_ideas', label: 'רעיונות לסוף השבוע' },
-  { key: 'favorite_categories', label: 'פעילויות חדשות בקטגוריות שאני אוהב/ת' },
-  { key: 'saved_reminders', label: 'תזכורות לפעילויות ששמרתי' },
+  { key: 'new_nearby' },
+  { key: 'matches_children' },
+  { key: 'weekend_ideas' },
+  { key: 'favorite_categories' },
+  { key: 'saved_reminders' },
 ];
 
-const WHEN_QUICK_OPTIONS = [
-  { id: 'today', label: 'היום' },
-  { id: 'tomorrow', label: 'מחר' },
-  { id: 'weekend', label: 'סוף השבוע' },
-];
+// Same options (and locale-aware labels) as the shared WHEN_OPTIONS, limited to today/tomorrow/weekend.
+const WHEN_QUICK_OPTIONS = WHEN_OPTIONS.filter((o) => ['today', 'tomorrow', 'weekend'].includes(o.id));
 
+// Canonical benefit-provider value for "other" (data, not copy).
+const OTHER_BENEFIT = 'אחר'; // i18n-ignore
+
+// Labels: profile.myActivities.tabs.<key>
 const TABS = [
-  { key: 'favorites', label: '❤️ שמורות', table: 'favorites' },
-  { key: 'planned', label: '📅 רוצה לעשות', table: 'planned_activities' },
-  { key: 'visited', label: '✅ היינו שם', table: 'visited_activities' },
+  { key: 'favorites', table: 'favorites' },
+  { key: 'planned', table: 'planned_activities' },
+  { key: 'visited', table: 'visited_activities' },
 ];
+
+// ChevronLeftIcon is drawn pointing left = "open/forward" in Hebrew; mirrored for LTR locales.
+function ForwardChevron() {
+  const { dir } = useI18n();
+  return (
+    <View style={{ transform: [{ rotate: dir.forwardRotate }] }}>
+      <ChevronLeftIcon size={12} color={colors.textMuted} />
+    </View>
+  );
+}
+
+// Language preference row - writes the same global locale as the Home switcher.
+function LanguageRow({ last }) {
+  const { t, locale, setLocale } = useI18n();
+  return (
+    <View style={[styles.settingRow, last && styles.settingRowLast]}>
+      <Text style={styles.settingLabel}>{t('common.language.label')}</Text>
+      <View style={styles.langOptions} accessibilityRole="radiogroup" accessibilityLabel={t('common.language.label')}>
+        {SUPPORTED_LOCALES.map((code) => {
+          const selected = code === locale;
+          return (
+            <Pressable
+              key={code}
+              style={[styles.langOption, selected && styles.langOptionSelected]}
+              onPress={() => setLocale(code)}
+              hitSlop={6}
+              accessibilityRole="radio"
+              accessibilityState={{ checked: selected }}
+              accessibilityLabel={selected
+                ? t('common.language.current', { language: LOCALES[code].nativeName })
+                : t('common.language.switchTo', { language: LOCALES[code].nativeName })}
+            >
+              <Text style={[styles.langOptionText, selected && styles.langOptionTextSelected]}>{LOCALES[code].nativeName}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
 
 function PlusIcon() {
   return (
@@ -85,8 +129,8 @@ function summaryForPreference(key, filters) {
   if (key === 'price') return filters.price?.length ? PRICE_OPTIONS.find((o) => o.id === filters.price[0])?.label : null;
   if (key === 'placeType') return filters.placeType?.length ? PLACE_TYPE_OPTIONS.find((o) => o.id === filters.placeType[0])?.label : null;
   if (key === 'booking') return filters.booking?.length ? BOOKING_OPTIONS.find((o) => o.id === filters.booking[0])?.label : null;
-  if (key === 'duration') return filters.duration?.length ? hebrewJoin(filters.duration.map((id) => DURATION_OPTIONS.find((o) => o.id === id)?.label).filter(Boolean)) : null;
-  if (key === 'amenities') return filters.amenities?.length ? hebrewJoin(filters.amenities.map((id) => AMENITY_COMFORT_OPTIONS.find((o) => o.id === id)?.label).filter(Boolean)) : null;
+  if (key === 'duration') return filters.duration?.length ? listJoin(filters.duration.map((id) => DURATION_OPTIONS.find((o) => o.id === id)?.label).filter(Boolean)) : null;
+  if (key === 'amenities') return filters.amenities?.length ? listJoin(filters.amenities.map((id) => AMENITY_COMFORT_OPTIONS.find((o) => o.id === id)?.label).filter(Boolean)) : null;
   return null;
 }
 
@@ -94,6 +138,7 @@ const emptyChildDraft = { id: null, name: '', gender: null, day: '', month: '', 
 
 export default function ProfileScreen() {
   const router = useRouter();
+  const { t, dir } = useI18n();
   const [loading, setLoading] = useState(true);
   const [session, setSession] = useState(null);
   const [nickname, setNickname] = useState('');
@@ -215,14 +260,14 @@ export default function ProfileScreen() {
       setNotificationPrefs(prefs.notificationPrefs || {});
     } catch (err) {
       setHomeDefaultsDraft(normalizeFilters({}));
-      showNotice(`חלק מההעדפות לא נטענו: ${err.message}`);
+      showNotice(translate('profile.errors.prefsLoad'));
     }
 
     setNotesLoading(true);
     try {
       setNotes(await fetchAllPersonalNotes(userId));
     } catch (err) {
-      showNotice(`ההערות האישיות לא נטענו: ${err.message}`);
+      showNotice(translate('profile.errors.notesLoad'));
     } finally {
       setNotesLoading(false);
     }
@@ -234,7 +279,7 @@ export default function ProfileScreen() {
 
   const loadTab = useCallback(async (tabKey) => {
     if (!session?.user?.id) return;
-    const tab = TABS.find((t) => t.key === tabKey);
+    const tab = TABS.find((x) => x.key === tabKey);
     setTabLoading(true);
     const { data, error } = await supabase
       .from(tab.table)
@@ -277,9 +322,9 @@ export default function ProfileScreen() {
         return [{ activity_id: noteModalTarget.activity_id, note: trimmed, created_at: now, updated_at: now, activity: noteModalTarget.activity }, ...prev];
       });
       setNoteModalOpen(false);
-      showNotice('ההערה נשמרה');
+      showNotice(t('profile.notes.saved'));
     } catch (err) {
-      showNotice(`שגיאה בשמירת ההערה: ${err.message}`);
+      showNotice(t('profile.errors.noteSave'));
     } finally {
       setSavingNoteModal(false);
     }
@@ -304,7 +349,7 @@ export default function ProfileScreen() {
       setNickname(nicknameDraft.trim());
       setEditingNickname(false);
     } else {
-      showNotice(`שגיאה בשמירת הכינוי: ${error.message}`);
+      showNotice(t('profile.errors.nicknameSave'));
     }
   };
 
@@ -330,7 +375,7 @@ export default function ProfileScreen() {
       await saveChildren(session.user.id, next);
       setChildren(next);
     } catch (err) {
-      showNotice(`שגיאה בשמירת פרטי הילדים: ${err.message}`);
+      showNotice(t('profile.errors.childrenSave'));
     } finally {
       setSavingChildren(false);
     }
@@ -366,9 +411,9 @@ export default function ProfileScreen() {
     setSavingHomeDefaults(true);
     try {
       await saveDefaultHomeFilters(session.user.id, homeDefaultsDraft);
-      showNotice('✓ ההעדפות נשמרו - יופיעו כברירת מחדל במסך הבית');
+      showNotice(t('profile.searchPrefs.saved'));
     } catch (err) {
-      showNotice(`שגיאה בשמירה: ${err.message}`);
+      showNotice(t('profile.errors.save'));
     } finally {
       setSavingHomeDefaults(false);
     }
@@ -388,7 +433,7 @@ export default function ProfileScreen() {
       await saveExcludedCategories(session.user.id, excludedDraft);
       setExcludedCategories(excludedDraft);
     } catch (err) {
-      showNotice(`שגיאה בשמירת ההעדפות: ${err.message}`);
+      showNotice(t('profile.errors.prefsSave'));
     } finally {
       setSavingExcluded(false);
     }
@@ -415,7 +460,7 @@ export default function ProfileScreen() {
       setExcludedCities(excludedAreasDraft.cities);
       setExcludedRegions(excludedAreasDraft.regions);
     } catch (err) {
-      showNotice(`שגיאה בשמירת ההעדפות: ${err.message}`);
+      showNotice(t('profile.errors.prefsSave'));
     } finally {
       setSavingExcludedCities(false);
     }
@@ -435,7 +480,7 @@ export default function ProfileScreen() {
       setExcludedCities([]);
       setExcludedRegions([]);
     } catch (err) {
-      showNotice(`שגיאה באיפוס ההעדפות: ${err.message}`);
+      showNotice(t('profile.errors.prefsReset'));
     } finally {
       setSavingExcluded(false);
       setSavingExcludedCities(false);
@@ -453,7 +498,7 @@ export default function ProfileScreen() {
   const closeBenefitClubsPicker = async () => {
     setBenefitClubsPickerOpen(false);
     // "אחר" לא נבחר יותר - הטקסט החופשי כבר לא רלוונטי, לא שומרים אותו (גם אם הוקלד קודם).
-    const otherToSave = benefitClubsDraft.includes('אחר') ? benefitClubsOtherDraft.trim() : '';
+    const otherToSave = benefitClubsDraft.includes(OTHER_BENEFIT) ? benefitClubsOtherDraft.trim() : '';
     if (
       JSON.stringify(benefitClubsDraft) === JSON.stringify(benefitClubs)
       && otherToSave === (benefitClubsOther || '')
@@ -464,7 +509,7 @@ export default function ProfileScreen() {
       setBenefitClubs(benefitClubsDraft);
       setBenefitClubsOther(otherToSave);
     } catch (err) {
-      showNotice(`שגיאה בשמירת ההטבות: ${err.message}`);
+      showNotice(t('profile.errors.benefitsSave'));
     } finally {
       setSavingBenefitClubs(false);
     }
@@ -479,7 +524,7 @@ export default function ProfileScreen() {
     try {
       setHiddenActivities(await fetchHiddenActivities(session.user.id));
     } catch (err) {
-      showNotice(`שגיאה בטעינת הפעילויות החסומות: ${err.message}`);
+      showNotice(t('profile.errors.hiddenLoad'));
     } finally {
       setHiddenLoading(false);
     }
@@ -491,7 +536,7 @@ export default function ProfileScreen() {
       await toggleHidden(session.user.id, activityId, false);
       setHiddenActivities((prev) => prev.filter((r) => r.activity_id !== activityId));
     } catch (err) {
-      showNotice(`שגיאה בביטול החסימה: ${err.message}`);
+      showNotice(t('profile.errors.unhide'));
     } finally {
       setUnhidingId(null);
     }
@@ -507,7 +552,7 @@ export default function ProfileScreen() {
       await saveVisibleHomeFilters(session.user.id, next);
     } catch (err) {
       setVisibleHomeFilters(visibleHomeFilters);
-      showNotice(`שגיאה בשמירה: ${err.message}`);
+      showNotice(t('profile.errors.save'));
     } finally {
       setSavingVisibleFilters(false);
     }
@@ -534,7 +579,7 @@ export default function ProfileScreen() {
       setDeleteConfirmOpen(false);
       setDeleteRequestSent(true);
     } catch (err) {
-      showNotice(`שגיאה בשליחת הבקשה: ${err.message}`);
+      showNotice(t('profile.errors.deleteRequest'));
     } finally {
       setDeleteRequestSubmitting(false);
     }
@@ -559,10 +604,13 @@ export default function ProfileScreen() {
         <View style={styles.content}>
           <Header onMenuPress={() => {}} />
           <View style={styles.center}>
-            <Text style={styles.welcome}>עדיין לא מחוברים</Text>
+            <Text style={styles.welcome}>{t('profile.loggedOut.title')}</Text>
             <Pressable style={styles.loginBtn} onPress={() => router.push('/login')}>
-              <Text style={styles.loginBtnText}>התחברות</Text>
+              <Text style={styles.loginBtnText}>{t('profile.loggedOut.login')}</Text>
             </Pressable>
+            <View style={[styles.accountCard, styles.loggedOutLanguageCard]}>
+              <LanguageRow last />
+            </View>
           </View>
         </View>
       </View>
@@ -573,7 +621,7 @@ export default function ProfileScreen() {
   const showOnboarding = isNewUser && !onboardingDismissed;
 
   const summaryBits = [];
-  if (children.length > 0) summaryBits.push(`👦 ${children.length} ${children.length === 1 ? 'ילד/ה' : 'ילדים'}`);
+  if (children.length > 0) summaryBits.push(t('profile.know.children', { count: children.length }));
   const locSummary = summaryForPreference('location', homeDefaultsDraft || {});
   if (locSummary) summaryBits.push(`📍 ${locSummary}`);
   const catSummary = summaryForPreference('category', homeDefaultsDraft || {});
@@ -593,8 +641,8 @@ export default function ProfileScreen() {
 
         <View style={styles.pageTitleBlock}>
           <Text style={styles.pageEmoji}>👨‍👩‍👧</Text>
-          <Text style={styles.pageTitle}>המשפחה שלי</Text>
-          <Text style={styles.pageSubtitle}>כמה פרטים עליכם, ותורו יתאים את הפעילויות אליכם</Text>
+          <Text style={styles.pageTitle}>{t('profile.page.title')}</Text>
+          <Text style={styles.pageSubtitle}>{t('profile.page.subtitle')}</Text>
         </View>
 
         <View style={styles.profileBlock}>
@@ -606,45 +654,45 @@ export default function ProfileScreen() {
               <View style={styles.nicknameEditRow}>
                 <TextInput style={styles.nicknameInput} value={nicknameDraft} onChangeText={setNicknameDraft} autoFocus />
                 <Pressable onPress={saveNickname} disabled={savingNickname}>
-                  <Text style={styles.nicknameSave}>{savingNickname ? '...' : 'שמירה'}</Text>
+                  <Text style={styles.nicknameSave}>{savingNickname ? '...' : t('common.actions.save')}</Text>
                 </Pressable>
                 <Pressable onPress={() => setEditingNickname(false)}>
-                  <Text style={styles.nicknameCancel}>ביטול</Text>
+                  <Text style={styles.nicknameCancel}>{t('common.actions.cancel')}</Text>
                 </Pressable>
               </View>
             ) : (
               <>
                 <View style={styles.profileNameRow}>
-                  <Text style={styles.profileName}>{nickname || 'ללא כינוי'}</Text>
+                  <Text style={styles.profileName}>{nickname || t('profile.header.noNickname')}</Text>
                   <Text style={styles.profileStars}>⭐{stars}</Text>
                 </View>
                 <Pressable onPress={startEditNickname}>
-                  <Text style={styles.profileEdit}>עריכת כינוי</Text>
+                  <Text style={styles.profileEdit}>{t('profile.header.editNickname')}</Text>
                 </Pressable>
               </>
             )}
           </View>
           <Pressable style={styles.addActivityBtn} onPress={() => router.push('/add-activity')}>
             <PlusIcon />
-            <Text style={styles.addActivityText}>הוסף פעילות</Text>
+            <Text style={styles.addActivityText}>{t('profile.header.addActivity')}</Text>
           </Pressable>
         </View>
 
         {/* 👋 בואו נכיר - הכרטיס הראשון בעמוד (לפני "העדפות חיפוש"), לפי בקשת המשתמש. */}
         {showOnboarding && (
           <View style={styles.onboardingCard}>
-            <Text style={styles.onboardingTitle}>👋 בואו נכיר</Text>
-            <Text style={styles.onboardingSub}>כמה פרטים קטנים יעזרו לנו למצוא לכם פעילויות הרבה יותר טובות.</Text>
+            <Text style={styles.onboardingTitle}>{t('profile.onboarding.title')}</Text>
+            <Text style={styles.onboardingSub}>{t('profile.onboarding.subtitle')}</Text>
             <View style={styles.onboardingSteps}>
-              <Text style={styles.onboardingStep}>1. 👶 בני כמה הילדים?</Text>
-              <Text style={styles.onboardingStep}>2. 📍 איפה אתם מחפשים?</Text>
-              <Text style={styles.onboardingStep}>3. 🎯 מה אתם אוהבים לעשות?</Text>
+              <Text style={styles.onboardingStep}>{t('profile.onboarding.step1')}</Text>
+              <Text style={styles.onboardingStep}>{t('profile.onboarding.step2')}</Text>
+              <Text style={styles.onboardingStep}>{t('profile.onboarding.step3')}</Text>
             </View>
             <Pressable style={styles.onboardingGoBtn} onPress={openAddChild}>
-              <Text style={styles.onboardingGoBtnText}>יאללה, מתחילים 🚀</Text>
+              <Text style={styles.onboardingGoBtnText}>{t('profile.onboarding.start')}</Text>
             </Pressable>
             <Pressable onPress={() => setOnboardingDismissed(true)}>
-              <Text style={styles.onboardingSkip}>לא עכשיו</Text>
+              <Text style={styles.onboardingSkip}>{t('profile.onboarding.skip')}</Text>
             </Pressable>
           </View>
         )}
@@ -656,102 +704,102 @@ export default function ProfileScreen() {
             הפרדה. "קטגוריות שלעולם לא יוצגו לי"/"אזורים שלא להציג" עברו לכאן מ"עוד הגדרות" שהוסר. */}
         <View style={styles.shelf}>
           <Pressable style={styles.shelfHeadToggle} onPress={() => setSearchPrefsOpen((v) => !v)}>
-            <Text style={styles.shelfTitle}>⭐ העדפות חיפוש</Text>
+            <Text style={styles.shelfTitle}>{t('profile.searchPrefs.title')}</Text>
             <View style={{ transform: [{ rotate: searchPrefsOpen ? '180deg' : '0deg' }] }}>
               <ChevronDownIcon size={14} />
             </View>
           </Pressable>
           {searchPrefsOpen && (
             <>
-              <Text style={styles.sectionHint}>נשתמש בזה כדי להציג לכם קודם פעילויות שמתאימות בדיוק לכם - עדיין תוכלו לשנות כל פילטר בכל חיפוש.</Text>
+              <Text style={styles.sectionHint}>{t('profile.searchPrefs.hint')}</Text>
 
               <View style={styles.accountCard}>
                 <Pressable style={styles.settingRow} onPress={() => setPrefLocationOpen(true)}>
-                  <Text style={styles.settingLabel}>📍 מיקום ברירת מחדל</Text>
+                  <Text style={styles.settingLabel}>{t('profile.searchPrefs.location')}</Text>
                   <View style={styles.badgeSetup}>
-                    <Text style={styles.badgeSetupText}>{summaryForPreference('location', homeDefaultsDraft) || 'בחירה'}</Text>
-                    <ChevronLeftIcon size={12} />
+                    <Text style={styles.badgeSetupText}>{summaryForPreference('location', homeDefaultsDraft) || t('profile.searchPrefs.choose')}</Text>
+                    <ForwardChevron />
                   </View>
                 </Pressable>
                 <Pressable style={styles.settingRow} onPress={() => setPrefCategoryOpen(true)}>
-                  <Text style={styles.settingLabel}>🎯 סוגי פעילויות מועדפים</Text>
+                  <Text style={styles.settingLabel}>{t('profile.searchPrefs.category')}</Text>
                   <View style={styles.badgeSetup}>
-                    <Text style={styles.badgeSetupText}>{summaryForPreference('category', homeDefaultsDraft) || 'בחירה'}</Text>
-                    <ChevronLeftIcon size={12} />
+                    <Text style={styles.badgeSetupText}>{summaryForPreference('category', homeDefaultsDraft) || t('profile.searchPrefs.choose')}</Text>
+                    <ForwardChevron />
                   </View>
                 </Pressable>
                 <Pressable style={styles.settingRow} onPress={() => setPrefWhenOpen(true)}>
-                  <Text style={styles.settingLabel}>📅 מתי בדרך כלל מחפשים?</Text>
+                  <Text style={styles.settingLabel}>{t('profile.searchPrefs.when')}</Text>
                   <View style={styles.badgeSetup}>
-                    <Text style={styles.badgeSetupText}>{summaryForPreference('when', homeDefaultsDraft) || 'כל הזמן'}</Text>
-                    <ChevronLeftIcon size={12} />
+                    <Text style={styles.badgeSetupText}>{summaryForPreference('when', homeDefaultsDraft) || t('profile.searchPrefs.anyTime')}</Text>
+                    <ForwardChevron />
                   </View>
                 </Pressable>
                 <Pressable style={styles.settingRow} onPress={() => setPrefPriceOpen(true)}>
-                  <Text style={styles.settingLabel}>💰 העדפת מחיר</Text>
+                  <Text style={styles.settingLabel}>{t('profile.searchPrefs.price')}</Text>
                   <View style={styles.badgeSetup}>
-                    <Text style={styles.badgeSetupText}>{summaryForPreference('price', homeDefaultsDraft) || 'כל המחירים'}</Text>
-                    <ChevronLeftIcon size={12} />
+                    <Text style={styles.badgeSetupText}>{summaryForPreference('price', homeDefaultsDraft) || t('profile.searchPrefs.allPrices')}</Text>
+                    <ForwardChevron />
                   </View>
                 </Pressable>
                 <Pressable style={styles.settingRow} onPress={() => setPrefPlaceTypeOpen(true)}>
-                  <Text style={styles.settingLabel}>🏠 סוג מקום מועדף</Text>
+                  <Text style={styles.settingLabel}>{t('profile.searchPrefs.placeType')}</Text>
                   <View style={styles.badgeSetup}>
-                    <Text style={styles.badgeSetupText}>{summaryForPreference('placeType', homeDefaultsDraft) || 'לא משנה'}</Text>
-                    <ChevronLeftIcon size={12} />
+                    <Text style={styles.badgeSetupText}>{summaryForPreference('placeType', homeDefaultsDraft) || t('profile.searchPrefs.noPreference')}</Text>
+                    <ForwardChevron />
                   </View>
                 </Pressable>
                 <Pressable style={styles.settingRow} onPress={() => setPrefBookingOpen(true)}>
-                  <Text style={styles.settingLabel}>🎟️ הזמנה</Text>
+                  <Text style={styles.settingLabel}>{t('profile.searchPrefs.booking')}</Text>
                   <View style={styles.badgeSetup}>
-                    <Text style={styles.badgeSetupText}>{summaryForPreference('booking', homeDefaultsDraft) || 'לא משנה'}</Text>
-                    <ChevronLeftIcon size={12} />
+                    <Text style={styles.badgeSetupText}>{summaryForPreference('booking', homeDefaultsDraft) || t('profile.searchPrefs.noPreference')}</Text>
+                    <ForwardChevron />
                   </View>
                 </Pressable>
                 <Pressable style={styles.settingRow} onPress={() => setPrefDurationOpen(true)}>
-                  <Text style={styles.settingLabel}>⏱️ משך פעילות</Text>
+                  <Text style={styles.settingLabel}>{t('profile.searchPrefs.duration')}</Text>
                   <View style={styles.badgeSetup}>
-                    <Text style={styles.badgeSetupText} numberOfLines={1}>{summaryForPreference('duration', homeDefaultsDraft) || 'לא משנה'}</Text>
-                    <ChevronLeftIcon size={12} />
+                    <Text style={styles.badgeSetupText} numberOfLines={1}>{summaryForPreference('duration', homeDefaultsDraft) || t('profile.searchPrefs.noPreference')}</Text>
+                    <ForwardChevron />
                   </View>
                 </Pressable>
                 <Pressable style={styles.settingRow} onPress={() => setPrefAmenitiesOpen(true)}>
-                  <Text style={styles.settingLabel}>♿ נגישות ונוחות</Text>
+                  <Text style={styles.settingLabel}>{t('profile.searchPrefs.amenities')}</Text>
                   <View style={styles.badgeSetup}>
-                    <Text style={styles.badgeSetupText} numberOfLines={1}>{summaryForPreference('amenities', homeDefaultsDraft) || 'לא משנה'}</Text>
-                    <ChevronLeftIcon size={12} />
+                    <Text style={styles.badgeSetupText} numberOfLines={1}>{summaryForPreference('amenities', homeDefaultsDraft) || t('profile.searchPrefs.noPreference')}</Text>
+                    <ForwardChevron />
                   </View>
                 </Pressable>
                 <Pressable style={styles.settingRow} onPress={openExcludedPicker} disabled={savingExcluded}>
-                  <Text style={styles.settingLabel}>🚫 קטגוריות שלעולם לא יוצגו לי</Text>
+                  <Text style={styles.settingLabel}>{t('profile.searchPrefs.excludedCategories')}</Text>
                   <View style={styles.badgeSetup}>
                     <Text style={styles.badgeSetupText} numberOfLines={1}>
-                      {savingExcluded ? 'שומר...' : excludedCategories.length > 0 ? excludedCategories.join(' · ') : 'בחירה'}
+                      {savingExcluded ? t('common.actions.saving') : excludedCategories.length > 0 ? excludedCategories.map(categoryLabel).join(' · ') : t('profile.searchPrefs.choose')}
                     </Text>
-                    <ChevronLeftIcon size={12} />
+                    <ForwardChevron />
                   </View>
                 </Pressable>
                 <Pressable style={[styles.settingRow, styles.settingRowLast]} onPress={openExcludedCitiesPicker} disabled={savingExcludedCities}>
-                  <Text style={styles.settingLabel}>⛔ הסר אזורים מהחיפוש</Text>
+                  <Text style={styles.settingLabel}>{t('profile.searchPrefs.excludedAreas')}</Text>
                   <View style={styles.badgeSetup}>
                     <Text style={styles.badgeSetupText} numberOfLines={1}>
-                      {savingExcludedCities ? 'שומר...' : (excludedRegions.length + excludedCities.length) > 0
-                        ? [...excludedRegions.map((id) => REGION_OPTIONS.find((r) => r.id === id)?.label || id), ...excludedCities].join(' · ')
-                        : 'בחירה'}
+                      {savingExcludedCities ? t('common.actions.saving') : (excludedRegions.length + excludedCities.length) > 0
+                        ? [...excludedRegions.map((id) => REGION_OPTIONS.find((r) => r.id === id)?.label || regionLabel(id)), ...excludedCities.map(placeName)].join(' · ')
+                        : t('profile.searchPrefs.choose')}
                     </Text>
-                    <ChevronLeftIcon size={12} />
+                    <ForwardChevron />
                   </View>
                 </Pressable>
               </View>
 
               {(excludedCategories.length > 0 || excludedCities.length > 0 || excludedRegions.length > 0) && (
                 <Pressable style={styles.resetAllPrefsBtn} onPress={resetAllSearchPreferences}>
-                  <Text style={styles.resetAllPrefsBtnText}>איפוס כל העדפות החיפוש</Text>
+                  <Text style={styles.resetAllPrefsBtnText}>{t('profile.searchPrefs.resetAll')}</Text>
                 </Pressable>
               )}
 
               <Pressable style={styles.saveDefaultsBtn} onPress={handleSaveHomeDefaults} disabled={savingHomeDefaults}>
-                <Text style={styles.saveDefaultsBtnText}>{savingHomeDefaults ? 'שומר...' : '💾 שמירת ההעדפות'}</Text>
+                <Text style={styles.saveDefaultsBtnText}>{savingHomeDefaults ? t('common.actions.saving') : t('profile.searchPrefs.save')}</Text>
               </Pressable>
             </>
           )}
@@ -759,28 +807,28 @@ export default function ProfileScreen() {
 
         {/* 👶 הילדים שלי */}
         <View style={styles.shelf}>
-          <View style={styles.shelfHead}><Text style={styles.shelfTitle}>👶 הילדים שלי</Text></View>
+          <View style={styles.shelfHead}><Text style={styles.shelfTitle}>{t('profile.children.title')}</Text></View>
 
           {children.length === 0 ? (
             <>
               <View style={styles.emptyShelf}>
-                <Text style={styles.emptyShelfText}>עדיין לא הוספתם ילדים</Text>
+                <Text style={styles.emptyShelfText}>{t('profile.children.empty')}</Text>
               </View>
               <View style={styles.benefitsRow}>
                 <View style={styles.benefitCard}>
                   <Text style={styles.benefitEmoji}>🎯</Text>
-                  <Text style={styles.benefitTitle}>התאמה טובה יותר</Text>
-                  <Text style={styles.benefitText}>נציג פעילויות שמתאימות לגיל הילדים.</Text>
+                  <Text style={styles.benefitTitle}>{t('profile.children.benefitMatchTitle')}</Text>
+                  <Text style={styles.benefitText}>{t('profile.children.benefitMatchText')}</Text>
                 </View>
                 <View style={styles.benefitCard}>
                   <Text style={styles.benefitEmoji}>⚡</Text>
-                  <Text style={styles.benefitTitle}>פחות חיפושים</Text>
-                  <Text style={styles.benefitText}>לא תצטרכו לבחור גילאים מחדש בכל פעם.</Text>
+                  <Text style={styles.benefitTitle}>{t('profile.children.benefitFasterTitle')}</Text>
+                  <Text style={styles.benefitText}>{t('profile.children.benefitFasterText')}</Text>
                 </View>
                 <View style={styles.benefitCard}>
                   <Text style={styles.benefitEmoji}>❤️</Text>
-                  <Text style={styles.benefitTitle}>המלצות אישיות</Text>
-                  <Text style={styles.benefitText}>נציג לכם פעילויות רלוונטיות למשפחה שלכם.</Text>
+                  <Text style={styles.benefitTitle}>{t('profile.children.benefitPersonalTitle')}</Text>
+                  <Text style={styles.benefitText}>{t('profile.children.benefitPersonalText')}</Text>
                 </View>
               </View>
             </>
@@ -790,7 +838,7 @@ export default function ProfileScreen() {
                 <View key={child.id} style={styles.childCard}>
                   <Text style={styles.childEmoji}>{child.gender === 'female' ? '👧' : child.gender === 'male' ? '👦' : '🧒'}</Text>
                   <View style={styles.childInfo}>
-                    <Text style={styles.childName}>{child.name || 'ילד/ה'}</Text>
+                    <Text style={styles.childName}>{child.name || t('profile.children.fallbackName')}</Text>
                     <Text style={styles.childAge}>{formatChildAge(child)}</Text>
                   </View>
                   <Pressable style={styles.childActionBtn} onPress={() => openEditChild(child)} hitSlop={6}>
@@ -805,18 +853,18 @@ export default function ProfileScreen() {
           )}
 
           <Pressable style={styles.addChildBtn} onPress={openAddChild} disabled={savingChildren}>
-            <Text style={styles.addChildBtnText}>{savingChildren ? 'שומר...' : '+ הוסף ילד'}</Text>
+            <Text style={styles.addChildBtnText}>{savingChildren ? t('common.actions.saving') : t('profile.children.add')}</Text>
           </Pressable>
 
           {children.length > 0 && (
-            <Text style={styles.childrenFooterHint}>כשנכיר את גילאי הילדים, נוכל להתאים לכם פעילויות בצורה מדויקת יותר.</Text>
+            <Text style={styles.childrenFooterHint}>{t('profile.children.footerHint')}</Text>
           )}
         </View>
 
         {/* מה תורו יודע */}
         {summaryBits.length > 0 && (
           <View style={styles.knowCard}>
-            <Text style={styles.knowTitle}>מה תורו יודע על המשפחה שלי?</Text>
+            <Text style={styles.knowTitle}>{t('profile.know.title')}</Text>
             {summaryBits.map((bit, i) => (
               <Text key={i} style={styles.knowBit}>{bit}</Text>
             ))}
@@ -825,15 +873,15 @@ export default function ProfileScreen() {
 
         {/* ❤️ הפעילויות שלי */}
         <View style={styles.shelf}>
-          <View style={styles.shelfHead}><Text style={styles.shelfTitle}>❤️ הפעילויות שלי</Text></View>
+          <View style={styles.shelfHead}><Text style={styles.shelfTitle}>{t('profile.myActivities.title')}</Text></View>
           <View style={styles.tabsRow}>
-            {TABS.map((t) => (
+            {TABS.map((tabDef) => (
               <Pressable
-                key={t.key}
-                style={[styles.tabBtn, activeTab === t.key && styles.tabBtnActive]}
-                onPress={() => setActiveTab(t.key)}
+                key={tabDef.key}
+                style={[styles.tabBtn, activeTab === tabDef.key && styles.tabBtnActive]}
+                onPress={() => setActiveTab(tabDef.key)}
               >
-                <Text style={[styles.tabBtnText, activeTab === t.key && styles.tabBtnTextActive]}>{t.label}</Text>
+                <Text style={[styles.tabBtnText, activeTab === tabDef.key && styles.tabBtnTextActive]}>{t(`profile.myActivities.tabs.${tabDef.key}`)}</Text>
               </Pressable>
             ))}
           </View>
@@ -841,7 +889,7 @@ export default function ProfileScreen() {
             <ActivityIndicator color={colors.accent} style={{ marginTop: 12 }} />
           ) : tabItems.length === 0 ? (
             <View style={styles.emptyShelf}>
-              <Text style={styles.emptyShelfText}>עדיין אין כלום כאן</Text>
+              <Text style={styles.emptyShelfText}>{t('profile.myActivities.empty')}</Text>
             </View>
           ) : (
             tabItems.slice(0, 3).map((item) => {
@@ -851,7 +899,7 @@ export default function ProfileScreen() {
                   <Pressable style={styles.tabItemMain} onPress={() => router.push(`/activity/${item.activity_id}`)}>
                     <Text style={styles.tabItemTitle} numberOfLines={1}>{item.activity.name}</Text>
                     <Text style={styles.tabItemSub} numberOfLines={1}>
-                      {[item.activity.category, item.activity.location?.city || item.activity.location?.name].filter(Boolean).join(' · ')}
+                      {[categoryLabel(item.activity.category), placeName(item.activity.location?.city) || item.activity.location?.name].filter(Boolean).join(' · ')}
                     </Text>
                   </Pressable>
                   <Pressable
@@ -859,14 +907,14 @@ export default function ProfileScreen() {
                     onPress={() => openNoteForActivity(item.activity_id, item.activity.name)}
                     hitSlop={6}
                   >
-                    <Text style={styles.tabItemNoteBtnText}>{hasNote ? '📝 הערה' : '📝 הוסף הערה'}</Text>
+                    <Text style={styles.tabItemNoteBtnText}>{hasNote ? t('profile.myActivities.note') : t('profile.myActivities.addNote')}</Text>
                   </Pressable>
                 </View>
               );
             })
           )}
           <Pressable style={styles.allDestinationsBtn} onPress={() => router.push('/my-things')}>
-            <Text style={styles.allDestinationsBtnText}>📍 לכל היעדים שלי ←</Text>
+            <Text style={styles.allDestinationsBtnText}>{t('profile.myActivities.allDestinations')}</Text>
           </Pressable>
         </View>
 
@@ -875,21 +923,21 @@ export default function ProfileScreen() {
             /my-things?tab=notes ("📝 הערות שלי", טאב ייעודי בעמוד "❤️ הדברים שלי" המאוחד). */}
         <View style={styles.shelf}>
           <View style={styles.shelfHead}>
-            <Text style={styles.shelfTitle}>📝 ההערות האישיות שלי</Text>
-            <Text style={styles.sectionHint}>המקום הפרטי שלכם לזכור דברים חשובים על הפעילויות</Text>
+            <Text style={styles.shelfTitle}>{t('profile.notes.title')}</Text>
+            <Text style={styles.sectionHint}>{t('profile.notes.hint')}</Text>
           </View>
 
           {notesLoading ? (
             <ActivityIndicator color={colors.accent} style={{ marginTop: 12 }} />
           ) : notes.length === 0 ? (
             <View style={styles.emptyShelf}>
-              <Text style={styles.emptyShelfText}>עדיין אין לכם הערות אישיות.</Text>
-              <Text style={[styles.emptyShelfText, { marginTop: 4 }]}>הוסיפו הערה מתוך עמוד פעילות כדי לזכור דברים חשובים לפעם הבאה.</Text>
+              <Text style={styles.emptyShelfText}>{t('profile.notes.emptyTitle')}</Text>
+              <Text style={[styles.emptyShelfText, { marginTop: 4 }]}>{t('profile.notes.emptyText')}</Text>
             </View>
           ) : (() => {
             const note = notes[0];
             const thumb = note.activity.activity_images?.[0]?.url;
-            const cityLabel = note.activity.location?.city || note.activity.location?.name || '';
+            const cityLabel = placeName(note.activity.location?.city) || note.activity.location?.name || '';
             return (
               <View style={styles.noteCard}>
                 <View style={styles.noteCardTop}>
@@ -912,41 +960,41 @@ export default function ProfileScreen() {
                   </View>
                 </View>
                 <Text style={styles.noteCardText} numberOfLines={3}>{note.note}</Text>
-                <Text style={styles.noteCardMeta}>נכתב {relativeDate(note.created_at)}</Text>
+                <Text style={styles.noteCardMeta}>{t('profile.notes.writtenAt', { date: relativeDate(note.created_at) })}</Text>
               </View>
             );
           })()}
 
           <Pressable style={styles.allDestinationsBtn} onPress={() => router.push('/my-things?tab=notes')}>
-            <Text style={styles.allDestinationsBtnText}>📝 לכל ההערות שלי ←</Text>
+            <Text style={styles.allDestinationsBtnText}>{t('profile.notes.all')}</Text>
           </Pressable>
         </View>
 
         {/* 🎟️ ההטבות שלי */}
         <View style={styles.shelf}>
           <View style={styles.shelfHead}>
-            <Text style={styles.shelfTitle}>🎟️ ההטבות שלי</Text>
-            <Text style={styles.sectionHint}>אילו מועדונים וכרטיסים יש לכם?</Text>
+            <Text style={styles.shelfTitle}>{t('profile.benefits.title')}</Text>
+            <Text style={styles.sectionHint}>{t('profile.benefits.hint')}</Text>
           </View>
-          <Text style={[styles.emptyShelfText, { textAlign: 'right', marginBottom: 10 }]}>
-            בחרו את ההטבות שברשותכם, ותורו תוכל להציג לכם פעילויות שבהן תוכלו לקבל הנחה.
+          <Text style={[styles.emptyShelfText, { textAlign: dir.textAlign, marginBottom: 10 }]}>
+            {t('profile.benefits.intro')}
           </Text>
           <View style={styles.accountCard}>
             <Pressable style={[styles.settingRow, styles.settingRowLast]} onPress={openBenefitClubsPicker} disabled={savingBenefitClubs}>
-              <Text style={styles.settingLabel}>המועדונים והכרטיסים שלי</Text>
+              <Text style={styles.settingLabel}>{t('profile.benefits.row')}</Text>
               <View style={styles.badgeSetup}>
                 <Text style={styles.badgeSetupText}>
-                  {savingBenefitClubs ? 'שומר...' : benefitClubs.length > 0 ? `${benefitClubs.length} נבחרו` : 'בחירה'}
+                  {savingBenefitClubs ? t('common.actions.saving') : benefitClubs.length > 0 ? t('profile.benefits.selectedCount', { n: benefitClubs.length }) : t('profile.searchPrefs.choose')}
                 </Text>
-                <ChevronLeftIcon size={12} />
+                <ForwardChevron />
               </View>
             </Pressable>
           </View>
-          {benefitClubs.includes('אחר') && !!benefitClubsOther && (
-            <Text style={[styles.sectionHint, { marginTop: 8 }]}>אחר: {benefitClubsOther}</Text>
+          {benefitClubs.includes(OTHER_BENEFIT) && !!benefitClubsOther && (
+            <Text style={[styles.sectionHint, { marginTop: 8 }]}>{t('profile.benefits.other', { text: benefitClubsOther })}</Text>
           )}
           <Text style={[styles.sectionHint, { marginTop: 8 }]}>
-            לא רוצים להגדיר? אין בעיה. תוכלו לראות את כל הפעילויות כרגיל.
+            {t('profile.benefits.optional')}
           </Text>
         </View>
 
@@ -955,7 +1003,7 @@ export default function ProfileScreen() {
             כמו כל שאר הסקשנים בעמוד הזה. */}
         <View style={styles.shelf}>
           <Pressable style={styles.shelfHeadToggle} onPress={() => setVisibleFiltersOpen((v) => !v)}>
-            <Text style={styles.shelfTitle}>🎚️ פילטרים נוספים במסך הראשי</Text>
+            <Text style={styles.shelfTitle}>{t('profile.visibleFilters.title')}</Text>
             <View style={{ transform: [{ rotate: visibleFiltersOpen ? '180deg' : '0deg' }] }}>
               <ChevronDownIcon size={14} />
             </View>
@@ -990,14 +1038,14 @@ export default function ProfileScreen() {
         <View style={styles.shelf}>
           <View style={styles.shelfHead}>
             <View style={styles.shelfHeadRow}>
-              <Text style={styles.shelfTitle}>🔔 ההתראות שלי</Text>
-              <View style={styles.comingSoonBadge}><Text style={styles.comingSoonText}>בקרוב</Text></View>
+              <Text style={styles.shelfTitle}>{t('profile.notifications.title')}</Text>
+              <View style={styles.comingSoonBadge}><Text style={styles.comingSoonText}>{t('profile.notifications.comingSoon')}</Text></View>
             </View>
-            <Text style={styles.sectionHint}>ההתראות עוד לא פעילות באפליקציה - נשמח להפעיל אותן בקרוב.</Text>
+            <Text style={styles.sectionHint}>{t('profile.notifications.hint')}</Text>
           </View>
           <View style={[styles.accountCard, styles.disabledCard]}>
             <View style={styles.settingRow}>
-              <Text style={styles.settingLabel}>עדכונים על מקומות חדשים במייל</Text>
+              <Text style={styles.settingLabel}>{t('profile.notifications.emailUpdates')}</Text>
               <View style={[styles.toggle, notifyByEmail && emailColumnsAvailable ? styles.toggleOn : styles.toggleOff]}>
                 <View style={[styles.toggleDot, !(notifyByEmail && emailColumnsAvailable) && styles.toggleDotOff]} />
               </View>
@@ -1009,7 +1057,7 @@ export default function ProfileScreen() {
                   key={item.key}
                   style={[styles.settingRow, i === NOTIFICATION_ITEMS.length - 1 && styles.settingRowLast]}
                 >
-                  <Text style={styles.settingLabel}>{item.label}</Text>
+                  <Text style={styles.settingLabel}>{t(`profile.notifications.items.${item.key}`)}</Text>
                   <View style={[styles.toggle, isOn ? styles.toggleOn : styles.toggleOff]}>
                     <View style={[styles.toggleDot, !isOn && styles.toggleDotOff]} />
                   </View>
@@ -1021,39 +1069,40 @@ export default function ProfileScreen() {
 
         {/* ⚙️ הגדרות */}
         <View style={styles.shelf}>
-          <View style={styles.shelfHead}><Text style={styles.shelfTitle}>⚙️ הגדרות</Text></View>
+          <View style={styles.shelfHead}><Text style={styles.shelfTitle}>{t('profile.settings.title')}</Text></View>
           <View style={styles.accountCard}>
             <View style={styles.settingRow}>
-              <Text style={styles.settingLabel}>כינוי</Text>
+              <Text style={styles.settingLabel}>{t('profile.settings.nickname')}</Text>
               <Text style={styles.settingValue}>{nickname || '-'}</Text>
             </View>
             <View style={styles.settingRow}>
-              <Text style={styles.settingLabel}>טלפון</Text>
+              <Text style={styles.settingLabel}>{t('profile.settings.phone')}</Text>
               <Text style={[styles.settingValue, { direction: 'ltr' }]}>{formatPhoneDisplay(session.user.phone)}</Text>
             </View>
             <View style={styles.settingRow}>
-              <Text style={styles.settingLabel}>אימייל</Text>
-              <Text style={styles.settingValue}>{emailColumnsAvailable ? (email || 'לא הוגדר') : 'לא זמין עדיין'}</Text>
+              <Text style={styles.settingLabel}>{t('profile.settings.email')}</Text>
+              <Text style={styles.settingValue}>{emailColumnsAvailable ? (email || t('profile.settings.emailNotSet')) : t('profile.settings.emailUnavailable')}</Text>
             </View>
+            <LanguageRow />
             <Pressable style={styles.settingRow} onPress={() => !quickLoginEnabled && router.push('/biometric-prompt')}>
-              <Text style={styles.settingLabel}>כניסה מהירה</Text>
+              <Text style={styles.settingLabel}>{t('profile.settings.quickLogin')}</Text>
               {quickLoginEnabled ? (
                 <View style={styles.badgeOk}>
                   <CheckIcon size={13} color={colors.greenStrong} filled />
-                  <Text style={styles.badgeOkText}>מופעלת</Text>
+                  <Text style={styles.badgeOkText}>{t('profile.settings.quickLoginOn')}</Text>
                 </View>
               ) : (
                 <View style={styles.badgeSetup}>
-                  <Text style={styles.badgeSetupText}>הפעילו</Text>
-                  <ChevronLeftIcon size={12} />
+                  <Text style={styles.badgeSetupText}>{t('profile.settings.quickLoginEnable')}</Text>
+                  <ForwardChevron />
                 </View>
               )}
             </Pressable>
             <Pressable style={[styles.settingRow, styles.settingRowLast]} onPress={openHiddenModal}>
-              <Text style={styles.settingLabel}>🙈 פעילויות חסומות</Text>
+              <Text style={styles.settingLabel}>{t('profile.settings.hiddenActivities')}</Text>
               <View style={styles.badgeSetup}>
-                <Text style={styles.badgeSetupText}>עריכה</Text>
-                <ChevronLeftIcon size={12} />
+                <Text style={styles.badgeSetupText}>{t('common.actions.edit')}</Text>
+                <ForwardChevron />
               </View>
             </Pressable>
           </View>
@@ -1063,30 +1112,30 @@ export default function ProfileScreen() {
         <View style={styles.shelf}>
           <View style={styles.accountCard}>
             <Pressable style={styles.settingRow} onPress={() => router.push('/terms')}>
-              <Text style={styles.settingLabel}>⚖️ תנאי שימוש</Text>
-              <ChevronLeftIcon size={12} />
+              <Text style={styles.settingLabel}>{t('profile.legal.terms')}</Text>
+              <ForwardChevron />
             </Pressable>
             <Pressable style={styles.settingRow} onPress={() => router.push('/privacy')}>
-              <Text style={styles.settingLabel}>🔒 מדיניות פרטיות</Text>
-              <ChevronLeftIcon size={12} />
+              <Text style={styles.settingLabel}>{t('profile.legal.privacy')}</Text>
+              <ForwardChevron />
             </Pressable>
             <Pressable
               style={[styles.settingRow, styles.settingRowLast]}
               onPress={() => setDeleteConfirmOpen(true)}
               disabled={deleteRequestSent}
             >
-              <Text style={styles.dangerLabel}>🗑️ מחיקת החשבון</Text>
+              <Text style={styles.dangerLabel}>{t('profile.legal.deleteAccount')}</Text>
               {deleteRequestSent ? (
-                <Text style={styles.badgeSetupText}>הבקשה נשלחה</Text>
+                <Text style={styles.badgeSetupText}>{t('profile.legal.deleteRequested')}</Text>
               ) : (
-                <ChevronLeftIcon size={12} />
+                <ForwardChevron />
               )}
             </Pressable>
           </View>
         </View>
 
         <Pressable onPress={handleLogout}>
-          <Text style={styles.logoutLink}>התנתקות</Text>
+          <Text style={styles.logoutLink}>{t('profile.legal.logout')}</Text>
         </Pressable>
       </ScrollView>
 
@@ -1094,21 +1143,18 @@ export default function ProfileScreen() {
       <Modal visible={deleteConfirmOpen} transparent animationType="fade" onRequestClose={() => setDeleteConfirmOpen(false)}>
         <Pressable style={styles.modalBackdrop} onPress={() => setDeleteConfirmOpen(false)}>
           <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
-            <Text style={styles.modalTitle}>בקשת מחיקת חשבון</Text>
-            <Text style={styles.deleteExplainText}>
-              נשלח לצוות בקשה למחיקת החשבון והמידע האישי המשויך אליו. הטיפול בבקשה נעשה ידנית
-              ואינו מיידי - נחזור אליכם בהקדם.
-            </Text>
+            <Text style={styles.modalTitle}>{t('profile.deleteModal.title')}</Text>
+            <Text style={styles.deleteExplainText}>{t('profile.deleteModal.text')}</Text>
             <View style={styles.modalActionsRow}>
               <Pressable
                 style={[styles.modalSaveBtn, styles.modalDangerBtn, deleteRequestSubmitting && styles.modalSaveBtnDisabled]}
                 onPress={handleRequestDeletion}
                 disabled={deleteRequestSubmitting}
               >
-                {deleteRequestSubmitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.modalSaveBtnText}>שליחת בקשה</Text>}
+                {deleteRequestSubmitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.modalSaveBtnText}>{t('profile.deleteModal.submit')}</Text>}
               </Pressable>
               <Pressable style={styles.modalCancelBtn} onPress={() => setDeleteConfirmOpen(false)}>
-                <Text style={styles.modalCancelBtnText}>ביטול</Text>
+                <Text style={styles.modalCancelBtnText}>{t('common.actions.cancel')}</Text>
               </Pressable>
             </View>
           </Pressable>
@@ -1119,24 +1165,24 @@ export default function ProfileScreen() {
       <Modal visible={childModalOpen} transparent animationType="fade" onRequestClose={() => setChildModalOpen(false)}>
         <Pressable style={styles.modalBackdrop} onPress={() => setChildModalOpen(false)}>
           <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
-            <Text style={styles.modalTitle}>{childDraft.id ? 'עריכת ילד/ה' : 'הוספת ילד/ה'}</Text>
+            <Text style={styles.modalTitle}>{childDraft.id ? t('profile.childForm.editTitle') : t('profile.childForm.addTitle')}</Text>
 
-            <Text style={styles.fieldLabel}>שם (לא חובה)</Text>
+            <Text style={styles.fieldLabel}>{t('profile.childForm.nameLabel')}</Text>
             <TextInput
               style={styles.textInput}
               value={childDraft.name}
               onChangeText={(v) => setChildDraft((p) => ({ ...p, name: v }))}
-              placeholder="איך קוראים לילד/ה?"
+              placeholder={t('profile.childForm.namePlaceholder')}
               placeholderTextColor={colors.textMuted}
             />
 
-            <Text style={styles.fieldLabel}>תאריך לידה</Text>
+            <Text style={styles.fieldLabel}>{t('profile.childForm.birthdateLabel')}</Text>
             <View style={styles.dateRow}>
               <TextInput
                 style={styles.dateInput}
                 value={childDraft.day}
                 onChangeText={(v) => setChildDraft((p) => ({ ...p, day: v.replace(/[^0-9]/g, '').slice(0, 2) }))}
-                placeholder="יום"
+                placeholder={t('profile.childForm.day')}
                 placeholderTextColor={colors.textMuted}
                 keyboardType="number-pad"
                 maxLength={2}
@@ -1145,7 +1191,7 @@ export default function ProfileScreen() {
                 style={styles.dateInput}
                 value={childDraft.month}
                 onChangeText={(v) => setChildDraft((p) => ({ ...p, month: v.replace(/[^0-9]/g, '').slice(0, 2) }))}
-                placeholder="חודש"
+                placeholder={t('profile.childForm.month')}
                 placeholderTextColor={colors.textMuted}
                 keyboardType="number-pad"
                 maxLength={2}
@@ -1154,32 +1200,32 @@ export default function ProfileScreen() {
                 style={[styles.dateInput, styles.dateInputYear]}
                 value={childDraft.year}
                 onChangeText={(v) => setChildDraft((p) => ({ ...p, year: v.replace(/[^0-9]/g, '').slice(0, 4) }))}
-                placeholder="שנה"
+                placeholder={t('profile.childForm.year')}
                 placeholderTextColor={colors.textMuted}
                 keyboardType="number-pad"
                 maxLength={4}
               />
             </View>
 
-            <Text style={styles.fieldLabel}>מגדר (לא חובה)</Text>
+            <Text style={styles.fieldLabel}>{t('profile.childForm.genderLabel')}</Text>
             <View style={styles.genderRow}>
               <Pressable
                 style={[styles.genderChip, childDraft.gender === 'male' && styles.genderChipSelected]}
                 onPress={() => setChildDraft((p) => ({ ...p, gender: p.gender === 'male' ? null : 'male' }))}
               >
-                <Text style={[styles.genderChipText, childDraft.gender === 'male' && styles.genderChipTextSelected]}>👦 בן</Text>
+                <Text style={[styles.genderChipText, childDraft.gender === 'male' && styles.genderChipTextSelected]}>{t('profile.childForm.male')}</Text>
               </Pressable>
               <Pressable
                 style={[styles.genderChip, childDraft.gender === 'female' && styles.genderChipSelected]}
                 onPress={() => setChildDraft((p) => ({ ...p, gender: p.gender === 'female' ? null : 'female' }))}
               >
-                <Text style={[styles.genderChipText, childDraft.gender === 'female' && styles.genderChipTextSelected]}>👧 בת</Text>
+                <Text style={[styles.genderChipText, childDraft.gender === 'female' && styles.genderChipTextSelected]}>{t('profile.childForm.female')}</Text>
               </Pressable>
             </View>
 
             <Text style={styles.childPrivacyNote}>
-              המידע שתוסיפו משמש להתאמת פעילויות לילדים שלכם.{' '}
-              <Text style={styles.childPrivacyLink} onPress={() => router.push('/privacy')}>למידע נוסף: מדיניות הפרטיות</Text>
+              {t('profile.childForm.privacyNote')}{' '}
+              <Text style={styles.childPrivacyLink} onPress={() => router.push('/privacy')}>{t('profile.childForm.privacyLink')}</Text>
             </Text>
 
             <View style={styles.modalActionsRow}>
@@ -1188,10 +1234,10 @@ export default function ProfileScreen() {
                 onPress={saveChildDraft}
                 disabled={!isChildDraftValid()}
               >
-                <Text style={styles.modalSaveBtnText}>שמירה</Text>
+                <Text style={styles.modalSaveBtnText}>{t('common.actions.save')}</Text>
               </Pressable>
               <Pressable style={styles.modalCancelBtn} onPress={() => setChildModalOpen(false)}>
-                <Text style={styles.modalCancelBtnText}>ביטול</Text>
+                <Text style={styles.modalCancelBtnText}>{t('common.actions.cancel')}</Text>
               </Pressable>
             </View>
           </Pressable>
@@ -1201,14 +1247,14 @@ export default function ProfileScreen() {
       <Modal visible={noteModalOpen} transparent animationType="fade" onRequestClose={() => setNoteModalOpen(false)}>
         <Pressable style={styles.modalBackdrop} onPress={() => setNoteModalOpen(false)}>
           <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
-            <Text style={styles.modalTitle}>עריכת הערה</Text>
+            <Text style={styles.modalTitle}>{t('profile.notes.modalTitle')}</Text>
             <Text style={styles.fieldLabel}>{noteModalTarget?.activity?.name}</Text>
             <TextInput
               style={[styles.textInput, styles.noteModalTextarea]}
               value={noteModalDraft}
               onChangeText={setNoteModalDraft}
               multiline
-              placeholder="כתבו כאן הערה פרטית..."
+              placeholder={t('profile.notes.placeholder')}
               placeholderTextColor={colors.textMuted}
             />
             <View style={styles.modalActionsRow}>
@@ -1217,10 +1263,10 @@ export default function ProfileScreen() {
                 onPress={saveNoteModal}
                 disabled={!noteModalDraft.trim() || savingNoteModal}
               >
-                <Text style={styles.modalSaveBtnText}>{savingNoteModal ? 'שומר...' : 'שמירת הערה'}</Text>
+                <Text style={styles.modalSaveBtnText}>{savingNoteModal ? t('common.actions.saving') : t('profile.notes.save')}</Text>
               </Pressable>
               <Pressable style={styles.modalCancelBtn} onPress={() => setNoteModalOpen(false)}>
-                <Text style={styles.modalCancelBtnText}>ביטול</Text>
+                <Text style={styles.modalCancelBtnText}>{t('common.actions.cancel')}</Text>
               </Pressable>
             </View>
           </Pressable>
@@ -1230,16 +1276,16 @@ export default function ProfileScreen() {
       <Modal visible={hiddenModalOpen} transparent animationType="fade" onRequestClose={() => setHiddenModalOpen(false)}>
         <Pressable style={styles.modalBackdrop} onPress={() => setHiddenModalOpen(false)}>
           <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
-            <Text style={styles.modalTitle}>פעילויות חסומות</Text>
-            <Text style={styles.sectionHint}>פעילויות שהחלטתם להסתיר לא יופיעו לכם בתוצאות החיפוש.</Text>
+            <Text style={styles.modalTitle}>{t('profile.hidden.title')}</Text>
+            <Text style={styles.sectionHint}>{t('profile.hidden.hint')}</Text>
             {hiddenLoading ? (
               <ActivityIndicator color={colors.accent} style={{ marginVertical: 16 }} />
             ) : hiddenActivities.length === 0 ? (
-              <Text style={[styles.emptyShelfText, { marginTop: 12, textAlign: 'right' }]}>אין לכם פעילויות חסומות כרגע.</Text>
+              <Text style={[styles.emptyShelfText, { marginTop: 12, textAlign: dir.textAlign }]}>{t('profile.hidden.empty')}</Text>
             ) : (
               <ScrollView style={styles.hiddenListScroll}>
                 {hiddenActivities.map((row) => {
-                  const cityLabel = row.activity.location?.city || row.activity.location?.name || '';
+                  const cityLabel = placeName(row.activity.location?.city) || row.activity.location?.name || '';
                   return (
                     <View key={row.activity_id} style={styles.hiddenRow}>
                       <View style={styles.hiddenRowInfo}>
@@ -1247,7 +1293,7 @@ export default function ProfileScreen() {
                         {!!cityLabel && <Text style={styles.hiddenRowCity}>📍 {cityLabel}</Text>}
                       </View>
                       <Pressable onPress={() => handleUnhide(row.activity_id)} disabled={unhidingId === row.activity_id}>
-                        <Text style={styles.noteActionText}>{unhidingId === row.activity_id ? '...' : '🔓 ביטול חסימה'}</Text>
+                        <Text style={styles.noteActionText}>{unhidingId === row.activity_id ? '...' : t('profile.hidden.unhide')}</Text>
                       </Pressable>
                     </View>
                   );
@@ -1255,7 +1301,7 @@ export default function ProfileScreen() {
               </ScrollView>
             )}
             <Pressable style={[styles.modalCancelBtn, { marginTop: 14 }]} onPress={() => setHiddenModalOpen(false)}>
-              <Text style={styles.modalCancelBtnText}>סגירה</Text>
+              <Text style={styles.modalCancelBtnText}>{t('common.actions.close')}</Text>
             </Pressable>
           </Pressable>
         </Pressable>
@@ -1263,8 +1309,8 @@ export default function ProfileScreen() {
 
       <QuickPicker
         visible={excludedPickerOpen}
-        title="קטגוריות שלעולם לא יוצגו לי"
-        subtitle="פעילויות מהקטגוריות שתבחרו לא יופיעו לכם באפליקציה, גם אם הן תואמות לפילטרים אחרים"
+        title={t('profile.pickers.excludedCategoriesTitle')}
+        subtitle={t('profile.pickers.excludedCategoriesSubtitle')}
         options={CATEGORY_OPTIONS}
         value={excludedDraft}
         multiple
@@ -1283,21 +1329,21 @@ export default function ProfileScreen() {
 
       <QuickPicker
         visible={benefitClubsPickerOpen}
-        title="המועדונים והכרטיסים שלי"
-        subtitle="אילו מועדונים וכרטיסים יש לכם?"
+        title={t('profile.pickers.benefitClubsTitle')}
+        subtitle={t('profile.pickers.benefitClubsSubtitle')}
         options={BENEFIT_PROVIDER_OPTIONS}
         value={benefitClubsDraft}
         multiple
         onChange={setBenefitClubsDraft}
         onClose={closeBenefitClubsPicker}
-        footer={benefitClubsDraft.includes('אחר') && (
+        footer={benefitClubsDraft.includes(OTHER_BENEFIT) && (
           <View style={{ marginTop: 14 }}>
-            <Text style={styles.fieldLabel}>מה יש לכם?</Text>
+            <Text style={styles.fieldLabel}>{t('profile.pickers.benefitOtherLabel')}</Text>
             <TextInput
               style={styles.textInput}
               value={benefitClubsOtherDraft}
               onChangeText={setBenefitClubsOtherDraft}
-              placeholder="למשל: כרטיס חבר של הפועל תל אביב"
+              placeholder={t('profile.pickers.benefitOtherPlaceholder')}
               placeholderTextColor={colors.textMuted}
             />
           </View>
@@ -1315,8 +1361,8 @@ export default function ProfileScreen() {
           />
           <QuickPicker
             visible={prefCategoryOpen}
-            title="מה המשפחה שלכם אוהבת?"
-            subtitle="אפשר לבחור כמה קטגוריות - נשתמש בזה כדי להציג לכם רעיונות שמתאימים לכם"
+            title={t('profile.pickers.categoryTitle')}
+            subtitle={t('profile.pickers.categorySubtitle')}
             options={CATEGORY_OPTIONS}
             value={homeDefaultsDraft.category}
             multiple
@@ -1326,67 +1372,67 @@ export default function ProfileScreen() {
           />
           <QuickPicker
             visible={prefWhenOpen}
-            title="מתי בדרך כלל מחפשים?"
+            title={t('profile.pickers.whenTitle')}
             options={WHEN_QUICK_OPTIONS}
             value={homeDefaultsDraft.when?.options || []}
             multiple={false}
             showAll
-            allLabel="כל הזמן"
+            allLabel={t('profile.searchPrefs.anyTime')}
             onChange={(v) => setPref('when', { options: v, date: null })}
             onClose={() => setPrefWhenOpen(false)}
           />
           <QuickPicker
             visible={prefPriceOpen}
-            title="העדפת מחיר"
+            title={t('profile.pickers.priceTitle')}
             options={PRICE_OPTIONS}
             value={homeDefaultsDraft.price}
             multiple={false}
             showAll
-            allLabel="כל המחירים"
+            allLabel={t('profile.searchPrefs.allPrices')}
             onChange={(v) => setPref('price', v)}
             onClose={() => setPrefPriceOpen(false)}
           />
           <QuickPicker
             visible={prefPlaceTypeOpen}
-            title="סוג מקום מועדף"
+            title={t('profile.pickers.placeTypeTitle')}
             options={PLACE_TYPE_OPTIONS}
             value={homeDefaultsDraft.placeType}
             multiple={false}
             showAll
-            allLabel="לא משנה"
+            allLabel={t('profile.searchPrefs.noPreference')}
             onChange={(v) => setPref('placeType', v)}
             onClose={() => setPrefPlaceTypeOpen(false)}
           />
           <QuickPicker
             visible={prefBookingOpen}
-            title="הזמנה"
+            title={t('profile.pickers.bookingTitle')}
             options={BOOKING_OPTIONS}
             value={homeDefaultsDraft.booking}
             multiple={false}
             showAll
-            allLabel="לא משנה"
+            allLabel={t('profile.searchPrefs.noPreference')}
             onChange={(v) => setPref('booking', v)}
             onClose={() => setPrefBookingOpen(false)}
           />
           <QuickPicker
             visible={prefDurationOpen}
-            title="משך פעילות"
+            title={t('profile.pickers.durationTitle')}
             options={DURATION_OPTIONS}
             value={homeDefaultsDraft.duration}
             multiple
             showAll
-            allLabel="לא משנה"
+            allLabel={t('profile.searchPrefs.noPreference')}
             onChange={(v) => setPref('duration', v)}
             onClose={() => setPrefDurationOpen(false)}
           />
           <QuickPicker
             visible={prefAmenitiesOpen}
-            title="נגישות ונוחות"
+            title={t('profile.pickers.amenitiesTitle')}
             options={AMENITY_COMFORT_OPTIONS}
             value={homeDefaultsDraft.amenities}
             multiple
             showAll
-            allLabel="לא משנה"
+            allLabel={t('profile.searchPrefs.noPreference')}
             onChange={(v) => setPref('amenities', v)}
             onClose={() => setPrefAmenitiesOpen(false)}
           />
@@ -1396,7 +1442,7 @@ export default function ProfileScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createStyles((d) => ({
   screen: { flex: 1, backgroundColor: colors.bg },
   content: { padding: spacing.xl, paddingBottom: 50 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 60 },
@@ -1413,23 +1459,23 @@ const styles = StyleSheet.create({
   pageTitle: { fontFamily: fonts.extraBold, fontSize: 21, color: colors.textPrimary },
   pageSubtitle: { fontFamily: fonts.regular, fontSize: 12.5, color: colors.textSecondary, textAlign: 'center', marginTop: 4 },
 
-  profileBlock: { flexDirection: 'row-reverse', alignItems: 'center', gap: 14, marginBottom: 24 },
+  profileBlock: { flexDirection: d.row, alignItems: 'center', gap: 14, marginBottom: 24 },
   avatar: { width: 50, height: 50, borderRadius: 25, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' },
   avatarText: { fontFamily: fonts.logo, fontSize: 20, color: '#fff' },
   profileInfo: { flex: 1, minWidth: 0 },
-  profileNameRow: { flexDirection: 'row-reverse', alignItems: 'center', gap: 8 },
-  profileName: { fontFamily: fonts.extraBold, fontSize: 16, color: colors.textPrimary, textAlign: 'right' },
+  profileNameRow: { flexDirection: d.row, alignItems: 'center', gap: 8 },
+  profileName: { fontFamily: fonts.extraBold, fontSize: 16, color: colors.textPrimary, textAlign: d.textAlign },
   profileStars: { fontFamily: fonts.bold, fontSize: 13, color: colors.yellow },
-  profileEdit: { fontFamily: fonts.bold, fontSize: 11.5, color: colors.accent, textDecorationLine: 'underline', textAlign: 'right', marginTop: 2 },
-  nicknameEditRow: { flexDirection: 'row-reverse', alignItems: 'center', gap: 8 },
+  profileEdit: { fontFamily: fonts.bold, fontSize: 11.5, color: colors.accent, textDecorationLine: 'underline', textAlign: d.textAlign, marginTop: 2 },
+  nicknameEditRow: { flexDirection: d.row, alignItems: 'center', gap: 8 },
   nicknameInput: {
     flex: 1, borderWidth: 1, borderColor: colors.border, borderRadius: radii.sm, paddingHorizontal: 10,
-    paddingVertical: 6, fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary, textAlign: 'right', writingDirection: 'rtl',
+    paddingVertical: 6, fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary, textAlign: d.textAlign, writingDirection: d.writingDirection,
   },
   nicknameSave: { fontFamily: fonts.bold, fontSize: 12.5, color: colors.accent },
   nicknameCancel: { fontFamily: fonts.regular, fontSize: 12.5, color: colors.textMuted },
   addActivityBtn: {
-    flexDirection: 'row-reverse', alignItems: 'center', gap: 6,
+    flexDirection: d.row, alignItems: 'center', gap: 6,
     backgroundColor: colors.accent, borderRadius: radii.pill, paddingVertical: 9, paddingHorizontal: 12,
   },
   addActivityText: { fontFamily: fonts.bold, fontSize: 11.5, color: '#fff' },
@@ -1441,19 +1487,19 @@ const styles = StyleSheet.create({
   onboardingTitle: { fontFamily: fonts.extraBold, fontSize: 17, color: colors.textPrimary, textAlign: 'center', marginBottom: 4 },
   onboardingSub: { fontFamily: fonts.regular, fontSize: 12.5, color: colors.textSecondary, textAlign: 'center', marginBottom: 14, lineHeight: 18 },
   onboardingSteps: { marginBottom: 16 },
-  onboardingStep: { fontFamily: fonts.semiBold, fontSize: 13, color: colors.textPrimary, textAlign: 'right', marginBottom: 6 },
+  onboardingStep: { fontFamily: fonts.semiBold, fontSize: 13, color: colors.textPrimary, textAlign: d.textAlign, marginBottom: 6 },
   onboardingGoBtn: { backgroundColor: colors.accent, borderRadius: radii.pill, paddingVertical: 13, alignItems: 'center', marginBottom: 10 },
   onboardingGoBtnText: { fontFamily: fonts.bold, fontSize: 14.5, color: '#fff' },
   onboardingSkip: { fontFamily: fonts.regular, fontSize: 12.5, color: colors.textMuted, textAlign: 'center' },
 
   shelf: { marginBottom: 26 },
   shelfHead: { marginBottom: 10 },
-  shelfHeadRow: { flexDirection: 'row-reverse', alignItems: 'center', gap: 8 },
+  shelfHeadRow: { flexDirection: d.row, alignItems: 'center', gap: 8 },
   // שורת accordion יחידה (למשל "⭐ העדפות חיפוש") - הכותרת+חץ תמיד גלויים, לחיצה מטגלת את שאר
   // התוכן שמתחת (בניגוד ל-shelfHead/shelfHeadRow הרגילים שהם רק כותרת סטטית, לא לחיצות).
-  shelfHeadToggle: { flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 4, marginBottom: 10 },
-  shelfTitle: { fontFamily: fonts.extraBold, fontSize: 15.5, color: colors.textPrimary, textAlign: 'right' },
-  sectionHint: { fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, textAlign: 'right', lineHeight: 17, marginBottom: 12 },
+  shelfHeadToggle: { flexDirection: d.row, alignItems: 'center', justifyContent: 'space-between', paddingVertical: 4, marginBottom: 10 },
+  shelfTitle: { fontFamily: fonts.extraBold, fontSize: 15.5, color: colors.textPrimary, textAlign: d.textAlign },
+  sectionHint: { fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, textAlign: d.textAlign, lineHeight: 17, marginBottom: 12 },
   comingSoonBadge: { backgroundColor: colors.yellowTint, borderRadius: radii.pill, paddingVertical: 2, paddingHorizontal: 8 },
   comingSoonText: { fontFamily: fonts.bold, fontSize: 10, color: colors.yellow },
 
@@ -1463,7 +1509,7 @@ const styles = StyleSheet.create({
   },
   emptyShelfText: { fontFamily: fonts.regular, fontSize: 12.5, color: colors.textMuted, textAlign: 'center' },
 
-  benefitsRow: { flexDirection: 'row-reverse', gap: 8, marginBottom: 14 },
+  benefitsRow: { flexDirection: d.row, gap: 8, marginBottom: 14 },
   benefitCard: {
     flex: 1, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: radii.md,
     padding: 10, alignItems: 'center',
@@ -1474,13 +1520,13 @@ const styles = StyleSheet.create({
 
   childrenList: { gap: 8, marginBottom: 12 },
   childCard: {
-    flexDirection: 'row-reverse', alignItems: 'center', gap: 10,
+    flexDirection: d.row, alignItems: 'center', gap: 10,
     backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: radii.md, padding: 12,
   },
   childEmoji: { fontSize: 24 },
   childInfo: { flex: 1, minWidth: 0 },
-  childName: { fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary, textAlign: 'right' },
-  childAge: { fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, textAlign: 'right', marginTop: 1 },
+  childName: { fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary, textAlign: d.textAlign },
+  childAge: { fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, textAlign: d.textAlign, marginTop: 1 },
   childActionBtn: { padding: 4 },
   childDeleteText: { fontFamily: fonts.bold, fontSize: 14, color: colors.textMuted },
   addChildBtn: {
@@ -1488,30 +1534,30 @@ const styles = StyleSheet.create({
     paddingVertical: 11, alignItems: 'center',
   },
   addChildBtnText: { fontFamily: fonts.bold, fontSize: 13, color: colors.accent },
-  childrenFooterHint: { fontFamily: fonts.regular, fontSize: 11.5, color: colors.textMuted, textAlign: 'right', marginTop: 10, lineHeight: 16 },
+  childrenFooterHint: { fontFamily: fonts.regular, fontSize: 11.5, color: colors.textMuted, textAlign: d.textAlign, marginTop: 10, lineHeight: 16 },
 
   accountCard: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: radii.lg, overflow: 'hidden' },
   disabledCard: { opacity: 0.5 },
   settingRow: {
-    flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between',
+    flexDirection: d.row, alignItems: 'center', justifyContent: 'space-between',
     paddingVertical: 13, paddingHorizontal: 15, borderBottomWidth: 1, borderBottomColor: colors.borderLight,
   },
   settingRowLast: { borderBottomWidth: 0 },
   settingLabel: { fontFamily: fonts.semiBold, fontSize: 13, color: colors.textSecondary, flexShrink: 1 },
   settingValue: { fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary },
   toggle: { width: 38, height: 22, borderRadius: 11, justifyContent: 'center' },
-  toggleOn: { backgroundColor: colors.accent, alignItems: 'flex-start' },
-  toggleOff: { backgroundColor: colors.border, alignItems: 'flex-end' },
+  toggleOn: { backgroundColor: colors.accent, alignItems: d.alignEnd },
+  toggleOff: { backgroundColor: colors.border, alignItems: d.alignStart },
   toggleDot: { width: 18, height: 18, borderRadius: 9, backgroundColor: '#fff', marginHorizontal: 2 },
   toggleDotOff: {},
-  badgeOk: { flexDirection: 'row-reverse', alignItems: 'center', gap: 4 },
+  badgeOk: { flexDirection: d.row, alignItems: 'center', gap: 4 },
   badgeOkText: { fontFamily: fonts.bold, fontSize: 12.5, color: colors.greenStrong },
-  badgeSetup: { flexDirection: 'row-reverse', alignItems: 'center', gap: 3 },
+  badgeSetup: { flexDirection: d.row, alignItems: 'center', gap: 3 },
   badgeSetupText: { fontFamily: fonts.bold, fontSize: 12.5, color: colors.accent, maxWidth: 140 },
 
-  moreToggleRow: { flexDirection: 'row-reverse', alignItems: 'center', gap: 5, alignSelf: 'center', paddingVertical: 12 },
+  moreToggleRow: { flexDirection: d.row, alignItems: 'center', gap: 5, alignSelf: 'center', paddingVertical: 12 },
   moreToggleText: { fontFamily: fonts.bold, fontSize: 12.5, color: colors.textSecondary },
-  subSectionTitle: { fontFamily: fonts.bold, fontSize: 12.5, color: colors.textSecondary, textAlign: 'right', marginBottom: 8, marginTop: 4 },
+  subSectionTitle: { fontFamily: fonts.bold, fontSize: 12.5, color: colors.textSecondary, textAlign: d.textAlign, marginBottom: 8, marginTop: 4 },
   resetAllPrefsBtn: { alignItems: 'center', paddingVertical: 10, marginBottom: 4 },
   resetAllPrefsBtnText: { fontFamily: fonts.bold, fontSize: 12.5, color: colors.danger },
 
@@ -1519,47 +1565,47 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card, borderWidth: 1.5, borderColor: colors.accentTint, borderRadius: radii.xl,
     padding: spacing.lg, marginBottom: 26,
   },
-  knowTitle: { fontFamily: fonts.extraBold, fontSize: 14.5, color: colors.textPrimary, textAlign: 'right', marginBottom: 10 },
-  knowBit: { fontFamily: fonts.semiBold, fontSize: 13, color: colors.textSecondary, textAlign: 'right', marginBottom: 4 },
+  knowTitle: { fontFamily: fonts.extraBold, fontSize: 14.5, color: colors.textPrimary, textAlign: d.textAlign, marginBottom: 10 },
+  knowBit: { fontFamily: fonts.semiBold, fontSize: 13, color: colors.textSecondary, textAlign: d.textAlign, marginBottom: 4 },
 
-  tabsRow: { flexDirection: 'row-reverse', gap: 8, marginBottom: 12 },
+  tabsRow: { flexDirection: d.row, gap: 8, marginBottom: 12 },
   tabBtn: { flex: 1, alignItems: 'center', paddingVertical: 9, borderRadius: radii.pill, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.card },
   tabBtnActive: { borderColor: colors.accent, backgroundColor: colors.accentTintLight },
   tabBtnText: { fontFamily: fonts.bold, fontSize: 12, color: colors.textSecondary },
   tabBtnTextActive: { color: colors.accent },
   tabItemRow: {
-    flexDirection: 'row-reverse', alignItems: 'center', gap: 8,
+    flexDirection: d.row, alignItems: 'center', gap: 8,
     backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: radii.md, padding: 12, marginBottom: 8,
   },
   tabItemMain: { flex: 1, minWidth: 0 },
   tabItemNoteBtn: { borderWidth: 1, borderColor: colors.accent, borderRadius: radii.pill, paddingVertical: 6, paddingHorizontal: 10 },
   tabItemNoteBtnText: { fontFamily: fonts.bold, fontSize: 11, color: colors.accent },
-  tabItemTitle: { fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary, textAlign: 'right' },
+  tabItemTitle: { fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary, textAlign: d.textAlign },
 
   noteCard: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: radii.md, padding: 12, marginBottom: 10 },
-  noteCardTop: { flexDirection: 'row-reverse', alignItems: 'center', gap: 10, marginBottom: 8 },
+  noteCardTop: { flexDirection: d.row, alignItems: 'center', gap: 10, marginBottom: 8 },
   noteThumb: { width: 52, height: 52, borderRadius: radii.md, backgroundColor: colors.borderLight },
   noteThumbPlaceholder: { width: 52, height: 52, borderRadius: radii.md, backgroundColor: colors.accentTintLight, alignItems: 'center', justifyContent: 'center' },
   noteThumbPlaceholderText: { fontSize: 20 },
   noteCardInfo: { flex: 1, minWidth: 0 },
-  noteActivityName: { fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary, textAlign: 'right' },
-  noteActivityLocation: { fontFamily: fonts.regular, fontSize: 11.5, color: colors.textSecondary, textAlign: 'right', marginTop: 2 },
-  noteCardText: { fontFamily: fonts.regular, fontSize: 13, color: colors.textPrimary, textAlign: 'right', lineHeight: 18, marginBottom: 8 },
+  noteActivityName: { fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary, textAlign: d.textAlign },
+  noteActivityLocation: { fontFamily: fonts.regular, fontSize: 11.5, color: colors.textSecondary, textAlign: d.textAlign, marginTop: 2 },
+  noteCardText: { fontFamily: fonts.regular, fontSize: 13, color: colors.textPrimary, textAlign: d.textAlign, lineHeight: 18, marginBottom: 8 },
   noteCardMeta: { fontFamily: fonts.regular, fontSize: 10.5, color: colors.textMuted },
   noteActionText: { fontFamily: fonts.bold, fontSize: 12, color: colors.accent },
   noteModalTextarea: { minHeight: 90, textAlignVertical: 'top' },
-  tabItemSub: { fontFamily: fonts.regular, fontSize: 11.5, color: colors.textSecondary, textAlign: 'right', marginTop: 2 },
+  tabItemSub: { fontFamily: fonts.regular, fontSize: 11.5, color: colors.textSecondary, textAlign: d.textAlign, marginTop: 2 },
   allDestinationsBtn: { alignSelf: 'center', paddingVertical: 10 },
   allDestinationsBtnText: { fontFamily: fonts.bold, fontSize: 13, color: colors.accent },
 
   hiddenListScroll: { maxHeight: 320, marginTop: 12 },
   hiddenRow: {
-    flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+    flexDirection: d.row, alignItems: 'center', justifyContent: 'space-between', gap: 10,
     paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.borderLight,
   },
   hiddenRowInfo: { flex: 1 },
-  hiddenRowName: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.textPrimary, textAlign: 'right' },
-  hiddenRowCity: { fontFamily: fonts.regular, fontSize: 11.5, color: colors.textSecondary, textAlign: 'right', marginTop: 2 },
+  hiddenRowName: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.textPrimary, textAlign: d.textAlign },
+  hiddenRowCity: { fontFamily: fonts.regular, fontSize: 11.5, color: colors.textSecondary, textAlign: d.textAlign, marginTop: 2 },
 
   saveDefaultsBtn: { backgroundColor: colors.accent, borderRadius: radii.pill, paddingVertical: 13, alignItems: 'center', marginTop: 10 },
   saveDefaultsBtnText: { fontFamily: fonts.bold, fontSize: 13.5, color: '#fff' },
@@ -1569,19 +1615,19 @@ const styles = StyleSheet.create({
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(20,30,35,0.4)', justifyContent: 'center', padding: spacing.xl },
   modalCard: { backgroundColor: colors.card, borderRadius: radii.xl, padding: spacing.xl },
   modalTitle: { fontFamily: fonts.extraBold, fontSize: 17, color: colors.textPrimary, textAlign: 'center', marginBottom: 16 },
-  fieldLabel: { fontFamily: fonts.semiBold, fontSize: 12, color: colors.textSecondary, textAlign: 'right', marginBottom: 6 },
+  fieldLabel: { fontFamily: fonts.semiBold, fontSize: 12, color: colors.textSecondary, textAlign: d.textAlign, marginBottom: 6 },
   textInput: {
     borderWidth: 1, borderColor: colors.border, borderRadius: radii.md, padding: 12, marginBottom: 14,
     fontFamily: fonts.regular, fontSize: 14, color: colors.textPrimary, backgroundColor: colors.bg,
-    textAlign: 'right', writingDirection: 'rtl',
+    textAlign: d.textAlign, writingDirection: d.writingDirection,
   },
-  dateRow: { flexDirection: 'row-reverse', gap: 8, marginBottom: 14 },
+  dateRow: { flexDirection: d.row, gap: 8, marginBottom: 14 },
   dateInput: {
     flex: 1, minWidth: 0, borderWidth: 1, borderColor: colors.border, borderRadius: radii.md, padding: 12,
     fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary, backgroundColor: colors.bg, textAlign: 'center',
   },
   dateInputYear: { flex: 1.4, minWidth: 0 },
-  genderRow: { flexDirection: 'row-reverse', gap: 8, marginBottom: 18 },
+  genderRow: { flexDirection: d.row, gap: 8, marginBottom: 18 },
   genderChip: {
     flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: radii.pill,
     borderWidth: 1, borderColor: colors.border, backgroundColor: colors.bg,
@@ -1589,15 +1635,22 @@ const styles = StyleSheet.create({
   genderChipSelected: { borderColor: colors.accent, backgroundColor: colors.accentTintLight },
   genderChipText: { fontFamily: fonts.semiBold, fontSize: 13, color: colors.textSecondary },
   genderChipTextSelected: { color: colors.accent, fontFamily: fonts.bold },
-  modalActionsRow: { flexDirection: 'row-reverse', gap: 10 },
+  modalActionsRow: { flexDirection: d.row, gap: 10 },
   modalCancelBtn: { flex: 1, alignItems: 'center', paddingVertical: 13, borderRadius: radii.pill, borderWidth: 1, borderColor: colors.border },
   modalCancelBtnText: { fontFamily: fonts.bold, fontSize: 14, color: colors.textSecondary },
   modalSaveBtn: { flex: 1, alignItems: 'center', paddingVertical: 13, borderRadius: radii.pill, backgroundColor: colors.accent },
   modalDangerBtn: { backgroundColor: colors.danger },
   dangerLabel: { fontFamily: fonts.semiBold, fontSize: 14, color: colors.danger },
-  deleteExplainText: { fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.textSecondary, textAlign: 'right', marginBottom: 20 },
-  childPrivacyNote: { fontFamily: fonts.regular, fontSize: 11.5, color: colors.textMuted, textAlign: 'right', lineHeight: 17, marginBottom: 16 },
+  deleteExplainText: { fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.textSecondary, textAlign: d.textAlign, marginBottom: 20 },
+  childPrivacyNote: { fontFamily: fonts.regular, fontSize: 11.5, color: colors.textMuted, textAlign: d.textAlign, lineHeight: 17, marginBottom: 16 },
   childPrivacyLink: { fontFamily: fonts.semiBold, color: colors.textSecondary, textDecorationLine: 'underline' },
   modalSaveBtnDisabled: { opacity: 0.5 },
   modalSaveBtnText: { fontFamily: fonts.bold, fontSize: 14, color: '#fff' },
-});
+
+  loggedOutLanguageCard: { alignSelf: 'stretch', marginTop: 28 },
+  langOptions: { flexDirection: d.row, alignItems: 'center', gap: 6 },
+  langOption: { paddingVertical: 5, paddingHorizontal: 12, borderRadius: radii.pill, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.bg },
+  langOptionSelected: { borderColor: colors.accent, backgroundColor: colors.accentTintLight },
+  langOptionText: { fontFamily: fonts.semiBold, fontSize: 12.5, color: colors.textSecondary },
+  langOptionTextSelected: { color: colors.accent, fontFamily: fonts.bold },
+}));

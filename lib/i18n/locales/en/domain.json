@@ -1,0 +1,229 @@
+{
+  "categories": {
+    "גן שעשועים": "Playground",
+    "ג'ימבורי": "Kids' gym",
+    "משחקייה": "Play center",
+    "סדנה": "Workshop",
+    "חוג": "Class",
+    "קייטנה": "Day camp",
+    "הצגה": "Show",
+    "מוזיאון לילדים": "Children's museum",
+    "פארק": "Park",
+    "חווה": "Farm",
+    "פינת חי": "Petting zoo",
+    "אטרקציה": "Attraction",
+    "בריכה": "Pool",
+    "ספורט": "Sports",
+    "יצירה": "Arts & crafts",
+    "מוזיקה": "Music",
+    "ריקוד": "Dance",
+    "בישול": "Cooking",
+    "מדע": "Science",
+    "טבע": "Nature",
+    "בעלי חיים": "Animals",
+    "פעילות מים": "Water activities",
+    "טרמפולינות": "Trampolines",
+    "פארק שעשועים": "Amusement park",
+    "קולנוע לילדים": "Kids' cinema",
+    "ספרייה": "Library",
+    "שעת סיפור": "Story time",
+    "פעילות קהילתית": "Community activity",
+    "פעילות עירונית": "City event",
+    "חדרי בריחה": "Escape rooms",
+    "אחר": "Other"
+  },
+  "regions": {
+    "גוש דן והמרכז": "Tel Aviv & Center",
+    "השרון": "Sharon",
+    "ירושלים והסביבה": "Jerusalem area",
+    "חיפה והקריות": "Haifa & Krayot",
+    "הצפון והגליל": "North & Galilee",
+    "עמק יזרעאל והעמקים": "Jezreel Valley",
+    "השפלה": "Shfela",
+    "הדרום והנגב": "South & Negev",
+    "יו\"ש והבנימין": "Judea & Samaria"
+  },
+  "filterSections": {
+    "category": "Activity type",
+    "location": "Location",
+    "age": "Age",
+    "when": "When?",
+    "price": "Price",
+    "placeType": "Indoor / outdoor",
+    "booking": "Booking",
+    "duration": "Duration",
+    "amenities": "Accessibility & comfort",
+    "benefits": "Perks & discounts"
+  },
+  "options": {
+    "radius": "Up to {{km}} km",
+    "duration": {
+      "short": "Up to 30 min",
+      "medium": "30–60 min",
+      "long": "1–2 hours",
+      "xlong": "2+ hours"
+    },
+    "price": {
+      "free": "Free",
+      "u30": "Up to ₪30",
+      "u50": "Up to ₪50",
+      "u100": "Up to ₪100",
+      "100p": "Over ₪100"
+    },
+    "booking": {
+      "not_required": "No booking needed",
+      "required": "Booking required"
+    },
+    "placeType": {
+      "indoor": "🏠 Indoor",
+      "outdoor": "🌳 Outdoor",
+      "both": "🔄 Both"
+    },
+    "weather": {
+      "מתאים ליום חם": "Good for hot days",
+      "מתאים ליום גשום": "Good for rainy days",
+      "ממוזג": "Air-conditioned",
+      "מוצל": "Shaded",
+      "מקורה": "Covered",
+      "פעילות בחוץ בלבד": "Outdoors only"
+    },
+    "amenities": {
+      "נגיש לכיסא גלגלים": "♿ Wheelchair accessible",
+      "מתאים לעגלה": "👶 Stroller friendly",
+      "חניה": "🅿️ Parking",
+      "שירותים": "🚻 Restrooms",
+      "ממוזג": "❄️ Air-conditioned",
+      "מקורה": "☔ Covered"
+    },
+    "benefitProviders": {
+      "ישראכרט": "Isracard",
+      "MAX": "MAX",
+      "חבר": "Hever",
+      "בהצדעה": "Behatsdaa",
+      "מפעל הפיס": "Mifal HaPais",
+      "העסק עצמו": "The venue itself",
+      "אחר": "Other"
+    },
+    "benefitFilter": {
+      "has_benefit": "Only activities with perks",
+      "my_benefits": "Only perks I have"
+    },
+    "benefitType": {
+      "percent": "Percentage off",
+      "specialPrice": "Special price",
+      "onePlusOne": "1+1",
+      "secondTicketDiscount": "Second ticket discount",
+      "coupon_code": "Coupon code",
+      "other": "Other perk"
+    },
+    "redemption": {
+      "link": "Buy via link",
+      "coupon_code": "Coupon code",
+      "show_card": "Show card / membership",
+      "automatic": "Applied automatically",
+      "other": "Other"
+    },
+    "when": {
+      "now": "Now",
+      "today": "Today",
+      "tomorrow": "Tomorrow",
+      "weekend": "This weekend",
+      "week": "This week",
+      "specific": "Pick a date"
+    },
+    "hour": {
+      "morning": "Morning",
+      "noon": "Midday",
+      "afternoon": "Afternoon",
+      "evening": "Evening"
+    }
+  },
+  "summary": {
+    "all": "All",
+    "now": "Now",
+    "categories_one": "1 category",
+    "categories_other": "{{count}} categories",
+    "whenOptions_other": "{{count}} time options",
+    "activityTypes_one": "1 activity type",
+    "activityTypes_other": "{{count}} activity types"
+  },
+  "location": {
+    "nationwide": "All of Israel",
+    "nearMe": "Near me",
+    "myLocation": "My location",
+    "anyDistanceArea": "Anywhere in the area",
+    "walkingFromMe": "Walking distance from me",
+    "walkingFromPlace": "Walking distance from {{place}}",
+    "upToMinutesFromMe": "Up to {{minutes}} min from me",
+    "upToMinutesFromPlace": "Up to {{minutes}} min from {{place}}",
+    "compact": {
+      "where": "Where?",
+      "walking": "Walking distance",
+      "anyDistance": "Any distance",
+      "minutesFromMe": "{{minutes}} min from me",
+      "minutesFromPlace": "{{minutes}} min from {{place}}"
+    }
+  },
+  "distance": {
+    "fromYou": "{{km}} km from you",
+    "fromSearchArea": "{{km}} km from search area",
+    "unknown": "Location unknown"
+  },
+  "time": {
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "daysAgo_other": "{{count}} days ago",
+    "weeksAgo_one": "1 week ago",
+    "weeksAgo_other": "{{count}} weeks ago",
+    "monthsAgo_one": "1 month ago",
+    "monthsAgo_other": "{{count}} months ago"
+  },
+  "schedule": {
+    "hoursNotSpecified": "Hours not specified",
+    "moreDates_one": "(+1 more date)",
+    "moreDates_other": "(+{{count}} more dates)",
+    "dayListItem": "{{day}}",
+    "dayShort": {
+      "ראשון": "Sun",
+      "שני": "Mon",
+      "שלישי": "Tue",
+      "רביעי": "Wed",
+      "חמישי": "Thu",
+      "שישי": "Fri",
+      "שבת": "Sat"
+    },
+    "dayLetter": {
+      "א": "S",
+      "ב": "M",
+      "ג": "T",
+      "ד": "W",
+      "ה": "T",
+      "ו": "F",
+      "ש": "S"
+    }
+  },
+  "childAge": {
+    "monthsFemale_one": "1 month old",
+    "monthsFemale_other": "{{count}} months old",
+    "monthsMale_one": "1 month old",
+    "monthsMale_other": "{{count}} months old",
+    "monthsNeutral_one": "1 month old",
+    "monthsNeutral_other": "{{count}} months old",
+    "yearsFemale_one": "1 year old",
+    "yearsFemale_other": "{{count}} years old",
+    "yearsMale_one": "1 year old",
+    "yearsMale_other": "{{count}} years old",
+    "yearsNeutral_one": "1 year old",
+    "yearsNeutral_other": "{{count}} years old"
+  },
+  "activityMeta": {
+    "ageAll": "All ages",
+    "ageUpTo": "Up to age {{max}}",
+    "ageFrom": "Age {{min}}+",
+    "ageExact": "Age {{min}}",
+    "ageRange": "Ages {{min}}-{{max}}",
+    "priceFree": "Free",
+    "priceRange": "Price range",
+    "priceUnknown": "Not specified"
+  }
+}

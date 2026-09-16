@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Pressable, ActivityIndicator, TextInput, ScrollView } from 'react-native';
+import { useState, useEffect, Fragment } from 'react';
+import { View, Text, Pressable, ActivityIndicator, TextInput, ScrollView } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as LocalAuthentication from 'expo-local-authentication';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -14,43 +14,27 @@ import { enforceNotBanned } from '../lib/checkBanned';
 import { signInWithGoogle, signInWithApple } from '../lib/oauth';
 import { recordLegalConsentIfNeeded } from '../lib/legal';
 import { friendlyAuthError } from '../lib/authErrors';
+import { useI18n, createStyles } from '../lib/i18n';
 
-// כל הטקסטים של מסך ההרשמה/ההתחברות במקום אחד - כדי שיהיה קל להעביר אותם למערכת התרגום
-// (עברית/אנגלית) כשתיבנה, בלי לחפש מחרוזות בתוך ה-JSX.
-const COPY = {
-  // רווח לא-שביר לפני האימוג'י - שלא יישאר לבד בשורה כשהכותרת נשברת במסכים צרים
-  registerTitle: 'הופכים את תורו לשלכם 💛',
-  loginTitle: 'התחברות לתורו 👋',
-  loginSubtitle: 'בחרו את הדרך שבה נרשמתם',
-  benefits: [
-    { emoji: '👶', title: 'פעילויות שבאמת מתאימות לילדים שלכם', desc: 'לפי הגילאים וההעדפות שלכם' },
-    { emoji: '📍', title: 'זוכרים מה מתאים לכם', desc: 'המיקום וההעדפות נשמרים לפעם הבאה' },
-    { emoji: '❤️', title: 'שומרים פעילויות שאהבתם', desc: 'וחוזרים אליהן מתי שרוצים' },
-  ],
-  tagline: 'ההרשמה חינם ולוקחת רגע',
-  google: 'המשך עם Google',
-  apple: 'המשך עם Apple',
-  or: 'או',
-  email: 'המשך עם אימייל',
-  emailPlaceholder: 'your@email.com',
-  emailSend: 'שליחת קוד',
-  emailHint: 'נשלח אליכם קוד בן 6 ספרות - בלי סיסמה',
-  phoneRegister: 'הרשמה עם מספר טלפון',
-  phoneLogin: 'התחברות עם מספר טלפון',
-  nicknamePlaceholder: 'איך נקרא לכם?',
-  phoneSubmitRegister: 'יאללה, מצטרפים! 🦘',
-  phoneSubmitLogin: 'שליחת קוד בסמס',
-  haveAccount: 'כבר יש לכם חשבון?',
-  haveAccountAction: 'התחברו',
-  noAccount: 'עוד אין לכם חשבון?',
-  noAccountAction: 'הרשמה',
-  consentRegister: 'בהרשמה לתורו אתם מאשרים את',
-  consentLogin: 'בהתחברות לתורו אתם מאשרים את',
-  // רווח לא-שביר - שהקישור לא יישבר באמצע שורה
-  terms: 'תנאי השימוש',
-  and: 'ואת',
-  privacy: 'מדיניות הפרטיות',
-};
+// הטקסטים של המסך נמצאים ב-lib/i18n/locales/<locale>/auth.json (auth.login.*). רווחים לא-שבירים
+// (לפני האימוג'י בכותרת, ובתוך "תנאי השימוש"/"מדיניות הפרטיות") נשמרים בקבצי התרגום.
+const BENEFITS = [
+  { emoji: '👶', key: 'kids' },
+  { emoji: '📍', key: 'remember' },
+  { emoji: '❤️', key: 'saved' },
+];
+const EMAIL_PLACEHOLDER = 'your@email.com';
+const PHONE_PLACEHOLDER = '050-1234567';
+
+// מפרק תבנית מתורגמת עם {{slot}} לחלקים, כדי לשלב בתוכה רכיבי Text (קישורים/הדגשה) בלי להניח סדר
+// מילים קבוע - כל שפה קובעת את מיקום ה-slot בתוך המשפט.
+function renderTemplate(template, slots) {
+  return template.split(/(\{\{\w+\}\})/).map((part, i) => {
+    const m = part.match(/^\{\{(\w+)\}\}$/);
+    const content = m && slots[m[1]] !== undefined ? slots[m[1]] : part;
+    return content ? <Fragment key={i}>{content}</Fragment> : null;
+  });
+}
 
 function isValidEmail(v) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
@@ -71,6 +55,7 @@ function isValidIsraeliPhone(raw) {
 
 export default function LoginScreen() {
   const router = useRouter();
+  const { t } = useI18n();
   const [loading, setLoading] = useState(true);
   const [session, setSession] = useState(null);
   const [nickname, setNickname] = useState('');
@@ -143,16 +128,16 @@ export default function LoginScreen() {
     setError('');
     setAuthenticatingBio(true);
     const result = await LocalAuthentication.authenticateAsync({
-      promptMessage: 'אמתו את הזהות שלכם כדי להתחבר',
+      promptMessage: t('auth.welcomeBack.biometricPrompt'),
     });
     if (!result.success) {
       setAuthenticatingBio(false);
-      setError('לא הצלחנו לאמת - אפשר לנסות שוב, או להתחבר בקוד PIN');
+      setError(t('auth.welcomeBack.biometricFailed'));
       return;
     }
     if (session?.user?.id && await enforceNotBanned(session.user.id)) {
       setAuthenticatingBio(false);
-      setError('החשבון הזה חסום ולא ניתן להשתמש בו יותר');
+      setError(t('auth.errors.banned'));
       return;
     }
     setAuthenticatingBio(false);
@@ -163,7 +148,7 @@ export default function LoginScreen() {
   // בדיקת חסימה, ואז החלטה בין דף הבית לבין הצעת PIN/ביומטריה אם עוד לא הוגדרו במכשיר הזה.
   const finishOAuthLogin = async (userId) => {
     if (userId && await enforceNotBanned(userId)) {
-      setError('החשבון הזה חסום ולא ניתן להשתמש בו יותר');
+      setError(t('auth.errors.banned'));
       return;
     }
     await recordLegalConsentIfNeeded(userId);
@@ -227,9 +212,9 @@ export default function LoginScreen() {
     const nextErrors = {};
     // כינוי נדרש רק בהרשמה: profiles.nickname הוא NOT NULL, ולמשתמש טלפון אין אימייל שממנו
     // handle_new_user() יכול לגזור כינוי. בהתחברות (משתמש קיים) הטריגר לא רץ בכלל.
-    if (mode === 'register' && !regNickname.trim()) nextErrors.nickname = 'נא להזין כינוי';
-    if (!regPhone.trim()) nextErrors.phone = 'נא להזין מספר טלפון';
-    else if (!isValidIsraeliPhone(regPhone)) nextErrors.phone = 'מספר טלפון לא תקין';
+    if (mode === 'register' && !regNickname.trim()) nextErrors.nickname = t('auth.login.nicknameRequired');
+    if (!regPhone.trim()) nextErrors.phone = t('auth.login.phoneRequired');
+    else if (!isValidIsraeliPhone(regPhone)) nextErrors.phone = t('auth.login.phoneInvalid');
     setRegErrors(nextErrors);
     setError('');
     if (Object.keys(nextErrors).length > 0) return;
@@ -282,39 +267,39 @@ export default function LoginScreen() {
           <Header showBack onMenuPress={() => {}} />
           <View style={styles.registerCenter}>
             <Text style={styles.registerTitle} accessibilityRole="header">
-              {isRegister ? COPY.registerTitle : COPY.loginTitle}
+              {isRegister ? t('auth.login.registerTitle') : t('auth.login.loginTitle')}
             </Text>
 
             {isRegister ? (
               <View style={styles.benefitsList}>
-                {COPY.benefits.map((b) => (
-                  <View key={b.title} style={styles.benefitRow}>
+                {BENEFITS.map((b) => (
+                  <View key={b.key} style={styles.benefitRow}>
                     <Text style={styles.benefitEmoji} importantForAccessibility="no" accessibilityElementsHidden>{b.emoji}</Text>
                     <View style={styles.benefitTextWrap}>
-                      <Text style={styles.benefitTitle}>{b.title}</Text>
-                      <Text style={styles.benefitDesc}>{b.desc}</Text>
+                      <Text style={styles.benefitTitle}>{t(`auth.login.benefits.${b.key}.title`)}</Text>
+                      <Text style={styles.benefitDesc}>{t(`auth.login.benefits.${b.key}.desc`)}</Text>
                     </View>
                   </View>
                 ))}
               </View>
             ) : (
-              <Text style={styles.loginSubtitle}>{COPY.loginSubtitle}</Text>
+              <Text style={styles.loginSubtitle}>{t('auth.login.loginSubtitle')}</Text>
             )}
 
-            {isRegister ? <Text style={styles.registerTagline}>{COPY.tagline}</Text> : null}
+            {isRegister ? <Text style={styles.registerTagline}>{t('auth.login.tagline')}</Text> : null}
 
             <Pressable
               style={({ pressed }) => [styles.authBtn, pressed && styles.authBtnPressed, authBusy && !googleLoading && styles.authBtnDimmed]}
               onPress={handleGoogleLogin}
               disabled={authBusy}
               accessibilityRole="button"
-              accessibilityLabel={COPY.google}
+              accessibilityLabel={t('auth.login.google')}
               accessibilityState={{ busy: googleLoading, disabled: authBusy }}
             >
               {googleLoading ? <ActivityIndicator color={colors.textPrimary} /> : (
                 <>
                   <GoogleIcon />
-                  <Text style={styles.authBtnText}>{COPY.google}</Text>
+                  <Text style={styles.authBtnText}>{t('auth.login.google')}</Text>
                 </>
               )}
             </Pressable>
@@ -324,20 +309,20 @@ export default function LoginScreen() {
               onPress={handleAppleLogin}
               disabled={authBusy}
               accessibilityRole="button"
-              accessibilityLabel={COPY.apple}
+              accessibilityLabel={t('auth.login.apple')}
               accessibilityState={{ busy: appleLoading, disabled: authBusy }}
             >
               {appleLoading ? <ActivityIndicator color={colors.textPrimary} /> : (
                 <>
                   <AppleIcon color={colors.textPrimary} />
-                  <Text style={styles.authBtnText}>{COPY.apple}</Text>
+                  <Text style={styles.authBtnText}>{t('auth.login.apple')}</Text>
                 </>
               )}
             </Pressable>
 
             <View style={styles.dividerRow} importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
               <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>{COPY.or}</Text>
+              <Text style={styles.dividerText}>{t('auth.login.or')}</Text>
               <View style={styles.dividerLine} />
             </View>
 
@@ -347,10 +332,10 @@ export default function LoginScreen() {
                 onPress={() => setShowEmailField(true)}
                 disabled={authBusy}
                 accessibilityRole="button"
-                accessibilityLabel={COPY.email}
+                accessibilityLabel={t('auth.login.email')}
               >
                 <MailIcon size={18} color={colors.textPrimary} />
-                <Text style={styles.authBtnText}>{COPY.email}</Text>
+                <Text style={styles.authBtnText}>{t('auth.login.email')}</Text>
               </Pressable>
             ) : (
               <View style={styles.emailFieldWrap}>
@@ -358,7 +343,7 @@ export default function LoginScreen() {
                   style={styles.emailInput}
                   value={email}
                   onChangeText={setEmail}
-                  placeholder={COPY.emailPlaceholder}
+                  placeholder={EMAIL_PLACEHOLDER}
                   placeholderTextColor={colors.textMuted}
                   autoCapitalize="none"
                   autoCorrect={false}
@@ -367,7 +352,7 @@ export default function LoginScreen() {
                   textContentType="emailAddress"
                   returnKeyType="send"
                   onSubmitEditing={handleSendEmailCode}
-                  accessibilityLabel="אימייל"
+                  accessibilityLabel={t('auth.login.emailLabel')}
                   autoFocus
                 />
                 <Pressable
@@ -375,12 +360,12 @@ export default function LoginScreen() {
                   onPress={handleSendEmailCode}
                   disabled={!isValidEmail(email) || authBusy}
                   accessibilityRole="button"
-                  accessibilityLabel={COPY.emailSend}
+                  accessibilityLabel={t('auth.login.emailSend')}
                   accessibilityState={{ busy: sendingEmailCode, disabled: !isValidEmail(email) || authBusy }}
                 >
-                  {sendingEmailCode ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitBtnText}>{COPY.emailSend}</Text>}
+                  {sendingEmailCode ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitBtnText}>{t('auth.login.emailSend')}</Text>}
                 </Pressable>
-                <Text style={styles.fieldHint}>{COPY.emailHint}</Text>
+                <Text style={styles.fieldHint}>{t('auth.login.emailHint')}</Text>
               </View>
             )}
 
@@ -392,7 +377,7 @@ export default function LoginScreen() {
                 style={styles.phoneLink}
                 accessibilityRole="button"
               >
-                <Text style={styles.secondaryLinkText}>{isRegister ? COPY.phoneRegister : COPY.phoneLogin}</Text>
+                <Text style={styles.secondaryLinkText}>{isRegister ? t('auth.login.phoneRegister') : t('auth.login.phoneLogin')}</Text>
               </Pressable>
             ) : (
               <View style={styles.phoneFieldsWrap}>
@@ -402,9 +387,9 @@ export default function LoginScreen() {
                       style={[styles.emailInput, styles.rtlInput, regErrors.nickname && styles.inputError]}
                       value={regNickname}
                       onChangeText={setRegNickname}
-                      placeholder={COPY.nicknamePlaceholder}
+                      placeholder={t('auth.login.nicknamePlaceholder')}
                       placeholderTextColor={colors.textMuted}
-                      accessibilityLabel={COPY.nicknamePlaceholder}
+                      accessibilityLabel={t('auth.login.nicknamePlaceholder')}
                     />
                     {regErrors.nickname ? <Text style={styles.errorText}>{regErrors.nickname}</Text> : null}
                   </>
@@ -413,12 +398,12 @@ export default function LoginScreen() {
                   style={[styles.emailInput, regErrors.phone && styles.inputError]}
                   value={regPhone}
                   onChangeText={setRegPhone}
-                  placeholder="050-1234567"
+                  placeholder={PHONE_PLACEHOLDER}
                   placeholderTextColor={colors.textMuted}
                   keyboardType="phone-pad"
                   autoComplete="tel"
                   textContentType="telephoneNumber"
-                  accessibilityLabel="מספר טלפון"
+                  accessibilityLabel={t('auth.login.phoneLabel')}
                 />
                 {regErrors.phone ? <Text style={styles.errorText}>{regErrors.phone}</Text> : null}
                 <Pressable
@@ -429,7 +414,7 @@ export default function LoginScreen() {
                   accessibilityState={{ busy: submittingPhone, disabled: authBusy }}
                 >
                   {submittingPhone ? <ActivityIndicator color="#fff" /> : (
-                    <Text style={styles.submitBtnText}>{isRegister ? COPY.phoneSubmitRegister : COPY.phoneSubmitLogin}</Text>
+                    <Text style={styles.submitBtnText}>{isRegister ? t('auth.login.phoneSubmitRegister') : t('auth.login.phoneSubmitLogin')}</Text>
                   )}
                 </Pressable>
               </View>
@@ -438,17 +423,17 @@ export default function LoginScreen() {
             {error ? <Text style={styles.errorText} accessibilityLiveRegion="polite">{error}</Text> : null}
 
             <View style={styles.switchModeRow}>
-              <Text style={styles.switchModeText}>{isRegister ? COPY.haveAccount : COPY.noAccount}</Text>
+              <Text style={styles.switchModeText}>{isRegister ? t('auth.login.haveAccount') : t('auth.login.noAccount')}</Text>
               <Pressable onPress={switchMode} hitSlop={10} accessibilityRole="button">
-                <Text style={styles.switchModeAction}>{isRegister ? COPY.haveAccountAction : COPY.noAccountAction}</Text>
+                <Text style={styles.switchModeAction}>{isRegister ? t('auth.login.haveAccountAction') : t('auth.login.noAccountAction')}</Text>
               </Pressable>
             </View>
 
             <Text style={styles.consentText}>
-              {isRegister ? COPY.consentRegister : COPY.consentLogin}{' '}
-              <Text style={styles.consentLink} onPress={() => router.push('/terms')} accessibilityRole="link">{COPY.terms}</Text>
-              {' '}{COPY.and}{' '}
-              <Text style={styles.consentLink} onPress={() => router.push('/privacy')} accessibilityRole="link">{COPY.privacy}</Text>.
+              {renderTemplate(t(isRegister ? 'auth.login.consentRegister' : 'auth.login.consentLogin'), {
+                terms: <Text style={styles.consentLink} onPress={() => router.push('/terms')} accessibilityRole="link">{t('auth.login.terms')}</Text>,
+                privacy: <Text style={styles.consentLink} onPress={() => router.push('/privacy')} accessibilityRole="link">{t('auth.login.privacy')}</Text>,
+              })}
             </Text>
           </View>
         </ScrollView>
@@ -464,9 +449,11 @@ export default function LoginScreen() {
       <View style={styles.content}>
         <Header showBack onMenuPress={() => {}} />
         <View style={styles.center}>
-          <Text style={styles.welcome}>כיף לראות אתכם שוב! 👋</Text>
+          <Text style={styles.welcome}>{t('auth.welcomeBack.title')}</Text>
           <Text style={styles.welcomeSub}>
-            להמשיך בתור <Text style={styles.welcomeName}>{nickname || 'שלכם'}</Text>?
+            {renderTemplate(t('auth.welcomeBack.continueAs'), {
+              name: <Text style={styles.welcomeName}>{nickname || t('auth.welcomeBack.defaultName')}</Text>,
+            })}
           </Text>
 
           {biometricEnabled && (
@@ -474,14 +461,14 @@ export default function LoginScreen() {
               <Pressable style={styles.bioBtn} onPress={handleBiometricLogin} disabled={authenticatingBio}>
                 {authenticatingBio ? <ActivityIndicator color={colors.accent} /> : <FingerprintIcon />}
               </Pressable>
-              <Text style={styles.bioLabel}>התחברות עם טביעת אצבע</Text>
+              <Text style={styles.bioLabel}>{t('auth.welcomeBack.biometricLabel')}</Text>
             </>
           )}
 
           {showQuickOptions && (
             <View style={styles.dividerRow}>
               <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>או</Text>
+              <Text style={styles.dividerText}>{t('auth.login.or')}</Text>
               <View style={styles.dividerLine} />
             </View>
           )}
@@ -489,7 +476,7 @@ export default function LoginScreen() {
           {pinEnabled && (
             <Pressable style={styles.pinBtn} onPress={() => router.push({ pathname: '/enter-pin', params: { nickname } })}>
               <PinIcon />
-              <Text style={styles.pinBtnText}>הזינו קוד PIN</Text>
+              <Text style={styles.pinBtnText}>{t('auth.welcomeBack.enterPin')}</Text>
             </Pressable>
           )}
 
@@ -499,7 +486,7 @@ export default function LoginScreen() {
             {sendingCode ? (
               <ActivityIndicator color={colors.textSecondary} />
             ) : (
-              <Text style={styles.linkBtn}>התחברות עם קוד בסמס</Text>
+              <Text style={styles.linkBtn}>{t('auth.welcomeBack.smsLogin')}</Text>
             )}
           </Pressable>
         </View>
@@ -508,7 +495,7 @@ export default function LoginScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createStyles((d) => ({
   screen: { flex: 1, backgroundColor: colors.bg },
   content: { flex: 1, padding: spacing.xl },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
@@ -525,11 +512,11 @@ const styles = StyleSheet.create({
   registerTitle: { fontFamily: fonts.extraBold, fontSize: 20, color: colors.textPrimary, textAlign: 'center', marginTop: 4, marginBottom: 18 },
   loginSubtitle: { fontFamily: fonts.regular, fontSize: 14, color: colors.textSecondary, textAlign: 'center', marginBottom: 22 },
   benefitsList: { width: '100%', marginBottom: 18, gap: 12 },
-  benefitRow: { width: '100%', flexDirection: 'row-reverse', alignItems: 'flex-start', gap: 10 },
+  benefitRow: { width: '100%', flexDirection: d.row, alignItems: 'flex-start', gap: 10 },
   benefitEmoji: { fontSize: 17, lineHeight: 22, width: 22, textAlign: 'center' },
   benefitTextWrap: { flex: 1 },
-  benefitTitle: { fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary, textAlign: 'right', lineHeight: 20 },
-  benefitDesc: { fontFamily: fonts.regular, fontSize: 12.5, color: colors.textSecondary, textAlign: 'right', lineHeight: 17 },
+  benefitTitle: { fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary, textAlign: d.textAlign, lineHeight: 20 },
+  benefitDesc: { fontFamily: fonts.regular, fontSize: 12.5, color: colors.textSecondary, textAlign: d.textAlign, lineHeight: 17 },
   // המעבר מ"למה להירשם" אל "נרשמים עכשיו" - מודגש מעט יותר מטקסט משני, בלי להפוך לכותרת
   registerTagline: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.textPrimary, textAlign: 'center', marginBottom: 14 },
 
@@ -537,7 +524,7 @@ const styles = StyleSheet.create({
   authBtn: {
     width: '100%', minHeight: 48, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.card,
     borderRadius: radii.pill, paddingVertical: 12, marginBottom: 10,
-    flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'center', gap: 10,
+    flexDirection: d.row, alignItems: 'center', justifyContent: 'center', gap: 10,
   },
   authBtnPressed: { opacity: 0.75 },
   authBtnDimmed: { opacity: 0.5 },
@@ -548,11 +535,11 @@ const styles = StyleSheet.create({
   },
   submitBtnText: { fontFamily: fonts.bold, fontSize: 14.5, color: '#fff' },
   fieldHint: { fontFamily: fonts.regular, fontSize: 11.5, color: colors.textMuted, textAlign: 'center', marginBottom: 4 },
-  rtlInput: { textAlign: 'right', writingDirection: 'rtl' },
+  rtlInput: { textAlign: d.textAlign, writingDirection: d.writingDirection },
   phoneLink: { paddingVertical: 8, marginTop: 4, marginBottom: 0 },
   secondaryLinkText: { fontFamily: fonts.semiBold, fontSize: 13, color: colors.textSecondary, textDecorationLine: 'underline' },
   // מרווח גדול יותר מעל "כבר יש לכם חשבון?" - שלא ייקרא כחלק מקישור הטלפון שמעליו
-  switchModeRow: { flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'center', gap: 5, marginTop: 22, marginBottom: 14 },
+  switchModeRow: { flexDirection: d.row, alignItems: 'center', justifyContent: 'center', gap: 5, marginTop: 22, marginBottom: 14 },
   switchModeText: { fontFamily: fonts.regular, fontSize: 13.5, color: colors.textSecondary },
   switchModeAction: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.accent, textDecorationLine: 'underline' },
 
@@ -570,7 +557,7 @@ const styles = StyleSheet.create({
   pinBtn: {
     width: '100%', borderWidth: 1.5, borderColor: colors.accent, backgroundColor: colors.card,
     borderRadius: radii.pill, paddingVertical: 13, marginBottom: 22,
-    flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'center', gap: 8,
+    flexDirection: d.row, alignItems: 'center', justifyContent: 'center', gap: 8,
   },
   pinBtnText: { fontFamily: fonts.bold, fontSize: 14.5, color: colors.accent },
   submitBtnDisabled: { opacity: 0.5 },
@@ -587,4 +574,4 @@ const styles = StyleSheet.create({
   consentLink: { fontFamily: fonts.semiBold, color: colors.textSecondary, textDecorationLine: 'underline' },
 
   linkBtn: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.textSecondary, textDecorationLine: 'underline' },
-});
+}));

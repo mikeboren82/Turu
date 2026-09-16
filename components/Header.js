@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { View, Text, Pressable, Modal, StyleSheet, Image } from 'react-native';
+import { View, Text, Pressable, Modal, Image } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Svg, { Line } from 'react-native-svg';
@@ -10,7 +10,10 @@ import { clearPin } from '../lib/pin';
 import { HomeIcon, HeartIcon, UserIcon, ChatIcon, InfoIcon, MailIcon, LogOutIcon, NoteIcon, AlertIcon } from './icons';
 import LoginRequiredModal from './LoginRequiredModal';
 import FeedbackButton from './FeedbackButton';
+import LanguageSwitcher from './LanguageSwitcher';
+import { useI18n, createStyles } from '../lib/i18n';
 
+// Points left in both languages: the header geometry is physical (back button top-left).
 function BackIcon() {
   return (
     <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={colors.ink} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
@@ -30,8 +33,9 @@ function MenuIcon() {
   );
 }
 
-export default function Header({ showBack = false, onMenuPress, hideLogo = false, onHeaderLayout, onNicknameResolved }) {
+export default function Header({ showBack = false, onMenuPress, hideLogo = false, onHeaderLayout, onNicknameResolved, showLanguageSwitcher = false }) {
   const router = useRouter();
+  const { t } = useI18n();
   const pathname = usePathname();
   const insets = useSafeAreaInsets();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -108,25 +112,25 @@ export default function Header({ showBack = false, onMenuPress, hideLogo = false
   // "היעדים שלי" ו"ההערות שלי" מובילים שניהם ל-app/my-things.js (עמוד "❤️ הדברים שלי" המאוחד),
   // רק עם טאב פתוח שונה (?tab=notes) - לא שני routes נפרדים.
   const primaryItems = [
-    { key: 'activities', label: 'פעילויות', path: '/activities', Icon: HomeIcon },
+    { key: 'activities', labelKey: 'nav.menu.activities', path: '/activities', Icon: HomeIcon },
     {
-      key: 'destinations', label: 'היעדים שלי', path: '/my-things', Icon: HeartIcon, requiresAuth: true,
-      authMessage: 'שמרו מקומות שאתם רוצים לבקר בהם וחזרו אליהם מתי שתרצו.',
+      key: 'destinations', labelKey: 'nav.menu.destinations', path: '/my-things', Icon: HeartIcon, requiresAuth: true,
+      authMessageKey: 'nav.menu.destinationsAuth',
     },
     {
-      key: 'notes', label: 'ההערות שלי', path: '/my-things?tab=notes', Icon: NoteIcon, requiresAuth: true,
-      authMessage: 'כתבו לעצמכם הערות אישיות על פעילויות, ותמצאו אותן כאן בכל פעם שתחזרו.',
+      key: 'notes', labelKey: 'nav.menu.notes', path: '/my-things?tab=notes', Icon: NoteIcon, requiresAuth: true,
+      authMessageKey: 'nav.menu.notesAuth',
     },
-    ...(session ? [{ key: 'profile', label: 'הפרופיל שלי', path: '/profile', Icon: UserIcon }] : []),
+    ...(session ? [{ key: 'profile', labelKey: 'nav.menu.profile', path: '/profile', Icon: UserIcon }] : []),
   ];
 
   const secondaryItems = [
-    { key: 'chat', label: 'שיח קהילה', path: '/chat', Icon: ChatIcon },
-    { key: 'about', label: 'עלינו', path: '/about', Icon: InfoIcon },
-    { key: 'contact', label: 'צור קשר', path: '/contact', Icon: MailIcon },
+    { key: 'chat', labelKey: 'nav.menu.chat', path: '/chat', Icon: ChatIcon },
+    { key: 'about', labelKey: 'nav.menu.about', path: '/about', Icon: InfoIcon },
+    { key: 'contact', labelKey: 'nav.menu.contact', path: '/contact', Icon: MailIcon },
     // "משהו לא עובד?" - מתחת ל"צור קשר" בדיוק (בקשת המשתמש), action במקום path: פותח את
     // מודל-הדיווח (FeedbackButton) במקום לנווט לעמוד.
-    { key: 'feedback', label: 'משהו לא עובד?', action: 'openFeedback', Icon: AlertIcon },
+    { key: 'feedback', labelKey: 'nav.menu.feedback', action: 'openFeedback', Icon: AlertIcon },
   ];
 
   // בלי session - במקום ניווט לעמוד ריק, פותחים LoginRequiredModal עם הסבר מותאם-הקשר לפריט
@@ -138,7 +142,7 @@ export default function Header({ showBack = false, onMenuPress, hideLogo = false
       return;
     }
     if (item.requiresAuth && !session) {
-      setAuthPromptMessage(item.authMessage || 'צריך להתחבר כדי לבצע פעולה זו');
+      setAuthPromptMessage(item.authMessageKey ? t(item.authMessageKey) : t('common.loginRequired.defaultMessage'));
       setShowDestinationsPrompt(true);
       return;
     }
@@ -158,7 +162,7 @@ export default function Header({ showBack = false, onMenuPress, hideLogo = false
           style={[primary ? styles.primaryItemText : styles.secondaryItemText, active && styles.itemTextActive]}
           numberOfLines={1}
         >
-          {item.label}
+          {t(item.labelKey)}
         </Text>
       </Pressable>
     );
@@ -173,7 +177,7 @@ export default function Header({ showBack = false, onMenuPress, hideLogo = false
         <Pressable
           style={[styles.iconBtn, styles.side, styles.sideLeft]}
           onPress={() => router.back()}
-          accessibilityLabel="חזרה"
+          accessibilityLabel={t('nav.header.backA11y')}
         >
           <BackIcon />
         </Pressable>
@@ -182,15 +186,20 @@ export default function Header({ showBack = false, onMenuPress, hideLogo = false
       )}
 
       {!hideLogo && (
-        <Pressable style={styles.logoWrap} onPress={() => router.push('/')} accessibilityLabel="חזרה למסך הראשי">
+        <Pressable style={styles.logoWrap} onPress={() => router.push('/')} accessibilityLabel={t('nav.header.logoA11y')}>
           <Image source={require('../assets/turu-logo.png')} style={styles.logoImage} resizeMode="contain" />
         </Pressable>
       )}
 
+      {/* בורר-שפה (רק בעמוד הבית): absolute מעל כפתור התפריט, באותו צד - לא דוחף תוכן ולא נוגע
+          בלוגו או ב-SunMascot של app/index.js (שיושב בצד הנגדי). מרונדר לפני כפתור התפריט כדי שבחפיפת
+          hitSlop הכפתור יישאר עליון. */}
+      {showLanguageSwitcher ? <LanguageSwitcher style={styles.languageSwitcher} /> : null}
+
       <Pressable
         style={[styles.iconBtn, styles.side, styles.sideRight]}
         onPress={handleMenuPress}
-        accessibilityLabel="תפריט"
+        accessibilityLabel={t('nav.header.menuA11y')}
       >
         <MenuIcon />
       </Pressable>
@@ -207,10 +216,10 @@ export default function Header({ showBack = false, onMenuPress, hideLogo = false
                   <Text style={styles.authAvatarText}>{(nickname || '?')[0]}</Text>
                 </View>
                 <View style={styles.authTextWrap}>
-                  <Text style={styles.authGreeting} numberOfLines={1}>שלום, {nickname || 'שלכם'}</Text>
-                  <Text style={styles.authSubLink}>הפרופיל שלי</Text>
+                  <Text style={styles.authGreeting} numberOfLines={1}>{nickname ? t('nav.menu.greeting', { name: nickname }) : t('nav.menu.greetingNoName')}</Text>
+                  <Text style={styles.authSubLink}>{t('nav.menu.profile')}</Text>
                   {children.length > 0 && (
-                    <Text style={styles.authKidsLine}>{children.length === 1 ? 'ילד אחד' : `${children.length} ילדים`}</Text>
+                    <Text style={styles.authKidsLine}>{t('nav.menu.kids', { count: children.length })}</Text>
                   )}
                 </View>
                 {stars > 0 && <Text style={styles.authStars}>⭐{stars}</Text>}
@@ -221,7 +230,7 @@ export default function Header({ showBack = false, onMenuPress, hideLogo = false
                 onPress={() => { setMenuOpen(false); router.push('/login'); }}
               >
                 <UserIcon size={18} color={colors.accent} />
-                <Text style={styles.ctaText}>התחבר / הרשמה</Text>
+                <Text style={styles.ctaText}>{t('nav.menu.login')}</Text>
               </Pressable>
             )}
 
@@ -238,7 +247,7 @@ export default function Header({ showBack = false, onMenuPress, hideLogo = false
                   onPress={() => { setMenuOpen(false); setShowLogoutConfirm(true); }}
                 >
                   <LogOutIcon size={17} color={colors.textSecondary} />
-                  <Text style={styles.logoutItemText} numberOfLines={1}>התנתקות</Text>
+                  <Text style={styles.logoutItemText} numberOfLines={1}>{t('nav.menu.logout')}</Text>
                 </Pressable>
               </>
             ) : null}
@@ -246,11 +255,11 @@ export default function Header({ showBack = false, onMenuPress, hideLogo = false
             <View style={styles.dropdownDivider} />
             <View style={styles.legalRow}>
               <Pressable onPress={() => { setMenuOpen(false); router.push('/terms'); }}>
-                <Text style={styles.legalLinkText}>⚖️ תנאי שימוש</Text>
+                <Text style={styles.legalLinkText}>{t('nav.menu.terms')}</Text>
               </Pressable>
               <Text style={styles.legalDot}>·</Text>
               <Pressable onPress={() => { setMenuOpen(false); router.push('/privacy'); }}>
-                <Text style={styles.legalLinkText}>🔒 מדיניות פרטיות</Text>
+                <Text style={styles.legalLinkText}>{t('nav.menu.privacy')}</Text>
               </Pressable>
             </View>
           </View>
@@ -266,13 +275,13 @@ export default function Header({ showBack = false, onMenuPress, hideLogo = false
       <Modal visible={showLogoutConfirm} transparent animationType="fade" onRequestClose={() => setShowLogoutConfirm(false)}>
         <Pressable style={styles.confirmBackdrop} onPress={() => setShowLogoutConfirm(false)}>
           <Pressable style={styles.confirmCard} onPress={() => {}}>
-            <Text style={styles.confirmTitle}>האם להתנתק?</Text>
+            <Text style={styles.confirmTitle}>{t('nav.menu.logoutConfirm')}</Text>
             <View style={styles.confirmActionsRow}>
               <Pressable style={styles.confirmCancelBtn} onPress={() => setShowLogoutConfirm(false)}>
-                <Text style={styles.confirmCancelText}>ביטול</Text>
+                <Text style={styles.confirmCancelText}>{t('common.actions.cancel')}</Text>
               </Pressable>
               <Pressable style={styles.confirmLogoutBtn} onPress={handleLogout}>
-                <Text style={styles.confirmLogoutText}>התנתקות</Text>
+                <Text style={styles.confirmLogoutText}>{t('nav.menu.logout')}</Text>
               </Pressable>
             </View>
           </Pressable>
@@ -284,7 +293,9 @@ export default function Header({ showBack = false, onMenuPress, hideLogo = false
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createStyles((d) => ({
+  // Physical in both languages on purpose: back ← stays top-left (the English convention, and the
+  // approved Hebrew layout), menu top-right. Only the dropdown's contents follow the reading direction.
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -304,10 +315,12 @@ const styles = StyleSheet.create({
   },
   logoWrap: { alignItems: 'center' },
   logoImage: { width: 132, height: 92 },
+  // מעל כפתור התפריט (38px, ממורכז בשורה של ~104px → מתחיל ב-~33px): גובה הבורר 30, top:-4 → ~7px רווח מעל הכפתור.
+  languageSwitcher: { position: 'absolute', right: 0, top: -4 },
 
   backdrop: { flex: 1, alignItems: 'flex-end' },
   dropdown: {
-    marginEnd: 18, minWidth: 220, maxWidth: 280,
+    marginRight: 18, minWidth: 220, maxWidth: 280,
     backgroundColor: colors.card, borderRadius: radii.lg, borderWidth: 1, borderColor: colors.border,
     paddingVertical: 6, shadowColor: '#000', shadowOpacity: 0.12, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 6,
     overflow: 'hidden',
@@ -317,7 +330,7 @@ const styles = StyleSheet.create({
 
   // אזור עליון - זהות/CTA. אותו tint עדין (accentTintLight) בשני המצבים: "ברור אך לא אגרסיבי".
   authArea: {
-    flexDirection: 'row-reverse', alignItems: 'center', gap: 10,
+    flexDirection: d.row, alignItems: 'center', gap: 10,
     paddingVertical: 14, paddingHorizontal: 16, backgroundColor: colors.accentTintLight,
   },
   authAvatar: {
@@ -326,32 +339,32 @@ const styles = StyleSheet.create({
   },
   authAvatarText: { fontFamily: fonts.bold, fontSize: 13, color: '#fff' },
   authTextWrap: { flex: 1, minWidth: 0 },
-  authGreeting: { fontFamily: fonts.extraBold, fontSize: 14.5, color: colors.accent, textAlign: 'right' },
-  authSubLink: { fontFamily: fonts.semiBold, fontSize: 12, color: colors.accent, textAlign: 'right', marginTop: 1, opacity: 0.8 },
-  authKidsLine: { fontFamily: fonts.regular, fontSize: 11, color: colors.textMuted, textAlign: 'right', marginTop: 3 },
+  authGreeting: { fontFamily: fonts.extraBold, fontSize: 14.5, color: colors.accent, textAlign: d.textAlign },
+  authSubLink: { fontFamily: fonts.semiBold, fontSize: 12, color: colors.accent, textAlign: d.textAlign, marginTop: 1, opacity: 0.8 },
+  authKidsLine: { fontFamily: fonts.regular, fontSize: 11, color: colors.textMuted, textAlign: d.textAlign, marginTop: 3 },
   authStars: { fontFamily: fonts.bold, fontSize: 12.5, color: colors.yellow, flexShrink: 0 },
 
   ctaRow: {
-    flexDirection: 'row-reverse', alignItems: 'center', gap: 10,
+    flexDirection: d.row, alignItems: 'center', gap: 10,
     paddingVertical: 14, paddingHorizontal: 16, backgroundColor: colors.accentTintLight,
   },
-  ctaText: { fontFamily: fonts.extraBold, fontSize: 14.5, color: colors.accent, textAlign: 'right' },
+  ctaText: { fontFamily: fonts.extraBold, fontSize: 14.5, color: colors.accent, textAlign: d.textAlign },
 
   dropdownDivider: { height: 1, backgroundColor: colors.border, marginVertical: 6 },
 
   dropdownItem: {
-    flexDirection: 'row-reverse', alignItems: 'center', gap: 12,
+    flexDirection: d.row, alignItems: 'center', gap: 12,
     paddingVertical: 13, paddingHorizontal: 16, minHeight: 48,
   },
   dropdownItemActive: { backgroundColor: colors.accentTintLight },
-  primaryItemText: { flexShrink: 1, fontFamily: fonts.bold, fontSize: 14.5, color: colors.textPrimary, textAlign: 'right' },
-  secondaryItemText: { flexShrink: 1, fontFamily: fonts.semiBold, fontSize: 13, color: colors.textSecondary, textAlign: 'right' },
+  primaryItemText: { flexShrink: 1, fontFamily: fonts.bold, fontSize: 14.5, color: colors.textPrimary, textAlign: d.textAlign },
+  secondaryItemText: { flexShrink: 1, fontFamily: fonts.semiBold, fontSize: 13, color: colors.textSecondary, textAlign: d.textAlign },
   itemTextActive: { color: colors.accent },
 
-  logoutItemText: { fontFamily: fonts.semiBold, fontSize: 13.5, color: colors.textSecondary, textAlign: 'right' },
+  logoutItemText: { fontFamily: fonts.semiBold, fontSize: 13.5, color: colors.textSecondary, textAlign: d.textAlign },
 
   legalRow: {
-    flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'center', gap: 6,
+    flexDirection: d.row, alignItems: 'center', justifyContent: 'center', gap: 6,
     paddingVertical: 10, paddingHorizontal: 16,
   },
   legalLinkText: { fontFamily: fonts.regular, fontSize: 11, color: colors.textMuted },
@@ -362,7 +375,7 @@ const styles = StyleSheet.create({
   },
   confirmCard: { width: '100%', maxWidth: 320, backgroundColor: colors.card, borderRadius: radii.xl, padding: spacing.xl },
   confirmTitle: { fontFamily: fonts.extraBold, fontSize: 16, color: colors.textPrimary, textAlign: 'center', marginBottom: 18 },
-  confirmActionsRow: { flexDirection: 'row-reverse', gap: 10 },
+  confirmActionsRow: { flexDirection: d.row, gap: 10 },
   confirmCancelBtn: {
     flex: 1, alignItems: 'center', paddingVertical: 12, borderRadius: radii.pill,
     borderWidth: 1, borderColor: colors.border,
@@ -370,4 +383,4 @@ const styles = StyleSheet.create({
   confirmCancelText: { fontFamily: fonts.bold, fontSize: 14, color: colors.textSecondary },
   confirmLogoutBtn: { flex: 1, alignItems: 'center', paddingVertical: 12, borderRadius: radii.pill, backgroundColor: colors.textSecondary },
   confirmLogoutText: { fontFamily: fonts.bold, fontSize: 14, color: '#fff' },
-});
+}));

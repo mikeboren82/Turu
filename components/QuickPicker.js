@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
-import { Modal, View, Text, TextInput, ScrollView, Pressable, StyleSheet } from 'react-native';
+import { Modal, View, Text, TextInput, ScrollView, Pressable } from 'react-native';
 import { colors, fonts, radii, spacing } from '../constants/theme';
+import { useI18n, createStyles } from '../lib/i18n';
 
 export default function QuickPicker({
-  visible, title, subtitle, options, value, multiple = true, showAll = false, allLabel = 'הכל', onChange, onClose,
-  footer = null, doneLabel = 'סיום', onReset, searchable = false,
+  visible, title, subtitle, options, value, multiple = true, showAll = false, allLabel, onChange, onClose,
+  footer = null, doneLabel, onReset, searchable = false,
 }) {
+  const { t } = useI18n();
   const [search, setSearch] = useState('');
 
   // מאפס את החיפוש בכל פתיחה מחדש - לא נשאר טקסט-חיפוש ישן מהפעם הקודמת (רלוונטי רק
@@ -25,7 +27,7 @@ export default function QuickPicker({
 
   const isAllSelected = value.length === 0;
   const visibleOptions = searchable && search.trim()
-    ? options.filter((o) => o.label.includes(search.trim()))
+    ? options.filter((o) => o.label.toLowerCase().includes(search.trim().toLowerCase()))
     : options;
 
   // כשלאופציות יש emoji (כרגע: CATEGORY_OPTIONS/CATEGORY_FILTER_OPTIONS, constants/filterSchema.js) -
@@ -41,7 +43,7 @@ export default function QuickPicker({
           onPress={() => onChange([])}
           style={[hasIcons ? styles.allChipWide : styles.allChipCentered, isAllSelected && styles.chipSelected]}
         >
-          <Text style={[styles.chipText, isAllSelected && styles.chipTextSelected]}>{allLabel}</Text>
+          <Text style={[styles.chipText, isAllSelected && styles.chipTextSelected]}>{allLabel ?? t('common.actions.all')}</Text>
         </Pressable>
       )}
       <View style={hasIcons ? styles.iconGrid : styles.grid}>
@@ -78,7 +80,7 @@ export default function QuickPicker({
               style={styles.searchInput}
               value={search}
               onChangeText={setSearch}
-              placeholder="🔍 חיפוש..."
+              placeholder={t('filters.quickPicker.searchPlaceholder')}
               placeholderTextColor={colors.textMuted}
             />
           )}
@@ -88,12 +90,12 @@ export default function QuickPicker({
           </ScrollView>
           {multiple && (
             <Pressable style={styles.doneBtn} onPress={onClose}>
-              <Text style={styles.doneBtnText}>{doneLabel}</Text>
+              <Text style={styles.doneBtnText}>{doneLabel ?? t('common.actions.done')}</Text>
             </Pressable>
           )}
           {onReset && (
             <Pressable style={styles.resetBtn} onPress={onReset}>
-              <Text style={styles.resetBtnText}>איפוס</Text>
+              <Text style={styles.resetBtnText}>{t('common.actions.reset')}</Text>
             </Pressable>
           )}
         </Pressable>
@@ -102,7 +104,7 @@ export default function QuickPicker({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createStyles((d) => ({
   backdrop: { flex: 1, backgroundColor: 'rgba(20,30,35,0.4)', justifyContent: 'center', padding: spacing.xl },
   card: { backgroundColor: colors.card, borderRadius: radii.xl, padding: spacing.xl, maxHeight: '80%' },
   title: { fontFamily: fonts.extraBold, fontSize: 17, color: colors.textPrimary, textAlign: 'center' },
@@ -110,10 +112,10 @@ const styles = StyleSheet.create({
   searchInput: {
     borderWidth: 1, borderColor: colors.border, borderRadius: radii.md, padding: 10, marginBottom: 4,
     fontFamily: fonts.regular, fontSize: 14, color: colors.textPrimary, backgroundColor: colors.bg,
-    textAlign: 'right', writingDirection: 'rtl',
+    textAlign: d.textAlign, writingDirection: d.writingDirection,
   },
   scrollArea: { maxHeight: 360 },
-  grid: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 8, justifyContent: 'center', marginTop: 12 },
+  grid: { flexDirection: d.row, flexWrap: 'wrap', gap: 8, justifyContent: 'center', marginTop: 12 },
   chip: { borderWidth: 1, borderColor: colors.border, backgroundColor: colors.bg, borderRadius: radii.pill, paddingVertical: 9, paddingHorizontal: 14 },
   allChipCentered: {
     alignSelf: 'center', marginTop: 12, marginBottom: 4,
@@ -131,17 +133,17 @@ const styles = StyleSheet.create({
   chipText: { fontFamily: fonts.semiBold, fontSize: 13, color: colors.textSecondary },
   // רשת דו-טורית לאופציות-עם-אייקון (קטגוריות) - שורות קבועות-רוחב (48%) במקום pills
   // ברוחב-משתנה, כדי שהעין תסרוק בקלות עמודה-עמודה במקום צפיפות לא-אחידה.
-  iconGrid: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 10, justifyContent: 'space-between' },
+  iconGrid: { flexDirection: d.row, flexWrap: 'wrap', gap: 10, justifyContent: 'space-between' },
   iconRow: {
-    width: '47%', flexDirection: 'row-reverse', alignItems: 'center', gap: 8,
+    width: '47%', flexDirection: d.row, alignItems: 'center', gap: 8,
     borderWidth: 1, borderColor: colors.border, backgroundColor: colors.bg, borderRadius: radii.md,
     paddingVertical: 11, paddingHorizontal: 10, marginBottom: 2,
   },
   iconRowEmoji: { fontSize: 18, width: 22, textAlign: 'center' },
-  iconRowText: { flex: 1, fontFamily: fonts.semiBold, fontSize: 13, color: colors.textSecondary, textAlign: 'right' },
+  iconRowText: { flex: 1, fontFamily: fonts.semiBold, fontSize: 13, color: colors.textSecondary, textAlign: d.textAlign },
   chipTextSelected: { color: colors.accent, fontFamily: fonts.bold },
   doneBtn: { marginTop: 18, backgroundColor: colors.accent, borderRadius: radii.pill, paddingVertical: 13, alignItems: 'center' },
   doneBtnText: { fontFamily: fonts.bold, fontSize: 14, color: '#fff' },
   resetBtn: { marginTop: 12, alignItems: 'center' },
   resetBtnText: { fontFamily: fonts.bold, fontSize: 12.5, color: colors.danger },
-});
+}));

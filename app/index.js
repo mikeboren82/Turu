@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, ActivityIndicator, Image, Platform, useWindowDimensions } from 'react-native';
+import { View, Text, ScrollView, Pressable, TextInput, ActivityIndicator, Image, Platform, useWindowDimensions } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -18,7 +18,7 @@ import {
   PRICE_OPTIONS, PLACE_TYPE_OPTIONS, BOOKING_OPTIONS, DURATION_OPTIONS, AMENITY_COMFORT_OPTIONS,
 } from '../constants/filterSchema';
 import { normalizeFilters, rankActivities } from '../lib/filterActivities';
-import { whenSummary, hebrewJoin } from '../lib/filterSummaries';
+import { whenSummary, listJoin } from '../lib/filterSummaries';
 import { supabase } from '../lib/supabase';
 import { fetchUserPreferences, saveDefaultHomeFilters } from '../lib/preferences';
 import { childrenToDefaultAgeFilter, formatChildAge } from '../lib/children';
@@ -28,6 +28,8 @@ import { placeholderImageFor, PLACEHOLDER_IMAGES } from '../lib/placeholderImage
 import { fetchUserActivityFlags, toggleFavorite, toggleVisited, toggleHidden, fetchAllPersonalNotes } from '../lib/interactions';
 import { formatBenefitCardTag } from '../lib/benefits';
 import { colors, fonts, radii, spacing } from '../constants/theme';
+import { useI18n, createStyles, t } from '../lib/i18n';
+import { categoryLabel, compactLocationText, placeName } from '../lib/i18n/format';
 
 // המסך הראשי - יש מסך-בית אחד בלבד (בקשת המשתמש 2026-09-12: "יש למחוק את מסך הבית 2, מעכשיו
 // יש רק מסך בית אחד"). קודם לכן היו שני מסכי-בית מקבילים (app/index.js ו-app/home2.js) שמוזגו
@@ -42,12 +44,12 @@ const RECOMMENDATIONS_LIMIT = 8;
 const SHOW_UNIFIED_GUIDED_SEARCH = true;
 
 const DISCOVERY_TILES = [
-  { id: 'nature', emoji: '🌳', label: 'טבע וטיולים', category: 'טבע' },
-  { id: 'museums', emoji: '🏛️', label: 'מוזיאונים לילדים', category: 'מוזיאון לילדים' },
-  { id: 'playgrounds', emoji: '🛝', label: 'פארקים וגנים', category: 'פארק' },
-  { id: 'animals', emoji: '🐾', label: 'חוות ובעלי חיים', category: 'חווה' },
-  { id: 'water', emoji: '💦', label: 'פעילויות מים', category: 'פעילות מים' },
-  { id: 'crafts', emoji: '🎨', label: 'יצירה וסדנאות', category: 'יצירה' },
+  { id: 'nature', emoji: '🌳', category: 'טבע' }, // i18n-ignore
+  { id: 'museums', emoji: '🏛️', category: 'מוזיאון לילדים' }, // i18n-ignore
+  { id: 'playgrounds', emoji: '🛝', category: 'פארק' }, // i18n-ignore
+  { id: 'animals', emoji: '🐾', category: 'חווה' }, // i18n-ignore
+  { id: 'water', emoji: '💦', category: 'פעילות מים' }, // i18n-ignore
+  { id: 'crafts', emoji: '🎨', category: 'יצירה' }, // i18n-ignore
 ];
 
 // תמונות-fallback לכרטיסי ה"נעול" כש-locationKnown===false, כשלפעילות עצמה אין imageUrl/
@@ -98,52 +100,29 @@ function summaryForHomeFilterKey(key, filters) {
   const selected = filters[key];
   if (!options || !selected?.length) return null;
   const labels = selected.map((id) => options.find((o) => o.id === id)?.label || id);
-  return hebrewJoin(labels);
+  return listJoin(labels);
 }
 
-// תצוגה-בלבד לשדה הקומפקטי "איפה?" בעמוד הבית: סיכום סמנטי מה-state המבני עצמו (mode/
-// travelMode/travelMinutes/city/...) - לא קיצוץ-מחרוזת של הפלט של locationSummary() המשותף
-// (components/LocationQuickPicker.js, לא משתנה - עדיין נפתח עם ה-state המלא). אותם ענפים בדיוק
-// כמו locationSummary, רק ניסוח קצר יותר שמתאים לשדה חצי-רוחב: בלי "עד" (מיותר), הליכה בלי מספר
-// קבוע (WALKING_RADIUS_KM ב-LocationQuickPicker הוא מרחק קבוע (750מ'), לא באמת "כמה דקות" - אין
-// ל-Turu מנוע ETA, אז "מרחק הליכה" נכון יותר מ"10 דק'") ו"כל מרחק" במקום "בכל האזור". הפולבק
-// כש-mode לא מוכר (בלי label נפרד מעל השדה יותר - הבקרה עצמה היא ה-affordance, ראו CompactFilterField)
-// זהה לברירת-המחדל "לא נבחר" (PRIMARY_FILTERS למטה) - "איפה?" קצר, לא "בחרו מיקום".
-function compactLocationLabel(location) {
-  // 'nationwide' ("בכל הארץ" ב-LocationQuickPicker) - בחירה מפורשת, לא "לא נבחר" (mode:null → 'איפה?')
-  if (location.mode === 'nationwide') return 'כל הארץ';
-  if (location.travelMode === 'walking') return 'מרחק הליכה';
-  if (location.travelMode === 'any') return 'כל מרחק';
-  if (location.travelMode === 'driving' && typeof location.travelMinutes === 'number') {
-    if (location.mode === 'current') return `${location.travelMinutes} דק' ממני`;
-    if (location.mode === 'city' && location.city) return `${location.travelMinutes} דק' מ${location.city}`;
-    if (location.mode === 'address') return `${location.travelMinutes} דק' מ${location.addressLabel || location.city || ''}`.trim();
-    if (location.mode === 'region' && location.region?.length) return `${location.travelMinutes} דק' מ${location.region.join(', ')}`;
-  }
-  if (location.mode === 'current') return 'המיקום שלי';
-  if (location.mode === 'city' && location.city) return location.city;
-  if (location.mode === 'address') return location.addressLabel || location.city || 'המיקום שלי';
-  if (location.mode === 'region' && location.region?.length) return location.region.join(', ');
-  return 'איפה?';
-}
+// תצוגה-בלבד לשדה הקומפקטי "איפה?" בעמוד הבית: compactLocationText (lib/i18n/format.js) - אותם
+// ענפים בדיוק כמו compactLocationLabel המקומי הקודם, רק מתורגם לפי השפה הפעילה.
 
 // תצוגה-בלבד לשדה הקומפקטי "מה עושים?" בעמוד הבית: סיכום סמנטי של הקטגוריות הנבחרות.
 // filters.category הוא מערך של הלייבלים עצמם (CATEGORY_OPTIONS ב-constants/filterSchema.js:
 // id===label, אין טבלת-מיפוי נפרדת) - "פארק" כבר הערך המלא, לא ID לפענוח.
 // 0 -> "מה עושים?" (הבקרה עצמה היא ה-affordance, ראו CompactFilterField/GuidedIntentSegment).
-// 1 -> השם עצמו. 2 -> ניסוח טבעי (hebrewJoin, "יצירה וג'ימבורי") *רק* אם המחרוזת המשורשרת
+// 1 -> השם עצמו. 2 -> ניסוח טבעי (listJoin, "יצירה וג'ימבורי") *רק* אם המחרוזת המשורשרת
 // נשארת קצרה מספיק לשורה אחת בפקד-הכוונה-המאוחד ב-375px (נמדד בפועל בדפדפן, לא ניחוש) -
 // אחרת נופל לאותה "2 סוגי פעילויות" כמו 3+, כדי לא לייצר "...ופארקים ו..." חתוך. 3+ -> תמיד
 // "N סוגי פעילויות" - אף פעם לא שרשור שמות (המשתמש תמיד יודע כמה נבחרו בלי לנחש מהריכוז).
 const CATEGORY_JOIN_MAX_CHARS = 16;
 function compactCategoryLabel(selected) {
-  if (!selected || selected.length === 0) return 'מה עושים?';
-  if (selected.length === 1) return selected[0];
+  if (!selected || selected.length === 0) return t('home.guided.whatEmpty');
+  if (selected.length === 1) return categoryLabel(selected[0]);
   if (selected.length === 2) {
-    const joined = hebrewJoin(selected);
+    const joined = listJoin(selected.map(categoryLabel));
     if (joined.length <= CATEGORY_JOIN_MAX_CHARS) return joined;
   }
-  return `${selected.length} סוגי פעילויות`;
+  return t('domain.summary.activityTypes', { count: selected.length });
 }
 
 function ChevronDown() {
@@ -185,7 +164,7 @@ function CompactFilterField({ f, onPress }) {
       ]}
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`${f.label} ${f.a11yValue || f.subtitle}`}
+      accessibilityLabel={t('home.guided.a11yLabel', { label: f.label, value: f.a11yValue || f.subtitle })}
       accessibilityHint={f.a11yHint}
     >
       <View style={[styles.compactFieldIconChip, { backgroundColor: f.tint }]}>
@@ -216,7 +195,7 @@ function GuidedIntentSegment({ f }) {
       style={({ pressed }) => [styles.guidedIntentSegment, pressed && styles.compactFieldPressed]}
       onPress={f.onPress}
       accessibilityRole="button"
-      accessibilityLabel={`${f.label} ${f.a11yValue || f.subtitle}`}
+      accessibilityLabel={t('home.guided.a11yLabel', { label: f.label, value: f.a11yValue || f.subtitle })}
       accessibilityHint={f.a11yHint}
     >
       <View style={styles.guidedIntentSegmentMain}>
@@ -231,7 +210,9 @@ function GuidedIntentSegment({ f }) {
           {f.subtitle}
         </Text>
       </View>
-      <ChevronLeftIcon size={12} color={colors.textMuted} />
+      <View style={styles.guidedIntentChevron}>
+        <ChevronLeftIcon size={12} color={colors.textMuted} />
+      </View>
     </Pressable>
   );
 }
@@ -255,9 +236,10 @@ function GuidedSearchIntentControl({ fields }) {
 // (ראו isPersonalized ב-HomeScreen). בחירת ילד/ים כאן מעדכנת את filters.age מיידית; מיקום/
 // קטגוריה כבר נכנסים אוטומטית מ-default_home_filters השמור, בלי קשר לכרטיס הזה.
 function PersonalPicker({ kids, selectedChildIds, onToggleChild }) {
+  const { t } = useI18n();
   return (
     <View style={styles.personalCard}>
-      <Text style={styles.personalTitle}>למי מחפשים היום?</Text>
+      <Text style={styles.personalTitle}>{t('home.personal.title')}</Text>
       <View style={styles.personalChipsRow}>
         {kids.map((child) => {
           const selected = selectedChildIds.has(child.id);
@@ -268,13 +250,15 @@ function PersonalPicker({ kids, selectedChildIds, onToggleChild }) {
               onPress={() => onToggleChild(child.id)}
             >
               <Text style={[styles.personalChipText, selected && styles.personalChipTextSelected]}>
-                {(child.name || 'הילד/ה שלכם') + (formatChildAge(child) ? ` · ${formatChildAge(child)}` : '')}
+                {formatChildAge(child)
+                  ? t('home.personal.childWithAge', { name: child.name || t('home.personal.childFallback'), age: formatChildAge(child) })
+                  : (child.name || t('home.personal.childFallback'))}
               </Text>
             </Pressable>
           );
         })}
       </View>
-      <Text style={styles.personalHint}>הגיל וההעדפות שלכם ייכנסו אוטומטית לחיפוש</Text>
+      <Text style={styles.personalHint}>{t('home.personal.hint')}</Text>
     </View>
   );
 }
@@ -356,6 +340,7 @@ function BlurredActivityCard({ activity, index, icon, overlay }) {
 // (openLocationPicker/setWhereQuickOpen - מקור-אמת יחיד, לא flow-geolocation נפרד וגם לא modal
 // חדש).
 function LocationPromptCard({ onPress, activity }) {
+  const { t } = useI18n();
   return (
     <BlurredActivityCard
       index={0}
@@ -364,13 +349,13 @@ function LocationPromptCard({ onPress, activity }) {
         <View pointerEvents="box-none" style={styles.lockedCardOverlayWrap}>
           <View style={styles.lockedCardOverlay}>
             <Text style={styles.lockedCardOverlayIcon}>📍</Text>
-            <Text style={styles.lockedCardOverlayTitle}>רוצים רעיונות לידכם?</Text>
-            <Text style={styles.lockedCardOverlaySubtitle}>ספרו לנו איפה לחפש</Text>
+            <Text style={styles.lockedCardOverlayTitle}>{t('home.locked.title')}</Text>
+            <Text style={styles.lockedCardOverlaySubtitle}>{t('home.locked.subtitle')}</Text>
             <Pressable style={styles.lockedCardOverlayBtn} onPress={onPress}>
-              <Text style={styles.lockedCardOverlayBtnText}>השתמשו במיקום שלי</Text>
+              <Text style={styles.lockedCardOverlayBtnText}>{t('home.locked.useMyLocation')}</Text>
             </Pressable>
             <Pressable onPress={onPress} hitSlop={8}>
-              <Text style={styles.lockedCardOverlaySecondary}>בחרו עיר או אזור</Text>
+              <Text style={styles.lockedCardOverlaySecondary}>{t('home.locked.chooseCity')}</Text>
             </Pressable>
           </View>
         </View>
@@ -382,12 +367,13 @@ function LocationPromptCard({ onPress, activity }) {
 // כרטיסים 2+ - אותו BlurredActivityCard כמו כרטיס 1, בלי overlay-טופס (רק 🔒 עדין על התמונה) - לא
 // חוזרים על הפרומפט/הכפתורים, כל הכרטיס לחיץ ופותח את אותו picker.
 function LockedPreviewCard({ index, onPress, activity }) {
+  const { t } = useI18n();
   return (
     <Pressable
       style={({ pressed }) => [pressed && styles.itemPressed]}
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel="בחרו מיקום כדי לראות פעילויות לידכם"
+      accessibilityLabel={t('home.locked.previewA11y')}
     >
       <BlurredActivityCard index={index} activity={activity} icon="🔒" />
     </Pressable>
@@ -449,6 +435,7 @@ function GrassFooter({ width }) {
 
 export default function HomeScreen() {
   const router = useRouter();
+  const { t, locale } = useI18n();
   const { width: windowWidth } = useWindowDimensions();
   // מדידה אמיתית (onLayout) של שורת ה-Header, כדי ש-SunMascot (position:absolute, מחוץ ל-
   // ScrollView) יתיישר איתה בכל פלטפורמה/מכשיר - ראו הערה מלאה ליד SunMascot למעלה.
@@ -531,7 +518,7 @@ export default function HomeScreen() {
         const data = await fetchApprovedActivities();
         if (!cancelled) setRecActivities(data);
       } catch (err) {
-        if (!cancelled) setRecError(err.message || 'לא הצלחנו לטעון המלצות');
+        if (!cancelled) setRecError(err || true);
       } finally {
         if (!cancelled) setRecLoading(false);
       }
@@ -736,19 +723,19 @@ export default function HomeScreen() {
   );
   const recHeaderTitle = filters.location?.mode === 'city' && filters.location.city
     ? cityHasTravelModifier
-      ? `רעיונות להיום ליד ${filters.location.city}`
-      : `רעיונות להיום ב${filters.location.city}`
+      ? t('home.recs.titleNearPlace', { place: placeName(filters.location.city) })
+      : t('home.recs.titleInCity', { place: placeName(filters.location.city) })
     : filters.location?.mode === 'address' && (filters.location.addressLabel || filters.location.city)
-      ? `רעיונות להיום ליד ${filters.location.addressLabel || filters.location.city}`
-      : 'פעילויות לידכם היום';
+      ? t('home.recs.titleNearPlace', { place: placeName(filters.location.addressLabel || filters.location.city) })
+      : t('home.recs.titleDefault');
   // locationKnown===false: תת-כותרת קבועה (סעיף 11 בבקשה) - "באזור שלכם" עדיין לא אמיתי (אין
   // location), זו הבטחה למה שמחכה אחרי שיספקו אחד, לא תיאור-מצב. isPersonalized (גיל הילדים)
   // רלוונטי רק כשיש בפועל אזור-חיפוש להתאים אליו.
   const recHeaderSubtitle = !locationKnown
-    ? 'פעילויות שוות להיום, ממש באזור שלכם'
+    ? t('home.recs.subtitleNoLocation')
     : isPersonalized
-      ? 'פעילויות שוות באזור שלכם, מותאמות לגיל הילדים'
-      : 'פעילויות שוות באזור שלכם להיום';
+      ? t('home.recs.subtitlePersonalized')
+      : t('home.recs.subtitleDefault');
 
   const toggleChild = (childId) => {
     setSelectedChildIds((prev) => {
@@ -777,9 +764,9 @@ export default function HomeScreen() {
     try {
       await saveDefaultHomeFilters(userId, filters);
       setHasSavedDefault(true);
-      showDefaultNotice('נשמר! הפילטרים האלה יתמלאו אוטומטית בכל כניסה ✓');
-    } catch (err) {
-      showDefaultNotice(`שגיאה בשמירה: ${err.message}`);
+      showDefaultNotice(t('home.defaults.saved'));
+    } catch {
+      showDefaultNotice(t('home.defaults.saveError'));
     } finally {
       setSavingDefault(false);
     }
@@ -807,23 +794,23 @@ export default function HomeScreen() {
   // (WHAT מימין, WHERE משמאל ב-RTL), לא הפוך.
   const PRIMARY_FILTERS = [
     {
-      key: 'where', label: 'איפה נח לכם?',
-      subtitle: hasChosenLocation ? compactLocationLabel(filters.location) : 'איפה?',
+      key: 'where', label: t('home.guided.whereLabel'),
+      subtitle: hasChosenLocation ? compactLocationText(filters.location) : t('domain.location.compact.where'),
       // a11yValue: התיאור המלא (locationSummary המשותף, לא הגרסה הקומפקטית) - compactLocationLabel
       // כבר לא מאבד מידע סמנטי בפועל, אבל אין סיבה לא לתת ל-screen reader את הניסוח המלא ביותר
       // הקיים כשזה כבר מחושב בכל מקרה.
-      a11yValue: hasChosenLocation ? locationSummary(filters.location) : 'בחרו מיקום',
-      a11yHint: 'פותח בחירת מיקום וטווח נסיעה',
+      a11yValue: hasChosenLocation ? locationSummary(filters.location) : t('home.guided.whereA11yEmpty'),
+      a11yHint: t('home.guided.whereHint'),
       active: hasChosenLocation,
       decorEmoji: '🏡', tint: '#e2f5e7', onPress: openLocationPicker,
     },
     {
-      key: 'category', label: 'מה עושים?',
+      key: 'category', label: t('home.guided.whatLabel'),
       subtitle: compactCategoryLabel(filters.category),
       // a11yValue: כשהתצוגה מכווצת ל-"N סוגי פעילויות" (2+), ה-screen reader עדיין מקבל את
       // הרשימה המלאה של הקטגוריות הנבחרות בפועל - לא רק את המספר.
-      a11yValue: filters.category.length > 0 ? hebrewJoin(filters.category) : 'הכל',
-      a11yHint: 'פותח בחירת סוגי פעילויות',
+      a11yValue: filters.category.length > 0 ? listJoin(filters.category.map(categoryLabel)) : t('domain.summary.all'),
+      a11yHint: t('home.guided.whatHint'),
       active: hasSelectedCategory,
       decorEmoji: '🌟', tint: '#fdf3d9', onPress: () => setCategoryQuickOpen(true),
     },
@@ -969,6 +956,12 @@ export default function HomeScreen() {
     router.push({ pathname: '/activities', params });
   };
 
+  // הודעות-שגיאה מה-Edge Function הן קופי עברי מאושר (מכסה יומית/ניסוח) - בעברית מוצגות כמו קודם;
+  // בכל שפה אחרת, או כשההודעה אינה קופי שלנו (שגיאת רשת/ספק גולמית), מוצגת הודעה מקומית ידידותית.
+  const friendlySearchError = (err, fallbackKey) => (
+    locale === 'he' && /[\u0590-\u05FF]/.test(err?.message || '') ? err.message : t(fallbackKey)
+  );
+
   const handleSmartSearch = async (overrideText) => {
     const text = (overrideText ?? smartSearchText).trim();
     if (!text) return;
@@ -981,7 +974,12 @@ export default function HomeScreen() {
     try {
       const data = await parseSmartSearchQuery(text);
       if (data.needsClarification) {
-        setSmartSearchClarify({ message: data.needsClarification.message, pendingIntent: data.intent, mode: 'street' });
+        // type 'city' - הודעת-השרת (עברית) מוחלפת במפתח מקומי; סוגים אחרים (אם יתווספו) מוצגים כמו שהם.
+        setSmartSearchClarify({
+          message: data.needsClarification.message,
+          messageKey: data.needsClarification.type === 'city' ? 'home.search.clarifyCity' : null,
+          pendingIntent: data.intent, mode: 'street',
+        });
         return;
       }
       // אין מיקום בכלל בחיפוש עצמו, ואין גם מיקום-ברירת-מחדל שמור - לא מנחשים ("אם אין מיקום...
@@ -990,12 +988,12 @@ export default function HomeScreen() {
       const loc = data.intent.location;
       const hasAnyLocation = !!(loc.city || loc.region || loc.street || loc.coords);
       if (!hasAnyLocation && !filters.location?.mode) {
-        setSmartSearchClarify({ message: '📍 באיזה אזור לחפש?', pendingIntent: data.intent, mode: 'plain' });
+        setSmartSearchClarify({ messageKey: 'home.search.clarifyArea', pendingIntent: data.intent, mode: 'plain' });
         return;
       }
       goToSmartSearchResults(data.intent);
     } catch (err) {
-      setSmartSearchError(err.message || 'לא הצלחנו להבין את החיפוש, נסו לנסח אחרת');
+      setSmartSearchError(friendlySearchError(err, 'home.search.errorParse'));
     } finally {
       setSmartSearchLoading(false);
     }
@@ -1019,13 +1017,13 @@ export default function HomeScreen() {
         cityOverride: city, pendingIntent: smartSearchClarify.pendingIntent,
       });
       if (data.needsClarification) {
-        setSmartSearchError('לא הצלחנו לזהות את המיקום, נסו לנסח אחרת');
+        setSmartSearchError(t('home.search.errorLocation'));
         return;
       }
       setSmartSearchClarifyCity('');
       goToSmartSearchResults(data.intent);
     } catch (err) {
-      setSmartSearchError(err.message || 'לא הצלחנו להבין את החיפוש');
+      setSmartSearchError(friendlySearchError(err, 'home.search.errorParseShort'));
     } finally {
       setSmartSearchLoading(false);
     }
@@ -1056,7 +1054,7 @@ export default function HomeScreen() {
         hasNote: recNotesByActivity.has(a.id),
         benefitTag: formatBenefitCardTag(a.benefits, benefitClubs),
       }))
-  ), [recActivities, filters, deviceCoords, excludedCategories, benefitClubs, excludedCities, excludedRegions, recHiddenIds, recFavoriteIds, recVisitedIds, recNotesByActivity]);
+  ), [recActivities, filters, deviceCoords, excludedCategories, benefitClubs, excludedCities, excludedRegions, recHiddenIds, recFavoriteIds, recVisitedIds, recNotesByActivity, locale]);
 
   // 4 הפעילויות הראשונות מתוך recommendations - מוזנות לכרטיסים המטושטשים (LocationPromptCard/
   // LockedPreviewCard) כש-locationKnown===false. אותו מקור-נתונים בדיוק כמו הקרוסלה הרגילה -
@@ -1107,7 +1105,7 @@ export default function HomeScreen() {
         return (
           <Pressable key={f.key} style={styles.ageAddRow} onPress={handleAdvancedFilters} hitSlop={8}>
             <Text style={[styles.ageAddText, summary && styles.ageAddTextActive]}>
-              {summary ? `+ ${f.title}: ${summary}` : `+ ${f.title}`}
+              {summary ? t('home.extraFilter.withValue', { title: f.title, summary }) : t('home.extraFilter.empty', { title: f.title })}
             </Text>
           </Pressable>
         );
@@ -1135,7 +1133,7 @@ export default function HomeScreen() {
       {smartSearchLoading || locatingForSearch ? (
         <ActivityIndicator color="#ffffff" size="small" />
       ) : (
-        <Text style={styles.smartSearchBtnText}>מצאו פעילויות</Text>
+        <Text style={styles.smartSearchBtnText}>{t('home.search.cta')}</Text>
       )}
     </Pressable>
   );
@@ -1150,7 +1148,7 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        <Header onMenuPress={() => {}} onHeaderLayout={setHeaderLayout} />
+        <Header onMenuPress={() => {}} onHeaderLayout={setHeaderLayout} showLanguageSwitcher />
 
         {/* 🧭 "לאן קופצים היום?" - כותרת-העל של כל מודול החיפוש (קלט חופשי + מה עושים/איפה נח
             לכם, טופס אחד), לכן מחוץ לכרטיס עצמו - לא רק כותרת של שדה הטקסט הפנימי. האייקון חלק
@@ -1162,9 +1160,9 @@ export default function HomeScreen() {
         <View style={styles.searchModuleHeaderWrap}>
           <View style={styles.searchModuleTitleRow}>
             <Text style={styles.homeHeadingIcon}>🧭</Text>
-            <Text style={styles.searchModuleTitle}>לאן קופצים היום?</Text>
+            <Text style={styles.searchModuleTitle}>{t('home.search.title')}</Text>
           </View>
-          <Text style={styles.sectionSubtitle}>חפשו מה שבא לכם, או בחרו מה מתאים לכם</Text>
+          <Text style={styles.sectionSubtitle}>{t('home.search.subtitle')}</Text>
         </View>
 
         {/* כרטיס-חיפוש מאוחד (2026-09-16, סבב פישוט נוסף) - טופס אחד עם קלטים אופציונליים
@@ -1177,7 +1175,7 @@ export default function HomeScreen() {
             <TextInput
               ref={searchInputRef}
               style={styles.smartSearchInput}
-              placeholder="ג'ימבורי באזור השרון מחר"
+              placeholder={t('home.search.placeholder')}
               placeholderTextColor={colors.textMuted}
               value={smartSearchText}
               onChangeText={setSmartSearchText}
@@ -1193,10 +1191,10 @@ export default function HomeScreen() {
 
           {smartSearchClarify ? (
             <View style={styles.smartSearchClarifyBox}>
-              <Text style={styles.smartSearchClarifyText}>{smartSearchClarify.message}</Text>
+              <Text style={styles.smartSearchClarifyText}>{smartSearchClarify.messageKey ? t(smartSearchClarify.messageKey) : smartSearchClarify.message}</Text>
               <CityAutocomplete
                 inputStyle={styles.smartSearchClarifyInput}
-                placeholder="הזינו שם עיר..."
+                placeholder={t('home.search.clarifyCityPlaceholder')}
                 value={smartSearchClarifyCity}
                 onChangeText={setSmartSearchClarifyCity}
                 onSubmitEditing={handleClarifyCity}
@@ -1206,7 +1204,7 @@ export default function HomeScreen() {
                 onPress={handleClarifyCity}
                 disabled={!smartSearchClarifyCity.trim() || smartSearchLoading}
               >
-                <Text style={styles.smartSearchBtnText}>{smartSearchLoading ? '...' : 'המשך'}</Text>
+                <Text style={styles.smartSearchBtnText}>{smartSearchLoading ? '...' : t('common.actions.continue')}</Text>
               </Pressable>
             </View>
           ) : searchFocused && !smartSearchText.trim() && recentSearches.length > 0 ? (
@@ -1216,9 +1214,9 @@ export default function HomeScreen() {
             // infrastructure כזה בקובץ, ואין סיבה טובה להוסיף אחד רק בשביל זה).
             <View style={styles.smartSearchIdeasWrap}>
               <View style={styles.recentSearchesHeader}>
-                <Text style={styles.smartSearchIdeasTitle}>🕐 חיפושים אחרונים</Text>
-                <Pressable onPress={handleClearRecentSearches} hitSlop={8} accessibilityRole="button" accessibilityLabel="נקה את כל החיפושים האחרונים">
-                  <Text style={styles.clearRecentSearchesText}>נקה הכל</Text>
+                <Text style={styles.smartSearchIdeasTitle}>{t('home.recent.title')}</Text>
+                <Pressable onPress={handleClearRecentSearches} hitSlop={8} accessibilityRole="button" accessibilityLabel={t('home.recent.clearAllA11y')}>
+                  <Text style={styles.clearRecentSearchesText}>{t('common.actions.clearAll')}</Text>
                 </Pressable>
               </View>
               <View style={styles.smartSearchIdeasList}>
@@ -1229,7 +1227,7 @@ export default function HomeScreen() {
                       onPress={() => handleRecentSearchPress(q)}
                       disabled={smartSearchLoading}
                       accessibilityRole="button"
-                      accessibilityLabel={`חפש שוב: ${q}`}
+                      accessibilityLabel={t('home.recent.searchAgainA11y', { query: q })}
                     >
                       <Text style={styles.recentSearchIcon}>🕐</Text>
                       <Text style={styles.recentSearchText} numberOfLines={1} ellipsizeMode="tail">{q}</Text>
@@ -1238,7 +1236,7 @@ export default function HomeScreen() {
                       onPress={() => handleRemoveRecentSearch(q)}
                       hitSlop={8}
                       accessibilityRole="button"
-                      accessibilityLabel={`מחק חיפוש אחרון: ${q}`}
+                      accessibilityLabel={t('home.recent.removeA11y', { query: q })}
                     >
                       <Text style={styles.recentSearchDelete}>×</Text>
                     </Pressable>
@@ -1261,7 +1259,7 @@ export default function HomeScreen() {
           {!isPersonalized ? (
             <View style={styles.searchOrDivider}>
               <View style={styles.searchOrDividerLine} />
-              <Text style={styles.searchOrDividerText}>או</Text>
+              <Text style={styles.searchOrDividerText}>{t('home.search.or')}</Text>
               <View style={styles.searchOrDividerLine} />
             </View>
           ) : null}
@@ -1296,7 +1294,7 @@ export default function HomeScreen() {
         {userId ? (
           <Pressable style={styles.saveDefaultLink} onPress={handleSaveAsDefault} disabled={savingDefault} hitSlop={8}>
             <Text style={styles.saveDefaultText}>
-              {savingDefault ? 'שומר...' : hasSavedDefault ? '⭐ עדכן את ברירת המחדל שלי' : '⭐ שמור את הבחירה כברירת מחדל'}
+              {savingDefault ? t('common.actions.saving') : hasSavedDefault ? t('home.defaults.update') : t('home.defaults.save')}
             </Text>
           </Pressable>
         ) : null}
@@ -1305,7 +1303,7 @@ export default function HomeScreen() {
             יותר. handleSpontaneous בלבד; ה-GPS/הרשאה/דירוג עצמם עדיין ב-app/activities.js. */}
         {userId ? (
           <Pressable style={styles.saveDefaultLink} onPress={handleSpontaneous} hitSlop={8}>
-            <Text style={styles.saveDefaultText}>⚡ מה פתוח עכשיו לידי?</Text>
+            <Text style={styles.saveDefaultText}>{t('home.defaults.spontaneous')}</Text>
           </Pressable>
         ) : null}
         {defaultNotice ? <Text style={styles.defaultNoticeText}>{defaultNotice}</Text> : null}
@@ -1349,13 +1347,13 @@ export default function HomeScreen() {
               <SkeletonCard /><SkeletonCard /><SkeletonCard />
             </ScrollView>
           ) : recError ? (
-            <Text style={styles.recErrorText}>לא הצלחנו לטעון המלצות כרגע</Text>
+            <Text style={styles.recErrorText}>{t('home.recs.loadError')}</Text>
           ) : recommendations.length === 0 ? (
             <View style={styles.emptyRecState}>
-              <Text style={styles.emptyRecTitle}>קפצנו בכל האזור ולא מצאנו משהו שמתאים בדיוק 🦘</Text>
+              <Text style={styles.emptyRecTitle}>{t('home.recs.emptyTitle')}</Text>
               <Pressable onPress={handleWidenSearch} hitSlop={8}>
                 <Text style={styles.emptyRecAction}>
-                  {filters.location?.radiusKm ? 'הרחיבו את מרחק הנסיעה' : 'נקו את הסינון'}
+                  {filters.location?.radiusKm ? t('home.recs.widenDistance') : t('home.recs.clearFilters')}
                 </Text>
               </Pressable>
             </View>
@@ -1381,9 +1379,9 @@ export default function HomeScreen() {
         <View style={styles.sectionHeaderRow}>
           <View style={styles.sectionTitleRow}>
             <Text style={styles.homeHeadingIcon}>💡</Text>
-            <Text style={styles.sectionTitle}>מה עוד מעניין אתכם?</Text>
+            <Text style={styles.sectionTitle}>{t('home.discovery.title')}</Text>
           </View>
-          <Text style={styles.sectionSubtitle}>קפצו ישר לפעילויות שאולי תאהבו</Text>
+          <Text style={styles.sectionSubtitle}>{t('home.discovery.subtitle')}</Text>
         </View>
         <View style={styles.discoveryGrid}>
           {DISCOVERY_TILES.map((tile) => (
@@ -1393,14 +1391,14 @@ export default function HomeScreen() {
               onPress={() => handleDiscoveryTilePress(tile.category)}
             >
               <Text style={styles.discoveryEmoji}>{tile.emoji}</Text>
-              <Text style={styles.discoveryLabel}>{tile.label}</Text>
+              <Text style={styles.discoveryLabel}>{t(`home.discovery.tiles.${tile.id}`)}</Text>
             </Pressable>
           ))}
         </View>
         {/* "לכל הקטגוריות ←" - פותח את אותו QuickPicker הקיים (מה-בא-לנו), רק multiple=false כדי
             שבחירה תסגור ותחזיר מיד (ראו toggle ב-components/QuickPicker.js) - לא מסך חדש. */}
         <Pressable style={styles.allCategoriesLink} onPress={() => setAllCategoriesOpen(true)} hitSlop={8}>
-          <Text style={styles.allCategoriesLinkText}>לכל הקטגוריות ←</Text>
+          <Text style={styles.allCategoriesLinkText}>{t('home.discovery.allCategories')}</Text>
         </Pressable>
 
         <GrassFooter width={windowWidth} />
@@ -1408,8 +1406,8 @@ export default function HomeScreen() {
 
       <QuickPicker
         visible={categoryQuickOpen}
-        title="מה עושים?"
-        subtitle="אפשר לבחור כמה קטגוריות"
+        title={t('home.pickers.categoryTitle')}
+        subtitle={t('home.pickers.categorySubtitle')}
         options={CATEGORY_FILTER_OPTIONS}
         value={filters.category}
         multiple
@@ -1423,8 +1421,8 @@ export default function HomeScreen() {
           ל-CTA. value={[]} - זה תמיד "בחירה טרייה", לא ממשיך בחירה קודמת מ"מה עושים?". */}
       <QuickPicker
         visible={allCategoriesOpen}
-        title="כל הקטגוריות"
-        subtitle="בחרו קטגוריה ועברו ישר לתוצאות"
+        title={t('home.pickers.allTitle')}
+        subtitle={t('home.pickers.allSubtitle')}
         options={CATEGORY_FILTER_OPTIONS}
         value={[]}
         multiple={false}
@@ -1444,7 +1442,7 @@ export default function HomeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createStyles((d) => ({
   screen: { flex: 1, backgroundColor: colors.bg },
   // paddingBottom:0 - איור הדשא (GrassFooter) הוא האלמנט האחרון והוא צריך להיגמר בדיוק מעל
   // סרגל-הניווט התחתון, בלי רצועה ריקה מתחתיו.
@@ -1453,6 +1451,7 @@ const styles = StyleSheet.create({
     // 'fixed' בווב: הדף עצמו גולל (לא ה-ScrollView הפנימי בלבד), אז 'absolute' רגיל היה נגרר
     // עם התוכן במקום להישאר צמוד לפינת המסך. ב-native ה-ScrollView כן קוצץ את עצמו כראוי,
     // ו-'fixed' לא קיים ב-RN native - 'absolute' שם כבר נשאר במקום כמצופה.
+    // Opposite the menu button, which stays top-right in both languages (Header is physical).
     position: Platform.OS === 'web' ? 'fixed' : 'absolute', top: 46, left: 10,
   },
   grassFooter: {
@@ -1467,7 +1466,8 @@ const styles = StyleSheet.create({
   // מחליף את selectorsStacked/filtersColumn הישנים: כל pill מתגמד לפי תוכן (בלי flex:1) ונשאר
   // בשורה אחת כל עוד יש מקום; רק אם שני ערכים ארוכים ביחד לא נכנסים (למשל ~320px), ה-wrap מוריד
   // pill שני לשורה משלו בלי לוותר על צורת ה-pill (לא חוזר לשדה מלא-רוחב).
-  filtersRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 18 },
+  // d.rowReverse: 'row' בעברית (WHAT מימין) - באנגלית תמונת-ראי (WHAT משמאל).
+  filtersRow: { flexDirection: d.rowReverse, flexWrap: 'wrap', gap: 6, marginBottom: 18 },
   // מפריד "או" קליל בין הטקסט החופשי (+חיפושים אחרונים) לבין WHAT+WHERE: שתי קווי flex:1
   // סימטריים סביב הטקסט - ריכוז אוטומטי בלי textAlign, ולכן RTL-safe מעצם הסימטריה. בלי
   // רקע/border/צל - נשמע כמו מפריד שקט, לא כותרת-section רביעית (searchModuleTitle/
@@ -1494,7 +1494,7 @@ const styles = StyleSheet.create({
   // ב-~320px כמו שצריך) - צומצם ל-10/4 (ועדיין הרבה יותר נדיב מה-6/3 של השדה-הקומפקטי הישן) כדי
   // שהזוגות האלה בפועל יכנסו בנוחות עם שוליים אמיתיים, לא רק בדיוק-בקושי.
   compactFieldButton: {
-    flexDirection: 'row-reverse', alignItems: 'center', alignSelf: 'flex-start', gap: 4,
+    flexDirection: d.row, alignItems: 'center', alignSelf: 'flex-start', gap: 4,
     backgroundColor: colors.card, borderWidth: 1, borderColor: colors.borderLight, borderRadius: radii.pill,
     paddingVertical: 10, paddingHorizontal: 10, minHeight: 42, maxWidth: 170,
   },
@@ -1509,7 +1509,7 @@ const styles = StyleSheet.create({
   // flexShrink (לא flex:1 כמו קודם) - flex:1 היה נכון רק כש-wrapper אילץ רוחב-קבוע (חצי-שדה);
   // עכשיו שה-pill מתגמד לפי תוכן עם maxWidth כתקרה, flex:1 היה "נלחם" בחישוב הגודל הטבעי.
   // minWidth:0 עדיין נחוץ כדי ש-numberOfLines/ellipsizeMode יוכלו בכלל לקצץ אם התקרה מגיעה.
-  compactFieldValue: { flexShrink: 1, minWidth: 0, fontFamily: fonts.semiBold, fontSize: 13.5, color: colors.textSecondary, textAlign: 'right' },
+  compactFieldValue: { flexShrink: 1, minWidth: 0, fontFamily: fonts.semiBold, fontSize: 13.5, color: colors.textSecondary, textAlign: d.textAlign },
   compactFieldValueActive: { fontFamily: fonts.bold, color: colors.accent },
 
   // GuidedSearchIntentControl (2026-09-16, סבב שני: חזרה ל-two full-width rows במקום שורה
@@ -1526,25 +1526,27 @@ const styles = StyleSheet.create({
   // לקצה ימין (תחילת-קריאה ב-RTL) ואת ה-chevron לקצה שמאל (כיוון-קריאה-הבא), אותה קונבנציה
   // בדיוק כמו שורות "פותח בורר" ב-app/profile.js/FiltersSheet.js.
   guidedIntentSegment: {
-    flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between',
+    flexDirection: d.row, alignItems: 'center', justifyContent: 'space-between',
     paddingVertical: 13, paddingHorizontal: 14, minHeight: 46,
   },
   guidedIntentSegmentMain: {
-    flexDirection: 'row-reverse', alignItems: 'center', gap: 8, flex: 1, minWidth: 0,
+    flexDirection: d.row, alignItems: 'center', gap: 8, flex: 1, minWidth: 0,
   },
+  // ChevronLeftIcon מצביע שמאלה = "קדימה/פותח בורר" בעברית; באנגלית מסתובב ימינה.
+  guidedIntentChevron: { transform: [{ rotate: d.forwardRotate }] },
   // קו דק בין שתי השורות - לא "·" בין שני segments יותר (הפריסה כבר לא אופקית) - מפריד עדין,
   // לא heavy divider (בקשת המשתמש: "Do not use a strong divider").
   guidedIntentDivider: { height: 1, backgroundColor: colors.borderLight },
   // flex:1 (לא flexShrink כמו בפקד הקומפקטי הישן) - השורה עכשיו במלוא-הרוחב, אז לערך יש הרבה
   // יותר מקום; numberOfLines/ellipsizeMode ב-GuidedIntentSegment עדיין המוצא-האחרון לערכים
   // ארוכים במיוחד, לא כיווץ-טיפוגרפיה.
-  guidedIntentValue: { flex: 1, minWidth: 0, fontFamily: fonts.semiBold, fontSize: 13.5, color: colors.textSecondary, textAlign: 'right' },
+  guidedIntentValue: { flex: 1, minWidth: 0, fontFamily: fonts.semiBold, fontSize: 13.5, color: colors.textSecondary, textAlign: d.textAlign },
   personalCard: {
     backgroundColor: colors.card, borderRadius: radii.xl, borderWidth: 1, borderColor: colors.borderLight,
     padding: 16, marginBottom: 18,
   },
-  personalTitle: { fontFamily: fonts.extraBold, fontSize: 16, color: colors.textPrimary, textAlign: 'right', marginBottom: 12 },
-  personalChipsRow: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 8 },
+  personalTitle: { fontFamily: fonts.extraBold, fontSize: 16, color: colors.textPrimary, textAlign: d.textAlign, marginBottom: 12 },
+  personalChipsRow: { flexDirection: d.row, flexWrap: 'wrap', gap: 8 },
   personalChip: {
     borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.bg,
     borderRadius: radii.pill, paddingVertical: 9, paddingHorizontal: 14,
@@ -1552,7 +1554,7 @@ const styles = StyleSheet.create({
   personalChipSelected: { borderColor: colors.accent, backgroundColor: colors.accentTintLight },
   personalChipText: { fontFamily: fonts.semiBold, fontSize: 13.5, color: colors.textSecondary },
   personalChipTextSelected: { color: colors.accent, fontFamily: fonts.bold },
-  personalHint: { fontFamily: fonts.regular, fontSize: 11.5, color: colors.textMuted, textAlign: 'right', marginTop: 10 },
+  personalHint: { fontFamily: fonts.regular, fontSize: 11.5, color: colors.textMuted, textAlign: d.textAlign, marginTop: 10 },
   // מעטפת-כרטיס לכל כרטיסי ה"נעול" (כרטיס-1 עם ה-overlay וגם כרטיסים 2+) - שונה מ-recCardWrap
   // המשותף (שאין לו radius/overflow משלו - ActivityCard האמיתי מביא את זה בעצמו) כי כאן צריך
   // clip אחיד לכל הכרטיס (תמונה+גוף+overlay) כדי שה-overlay הקריא בכרטיס 1 יקבל פינות מעוגלות
@@ -1586,10 +1588,10 @@ const styles = StyleSheet.create({
   // שהתבנית תיקרא ברור כ"מוסתר" גם מרחוק, לא כטקסט-שנקטע.
   lockedCardBody: { backgroundColor: colors.card, padding: 14 },
   lockedCardRedactedTitle: {
-    fontFamily: fonts.extraBold, fontSize: 15, color: colors.textMuted, textAlign: 'right', letterSpacing: 3,
+    fontFamily: fonts.extraBold, fontSize: 15, color: colors.textMuted, textAlign: d.textAlign, letterSpacing: 3,
   },
   lockedCardRedactedMeta: {
-    fontFamily: fonts.regular, fontSize: 13, color: colors.textMuted, textAlign: 'right', marginTop: 8, letterSpacing: 3,
+    fontFamily: fonts.regular, fontSize: 13, color: colors.textMuted, textAlign: d.textAlign, marginTop: 8, letterSpacing: 3,
   },
   // overlay קריא לכרטיס 1 בלבד - בקשת המשתמש המפורשת (2026-09-16): לא "לשטוף" את כל הכרטיס
   // בלבן (זה מסתיר את התמונה המטושטשת וגורם לכרטיס להיראות ריק/לא-מטושטש) - רק "ריבוע לבן"
@@ -1628,9 +1630,9 @@ const styles = StyleSheet.create({
   // עצמו בלי margin משלו יותר - בדיוק כמו sectionTitleRow - כי תת-הכותרת (sectionSubtitle, עם
   // marginTop:2 משלה) יושבת אחריו בתוך אותה עטיפה, לא ה-row עצמו נוגע בכרטיס שמתחת.
   searchModuleHeaderWrap: { marginTop: spacing.xl, marginBottom: 12 },
-  searchModuleTitleRow: { flexDirection: 'row-reverse', alignItems: 'center', gap: 6 },
+  searchModuleTitleRow: { flexDirection: d.row, alignItems: 'center', gap: 6 },
   searchModuleTitle: {
-    fontFamily: fonts.extraBold, fontSize: 17, color: colors.textPrimary, textAlign: 'right',
+    fontFamily: fonts.extraBold, fontSize: 17, color: colors.textPrimary, textAlign: d.textAlign,
   },
   // 🔎 כרטיס-חיפוש מאוחד: חיפוש חופשי + "או שנמצא לכם" + חיפוש מודרך - הכל בתוך משטח-white אחד
   // (לא שני כרטיסים). הכותרת עברה מחוץ לכרטיס (searchModuleTitle למעלה) - אין לו יותר marginTop
@@ -1647,13 +1649,13 @@ const styles = StyleSheet.create({
   // המרווח הבסיסי לפני מה שמתחת (חיפושים אחרונים/מפריד "או"/PersonalPicker) - המפריד "או"
   // עצמו (searchOrDivider) יושב נמוך יותר, ממש לפני WHAT+WHERE, לא כאן.
   smartSearchInputWrap: {
-    flexDirection: 'row-reverse', alignItems: 'center', gap: 6, marginBottom: 16,
+    flexDirection: d.row, alignItems: 'center', gap: 6, marginBottom: 16,
     backgroundColor: colors.bg, borderWidth: 1, borderColor: colors.border,
     borderRadius: radii.pill, paddingHorizontal: 14,
   },
   smartSearchInput: {
     flex: 1, paddingVertical: 12,
-    fontFamily: fonts.regular, fontSize: 14, color: colors.textPrimary, textAlign: 'right', writingDirection: 'rtl',
+    fontFamily: fonts.regular, fontSize: 14, color: colors.textPrimary, textAlign: d.textAlign, writingDirection: d.writingDirection,
   },
   smartSearchBtn: {
     backgroundColor: colors.accent, borderRadius: radii.pill, paddingHorizontal: 20,
@@ -1664,7 +1666,7 @@ const styles = StyleSheet.create({
   smartSearchBtnText: { fontFamily: fonts.bold, fontSize: 13.5, color: '#ffffff' },
   smartSearchErrorText: { fontFamily: fonts.semiBold, fontSize: 12, color: colors.danger, textAlign: 'center', marginTop: 10 },
   smartSearchClarifyBox: { marginTop: 14, paddingTop: 14, borderTopWidth: 1, borderTopColor: colors.borderLight },
-  smartSearchClarifyText: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.textPrimary, textAlign: 'right', marginBottom: 8 },
+  smartSearchClarifyText: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.textPrimary, textAlign: d.textAlign, marginBottom: 8 },
   smartSearchClarifyInput: {
     borderWidth: 1, borderColor: colors.border, borderRadius: radii.md, padding: 11,
     fontFamily: fonts.regular, fontSize: 14, color: colors.textPrimary, backgroundColor: colors.bg,
@@ -1680,31 +1682,31 @@ const styles = StyleSheet.create({
   // כמו קודם (מתחת לשדה, בתוך אותו smartSearchCard), רק בלי accordion ידני (recentSearchesOpen
   // הוסר) - נראה/נעלם לפי searchFocused, ראו ההערה המלאה ליד ה-state עצמו.
   smartSearchIdeasWrap: { marginTop: 12 },
-  smartSearchIdeasTitle: { fontFamily: fonts.bold, fontSize: 12.5, color: colors.textSecondary, textAlign: 'right' },
-  recentSearchesHeader: { flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 },
+  smartSearchIdeasTitle: { fontFamily: fonts.bold, fontSize: 12.5, color: colors.textSecondary, textAlign: d.textAlign },
+  recentSearchesHeader: { flexDirection: d.row, alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 },
   // "נקה הכל" - פעולה משנית שקטה בכותרת הפאנל (בקשת המשתמש), לא כפתור ראשי - אותו צבע-אזהרה
   // עדין (colors.danger) שהיה על "🗑️ מחק היסטוריה" הקודם.
-  clearRecentSearchesText: { fontFamily: fonts.semiBold, fontSize: 11.5, color: colors.danger, textAlign: 'right' },
+  clearRecentSearchesText: { fontFamily: fonts.semiBold, fontSize: 11.5, color: colors.danger, textAlign: d.textAlign },
   smartSearchIdeasList: { gap: 2 },
   // שורה במלוא-הרוחב (לא chip מתגמד-לתוכן כמו קודם) - "כמו מנוע חיפוש מודרני": אייקון+טקסט
   // לחיצים יחד (recentSearchRowMain, מבצע את החיפוש), × נפרד בקצה (מוחק פריט בודד בלבד, לא
   // מבצע חיפוש - לכן Pressable משלו, לא חלק מ-recentSearchRowMain).
   recentSearchRow: {
-    flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between', gap: 8,
+    flexDirection: d.row, alignItems: 'center', justifyContent: 'space-between', gap: 8,
     paddingVertical: 8,
   },
-  recentSearchRowMain: { flexDirection: 'row-reverse', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 },
+  recentSearchRowMain: { flexDirection: d.row, alignItems: 'center', gap: 8, flex: 1, minWidth: 0 },
   recentSearchIcon: { fontSize: 12 },
-  recentSearchText: { flex: 1, minWidth: 0, fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, textAlign: 'right' },
+  recentSearchText: { flex: 1, minWidth: 0, fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, textAlign: d.textAlign },
   recentSearchDelete: { fontSize: 16, color: colors.textMuted, paddingHorizontal: 4, fontFamily: fonts.regular },
 
   sectionHeaderRow: { marginBottom: 12 },
   // שורת-כותרת עם אייקון סמנטי (🧭/✨/💡) - חלק ממערכת כותרות-section אחידה בעמוד הבית (ראו גם
   // searchModuleTitleRow למעלה): row-reverse+gap+alignItems:'center' זהים בשלושתם כך שהאייקון
   // תמיד יושב באותו מקום/גודל/יישור ביחס לטקסט, בלי קשר לגודל הפונט של הכותרת עצמה.
-  sectionTitleRow: { flexDirection: 'row-reverse', alignItems: 'center', gap: 6 },
-  sectionTitle: { fontFamily: fonts.extraBold, fontSize: 17, color: colors.textPrimary, textAlign: 'right' },
-  sectionSubtitle: { fontFamily: fonts.regular, fontSize: 12.5, color: colors.textSecondary, textAlign: 'right', marginTop: 2 },
+  sectionTitleRow: { flexDirection: d.row, alignItems: 'center', gap: 6 },
+  sectionTitle: { fontFamily: fonts.extraBold, fontSize: 17, color: colors.textPrimary, textAlign: d.textAlign },
+  sectionSubtitle: { fontFamily: fonts.regular, fontSize: 12.5, color: colors.textSecondary, textAlign: d.textAlign, marginTop: 2 },
   // גודל אחיד לאייקון בכל שלוש כותרות ה-section (searchModuleTitle/sectionTitle גם משתמשות
   // באותו fontSize:17 אחרי האיחוד - ראו searchModuleTitleRow למעלה - אז זה כבר לא רק "פיצוי" על
   // הבדל גודל, אלא עקביות מלאה: אותו אייקון, אותו גודל, בכל שלוש הכותרות).
@@ -1733,7 +1735,7 @@ const styles = StyleSheet.create({
   emptyRecTitle: { fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary, textAlign: 'center', marginBottom: 10 },
   emptyRecAction: { fontFamily: fonts.bold, fontSize: 13, color: colors.accent },
 
-  discoveryGrid: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 10, marginBottom: 14 },
+  discoveryGrid: { flexDirection: d.row, flexWrap: 'wrap', gap: 10, marginBottom: 14 },
   discoveryTile: {
     width: '31%', aspectRatio: 1, backgroundColor: colors.card, borderRadius: radii.lg,
     borderWidth: 1, borderColor: colors.borderLight, alignItems: 'center', justifyContent: 'center', gap: 6, padding: 6,
@@ -1746,4 +1748,4 @@ const styles = StyleSheet.create({
   discoveryTilePressed: { backgroundColor: colors.accentTintLight, borderColor: colors.accentTint },
   allCategoriesLink: { alignSelf: 'center', marginBottom: 24 },
   allCategoriesLinkText: { fontFamily: fonts.semiBold, fontSize: 12.5, color: colors.accent },
-});
+}));

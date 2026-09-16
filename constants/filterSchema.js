@@ -5,6 +5,14 @@
 
 import { ISRAELI_CITIES } from './israeliCities';
 import categoryValues from './categoryValues.json';
+import { t } from '../lib/i18n';
+import { categoryLabel, regionLabel, placeName } from '../lib/i18n/format';
+
+// Display labels are locale-aware getters (evaluated when read, i.e. at render time); ids and values
+// are canonical and never translated.
+function localized(options, labelFor) {
+  return options.map((o) => Object.defineProperty({ ...o }, 'label', { enumerable: true, get: () => labelFor(o) }));
+}
 
 export const AGE_OPTIONS = [
   { id: '0-1', label: '0–1', min: 0, max: 1 },
@@ -37,26 +45,26 @@ const CATEGORY_EMOJI = {
 
 export const CATEGORY_OPTIONS = categoryValues.categories
   .filter((label) => !categoryValues.archiveCategories.includes(label))
-  .map((label) => ({ id: label, label, emoji: CATEGORY_EMOJI[label] }));
+  .map((value) => Object.defineProperty({ id: value, emoji: CATEGORY_EMOJI[value] }, 'label', { enumerable: true, get: () => categoryLabel(value) }));
 
 // לשימוש בפילטר "סוג פעילות" (חיפוש/סינון) בלבד - בלי "אחר" (קליטה-לכל, לא קטגוריית-חיפוש
 // שימושית). app/add-activity.js ממשיך להשתמש ב-CATEGORY_OPTIONS המלא (כולל "אחר") לתיוג.
 export const CATEGORY_FILTER_OPTIONS = CATEGORY_OPTIONS.filter((c) => c.id !== 'אחר');
 
 // חייב להישאר תואם לאילוץ ה-CHECK על locations.region ב-DB (supabase/0007_update_regions.sql).
-export const REGION_OPTIONS = categoryValues.regions.map((label) => ({ id: label, label }));
+export const REGION_OPTIONS = localized(categoryValues.regions.map((id) => ({ id })), (o) => regionLabel(o.id));
 
 // לשימוש ב"📍 אזורים שלא להציג" (app/activities.js, app/profile.js) - שם העיר עצמו הוא ה-ID,
 // אותו מוסכם בדיוק כמו CATEGORY_OPTIONS (אין טבלת-ערים/FK אמיתי, locations.city הוא טקסט חופשי).
-export const CITY_OPTIONS = ISRAELI_CITIES.map((label) => ({ id: label, label }));
+export const CITY_OPTIONS = localized(ISRAELI_CITIES.map((id) => ({ id })), (o) => placeName(o.id));
 
-export const RADIUS_OPTIONS = [
-  { id: '1', label: 'עד 1 ק"מ', km: 1 },
-  { id: '5', label: 'עד 5 ק"מ', km: 5 },
-  { id: '10', label: 'עד 10 ק"מ', km: 10 },
-  { id: '20', label: 'עד 20 ק"מ', km: 20 },
-  { id: '50', label: 'עד 50 ק"מ', km: 50 },
-];
+export const RADIUS_OPTIONS = localized([
+  { id: '1', km: 1 },
+  { id: '5', km: 5 },
+  { id: '10', km: 10 },
+  { id: '20', km: 20 },
+  { id: '50', km: 50 },
+], (o) => t('domain.options.radius', { km: o.km }));
 
 // "🚶 במרחק הליכה" (components/LocationQuickPicker.js) - טווח קבוע בשלב הזה (לא מחושב מזמן
 // הליכה אמיתי, אין ל-TuRu מנוע ניווט/routing - ראו ההערה המקבילה ב-app/activities.js ליד
@@ -68,127 +76,111 @@ export const WALKING_RADIUS_KM = 0.75;
 // יוכל לחזור אליו כשעוזבים מצב הליכה, בלי לשכפל את המספר.
 export const DEFAULT_PRECISE_RADIUS_KM = 10;
 
-export const DURATION_OPTIONS = [
-  { id: 'short', label: 'עד 30 דקות', min: 0, max: 30 },
-  { id: 'medium', label: '30–60 דקות', min: 30, max: 60 },
-  { id: 'long', label: '1–2 שעות', min: 60, max: 120 },
-  { id: 'xlong', label: '2+ שעות', min: 120, max: 100000 },
-];
+export const DURATION_OPTIONS = localized([
+  { id: 'short', min: 0, max: 30 },
+  { id: 'medium', min: 30, max: 60 },
+  { id: 'long', min: 60, max: 120 },
+  { id: 'xlong', min: 120, max: 100000 },
+], (o) => t(`domain.options.duration.${o.id}`));
 
-export const PRICE_OPTIONS = [
-  { id: 'free', label: 'חינם', min: 0, max: 0 },
-  { id: 'u30', label: 'עד 30 ₪', min: 0, max: 30 },
-  { id: 'u50', label: 'עד 50 ₪', min: 0, max: 50 },
-  { id: 'u100', label: 'עד 100 ₪', min: 0, max: 100 },
-  { id: '100p', label: 'מעל 100 ₪', min: 100, max: 100000 },
-];
+export const PRICE_OPTIONS = localized([
+  { id: 'free', min: 0, max: 0 },
+  { id: 'u30', min: 0, max: 30 },
+  { id: 'u50', min: 0, max: 50 },
+  { id: 'u100', min: 0, max: 100 },
+  { id: '100p', min: 100, max: 100000 },
+], (o) => t(`domain.options.price.${o.id}`));
 
 // שני "buckets" בלבד - "לא משנה" הוא פשוט לא לבחור כלום (או ללחוץ שוב על צ'יפ שנבחר כדי לבטל
 // אותו, אותו דפוס בדיוק כמו כל שאר הפילטרים החד-ברירתיים באפליקציה). values הם הערכים
 // ב-activities.booking_requirement שכל bucket מייצג (ראו matchesBooking ב-lib/filterActivities.js).
-export const BOOKING_OPTIONS = [
-  { id: 'not_required', label: 'לא נדרשת הזמנה', values: ['none', 'walk_in', 'available_now'] },
-  { id: 'required', label: 'נדרשת הזמנה', values: ['registration_required', 'advance_booking'] },
-];
+export const BOOKING_OPTIONS = localized([
+  { id: 'not_required', values: ['none', 'walk_in', 'available_now'] },
+  { id: 'required', values: ['registration_required', 'advance_booking'] },
+], (o) => t(`domain.options.booking.${o.id}`));
 
-export const PLACE_TYPE_OPTIONS = [
-  { id: 'indoor', label: '🏠 בתוך מבנה' },
-  { id: 'outdoor', label: '🌳 בחוץ' },
-  { id: 'both', label: '🔄 גם וגם' },
-];
+export const PLACE_TYPE_OPTIONS = localized([
+  { id: 'indoor' }, { id: 'outdoor' }, { id: 'both' },
+], (o) => t(`domain.options.placeType.${o.id}`));
 
 // weather_suitable נשאר שדה קיים ב-DB (עדיין נקרא, למשל לתצוגה עתידית), אבל הפסיק להיות
 // פילטר משתמש - שתי האפשרויות "ממוזג"/"מקורה" ממנו עברו לתוך AMENITY_COMFORT_OPTIONS למטה
 // כחלק מ"נגישות ונוחות". הרשימה הזו נשארת מיוצאת רק כי scraping/import-tool עדיין ממלאים אותה.
-export const WEATHER_OPTIONS = [
+export const WEATHER_OPTIONS = localized([
   'מתאים ליום חם', 'מתאים ליום גשום', 'ממוזג', 'מוצל', 'מקורה', 'פעילות בחוץ בלבד',
-].map((label) => ({ id: label, label }));
+].map((id) => ({ id })), (o) => t(`domain.options.weather.${o.id}`));
 
 // "נגישות ונוחות" - קטגוריה אחת מאוחדת שמציגה רק אפשרויות עם מידע אמיתי במאגר (נבדק מול ה-DB
 // החי: אלו הערכים הכי נפוצים מתוך activities.amenities/weather_suitable). כל אופציה מסומנת
 // באיזה שדה ב-DB היא נשלפת (field) כי amenities ו-weather_suitable הם שני columns נפרדים -
 // ראו matchesAmenityComfort ב-lib/filterActivities.js.
-export const AMENITY_COMFORT_OPTIONS = [
-  { id: 'נגיש לכיסא גלגלים', label: '♿ נגיש לכיסאות גלגלים', field: 'amenities' },
-  { id: 'מתאים לעגלה', label: '👶 מתאים לעגלות', field: 'amenities' },
-  { id: 'חניה', label: '🅿️ חניה', field: 'amenities' },
-  { id: 'שירותים', label: '🚻 שירותים', field: 'amenities' },
-  { id: 'ממוזג', label: '❄️ ממוזג', field: 'weather_suitable' },
-  { id: 'מקורה', label: '☔ מקורה', field: 'weather_suitable' },
-];
+export const AMENITY_COMFORT_OPTIONS = localized([
+  { id: 'נגיש לכיסא גלגלים', field: 'amenities' },
+  { id: 'מתאים לעגלה', field: 'amenities' },
+  { id: 'חניה', field: 'amenities' },
+  { id: 'שירותים', field: 'amenities' },
+  { id: 'ממוזג', field: 'weather_suitable' },
+  { id: 'מקורה', field: 'weather_suitable' },
+], (o) => t(`domain.options.amenities.${o.id}`));
 
 // אותם ID-ים בדיוק חייבים להישאר תואמים ל-PROVIDER_VALUES ב-tools/import-tool/server.js (טופס
 // ההטבה ב-Admin) - שני runtime נפרדים, אין import משותף אפשרי. "העסק עצמו" לא מופיע כאן בכוונה -
 // זו אופציית provider בטופס ההטבה, לא "כרטיס שיש למשתמש" (ראו lib/benefits.js).
-export const BENEFIT_PROVIDER_OPTIONS = [
+export const BENEFIT_PROVIDER_OPTIONS = localized([
   'ישראכרט', 'MAX', 'חבר', 'בהצדעה', 'מפעל הפיס', 'אחר',
-].map((label) => ({ id: label, label }));
+].map((id) => ({ id })), (o) => t(`domain.options.benefitProviders.${o.id}`));
 
 // שני צ'יפים אמיתיים בלבד - "כל הפעילויות" הוא ברירת המחדל (0 צ'יפים נבחרים), עקבי עם
 // placeType/booking הקיימים שגם הם לא מציגים צ'יפ מפורש ל"לא משנה".
-export const BENEFIT_FILTER_OPTIONS = [
-  { id: 'has_benefit', label: 'רק פעילויות עם הטבות' },
-  { id: 'my_benefits', label: 'רק הטבות שיש לי' },
-];
+export const BENEFIT_FILTER_OPTIONS = localized([
+  { id: 'has_benefit' }, { id: 'my_benefits' },
+], (o) => t(`domain.options.benefitFilter.${o.id}`));
 
 // לטופס "הוספת הטבה" (app/activity/[id].js, הוספה מהירה ע"י אדמין ישירות מעמוד הפעילות - לא
 // מחליף את כלי הניהול המלא) - בניגוד ל-BENEFIT_PROVIDER_OPTIONS למעלה (מיועד ל"אילו מועדונים יש
 // למשתמש"), כאן "העסק עצמו" כן רלוונטי (מי *נותן* את ההטבה). חייב להישאר תואם ל-PROVIDER_VALUES/
 // BENEFIT_TYPE_VALUES/REDEMPTION_METHOD_VALUES ב-tools/import-tool/server.js.
-export const BENEFIT_PROVIDER_EDIT_OPTIONS = [
+export const BENEFIT_PROVIDER_EDIT_OPTIONS = localized([
   'ישראכרט', 'MAX', 'חבר', 'בהצדעה', 'מפעל הפיס', 'העסק עצמו', 'אחר',
-].map((label) => ({ id: label, label }));
+].map((id) => ({ id })), (o) => t(`domain.options.benefitProviders.${o.id}`));
 
-export const BENEFIT_TYPE_EDIT_OPTIONS = [
-  { id: 'percent', label: 'אחוז הנחה' },
-  { id: 'special_price', label: 'מחיר מיוחד' },
-  { id: 'one_plus_one', label: '1+1' },
-  { id: 'second_ticket_discount', label: 'כרטיס שני בהנחה' },
-  { id: 'coupon_code', label: 'קוד קופון' },
-  { id: 'other', label: 'הטבה אחרת' },
-];
+export const BENEFIT_TYPE_EDIT_OPTIONS = localized([
+  { id: 'percent' }, { id: 'special_price' }, { id: 'one_plus_one' },
+  { id: 'second_ticket_discount' }, { id: 'coupon_code' }, { id: 'other' },
+], (o) => t(`domain.options.benefitType.${o.id.replace(/_([a-z])/g, (m, c) => c.toUpperCase())}`));
 
-export const REDEMPTION_METHOD_EDIT_OPTIONS = [
-  { id: 'link', label: 'רכישה דרך קישור' },
-  { id: 'coupon_code', label: 'קוד קופון' },
-  { id: 'show_card', label: 'הצגת כרטיס/חברות' },
-  { id: 'automatic', label: 'באופן אוטומטי' },
-  { id: 'other', label: 'אחר' },
-];
+export const REDEMPTION_METHOD_EDIT_OPTIONS = localized([
+  { id: 'link' }, { id: 'coupon_code' }, { id: 'show_card' }, { id: 'automatic' }, { id: 'other' },
+], (o) => t(`domain.options.redemption.${o.id}`));
 
-export const WHEN_OPTIONS = [
-  { id: 'now', label: 'עכשיו' },
-  { id: 'today', label: 'היום' },
-  { id: 'tomorrow', label: 'מחר' },
-  { id: 'weekend', label: 'סוף השבוע' },
-  { id: 'week', label: 'השבוע' },
-  { id: 'specific', label: 'תאריך אחר' },
-];
+export const WHEN_OPTIONS = localized([
+  { id: 'now' }, { id: 'today' }, { id: 'tomorrow' }, { id: 'weekend' }, { id: 'week' }, { id: 'specific' },
+], (o) => t(`domain.options.when.${o.id}`));
 
-export const HOUR_OPTIONS = [
-  { id: 'morning', label: 'בוקר', start: '06:00', end: '12:00' },
-  { id: 'noon', label: 'צהריים', start: '12:00', end: '15:00' },
-  { id: 'afternoon', label: 'אחר הצהריים', start: '15:00', end: '18:00' },
-  { id: 'evening', label: 'ערב', start: '18:00', end: '23:00' },
-];
+export const HOUR_OPTIONS = localized([
+  { id: 'morning', start: '06:00', end: '12:00' },
+  { id: 'noon', start: '12:00', end: '15:00' },
+  { id: 'afternoon', start: '15:00', end: '18:00' },
+  { id: 'evening', start: '18:00', end: '23:00' },
+], (o) => t(`domain.options.hour.${o.id}`));
 
 // כל קטגוריה: key (שם השדה במצב הפילטרים), icon, title, type (chips/location/when),
 // matchMode (any/all - רלוונטי רק ל-chips), multiple (בחירה מרובה או בודדת בלבד).
 // הסדר כאן הוא סדר התצוגה בפועל בסינון המתקדם - מהחשוב לפחות חשוב.
 export const FILTER_SCHEMA = [
-  { key: 'category', icon: '🎯', title: 'סוג פעילות', type: 'chips', options: CATEGORY_FILTER_OPTIONS, multiple: true, matchMode: 'any' },
-  { key: 'location', icon: '📍', title: 'מיקום', type: 'location' },
-  { key: 'age', icon: '👶', title: 'גיל', type: 'chips', options: AGE_OPTIONS, multiple: true, matchMode: 'any' },
+  { key: 'category', icon: '🎯', type: 'chips', options: CATEGORY_FILTER_OPTIONS, multiple: true, matchMode: 'any' },
+  { key: 'location', icon: '📍', type: 'location' },
+  { key: 'age', icon: '👶', type: 'chips', options: AGE_OPTIONS, multiple: true, matchMode: 'any' },
   // 'when' משלב יום + שעה בסקשן אחד (WhenSection ב-FiltersSheet.js כותבת גם ל-filters.when
   // וגם ל-filters.hour - שני מפתחות נפרדים ב-state כמו קודם, רק תצוגה מאוחדת).
-  { key: 'when', icon: '📅', title: 'מתי?', type: 'when' },
-  { key: 'price', icon: '💰', title: 'מחיר', type: 'chips', options: PRICE_OPTIONS, multiple: true, matchMode: 'any' },
-  { key: 'placeType', icon: '🏠', title: 'סוג המקום', type: 'chips', options: PLACE_TYPE_OPTIONS, multiple: false, matchMode: 'any' },
-  { key: 'booking', icon: '🎟️', title: 'הזמנה', type: 'chips', options: BOOKING_OPTIONS, multiple: false, matchMode: 'any' },
-  { key: 'duration', icon: '⏱️', title: 'משך פעילות', type: 'chips', options: DURATION_OPTIONS, multiple: true, matchMode: 'any' },
-  { key: 'amenities', icon: '♿', title: 'נגישות ונוחות', type: 'chips', options: AMENITY_COMFORT_OPTIONS, multiple: true, matchMode: 'all' },
-  { key: 'benefits', icon: '🎟️', title: 'הטבות והנחות', type: 'chips', options: BENEFIT_FILTER_OPTIONS, multiple: false, matchMode: 'any' },
-];
+  { key: 'when', icon: '📅', type: 'when' },
+  { key: 'price', icon: '💰', type: 'chips', options: PRICE_OPTIONS, multiple: true, matchMode: 'any' },
+  { key: 'placeType', icon: '🏠', type: 'chips', options: PLACE_TYPE_OPTIONS, multiple: false, matchMode: 'any' },
+  { key: 'booking', icon: '🎟️', type: 'chips', options: BOOKING_OPTIONS, multiple: false, matchMode: 'any' },
+  { key: 'duration', icon: '⏱️', type: 'chips', options: DURATION_OPTIONS, multiple: true, matchMode: 'any' },
+  { key: 'amenities', icon: '♿', type: 'chips', options: AMENITY_COMFORT_OPTIONS, multiple: true, matchMode: 'all' },
+  { key: 'benefits', icon: '🎟️', type: 'chips', options: BENEFIT_FILTER_OPTIONS, multiple: false, matchMode: 'any' },
+].map((section) => Object.defineProperty(section, 'title', { enumerable: true, get: () => t(`domain.filterSections.${section.key}`) }));
 
 export const DEFAULT_FILTERS = {
   q: '',

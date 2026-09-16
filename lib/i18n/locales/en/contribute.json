@@ -1,0 +1,78 @@
+{
+  "addActivity": {
+    "title": "Add an activity",
+    "choice": {
+      "intro": "How would you like to add the activity?",
+      "urlTitle": "🔗 I have a link",
+      "urlSubtitle": "We'll fill in the details from the page automatically, and you can edit them before sending",
+      "manualTitle": "✍️ I'll fill it in myself",
+      "manualSubtitle": "Just a few required fields, the rest is up to you"
+    },
+    "url": {
+      "extract": "Get details",
+      "switchToManual": "Didn't work - I'll fill it in myself",
+      "candidatesIntro": "We found a few options on this page - which one is it?",
+      "unnamed": "Untitled"
+    },
+    "entityTypes": {
+      "fixedPlace": "Permanent place (opening hours)",
+      "recurringActivity": "Class / recurring activity",
+      "recurringEvent": "Recurring event",
+      "oneTimeEvent": "One-time event"
+    },
+    "form": {
+      "editIntro": "Check that everything looks right and edit as needed before sending",
+      "nameLabel": "Activity name *",
+      "namePlaceholder": "e.g. Yarkon Park playground",
+      "categoryLabel": "Category * (you can pick several)",
+      "categoryPlaceholder": "Choose a category",
+      "entityTypeLabel": "Type (you can pick several)",
+      "cityLabel": "City/town *",
+      "autoLocate": "📍 Detect automatically",
+      "cityPlaceholder": "e.g. Tel Aviv",
+      "locationNameLabel": "Place name (optional)",
+      "locationNamePlaceholder": "e.g. Yarkon Park",
+      "descriptionLabel": "Description (optional)",
+      "descriptionPlaceholder": "A few words about the activity...",
+      "minAgeLabel": "Age from (optional)",
+      "maxAgeLabel": "Age to (optional)",
+      "priceLabel": "Price (optional)",
+      "priceFree": "Free",
+      "pricePaid": "Paid",
+      "startTimeLabel": "From (optional)",
+      "endTimeLabel": "Until (optional)",
+      "imagesFound_one": "Found 1 image on the page - it will be saved automatically and wait for approval",
+      "imagesFound_other": "Found {{count}} images on the page - they will be saved automatically and wait for approval",
+      "submit": "Confirm and send"
+    },
+    "categoryPicker": {
+      "title": "Category",
+      "subtitle": "You can pick several categories"
+    },
+    "done": {
+      "title": "Thanks for adding it!",
+      "multipleWithArchived": "Added {{total}} entries (one for each category + type combination you picked). {{archived}} of these went to the archive - a type of activity Turu doesn't show yet (classes/camps with ongoing registration). The rest were sent to the Turu team for review and will appear in the app once approved",
+      "multiplePending": "Added {{total}} entries (one for each category + type combination you picked). They were all sent to the Turu team for review and will appear in the app once approved",
+      "singleArchived": "The activity was saved - it's a type of activity Turu doesn't show yet (classes/camps with ongoing registration)",
+      "singlePending": "The activity was sent to the Turu team for review and will appear in the app once approved"
+    },
+    "errors": {
+      "requiredFields": "Please fill in at least a name, category, type and city",
+      "locationPermission": "Allow location access to fill in the city automatically",
+      "cityNotDetected": "We couldn't detect the city - you can fill it in yourself",
+      "locateFailed": "Something went wrong finding your location - you can fill it in yourself",
+      "noActivityFound": "We couldn't find an activity on this page - try filling it in yourself",
+      "extractFailed": "Couldn't get the details",
+      "saveFailed": "Couldn't save"
+    }
+  },
+  "submit": {
+    "errors": {
+      "missingRequired": "Missing required fields (name, type)",
+      "loginFirst": "Please sign in first",
+      "loginToUse": "Please sign in to use this",
+      "invalidUrl": "That link isn't valid",
+      "noReadableText": "We couldn't find any readable text on this page"
+    }
+  }
+}

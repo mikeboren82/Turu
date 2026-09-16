@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TextInput, Pressable, Linking, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, TextInput, Pressable, Linking, ActivityIndicator } from 'react-native';
 import Header from '../components/Header';
 import SkyBackground from '../components/SkyBackground';
 import { WhatsAppIcon } from '../components/icons';
 import { colors, fonts, radii, spacing } from '../constants/theme';
 import { sendContactMessage } from '../lib/contact';
+import { useI18n, createStyles } from '../lib/i18n';
 
 const WHATSAPP_PHONE = '972533643918'; // 0533643918 בפורמט בינלאומי בלי ה-0 המוביל
 
@@ -13,6 +14,7 @@ function isValidEmail(value) {
 }
 
 export default function ContactScreen() {
+  const { t, dir } = useI18n();
   const [email, setEmail] = useState('');
   const [message, setMessage] = useState('');
   const [errors, setErrors] = useState({});
@@ -20,15 +22,15 @@ export default function ContactScreen() {
   const [sendStatus, setSendStatus] = useState('');
 
   const openWhatsApp = () => {
-    const text = encodeURIComponent('היי! מגיע/ה מהאפליקציה TuRu 🦘');
+    const text = encodeURIComponent(t('pages.contact.whatsappText'));
     Linking.openURL(`https://wa.me/${WHATSAPP_PHONE}?text=${text}`);
   };
 
   const handleSend = async () => {
     const nextErrors = {};
-    if (!email.trim()) nextErrors.email = 'נא להזין אימייל';
-    else if (!isValidEmail(email)) nextErrors.email = 'כתובת אימייל לא תקינה';
-    if (!message.trim()) nextErrors.message = 'נא לכתוב הודעה';
+    if (!email.trim()) nextErrors.email = t('pages.contact.emailRequired');
+    else if (!isValidEmail(email)) nextErrors.email = t('pages.contact.emailInvalid');
+    if (!message.trim()) nextErrors.message = t('pages.contact.messageRequired');
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) return;
 
@@ -39,7 +41,11 @@ export default function ContactScreen() {
       setSendStatus('success');
       setMessage('');
     } catch (err) {
-      setSendStatus(`שגיאה בשליחה: ${err.message}`);
+      // השגיאה הגולמית מהשרת לדיבוג בלבד - למשתמש מוצגת הודעה ידידותית
+      console.warn('[contact:send]', err?.message || err);
+      setSendStatus(/failed to fetch|network request failed|networkerror|load failed/i.test(String(err?.message || ''))
+        ? t('common.states.networkError')
+        : t('pages.contact.sendError'));
     } finally {
       setSending(false);
     }
@@ -51,22 +57,22 @@ export default function ContactScreen() {
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Header showBack onMenuPress={() => {}} />
 
-        <Text style={styles.pageTitle}>צרו קשר 📬</Text>
-        <Text style={styles.pageSubtitle}>נשמח לשמוע מכם - יש כמה דרכים להגיע אלינו</Text>
+        <Text style={styles.pageTitle}>{t('pages.contact.title')}</Text>
+        <Text style={styles.pageSubtitle}>{t('pages.contact.subtitle')}</Text>
 
         <Pressable style={styles.whatsappBtn} onPress={openWhatsApp}>
           <WhatsAppIcon size={22} />
-          <Text style={styles.whatsappBtnText}>שליחת הודעה בוואטסאפ</Text>
+          <Text style={styles.whatsappBtnText}>{t('pages.contact.whatsapp')}</Text>
         </Pressable>
 
         <View style={styles.dividerRow}>
           <View style={styles.dividerLine} />
-          <Text style={styles.dividerText}>או</Text>
+          <Text style={styles.dividerText}>{t('pages.contact.or')}</Text>
           <View style={styles.dividerLine} />
         </View>
 
         <View style={styles.field}>
-          <Text style={styles.fieldLabel}>האימייל שלכם</Text>
+          <Text style={styles.fieldLabel}>{t('pages.contact.emailLabel')}</Text>
           <TextInput
             style={[styles.input, errors.email && styles.inputError, { textAlign: 'left', writingDirection: 'ltr' }]}
             placeholder="name@example.com"
@@ -80,10 +86,10 @@ export default function ContactScreen() {
         </View>
 
         <View style={styles.field}>
-          <Text style={styles.fieldLabel}>ההודעה שלכם</Text>
+          <Text style={styles.fieldLabel}>{t('pages.contact.messageLabel')}</Text>
           <TextInput
-            style={[styles.input, styles.messageInput, { textAlign: 'right', writingDirection: 'rtl' }, errors.message && styles.inputError]}
-            placeholder="ספרו לנו מה על הלב..."
+            style={[styles.input, styles.messageInput, { textAlign: dir.textAlign, writingDirection: dir.writingDirection }, errors.message && styles.inputError]}
+            placeholder={t('pages.contact.messagePlaceholder')}
             placeholderTextColor={colors.textMuted}
             multiline
             value={message}
@@ -93,28 +99,28 @@ export default function ContactScreen() {
         </View>
 
         <Pressable style={[styles.sendBtn, sending && styles.sendBtnDisabled]} onPress={handleSend} disabled={sending}>
-          {sending ? <ActivityIndicator color="#fff" /> : <Text style={styles.sendBtnText}>שליחה</Text>}
+          {sending ? <ActivityIndicator color="#fff" /> : <Text style={styles.sendBtnText}>{t('common.actions.send')}</Text>}
         </Pressable>
         {sendStatus === 'success' ? (
-          <Text style={styles.successText}>ההודעה נשלחה ✓ נחזור אליכם בהקדם</Text>
+          <Text style={styles.successText}>{t('pages.contact.success')}</Text>
         ) : sendStatus ? (
           <Text style={styles.sendErrorText}>{sendStatus}</Text>
         ) : (
-          <Text style={styles.hint}>ההודעה תישלח אלינו ישירות</Text>
+          <Text style={styles.hint}>{t('pages.contact.hint')}</Text>
         )}
       </ScrollView>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createStyles((d) => ({
   screen: { flex: 1, backgroundColor: colors.bg },
   content: { padding: spacing.xl, paddingBottom: 50 },
-  pageTitle: { fontFamily: fonts.extraBold, fontSize: 22, color: colors.textPrimary, textAlign: 'right', marginTop: 24, marginBottom: 6 },
-  pageSubtitle: { fontFamily: fonts.regular, fontSize: 13.5, color: colors.textSecondary, textAlign: 'right', marginBottom: 26 },
+  pageTitle: { fontFamily: fonts.extraBold, fontSize: 22, color: colors.textPrimary, textAlign: d.textAlign, marginTop: 24, marginBottom: 6 },
+  pageSubtitle: { fontFamily: fonts.regular, fontSize: 13.5, color: colors.textSecondary, textAlign: d.textAlign, marginBottom: 26 },
 
   whatsappBtn: {
-    flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'center', gap: 10,
+    flexDirection: d.row, alignItems: 'center', justifyContent: 'center', gap: 10,
     backgroundColor: '#25D366', borderRadius: radii.pill, paddingVertical: 15,
   },
   whatsappBtnText: { fontFamily: fonts.bold, fontSize: 15.5, color: '#fff' },
@@ -124,14 +130,14 @@ const styles = StyleSheet.create({
   dividerText: { fontFamily: fonts.semiBold, fontSize: 12, color: colors.textMuted },
 
   field: { marginBottom: 16 },
-  fieldLabel: { fontFamily: fonts.bold, fontSize: 12.5, color: colors.textSecondary, marginBottom: 6, textAlign: 'right' },
+  fieldLabel: { fontFamily: fonts.bold, fontSize: 12.5, color: colors.textSecondary, marginBottom: 6, textAlign: d.textAlign },
   input: {
     borderWidth: 1, borderColor: colors.border, borderRadius: radii.md, padding: 12,
     fontFamily: fonts.regular, fontSize: 14, color: colors.textPrimary, backgroundColor: colors.card,
   },
   messageInput: { minHeight: 110, textAlignVertical: 'top' },
   inputError: { borderColor: colors.danger },
-  errorText: { fontFamily: fonts.semiBold, fontSize: 11.5, color: colors.danger, marginTop: 6, textAlign: 'right' },
+  errorText: { fontFamily: fonts.semiBold, fontSize: 11.5, color: colors.danger, marginTop: 6, textAlign: d.textAlign },
 
   sendBtn: { backgroundColor: colors.accent, borderRadius: radii.pill, paddingVertical: 15, alignItems: 'center', marginTop: 4 },
   sendBtnDisabled: { opacity: 0.6 },
@@ -139,4 +145,4 @@ const styles = StyleSheet.create({
   hint: { fontFamily: fonts.regular, fontSize: 11.5, color: colors.textMuted, textAlign: 'center', marginTop: 10 },
   successText: { fontFamily: fonts.bold, fontSize: 13, color: colors.greenStrong, textAlign: 'center', marginTop: 10 },
   sendErrorText: { fontFamily: fonts.semiBold, fontSize: 12.5, color: colors.danger, textAlign: 'center', marginTop: 10 },
-});
+}));

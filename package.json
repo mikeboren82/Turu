@@ -6,7 +6,10 @@
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "i18n:check": "node scripts/i18n-check.js",
+    "i18n:scan": "node scripts/i18n-scan.js",
+    "test:i18n": "node --test tests/i18n.test.js"
   },
   "dependencies": {
     "@expo-google-fonts/assistant": "^0.4.1",

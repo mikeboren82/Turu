@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, ActivityIndicator, Modal, Image, Platform } from 'react-native';
+import { View, Text, ScrollView, Pressable, TextInput, ActivityIndicator, Modal, Image, Platform } from 'react-native';
 import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -14,6 +14,8 @@ import { mapActivityRow } from '../lib/activities';
 import { placeholderImageFor, placeholderBgColorFor } from '../lib/placeholderImages';
 import { relativeDate } from '../lib/formatDate';
 import { openNavigationTo } from '../lib/openNavigation';
+import { useI18n, createStyles, t as translate } from '../lib/i18n';
+import { categoryLabel, placeName } from '../lib/i18n/format';
 import {
   toggleFavorite, toggleVisited, togglePlanned, setPlannedTargetDate,
   savePersonalNote, fetchAllPersonalNotes,
@@ -24,17 +26,17 @@ import {
 // שני המודלים מבחינת תוכן (הערה לא משנה סטטוס-יעד, יעד לא משנה תוכן-הערה). מחליף את
 // app/destinations.js הישן (route זהה במהות, רק עם טאב רביעי) - אין שתי מערכות מקבילות.
 const ACTIVITY_TABS = [
-  { key: 'saved', label: '❤️ שמורים', table: 'favorites' },
-  { key: 'planned', label: '📅 מתכננים', table: 'planned_activities' },
-  { key: 'visited', label: '✅ היינו כאן', table: 'visited_activities' },
+  { key: 'saved', table: 'favorites' },
+  { key: 'planned', table: 'planned_activities' },
+  { key: 'visited', table: 'visited_activities' },
 ];
 const ALL_TAB_KEYS = [...ACTIVITY_TABS.map((t) => t.key), 'notes'];
-const TAB_LABELS = { saved: '❤️ שמורים', planned: '📅 מתכננים', visited: '✅ היינו כאן', notes: '📝 הערות שלי' };
+// Tab labels: saved.tabs.<key>
 
 const SORT_OPTIONS = [
-  { id: 'new', label: 'החדשות ביותר' },
-  { id: 'old', label: 'הישנות ביותר' },
-  { id: 'name', label: 'לפי שם פעילות' },
+  { id: 'new', labelKey: 'saved.sort.new' },
+  { id: 'old', labelKey: 'saved.sort.old' },
+  { id: 'name', labelKey: 'saved.sort.name' },
 ];
 
 const NESTED_ACTIVITY_FIELDS = `id, name, category, entity_type, placeholder_group, min_age, max_age, status,
@@ -48,14 +50,15 @@ function ageBandOverlaps(activity, band) {
   return min <= band.max && max >= band.min;
 }
 
-function formatTargetDate(rec) {
+function formatTargetDate(rec, formatDate) {
   if (rec.target_label) return rec.target_label;
-  if (rec.target_date) return new Date(rec.target_date).toLocaleDateString('he-IL');
+  if (rec.target_date) return formatDate(rec.target_date);
   return null;
 }
 
 export default function MyThingsScreen() {
   const router = useRouter();
+  const { t, locale, formatDate } = useI18n();
   const { tab } = useLocalSearchParams();
   const [loading, setLoading] = useState(true);
   const [session, setSession] = useState(null);
@@ -134,7 +137,7 @@ export default function MyThingsScreen() {
       setRecords(merged);
       setNotes(notesRes);
     } catch (err) {
-      showNotice(`שגיאה בטעינה: ${err.message}`);
+      showNotice(translate('saved.errors.load'));
     }
     setLoading(false);
   }, []);
@@ -177,7 +180,7 @@ export default function MyThingsScreen() {
     });
   }, [tabItems, filterCategory, filterRegion, filterAge, search, notesByActivity]);
 
-  const mappedForMap = useMemo(() => filteredSortedItems.map((r) => mapActivityRow(r.activity)), [filteredSortedItems]);
+  const mappedForMap = useMemo(() => filteredSortedItems.map((r) => mapActivityRow(r.activity)), [filteredSortedItems, locale]);
 
   const sortedNotes = useMemo(() => {
     const list = [...notes];
@@ -195,9 +198,9 @@ export default function MyThingsScreen() {
       else if (tabDef.key === 'planned') await togglePlanned(session.user.id, activityId, false);
       else await toggleVisited(session.user.id, activityId, false);
       await load();
-      showNotice('הוסר מהיעדים');
+      showNotice(t('saved.notices.removed'));
     } catch (err) {
-      showNotice(`שגיאה בהסרה: ${err.message}`);
+      showNotice(t('saved.errors.remove'));
     }
     setExpandedId(null);
   };
@@ -207,9 +210,9 @@ export default function MyThingsScreen() {
     try {
       await toggleVisited(session.user.id, activityId, next);
       await load();
-      showNotice(next ? 'סומן "היינו כאן"' : 'הוסר מ"היינו כאן"');
+      showNotice(next ? t('saved.notices.markedVisited') : t('saved.notices.unmarkedVisited'));
     } catch (err) {
-      showNotice(`שגיאה: ${err.message}`);
+      showNotice(t('common.states.errorGeneric'));
     }
     setExpandedId(null);
   };
@@ -231,9 +234,9 @@ export default function MyThingsScreen() {
       });
       setDateModalTarget(null);
       await load();
-      showNotice('תאריך היעד נשמר');
+      showNotice(t('saved.notices.dateSaved'));
     } catch (err) {
-      showNotice(`שגיאה בשמירת התאריך: ${err.message}`);
+      showNotice(t('saved.errors.dateSave'));
     } finally {
       setSavingDate(false);
     }
@@ -247,7 +250,7 @@ export default function MyThingsScreen() {
       setDateModalTarget(null);
       await load();
     } catch (err) {
-      showNotice(`שגיאה: ${err.message}`);
+      showNotice(t('common.states.errorGeneric'));
     } finally {
       setSavingDate(false);
     }
@@ -281,9 +284,9 @@ export default function MyThingsScreen() {
       await savePersonalNote(session.user.id, noteModalTarget.activity_id, noteModalDraft);
       await load();
       setNoteModalTarget(null);
-      showNotice('ההערה נשמרה');
+      showNotice(t('saved.notices.noteSaved'));
     } catch (err) {
-      showNotice(`שגיאה בשמירת ההערה: ${err.message}`);
+      showNotice(t('saved.errors.noteSave'));
     } finally {
       setSavingNote(false);
     }
@@ -297,9 +300,9 @@ export default function MyThingsScreen() {
       await savePersonalNote(session.user.id, noteDeleteTarget.activity_id, '');
       setNotes((prev) => prev.filter((n) => n.activity_id !== noteDeleteTarget.activity_id));
       setNoteDeleteTarget(null);
-      showNotice('ההערה נמחקה');
+      showNotice(t('saved.notices.noteDeleted'));
     } catch (err) {
-      showNotice(`שגיאה במחיקת ההערה: ${err.message}`);
+      showNotice(t('saved.errors.noteDelete'));
     } finally {
       setDeletingNote(false);
     }
@@ -325,8 +328,8 @@ export default function MyThingsScreen() {
       <View style={styles.content}>
         <Header showBack onMenuPress={() => {}} />
         <ScrollView showsVerticalScrollIndicator={false}>
-          <Text style={styles.title}>❤️ הדברים שלי</Text>
-          <Text style={styles.subtitle}>כל מה ששמרתם, תכננתם וכתבתם לעצמכם.</Text>
+          <Text style={styles.title}>{t('saved.title')}</Text>
+          <Text style={styles.subtitle}>{t('saved.subtitle')}</Text>
 
           {notice ? <View style={styles.noticeBox}><Text style={styles.noticeText}>{notice}</Text></View> : null}
 
@@ -337,7 +340,7 @@ export default function MyThingsScreen() {
                 style={[styles.tabBtn, activeTab === key && styles.tabBtnActive]}
                 onPress={() => setActiveTab(key)}
               >
-                <Text style={[styles.tabBtnText, activeTab === key && styles.tabBtnTextActive]}>{TAB_LABELS[key]}</Text>
+                <Text style={[styles.tabBtnText, activeTab === key && styles.tabBtnTextActive]}>{t(`saved.tabs.${key}`)}</Text>
               </Pressable>
             ))}
           </ScrollView>
@@ -345,15 +348,15 @@ export default function MyThingsScreen() {
           {activeTab === 'notes' ? (
             <>
               <View style={styles.notesHeadRow}>
-                <Text style={styles.countText}>{notes.length > 0 ? `ההערות שלי (${notes.length})` : 'ההערות שלי'}</Text>
-                <Text style={styles.privacyHint}>🔒 פרטי</Text>
+                <Text style={styles.countText}>{notes.length > 0 ? t('saved.notes.headingWithCount', { n: notes.length }) : t('saved.notes.heading')}</Text>
+                <Text style={styles.privacyHint}>{t('saved.notes.private')}</Text>
               </View>
-              <Text style={styles.sectionHint}>כל ההערות האישיות שלכם, מרוכזות במקום אחד.</Text>
+              <Text style={styles.sectionHint}>{t('saved.notes.hint')}</Text>
 
               {notes.length > 0 && (
                 <View style={styles.sortWrap}>
                   <Pressable style={styles.sortBtn} onPress={() => setNoteSortMenuOpen((v) => !v)}>
-                    <Text style={styles.sortBtnText}>מיון: {SORT_OPTIONS.find((o) => o.id === noteSort)?.label} ▾</Text>
+                    <Text style={styles.sortBtnText}>{t('saved.sort.label', { option: t(SORT_OPTIONS.find((o) => o.id === noteSort)?.labelKey) })}</Text>
                   </Pressable>
                   {noteSortMenuOpen && (
                     <View style={styles.sortMenu}>
@@ -363,7 +366,7 @@ export default function MyThingsScreen() {
                           style={styles.sortMenuItem}
                           onPress={() => { setNoteSort(opt.id); setNoteSortMenuOpen(false); }}
                         >
-                          <Text style={[styles.sortMenuItemText, noteSort === opt.id && styles.sortMenuItemTextActive]}>{opt.label}</Text>
+                          <Text style={[styles.sortMenuItemText, noteSort === opt.id && styles.sortMenuItemTextActive]}>{t(opt.labelKey)}</Text>
                         </Pressable>
                       ))}
                     </View>
@@ -374,13 +377,13 @@ export default function MyThingsScreen() {
               {notes.length === 0 ? (
                 <View style={styles.emptyBox}>
                   <Text style={styles.emptyEmoji}>📝</Text>
-                  <Text style={styles.emptyTitle}>עדיין אין לכם הערות אישיות.</Text>
-                  <Text style={styles.emptyText}>הוסיפו הערה מתוך עמוד פעילות כדי לזכור דברים חשובים לפעם הבאה.</Text>
+                  <Text style={styles.emptyTitle}>{t('saved.notes.emptyTitle')}</Text>
+                  <Text style={styles.emptyText}>{t('saved.notes.emptyText')}</Text>
                 </View>
               ) : (
                 sortedNotes.map((note) => {
                   const thumb = note.activity.activity_images?.[0]?.url;
-                  const cityLabel = note.activity.location?.city || note.activity.location?.name || '';
+                  const cityLabel = placeName(note.activity.location?.city) || note.activity.location?.name || '';
                   return (
                     <View key={note.activity_id} style={styles.noteCard}>
                       <View style={styles.noteCardTop}>
@@ -404,13 +407,13 @@ export default function MyThingsScreen() {
                       </View>
                       <Text style={styles.noteCardText} numberOfLines={4}>{note.note}</Text>
                       <View style={styles.noteCardFooter}>
-                        <Text style={styles.noteCardMeta}>נכתב {relativeDate(note.created_at)}</Text>
+                        <Text style={styles.noteCardMeta}>{t('saved.notes.writtenAt', { date: relativeDate(note.created_at) })}</Text>
                         <View style={styles.noteCardActions}>
                           <Pressable onPress={() => openNoteModal(note.activity_id, note.activity.name)}>
-                            <Text style={styles.noteActionText}>✏️ עריכה</Text>
+                            <Text style={styles.noteActionText}>{t('saved.notes.edit')}</Text>
                           </Pressable>
                           <Pressable onPress={() => setNoteDeleteTarget(note)}>
-                            <Text style={[styles.noteActionText, styles.noteActionDanger]}>🗑️ מחיקה</Text>
+                            <Text style={[styles.noteActionText, styles.noteActionDanger]}>{t('saved.notes.delete')}</Text>
                           </Pressable>
                         </View>
                       </View>
@@ -424,17 +427,17 @@ export default function MyThingsScreen() {
               {totalCount > 4 && (
                 <View style={styles.toolsRow}>
                   <Pressable style={styles.toolBtn} onPress={() => setFilterOpen((v) => !v)}>
-                    <Text style={styles.toolBtnText}>🔍 סינון</Text>
+                    <Text style={styles.toolBtnText}>{t('saved.tools.filter')}</Text>
                   </Pressable>
                   <Pressable style={styles.toolBtn} onPress={() => setViewMode((v) => (v === 'list' ? 'map' : 'list'))}>
-                    <Text style={styles.toolBtnText}>{viewMode === 'list' ? '🗺️ מפה' : '📋 רשימה'}</Text>
+                    <Text style={styles.toolBtnText}>{viewMode === 'list' ? t('saved.tools.map') : t('saved.tools.list')}</Text>
                   </Pressable>
                 </View>
               )}
 
               {filterOpen && (
                 <View style={styles.filterBox}>
-                  <Text style={styles.filterLabel}>🎯 קטגוריה</Text>
+                  <Text style={styles.filterLabel}>{t('saved.filters.category')}</Text>
                   <View style={styles.chipRow}>
                     {CATEGORY_OPTIONS.map((c) => (
                       <Pressable
@@ -446,7 +449,7 @@ export default function MyThingsScreen() {
                       </Pressable>
                     ))}
                   </View>
-                  <Text style={styles.filterLabel}>📍 אזור</Text>
+                  <Text style={styles.filterLabel}>{t('saved.filters.region')}</Text>
                   <View style={styles.chipRow}>
                     {REGION_OPTIONS.map((r) => (
                       <Pressable
@@ -458,7 +461,7 @@ export default function MyThingsScreen() {
                       </Pressable>
                     ))}
                   </View>
-                  <Text style={styles.filterLabel}>👶 גיל</Text>
+                  <Text style={styles.filterLabel}>{t('saved.filters.age')}</Text>
                   <View style={styles.chipRow}>
                     {AGE_OPTIONS.map((a) => (
                       <Pressable
@@ -472,7 +475,7 @@ export default function MyThingsScreen() {
                   </View>
                   {(filterCategory.length > 0 || filterRegion.length > 0 || filterAge.length > 0) && (
                     <Pressable onPress={() => { setFilterCategory([]); setFilterRegion([]); setFilterAge([]); }}>
-                      <Text style={styles.clearFiltersText}>נקה סינון</Text>
+                      <Text style={styles.clearFiltersText}>{t('saved.filters.clear')}</Text>
                     </Pressable>
                   )}
                 </View>
@@ -483,27 +486,27 @@ export default function MyThingsScreen() {
                   style={styles.searchInput}
                   value={search}
                   onChangeText={setSearch}
-                  placeholder="🔍 חיפוש ביעדים שלי..."
+                  placeholder={t('saved.searchPlaceholder')}
                   placeholderTextColor={colors.textMuted}
                 />
               )}
 
-              <Text style={styles.countText}>{filteredSortedItems.length} יעדים</Text>
+              <Text style={styles.countText}>{t('saved.count', { count: filteredSortedItems.length })}</Text>
 
               {filteredSortedItems.length === 0 ? (
                 <View style={styles.emptyBox}>
                   <Text style={styles.emptyEmoji}>📍</Text>
                   <Text style={styles.emptyTitle}>
-                    {totalCount === 0 ? 'היעדים שלכם עוד מחכים כאן' : 'לא נמצאו יעדים מתאימים'}
+                    {totalCount === 0 ? t('saved.empty.noneTitle') : t('saved.empty.noMatchTitle')}
                   </Text>
                   <Text style={styles.emptyText}>
                     {totalCount === 0
-                      ? 'מצאתם פעילות שממש בא לכם לעשות? שמרו אותה, והיא תחכה לכם כאן.'
-                      : 'נסו לשנות את הסינון או את מילות החיפוש.'}
+                      ? t('saved.empty.noneText')
+                      : t('saved.empty.noMatchText')}
                   </Text>
                   {totalCount === 0 && (
                     <Pressable style={styles.findBtn} onPress={() => router.push('/activities')}>
-                      <Text style={styles.findBtnText}>מצאו פעילות 🔍</Text>
+                      <Text style={styles.findBtnText}>{t('saved.empty.find')}</Text>
                     </Pressable>
                   )}
                 </View>
@@ -514,17 +517,18 @@ export default function MyThingsScreen() {
                   const a = rec.activity;
                   const unavailable = a.status !== 'approved';
                   const cityLabel = a.location?.city || a.location?.name || '';
+                  const cityDisplay = placeName(a.location?.city) || a.location?.name || '';
                   const thumb = a.activity_images?.[0]?.url;
                   const note = notesByActivity.get(a.id);
-                  const dateLabel = formatTargetDate(rec);
+                  const dateLabel = formatTargetDate(rec, formatDate);
                   const isPastDue = rec.target_date && new Date(rec.target_date) < new Date(new Date().toDateString()) && !rec.inVisited;
 
                   if (unavailable) {
                     return (
                       <View key={a.id} style={styles.card}>
-                        <Text style={styles.unavailableText}>⚠️ הפעילות אינה זמינה כרגע</Text>
+                        <Text style={styles.unavailableText}>{t('saved.unavailable.text')}</Text>
                         <Pressable style={styles.similarBtn} onPress={() => findSimilar(a)}>
-                          <Text style={styles.similarBtnText}>מצאו משהו דומה</Text>
+                          <Text style={styles.similarBtnText}>{t('saved.unavailable.findSimilar')}</Text>
                         </Pressable>
                       </View>
                     );
@@ -552,7 +556,7 @@ export default function MyThingsScreen() {
                             <Text style={styles.activityName} numberOfLines={1}>{a.name}</Text>
                           </Pressable>
                           <Text style={styles.activityMeta} numberOfLines={1}>
-                            {[cityLabel && `📍 ${cityLabel}`, a.category && `🎯 ${a.category}`].filter(Boolean).join('  ')}
+                            {[cityDisplay && `📍 ${cityDisplay}`, a.category && `🎯 ${categoryLabel(a.category)}`].filter(Boolean).join('  ')}
                           </Text>
                           <View style={styles.statusBadges}>
                             {rec.inFavorites && <Text style={styles.statusBadge}>❤️</Text>}
@@ -568,10 +572,10 @@ export default function MyThingsScreen() {
                       {dateLabel && !isPastDue && <Text style={styles.dateLine}>📅 {dateLabel}</Text>}
                       {isPastDue && (
                         <View style={styles.pastDueBox}>
-                          <Text style={styles.pastDueText}>📅 היה מתוכנן ל-{dateLabel} - עדיין רוצים להגיע?</Text>
+                          <Text style={styles.pastDueText}>{t('saved.card.pastDue', { date: dateLabel })}</Text>
                           <View style={styles.pastDueActions}>
-                            <Pressable onPress={stop(() => openDateModal(a.id, rec))}><Text style={styles.pastDueLink}>עדכן תאריך</Text></Pressable>
-                            <Pressable onPress={stop(() => markVisited(a.id, true))}><Text style={styles.pastDueLink}>סמן כהושלם</Text></Pressable>
+                            <Pressable onPress={stop(() => openDateModal(a.id, rec))}><Text style={styles.pastDueLink}>{t('saved.card.updateDate')}</Text></Pressable>
+                            <Pressable onPress={stop(() => markVisited(a.id, true))}><Text style={styles.pastDueLink}>{t('saved.card.markDone')}</Text></Pressable>
                           </View>
                         </View>
                       )}
@@ -585,23 +589,23 @@ export default function MyThingsScreen() {
                           style={styles.navBtn}
                           onPress={stop(() => openNavigationTo({ title: a.name, locationName: a.location?.name, city: cityLabel, lat: a.location?.lat, lng: a.location?.lng }))}
                         >
-                          <Text style={styles.navBtnText}>🗺️ ניווט</Text>
+                          <Text style={styles.navBtnText}>{t('saved.card.navigate')}</Text>
                         </Pressable>
                         <Pressable style={styles.navBtn} onPress={stop(() => openNoteModal(a.id, a.name))}>
-                          <Text style={styles.navBtnText}>{note ? '✏️ עריכת הערה' : '📝 הוסף הערה'}</Text>
+                          <Text style={styles.navBtnText}>{note ? t('saved.card.editNote') : t('saved.card.addNote')}</Text>
                         </Pressable>
                         <Pressable style={[styles.navBtn, styles.navBtnDanger]} onPress={stop(() => removeFromTab(a.id))}>
-                          <Text style={[styles.navBtnText, styles.navBtnDangerText]}>🗑️ הסר מהיעדים</Text>
+                          <Text style={[styles.navBtnText, styles.navBtnDangerText]}>{t('saved.card.remove')}</Text>
                         </Pressable>
                       </View>
 
                       {expanded && (
                         <View style={styles.expandedRow}>
                           <Pressable style={styles.expandedItem} onPress={stop(() => openDateModal(a.id, rec))}>
-                            <Text style={styles.expandedItemText}>📅 {rec.target_date || rec.target_label ? 'שנה תאריך' : 'הוסף תאריך'}</Text>
+                            <Text style={styles.expandedItemText}>{rec.target_date || rec.target_label ? t('saved.card.changeDate') : t('saved.card.addDate')}</Text>
                           </Pressable>
                           <Pressable style={styles.expandedItem} onPress={stop(() => markVisited(a.id, !rec.inVisited))}>
-                            <Text style={styles.expandedItemText}>{rec.inVisited ? '↩️ בטל "היינו פה"' : '✅ היינו פה'}</Text>
+                            <Text style={styles.expandedItemText}>{rec.inVisited ? t('saved.card.unmarkVisited') : t('saved.card.markVisited')}</Text>
                           </Pressable>
                         </View>
                       )}
@@ -617,10 +621,10 @@ export default function MyThingsScreen() {
       <Modal visible={!!dateModalTarget} transparent animationType="fade" onRequestClose={() => setDateModalTarget(null)}>
         <Pressable style={styles.modalBackdrop} onPress={() => setDateModalTarget(null)}>
           <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
-            <Text style={styles.modalTitle}>תאריך יעד</Text>
+            <Text style={styles.modalTitle}>{t('saved.dateModal.title')}</Text>
             <Pressable style={styles.dateDisplayBtn} onPress={() => setShowDatePicker(true)}>
               <Text style={styles.dateDisplayText}>
-                {dateModalValue ? dateModalValue.toLocaleDateString('he-IL') : 'בחרו תאריך (לא חובה)'}
+                {dateModalValue ? formatDate(dateModalValue) : t('saved.dateModal.pick')}
               </Text>
             </Pressable>
             {showDatePicker && (
@@ -634,24 +638,24 @@ export default function MyThingsScreen() {
                 }}
               />
             )}
-            <Text style={styles.fieldLabel}>או תיאור (למשל "חול המועד סוכות")</Text>
+            <Text style={styles.fieldLabel}>{t('saved.dateModal.labelField')}</Text>
             <TextInput
               style={styles.textInput}
               value={dateModalLabel}
               onChangeText={setDateModalLabel}
-              placeholder="תיאור המועד"
+              placeholder={t('saved.dateModal.labelPlaceholder')}
               placeholderTextColor={colors.textMuted}
             />
             <View style={styles.modalActionsRow}>
               <Pressable style={[styles.modalSaveBtn, savingDate && styles.modalBtnDisabled]} onPress={saveDateModal} disabled={savingDate}>
-                <Text style={styles.modalSaveBtnText}>{savingDate ? 'שומר...' : 'שמירה'}</Text>
+                <Text style={styles.modalSaveBtnText}>{savingDate ? t('common.actions.saving') : t('common.actions.save')}</Text>
               </Pressable>
               <Pressable style={styles.modalCancelBtn} onPress={() => setDateModalTarget(null)}>
-                <Text style={styles.modalCancelBtnText}>ביטול</Text>
+                <Text style={styles.modalCancelBtnText}>{t('common.actions.cancel')}</Text>
               </Pressable>
             </View>
             <Pressable onPress={clearDateModal} disabled={savingDate}>
-              <Text style={styles.clearDateText}>עדיין לא החלטתי (נקה תאריך)</Text>
+              <Text style={styles.clearDateText}>{t('saved.dateModal.clear')}</Text>
             </Pressable>
           </Pressable>
         </Pressable>
@@ -660,14 +664,14 @@ export default function MyThingsScreen() {
       <Modal visible={!!noteModalTarget} transparent animationType="fade" onRequestClose={() => setNoteModalTarget(null)}>
         <Pressable style={styles.modalBackdrop} onPress={() => setNoteModalTarget(null)}>
           <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
-            <Text style={styles.modalTitle}>הערה אישית</Text>
+            <Text style={styles.modalTitle}>{t('saved.noteModal.title')}</Text>
             <Text style={styles.fieldLabel}>{noteModalTarget?.activity?.name}</Text>
             <TextInput
               style={[styles.textInput, styles.noteTextarea]}
               value={noteModalDraft}
               onChangeText={setNoteModalDraft}
               multiline
-              placeholder="כתבו כאן הערה פרטית..."
+              placeholder={t('saved.noteModal.placeholder')}
               placeholderTextColor={colors.textMuted}
             />
             <View style={styles.modalActionsRow}>
@@ -676,10 +680,10 @@ export default function MyThingsScreen() {
                 onPress={saveNoteModal}
                 disabled={savingNote}
               >
-                <Text style={styles.modalSaveBtnText}>{savingNote ? 'שומר...' : 'שמירת הערה'}</Text>
+                <Text style={styles.modalSaveBtnText}>{savingNote ? t('common.actions.saving') : t('saved.noteModal.save')}</Text>
               </Pressable>
               <Pressable style={styles.modalCancelBtn} onPress={() => setNoteModalTarget(null)}>
-                <Text style={styles.modalCancelBtnText}>ביטול</Text>
+                <Text style={styles.modalCancelBtnText}>{t('common.actions.cancel')}</Text>
               </Pressable>
             </View>
           </Pressable>
@@ -689,18 +693,18 @@ export default function MyThingsScreen() {
       <Modal visible={!!noteDeleteTarget} transparent animationType="fade" onRequestClose={() => setNoteDeleteTarget(null)}>
         <Pressable style={styles.modalBackdrop} onPress={() => setNoteDeleteTarget(null)}>
           <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
-            <Text style={styles.modalTitle}>מחיקת ההערה?</Text>
-            <Text style={styles.noteDeleteWarning}>לא ניתן לשחזר הערה שנמחקת.</Text>
+            <Text style={styles.modalTitle}>{t('saved.deleteNote.title')}</Text>
+            <Text style={styles.noteDeleteWarning}>{t('saved.deleteNote.warning')}</Text>
             <View style={styles.modalActionsRow}>
               <Pressable
                 style={[styles.modalSaveBtn, styles.modalDangerBtn, deletingNote && styles.modalBtnDisabled]}
                 onPress={confirmDeleteNote}
                 disabled={deletingNote}
               >
-                <Text style={styles.modalSaveBtnText}>{deletingNote ? 'מוחק...' : 'מחיקה'}</Text>
+                <Text style={styles.modalSaveBtnText}>{deletingNote ? t('saved.deleteNote.deleting') : t('common.actions.delete')}</Text>
               </Pressable>
               <Pressable style={styles.modalCancelBtn} onPress={() => setNoteDeleteTarget(null)}>
-                <Text style={styles.modalCancelBtnText}>ביטול</Text>
+                <Text style={styles.modalCancelBtnText}>{t('common.actions.cancel')}</Text>
               </Pressable>
             </View>
           </Pressable>
@@ -710,30 +714,30 @@ export default function MyThingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createStyles((d) => ({
   screen: { flex: 1, backgroundColor: colors.bg },
   content: { flex: 1, padding: spacing.xl },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 
-  title: { fontFamily: fonts.extraBold, fontSize: 20, color: colors.textPrimary, textAlign: 'right', marginTop: 8 },
-  subtitle: { fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, textAlign: 'right', marginTop: 4, marginBottom: 16 },
+  title: { fontFamily: fonts.extraBold, fontSize: 20, color: colors.textPrimary, textAlign: d.textAlign, marginTop: 8 },
+  subtitle: { fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, textAlign: d.textAlign, marginTop: 4, marginBottom: 16 },
 
   noticeBox: { backgroundColor: colors.accentTintLight, borderRadius: radii.md, padding: 10, marginBottom: 12 },
   noticeText: { fontFamily: fonts.semiBold, fontSize: 12.5, color: colors.accent, textAlign: 'center' },
 
-  tabsRow: { flexDirection: 'row-reverse', gap: 8, marginBottom: 14, paddingBottom: 2 },
+  tabsRow: { flexDirection: d.row, gap: 8, marginBottom: 14, paddingBottom: 2 },
   tabBtn: { alignItems: 'center', paddingVertical: 9, paddingHorizontal: 16, borderRadius: radii.pill, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.card },
   tabBtnActive: { borderColor: colors.accent, backgroundColor: colors.accentTintLight },
   tabBtnText: { fontFamily: fonts.bold, fontSize: 12.5, color: colors.textSecondary },
   tabBtnTextActive: { color: colors.accent },
 
-  toolsRow: { flexDirection: 'row-reverse', gap: 8, marginBottom: 10 },
+  toolsRow: { flexDirection: d.row, gap: 8, marginBottom: 10 },
   toolBtn: { borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, borderRadius: radii.pill, paddingVertical: 8, paddingHorizontal: 14 },
   toolBtnText: { fontFamily: fonts.bold, fontSize: 12.5, color: colors.textSecondary },
 
   filterBox: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: radii.md, padding: 12, marginBottom: 12 },
-  filterLabel: { fontFamily: fonts.bold, fontSize: 12, color: colors.textSecondary, textAlign: 'right', marginBottom: 6, marginTop: 8 },
-  chipRow: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 6 },
+  filterLabel: { fontFamily: fonts.bold, fontSize: 12, color: colors.textSecondary, textAlign: d.textAlign, marginBottom: 6, marginTop: 8 },
+  chipRow: { flexDirection: d.row, flexWrap: 'wrap', gap: 6 },
   chip: { borderWidth: 1, borderColor: colors.border, borderRadius: radii.pill, paddingVertical: 6, paddingHorizontal: 12, backgroundColor: colors.bg },
   chipActive: { borderColor: colors.accent, backgroundColor: colors.accentTintLight },
   chipText: { fontFamily: fonts.semiBold, fontSize: 11.5, color: colors.textSecondary },
@@ -743,15 +747,15 @@ const styles = StyleSheet.create({
   searchInput: {
     borderWidth: 1, borderColor: colors.border, borderRadius: radii.md, padding: 12, marginBottom: 10,
     fontFamily: fonts.regular, fontSize: 14, color: colors.textPrimary, backgroundColor: colors.card,
-    textAlign: 'right', writingDirection: 'rtl',
+    textAlign: d.textAlign, writingDirection: d.writingDirection,
   },
-  countText: { fontFamily: fonts.semiBold, fontSize: 12.5, color: colors.textMuted, textAlign: 'right', marginBottom: 10 },
+  countText: { fontFamily: fonts.semiBold, fontSize: 12.5, color: colors.textMuted, textAlign: d.textAlign, marginBottom: 10 },
 
-  notesHeadRow: { flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between' },
+  notesHeadRow: { flexDirection: d.row, alignItems: 'center', justifyContent: 'space-between' },
   privacyHint: { fontFamily: fonts.regular, fontSize: 11, color: colors.textMuted },
-  sectionHint: { fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, textAlign: 'right', lineHeight: 17, marginTop: 4, marginBottom: 12 },
+  sectionHint: { fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, textAlign: d.textAlign, lineHeight: 17, marginTop: 4, marginBottom: 12 },
 
-  sortWrap: { alignItems: 'flex-end', marginBottom: 12 },
+  sortWrap: { alignItems: d.alignStart, marginBottom: 12 },
   sortBtn: { borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, borderRadius: radii.pill, paddingVertical: 7, paddingHorizontal: 13 },
   sortBtnText: { fontFamily: fonts.semiBold, fontSize: 12, color: colors.textSecondary },
   sortMenu: {
@@ -759,7 +763,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden', minWidth: 160,
   },
   sortMenuItem: { paddingVertical: 10, paddingHorizontal: 14, borderBottomWidth: 1, borderBottomColor: colors.borderLight },
-  sortMenuItemText: { fontFamily: fonts.semiBold, fontSize: 12.5, color: colors.textSecondary, textAlign: 'right' },
+  sortMenuItemText: { fontFamily: fonts.semiBold, fontSize: 12.5, color: colors.textSecondary, textAlign: d.textAlign },
   sortMenuItemTextActive: { color: colors.accent, fontFamily: fonts.bold },
 
   emptyBox: { alignItems: 'center', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderStyle: 'dashed', borderRadius: radii.lg, padding: 24, marginTop: 12 },
@@ -770,51 +774,51 @@ const styles = StyleSheet.create({
   findBtnText: { fontFamily: fonts.bold, fontSize: 14, color: '#fff' },
 
   card: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: radii.md, padding: 12, marginBottom: 10 },
-  cardTop: { flexDirection: 'row-reverse', alignItems: 'flex-start', gap: 10 },
+  cardTop: { flexDirection: d.row, alignItems: 'flex-start', gap: 10 },
   thumb: { width: 56, height: 56, borderRadius: radii.md, backgroundColor: colors.borderLight },
   cardInfo: { flex: 1, minWidth: 0 },
-  activityName: { fontFamily: fonts.bold, fontSize: 14.5, color: colors.textPrimary, textAlign: 'right' },
-  activityMeta: { fontFamily: fonts.regular, fontSize: 11.5, color: colors.textSecondary, textAlign: 'right', marginTop: 2 },
-  statusBadges: { flexDirection: 'row-reverse', gap: 4, marginTop: 4 },
+  activityName: { fontFamily: fonts.bold, fontSize: 14.5, color: colors.textPrimary, textAlign: d.textAlign },
+  activityMeta: { fontFamily: fonts.regular, fontSize: 11.5, color: colors.textSecondary, textAlign: d.textAlign, marginTop: 2 },
+  statusBadges: { flexDirection: d.row, gap: 4, marginTop: 4 },
   statusBadge: { fontSize: 12 },
 
-  dateLine: { fontFamily: fonts.semiBold, fontSize: 12, color: colors.accent, textAlign: 'right', marginTop: 8 },
+  dateLine: { fontFamily: fonts.semiBold, fontSize: 12, color: colors.accent, textAlign: d.textAlign, marginTop: 8 },
   pastDueBox: { backgroundColor: colors.yellowTint, borderRadius: radii.md, padding: 10, marginTop: 8 },
-  pastDueText: { fontFamily: fonts.semiBold, fontSize: 12, color: colors.textPrimary, textAlign: 'right' },
-  pastDueActions: { flexDirection: 'row-reverse', gap: 14, marginTop: 6 },
+  pastDueText: { fontFamily: fonts.semiBold, fontSize: 12, color: colors.textPrimary, textAlign: d.textAlign },
+  pastDueActions: { flexDirection: d.row, gap: 14, marginTop: 6 },
   pastDueLink: { fontFamily: fonts.bold, fontSize: 12, color: colors.accent },
 
-  notePreview: { fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, textAlign: 'right', marginTop: 8 },
+  notePreview: { fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, textAlign: d.textAlign, marginTop: 8 },
 
-  actionsRow: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 8, marginTop: 10 },
+  actionsRow: { flexDirection: d.row, flexWrap: 'wrap', gap: 8, marginTop: 10 },
   navBtn: { borderWidth: 1, borderColor: colors.accent, borderRadius: radii.pill, paddingVertical: 7, paddingHorizontal: 14 },
   navBtnText: { fontFamily: fonts.bold, fontSize: 12, color: colors.accent },
   navBtnDanger: { borderColor: colors.danger },
   navBtnDangerText: { color: colors.danger },
 
   expandedRow: {
-    flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 4,
+    flexDirection: d.row, flexWrap: 'wrap', gap: 4,
     marginTop: 10, borderTopWidth: 1, borderTopColor: colors.borderLight, paddingTop: 8,
   },
   expandedItem: { paddingVertical: 9 },
-  expandedItemText: { fontFamily: fonts.semiBold, fontSize: 13, color: colors.textPrimary, textAlign: 'right' },
+  expandedItemText: { fontFamily: fonts.semiBold, fontSize: 13, color: colors.textPrimary, textAlign: d.textAlign },
 
   unavailableText: { fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, textAlign: 'center', marginBottom: 10 },
   similarBtn: { alignSelf: 'center', borderWidth: 1, borderColor: colors.accent, borderRadius: radii.pill, paddingVertical: 8, paddingHorizontal: 16 },
   similarBtnText: { fontFamily: fonts.bold, fontSize: 12.5, color: colors.accent },
 
   noteCard: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: radii.md, padding: 12, marginBottom: 10 },
-  noteCardTop: { flexDirection: 'row-reverse', alignItems: 'center', gap: 10, marginBottom: 8 },
+  noteCardTop: { flexDirection: d.row, alignItems: 'center', gap: 10, marginBottom: 8 },
   noteThumb: { width: 52, height: 52, borderRadius: radii.md, backgroundColor: colors.borderLight },
   noteThumbPlaceholder: { width: 52, height: 52, borderRadius: radii.md, backgroundColor: colors.accentTintLight, alignItems: 'center', justifyContent: 'center' },
   noteThumbPlaceholderText: { fontSize: 20 },
   noteCardInfo: { flex: 1, minWidth: 0 },
-  noteActivityName: { fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary, textAlign: 'right' },
-  noteActivityLocation: { fontFamily: fonts.regular, fontSize: 11.5, color: colors.textSecondary, textAlign: 'right', marginTop: 2 },
-  noteCardText: { fontFamily: fonts.regular, fontSize: 13, color: colors.textPrimary, textAlign: 'right', lineHeight: 18, marginBottom: 8 },
-  noteCardFooter: { flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6 },
+  noteActivityName: { fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary, textAlign: d.textAlign },
+  noteActivityLocation: { fontFamily: fonts.regular, fontSize: 11.5, color: colors.textSecondary, textAlign: d.textAlign, marginTop: 2 },
+  noteCardText: { fontFamily: fonts.regular, fontSize: 13, color: colors.textPrimary, textAlign: d.textAlign, lineHeight: 18, marginBottom: 8 },
+  noteCardFooter: { flexDirection: d.row, alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6 },
   noteCardMeta: { fontFamily: fonts.regular, fontSize: 10.5, color: colors.textMuted },
-  noteCardActions: { flexDirection: 'row-reverse', gap: 14 },
+  noteCardActions: { flexDirection: d.row, gap: 14 },
   noteActionText: { fontFamily: fonts.bold, fontSize: 12, color: colors.accent },
   noteActionDanger: { color: colors.danger },
   noteDeleteWarning: { fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, textAlign: 'center', marginBottom: 18 },
@@ -822,18 +826,18 @@ const styles = StyleSheet.create({
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(20,30,35,0.4)', justifyContent: 'center', padding: spacing.xl },
   modalCard: { backgroundColor: colors.card, borderRadius: radii.xl, padding: spacing.xl },
   modalTitle: { fontFamily: fonts.extraBold, fontSize: 17, color: colors.textPrimary, textAlign: 'center', marginBottom: 16 },
-  fieldLabel: { fontFamily: fonts.semiBold, fontSize: 12, color: colors.textSecondary, textAlign: 'right', marginBottom: 6 },
+  fieldLabel: { fontFamily: fonts.semiBold, fontSize: 12, color: colors.textSecondary, textAlign: d.textAlign, marginBottom: 6 },
   textInput: {
     borderWidth: 1, borderColor: colors.border, borderRadius: radii.md, padding: 12, marginBottom: 14,
     fontFamily: fonts.regular, fontSize: 14, color: colors.textPrimary, backgroundColor: colors.bg,
-    textAlign: 'right', writingDirection: 'rtl',
+    textAlign: d.textAlign, writingDirection: d.writingDirection,
   },
   noteTextarea: { minHeight: 90, textAlignVertical: 'top' },
   dateDisplayBtn: {
     borderWidth: 1, borderColor: colors.border, borderRadius: radii.md, padding: 12, marginBottom: 14, backgroundColor: colors.bg,
   },
   dateDisplayText: { fontFamily: fonts.semiBold, fontSize: 14, color: colors.textPrimary, textAlign: 'center' },
-  modalActionsRow: { flexDirection: 'row-reverse', gap: 10, marginBottom: 8 },
+  modalActionsRow: { flexDirection: d.row, gap: 10, marginBottom: 8 },
   modalCancelBtn: { flex: 1, alignItems: 'center', paddingVertical: 13, borderRadius: radii.pill, borderWidth: 1, borderColor: colors.border },
   modalCancelBtnText: { fontFamily: fonts.bold, fontSize: 14, color: colors.textSecondary },
   modalSaveBtn: { flex: 1, alignItems: 'center', paddingVertical: 13, borderRadius: radii.pill, backgroundColor: colors.accent },
@@ -841,4 +845,4 @@ const styles = StyleSheet.create({
   modalBtnDisabled: { opacity: 0.5 },
   modalSaveBtnText: { fontFamily: fonts.bold, fontSize: 14, color: '#fff' },
   clearDateText: { fontFamily: fonts.semiBold, fontSize: 12.5, color: colors.textMuted, textAlign: 'center' },
-});
+}));

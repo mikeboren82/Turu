@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { I18nManager, View } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -12,6 +12,7 @@ import BottomNav from '../components/BottomNav';
 import { completeOAuthRedirect } from '../lib/oauth';
 import { enforceNotBanned } from '../lib/checkBanned';
 import { recordLegalConsentIfNeeded } from '../lib/legal';
+import { initLocale, useI18n } from '../lib/i18n';
 
 // לא כופים RTL ברמת המערכת: על אנדרואיד אמיתי forceRTL הופך אוטומטית flexDirection:'row'
 // ל-row-reverse, מה שהפך את כל הפריסה (שנבנתה ואומתה מול הדפדפן, שם I18nManager הוא stub
@@ -26,6 +27,11 @@ SplashScreen.preventAutoHideAsync().catch(() => {});
 
 export default function RootLayout() {
   const router = useRouter();
+  // Stored language is resolved before the first render, so there is no flash of the wrong language.
+  const [localeReady, setLocaleReady] = useState(false);
+  useEffect(() => { initLocale().finally(() => setLocaleReady(true)); }, []);
+  // Subscribes the root to locale changes (html lang/dir are updated by setLocale on web).
+  const { isRTL } = useI18n();
 
   // תופס התחברות שחוזרת מקישור-קסם (אימייל) או OAuth (Google/Apple) - נעשה כאן, גלובלית,
   // ולא רק ב-login.js, כי קישור-הקסם באימייל חוזר ל-Site URL הראשי של הפרויקט (בדרך כלל "/"),
@@ -76,18 +82,20 @@ export default function RootLayout() {
     }
   }, [fontsLoaded]);
 
-  if (!fontsLoaded) {
+  if (!fontsLoaded || !localeReady) {
     return null;
   }
 
   return (
     <SafeAreaProvider>
-      <View style={{ flex: 1 }}>
+      {/* direction:'ltr' pins the layout root: RTL is emulated per component with locale-aware
+          styles (lib/i18n createStyles), so the document's dir="rtl" must not flip flex rows again. */}
+      <View style={{ flex: 1, direction: 'ltr' }}>
         <Stack
           screenOptions={{
             headerShown: false,
             contentStyle: { backgroundColor: colors.bg },
-            animation: 'slide_from_left',
+            animation: isRTL ? 'slide_from_left' : 'slide_from_right',
           }}
         />
         <BottomNav />

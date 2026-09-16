@@ -1,0 +1,44 @@
+{
+  "listSeparator": ", ",
+  "listAnd": "{{head}} ו{{last}}",
+  "language": {
+    "label": "שפה",
+    "switchTo": "החלפת שפה ל{{language}}",
+    "current": "השפה הנוכחית: {{language}}"
+  },
+  "actions": {
+    "save": "שמירה",
+    "saving": "שומר...",
+    "cancel": "ביטול",
+    "close": "סגירה",
+    "back": "חזרה",
+    "retry": "נסו שוב",
+    "continue": "המשך",
+    "delete": "מחיקה",
+    "edit": "עריכה",
+    "done": "סיום",
+    "reset": "איפוס",
+    "send": "שליחה",
+    "sending": "שולח...",
+    "search": "חיפוש",
+    "clear": "ניקוי",
+    "clearAll": "נקה הכל",
+    "all": "הכל",
+    "showMore": "הצג עוד",
+    "showLess": "הצג פחות",
+    "ok": "אישור",
+    "yes": "כן",
+    "no": "לא"
+  },
+  "states": {
+    "loading": "טוען...",
+    "errorGeneric": "משהו השתבש. נסו שוב.",
+    "networkError": "אין חיבור, או שהשרת לא זמין כרגע. בדקו את החיבור ונסו שוב.",
+    "notSpecified": "לא צוין",
+    "none": "אין"
+  },
+  "loginRequired": {
+    "defaultMessage": "צריך להתחבר כדי לבצע פעולה זו",
+    "action": "התחברות / הרשמה"
+  }
+}

@@ -1,11 +1,13 @@
 import { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, Pressable, Image } from 'react-native';
+import { View, Text, Pressable, Image } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { colors, fonts, radii } from '../constants/theme';
 import { ChevronLeftIcon } from './icons';
 import { placeholderImageFor, placeholderBgColorFor } from '../lib/placeholderImages';
+import { useI18n, createStyles } from '../lib/i18n';
+import { categoryLabel } from '../lib/i18n/format';
 
 const ISRAEL_CENTER = { latitude: 31.4, longitude: 34.9 };
 
@@ -32,6 +34,7 @@ function regionFor(withCoords, deviceCoords) {
 
 export default function ActivitiesMap({ activities, deviceCoords }) {
   const router = useRouter();
+  const { t, dir } = useI18n();
   const [selectedId, setSelectedId] = useState(null);
 
   const withCoords = useMemo(() => activities.filter((a) => a.lat != null && a.lng != null), [activities]);
@@ -53,7 +56,7 @@ export default function ActivitiesMap({ activities, deviceCoords }) {
 
       {withCoords.length === 0 ? (
         <View style={styles.emptyOverlay}>
-          <Text style={styles.emptyText}>לפעילויות שנבחרו אין מיקום ידוע להצגה על המפה</Text>
+          <Text style={styles.emptyText}>{t('activities.map.emptyOverlay')}</Text>
         </View>
       ) : null}
 
@@ -72,10 +75,10 @@ export default function ActivitiesMap({ activities, deviceCoords }) {
           )}
           <View style={styles.previewBody}>
             <Text style={styles.previewTitle} numberOfLines={1}>{selected.title}</Text>
-            <Text style={styles.previewMeta} numberOfLines={1}>{selected.type} · {selected.ageRange} · {selected.price}</Text>
+            <Text style={styles.previewMeta} numberOfLines={1}>{categoryLabel(selected.type)} · {selected.ageRange} · {selected.price}</Text>
           </View>
-          <ChevronLeftIcon />
-          <Pressable style={styles.previewClose} onPress={(e) => { e.stopPropagation?.(); setSelectedId(null); }} hitSlop={8}>
+          <View style={{ transform: [{ rotate: dir.forwardRotate }] }}><ChevronLeftIcon /></View>
+          <Pressable style={styles.previewClose} onPress={(e) => { e.stopPropagation?.(); setSelectedId(null); }} hitSlop={8} accessibilityRole="button" accessibilityLabel={t('common.actions.close')}>
             <Text style={styles.previewCloseText}>✕</Text>
           </Pressable>
         </Pressable>
@@ -84,7 +87,7 @@ export default function ActivitiesMap({ activities, deviceCoords }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createStyles((d) => ({
   wrap: { height: 480, borderRadius: radii.lg, overflow: 'hidden', position: 'relative', backgroundColor: colors.card },
   map: { flex: 1 },
   emptyOverlay: {
@@ -94,17 +97,17 @@ const styles = StyleSheet.create({
   emptyText: { fontFamily: fonts.semiBold, fontSize: 12.5, color: colors.textSecondary, textAlign: 'center' },
   previewCard: {
     position: 'absolute', bottom: 12, left: 12, right: 12,
-    flexDirection: 'row-reverse', alignItems: 'center', gap: 10,
+    flexDirection: d.row, alignItems: 'center', gap: 10,
     backgroundColor: colors.card, borderRadius: radii.lg, borderWidth: 1, borderColor: colors.border,
     padding: 10, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 6,
   },
   previewImage: { width: 54, height: 54, borderRadius: radii.md, backgroundColor: colors.borderLight },
   previewBody: { flex: 1 },
-  previewTitle: { fontFamily: fonts.extraBold, fontSize: 14, color: colors.textPrimary, textAlign: 'right' },
-  previewMeta: { fontFamily: fonts.regular, fontSize: 11.5, color: colors.textSecondary, textAlign: 'right', marginTop: 2 },
+  previewTitle: { fontFamily: fonts.extraBold, fontSize: 14, color: colors.textPrimary, textAlign: d.textAlign },
+  previewMeta: { fontFamily: fonts.regular, fontSize: 11.5, color: colors.textSecondary, textAlign: d.textAlign, marginTop: 2 },
   previewClose: {
-    position: 'absolute', top: -8, left: -8, width: 24, height: 24, borderRadius: 12,
+    position: 'absolute', top: -8, [d.end]: -8, width: 24, height: 24, borderRadius: 12,
     backgroundColor: colors.textMuted, alignItems: 'center', justifyContent: 'center',
   },
   previewCloseText: { color: '#fff', fontSize: 12, fontFamily: fonts.bold },
-});
+}));

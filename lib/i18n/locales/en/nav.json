@@ -1,0 +1,54 @@
+{
+  "header": {
+    "backA11y": "Back",
+    "logoA11y": "Back to home",
+    "menuA11y": "Menu"
+  },
+  "menu": {
+    "activities": "Activities",
+    "destinations": "My places",
+    "destinationsAuth": "Save places you want to visit and come back to them anytime.",
+    "notes": "My notes",
+    "notesAuth": "Write personal notes about activities and find them here whenever you come back.",
+    "profile": "My profile",
+    "chat": "Community chat",
+    "about": "About us",
+    "contact": "Contact us",
+    "feedback": "Something not working?",
+    "greeting": "Hi, {{name}}",
+    "greetingNoName": "Hi there",
+    "kids_one": "1 child",
+    "kids_other": "{{count}} children",
+    "login": "Log in / Sign up",
+    "logout": "Log out",
+    "terms": "⚖️ Terms of use",
+    "privacy": "🔒 Privacy policy",
+    "logoutConfirm": "Log out?"
+  },
+  "bottom": {
+    "home": "Home",
+    "activities": "Activities",
+    "saved": "Saved",
+    "profile": "Profile"
+  },
+  "feedback": {
+    "title": "Report a problem",
+    "subtitle": "Tell us what happened - no need to log in or leave details",
+    "nameLabel": "Name (optional)",
+    "namePlaceholder": "What should we call you?",
+    "messageLabel": "What happened",
+    "messagePlaceholder": "For example: the 'Search' button on the home screen doesn't respond...",
+    "sent": "Thanks! We got your report",
+    "sendError": "Couldn't send. Please try again.",
+    "emptyMessage": "Write a few words about what happened"
+  },
+  "placeholder": {
+    "comingSoon": "This screen is coming soon 🦘"
+  },
+  "chat": {
+    "rooms": "Community chats",
+    "newRoom": "New room",
+    "nickname": "Choose a nickname",
+    "room": "Chat room"
+  }
+}

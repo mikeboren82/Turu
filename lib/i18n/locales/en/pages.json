@@ -1,0 +1,40 @@
+{
+  "legalEntityName": "Turu",
+  "contact": {
+    "title": "Contact us 📬",
+    "subtitle": "We'd love to hear from you - here are a few ways to reach us",
+    "whatsapp": "Message us on WhatsApp",
+    "whatsappText": "Hi! I'm reaching out from the Turu app 🦘",
+    "or": "or",
+    "emailLabel": "Your email",
+    "messageLabel": "Your message",
+    "messagePlaceholder": "Tell us what's on your mind...",
+    "emailRequired": "Please enter your email",
+    "emailInvalid": "That email address isn't valid",
+    "messageRequired": "Please write a message",
+    "sendError": "Couldn't send your message. Please try again.",
+    "success": "Message sent ✓ We'll get back to you soon",
+    "hint": "Your message comes straight to us"
+  },
+  "about": {
+    "title": "About us 🦘",
+    "paragraphs": {
+      "hello": "Hi there!",
+      "origin": "The idea for this app came from a real need of our own. Every time we wanted to find an activity, we discovered how clunky it could be — hopping between endless websites, groups, pages and searches, and more than once just giving up because there was no time to look.",
+      "question": "So we asked ourselves: why isn't there one place where you can find all the kids' activities near you, quickly and easily?",
+      "born": "And that's how our app was born.",
+      "goal": "Our goal is simple — to save you time, searching and headaches, and help you easily find the activity that's just right for you and your kids.",
+      "journey": "We're still at the beginning of the journey, and we're always working, improving and adding new things to make the app better, more useful and easier to use.",
+      "hope": "We hope we've helped you find something fun to do! 😊",
+      "share": "If you're enjoying the app, we'd love for you to share it with friends, family and other parents.",
+      "feedback": "And if you have a comment, idea, suggestion or even criticism — we always want to hear it. Your feedback is exactly what helps us get better.",
+      "thanks": "Thanks for being here ❤️"
+    },
+    "verse": "Send forth children to explore the land\n(or at least the nearest playground)",
+    "verseQuoteOpen": "“",
+    "verseQuoteClose": "”",
+    "contact": "Contact us",
+    "terms": "Terms of Use",
+    "privacy": "Privacy Policy"
+  }
+}

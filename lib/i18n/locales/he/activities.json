@@ -1,0 +1,117 @@
+{
+  "header": {
+    "title": "כל הפעילויות",
+    "count_one": "{{count}}",
+    "count_other": "{{count}}",
+    "discoverySubtitle": "פעילויות שכדאי לגלות ✨",
+    "filterLabel": "סינון",
+    "filterA11yWithCount_other": "סינון, {{count}} סינונים פעילים",
+    "filterSummaryCountOnly": "סינון +{{count}}",
+    "filterSummaryMore": "{{summary}} +{{count}}"
+  },
+  "display": {
+    "a11y": "תצוגה ומיון, תצוגת {{view}}, מיון {{sort}}",
+    "viewTitle": "תצוגה",
+    "sortTitle": "מיון",
+    "list": "רשימה",
+    "map": "מפה",
+    "recommended": "מומלץ",
+    "byDistance": "לפי מרחק",
+    "chipMapDistance": "🗺️ מפה · מרחק",
+    "chipMap": "🗺️ מפה",
+    "chipDistance": "📍 מרחק"
+  },
+  "freeSearch": {
+    "placeholder": "למשל: \"משחקייה ליד הרצל בתל אביב מחר בבוקר\"",
+    "clarifyArea": "📍 באיזה אזור לחפש?",
+    "clarifyCity": "📍 באיזו עיר?",
+    "errorRephrase": "לא הצלחנו להבין את החיפוש, נסו לנסח אחרת",
+    "errorLocation": "לא הצלחנו לזהות את המיקום, נסו לנסח אחרת",
+    "errorUnderstand": "לא הצלחנו להבין את החיפוש"
+  },
+  "smartRadius": {
+    "expandedSmall": "הרחבנו קצת את החיפוש כדי למצוא לכם עוד פעילויות ✨",
+    "expandedTo15": "הרחבנו את החיפוש עד 15 ק״מ כדי למצוא לכם עוד פעילויות ✨"
+  },
+  "results": {
+    "loadError": "לא הצלחנו לטעון פעילויות",
+    "emptyWalking": "לא מצאנו פעילויות ממש במרחק הליכה 🚶",
+    "empty": "😕 לא מצאנו פעילות שמתאימה בדיוק לחיפוש שלכם.",
+    "clearAllFilters": "נקה את כל הפילטרים",
+    "widen": {
+      "withCount": "{{label}} ({{count}})",
+      "driving10": "🚗 חפשו עד 10 דק' נסיעה",
+      "nationwide": "📍 הראה בכל הארץ",
+      "hours": "🕐 הרחבת שעות",
+      "allCategories": "🎯 הצגת כל הפעילויות",
+      "anyDay": "📅 בדיקת כל יום"
+    }
+  },
+  "spontaneous": {
+    "offLink": "⚡ עכשיו פעיל · כבה",
+    "error": "משהו השתבש, נסו שוב",
+    "emptyTitle": "🪄 לא מצאנו משהו שמתאים בדיוק לעכשיו",
+    "opensSoonTitle": "🕐 נפתחות בקרוב",
+    "emptyHint": "נסו להרחיב את המיקום או לשנות את הפילטרים.",
+    "topTitle": "🪄 הכי מתאים עכשיו",
+    "showMore_other": "הצג עוד פעילויות ({{count}})",
+    "badge": {
+      "openNow": "🟢 פתוח עכשיו",
+      "opensIn": "🕐 נפתח בעוד {{minutes}} דק'",
+      "bookingRequired": "🎟️ דורש הזמנה"
+    }
+  },
+  "note": {
+    "title": "הערה אישית",
+    "placeholder": "כתבו כאן הערה פרטית...",
+    "save": "שמירת הערה"
+  },
+  "hide": {
+    "categoriesTitle": "🚫 הסר פעילויות מהחיפוש",
+    "categoriesSubtitle": "בחרו דברים שאתם מעדיפים לא לראות בתוצאות.",
+    "apply": "החלת הסינון",
+    "saveAsDefault": "שמור את הבחירה כברירת מחדל",
+    "saveAsDefaultHint": "הבחירה תישמר ותשמש אתכם גם בחיפושים הבאים.",
+    "registerTitle": "🔒 רוצים שתורו תזכור את ההעדפות שלכם?",
+    "registerMessage": "הירשמו בחינם, ותוכלו לשמור את הבחירות שלכם ולהשתמש בהן בכל פעם שתחזרו.",
+    "registerLater": "אולי אחר כך"
+  },
+  "gate": {
+    "title": "מה מחפשים היום?",
+    "subtitle": "ספרו לנו קצת ונציג לכם פעילויות מתאימות",
+    "categoryLabel": "מה בא לנו?",
+    "categorySubtitle": "אפשר לבחור כמה קטגוריות",
+    "categoryAll": "כל סוגי הפעילויות",
+    "locationLabel": "באיזור שלי",
+    "locationAny": "איפה שנוח לכם",
+    "go": "הצג פעילויות",
+    "skip": "דלגו, הראו לי הכל"
+  },
+  "locationPermission": {
+    "title": "📍 נדרשת גישה למיקום",
+    "subtitle": "צריך לאשר גישה למיקום כדי להשתמש בכפתור הזה",
+    "confirm": "אישור גישה למיקום"
+  },
+  "sheet": {
+    "search": "🔍 חפש",
+    "searchWithCount": "🔍 חפש ({{count}})"
+  },
+  "card": {
+    "recommendedByPrefix": "הומלץ ע\"י ",
+    "ticket": "🎟️ כרטיס",
+    "a11y": {
+      "hide": "הסתרת הפעילות",
+      "favorite": "הוספה למועדפים",
+      "unfavorite": "הסרה מהמועדפים",
+      "visited": "סימון \"כבר הייתי כאן\"",
+      "unvisited": "ביטול \"כבר הייתי כאן\"",
+      "note": "הערה אישית"
+    }
+  },
+  "map": {
+    "emptyOverlay": "לפעילויות שנבחרו אין מיקום ידוע להצגה על המפה",
+    "webOnlyTitle": "תצוגת מפה זמינה באפליקציה בנייד",
+    "webLocatedCount_other": "{{count}} פעילויות עם מיקום ידוע ממתינות לכם על המפה",
+    "noKnownLocation": "לא נמצא מיקום ידוע לפעילויות שנבחרו"
+  }
+}

@@ -1,175 +1,56 @@
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, ScrollView } from 'react-native';
 import Header from '../components/Header';
 import SkyBackground from '../components/SkyBackground';
 import { colors, fonts, spacing } from '../constants/theme';
-import { LEGAL_LAST_UPDATED, LEGAL_CONTACT_EMAIL, LEGAL_ENTITY_NAME } from '../constants/legal';
+import { LEGAL_LAST_UPDATED, LEGAL_CONTACT_EMAIL, legalEntityName } from '../constants/legal';
+import { useI18n, createStyles } from '../lib/i18n';
 
-const INTRO = [
-  'מדיניות זו מסבירה איזה מידע עשוי להיאסף במסגרת השימוש בתורו, כיצד נעשה בו שימוש, עם מי הוא עשוי להיות משותף ומהן זכויות המשתמשים.',
-];
-
-const SECTIONS = [
-  {
-    title: '1. איזה מידע אנו עשויים לאסוף?',
-    body: [
-      'בהתאם לאופן השימוש באפליקציה, אנו עשויים לאסוף:',
-      'מידע שמסרתם לנו, כגון:',
-      '• שם.',
-      '• כתובת דוא"ל.',
-      '• מספר טלפון, אם נעשה בו שימוש לצורך התחברות.',
-      '• פרטי התחברות.',
-      '• העדפות שימוש.',
-      '• פעילויות ששמרתם.',
-      '• הערות אישיות שהוספתם.',
-      '• העדפות לגבי אזורים וסוגי פעילויות.',
-      'מידע הקשור לילדים שהמשתמש בוחר להוסיף לחשבון, כגון:',
-      '• שם או כינוי.',
-      '• תאריך לידה או גיל.',
-      '• תחומי עניין והעדפות.',
-      'אנו ממליצים שלא להזין מידע שאינו נחוץ לשימוש בשירות, ובמיוחד מידע רפואי, מידע רגיש או מידע אישי שאינו נדרש.',
-      'מידע טכני עשוי לכלול:',
-      '• סוג מכשיר.',
-      '• מערכת הפעלה.',
-      '• כתובת IP.',
-      '• נתוני שימוש באפליקציה.',
-      '• נתוני תקלות וביצועים.',
-      '• מידע הנדרש לאבטחת השירות ולמניעת שימוש לרעה.',
-    ],
-  },
-  {
-    title: '2. לשם מה אנו משתמשים במידע?',
-    body: [
-      'המידע עשוי לשמש לצורך:',
-      '• הפעלת האפליקציה והשירותים.',
-      '• יצירת וניהול חשבון משתמש.',
-      '• שמירת העדפות המשתמש.',
-      '• התאמת תוצאות והמלצות למשתמש.',
-      '• שמירת פעילויות ו"יעדים".',
-      '• הצגת פעילויות בהתאם לגיל ולהעדפות שהוזנו.',
-      '• שיפור השירות והממשק.',
-      '• אבטחת המערכת ומניעת הונאות ושימוש לרעה.',
-      '• טיפול בפניות ותמיכה.',
-      '• שליחת הודעות שירות.',
-      '• ניתוח השימוש בשירות ושיפורו.',
-      '• עמידה בדרישות הדין.',
-    ],
-  },
-  {
-    title: '3. מיקום',
-    body: [
-      'ככל שהמשתמש מעניק הרשאה מתאימה, האפליקציה עשויה להשתמש במיקום המכשיר כדי להציג פעילויות באזור המשתמש.',
-      'ניתן לבטל הרשאת מיקום דרך הגדרות המכשיר.',
-      'אין חובה לאפשר גישה למיקום כדי להשתמש בכל השירותים של תורו, אלא אם צוין אחרת עבור תכונה מסוימת.',
-    ],
-  },
-  {
-    title: '4. מידע על ילדים',
-    body: [
-      'תורו מיועדת להורים ולמשפחות.',
-      'הוספת מידע על ילד לחשבון נעשית על ידי המשתמש.',
-      'אנו מבקשים שלא להזין מידע רגיש על ילדים שאינו נדרש לצורך השימוש בשירות.',
-      'המידע על הילדים משמש, בין היתר, לצורך התאמת פעילויות לגיל ולהעדפות שהוזנו.',
-      'המידע אינו מיועד לפרסום פומבי, אלא אם המשתמש בחר במפורש לפרסם תוכן במסגרת תכונה המאפשרת זאת.',
-    ],
-  },
-  {
-    title: '5. מידע שאנו מקבלים מצדדים שלישיים',
-    body: [
-      'ייתכן שנקבל מידע ממקורות ציבוריים, מספקי תוכן, מפעילי פעילויות, שירותי התחברות חיצוניים, ספקי טכנולוגיה או מקורות אחרים.',
-      'מידע זה עשוי לכלול פרטים על פעילויות, אירועים, מחירים, מועדים, מיקומים והטבות.',
-    ],
-  },
-  {
-    title: '6. שיתוף מידע עם צדדים שלישיים',
-    body: [
-      'אנו לא מוכרים את המידע האישי של המשתמשים לצדדים שלישיים.',
-      'מידע עשוי להיות מועבר לספקי שירות המסייעים לנו בהפעלת האפליקציה, כגון ספקי אחסון, תשתית, אימות משתמשים, ניתוח נתונים, שירות לקוחות ואבטחת מידע, וזאת ככל הנדרש למתן השירות.',
-      'ספקים אלה עשויים לעבד מידע מטעמנו בהתאם להסכמים ולדין החל.',
-      'בנוסף, מידע עשוי להימסר כאשר הדבר נדרש או מותר על פי דין.',
-    ],
-  },
-  {
-    title: '7. אבטחת מידע',
-    body: [
-      'אנו נוקטים אמצעי אבטחה סבירים ומקובלים שנועדו להגן על המידע מפני גישה, שימוש, שינוי או חשיפה בלתי מורשים.',
-      'עם זאת, אין מערכת המחוברת לאינטרנט שניתן להבטיח כי תהיה חסינה לחלוטין מפני אירועי אבטחה.',
-    ],
-  },
-  {
-    title: '8. שמירת מידע',
-    body: [
-      'אנו נשמור מידע אישי למשך הזמן הנדרש לצורך המטרות שלשמן נאסף, לצורך מתן השירות, עמידה בדרישות הדין, הגנה על זכויותינו וטיפול במחלוקות.',
-      'כאשר מידע אינו נדרש עוד, אנו עשויים למחוק אותו או להפוך אותו למידע שאינו מאפשר זיהוי, בכפוף לדין.',
-    ],
-  },
-  {
-    title: '9. מחיקת חשבון ומידע',
-    body: [
-      'משתמש רשום רשאי לפנות אלינו בבקשה למחיקת חשבונו ומידע אישי הקשור אליו, בכפוף לחובות חוקיות או לצרכים לגיטימיים לשמירת מידע.',
-      `בקשות ניתן לשלוח ל: ${LEGAL_CONTACT_EMAIL}`,
-    ],
-  },
-  {
-    title: '10. זכויות המשתמש',
-    body: [
-      'בכפוף להוראות הדין, למשתמש עשויות לעמוד זכויות ביחס למידע אודותיו, לרבות זכות לעיין במידע ולבקש תיקון מידע שאינו נכון או אינו מעודכן.',
-    ],
-  },
-  {
-    title: '11. Cookies וטכנולוגיות דומות',
-    body: [
-      'האתר או השירות עשויים להשתמש ב-Cookies ובטכנולוגיות דומות לצורך תפעול השירות, אבטחה, שמירת העדפות, מדידת שימוש ושיפור השירות.',
-    ],
-  },
-  {
-    title: '12. שינויים במדיניות',
-    body: [
-      'אנו רשאים לעדכן מדיניות זו מעת לעת.',
-      'הגרסה המעודכנת תפורסם באפליקציה ותישא את תאריך העדכון האחרון.',
-    ],
-  },
-];
+// Document structure only (language-independent). Text lives in locales/<locale>/legal.json under
+// legal.privacy.*: intro.p1..pN, s<N>.title + s<N>.p1..pN. Numbers = paragraph count per section.
+const INTRO_COUNT = 1;
+const SECTION_PARAGRAPHS = [22, 13, 3, 5, 2, 4, 2, 2, 2, 1, 1, 2, 3];
+const range = (n) => Array.from({ length: n }, (_, i) => i + 1);
 
 export default function PrivacyScreen() {
+  const { t } = useI18n();
+  const params = { email: LEGAL_CONTACT_EMAIL, name: legalEntityName(), date: LEGAL_LAST_UPDATED };
+  const bindingNotice = t('legal.privacy.bindingNotice');
+
   return (
     <View style={styles.screen}>
       <SkyBackground />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Header showBack onMenuPress={() => {}} />
 
-        <Text style={styles.pageTitle}>מדיניות פרטיות</Text>
-        <Text style={styles.updated}>עדכון אחרון: {LEGAL_LAST_UPDATED}</Text>
+        <Text style={styles.pageTitle}>{t('legal.privacy.title')}</Text>
+        <Text style={styles.updated}>{t('legal.privacy.updated', params)}</Text>
 
-        {INTRO.map((p, i) => (
-          <Text key={`intro-${i}`} style={styles.paragraph}>{p}</Text>
+        {bindingNotice ? <Text style={styles.bindingNotice}>{bindingNotice}</Text> : null}
+
+        {range(INTRO_COUNT).map((i) => (
+          <Text key={`intro-${i}`} style={styles.paragraph}>{t(`legal.privacy.intro.p${i}`, params)}</Text>
         ))}
 
-        {SECTIONS.map((section) => (
-          <View key={section.title} style={styles.section}>
-            <Text style={styles.sectionTitle}>{section.title}</Text>
-            {section.body.map((p, i) => (
-              <Text key={i} style={styles.paragraph}>{p}</Text>
+        {SECTION_PARAGRAPHS.map((count, s) => (
+          <View key={`s${s + 1}`} style={styles.section}>
+            <Text style={styles.sectionTitle}>{t(`legal.privacy.s${s + 1}.title`)}</Text>
+            {range(count).map((i) => (
+              <Text key={i} style={styles.paragraph}>{t(`legal.privacy.s${s + 1}.p${i}`, params)}</Text>
             ))}
           </View>
         ))}
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>13. יצירת קשר</Text>
-          <Text style={styles.paragraph}>לשאלות בנושא פרטיות, עיון במידע, תיקון או מחיקה ניתן לפנות:</Text>
-          <Text style={styles.paragraph}>דוא"ל: {LEGAL_CONTACT_EMAIL}</Text>
-          <Text style={styles.paragraph}>שם בעל השליטה במידע: {LEGAL_ENTITY_NAME}</Text>
-        </View>
       </ScrollView>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createStyles((d) => ({
   screen: { flex: 1, backgroundColor: colors.bg },
   content: { padding: spacing.xl, paddingBottom: 50 },
-  pageTitle: { fontFamily: fonts.extraBold, fontSize: 22, color: colors.textPrimary, textAlign: 'right', marginTop: 24, marginBottom: 4 },
-  updated: { fontFamily: fonts.regular, fontSize: 12, color: colors.textMuted, textAlign: 'right', marginBottom: 22 },
+  pageTitle: { fontFamily: fonts.extraBold, fontSize: 22, color: colors.textPrimary, textAlign: d.textAlign, marginTop: 24, marginBottom: 4 },
+  updated: { fontFamily: fonts.regular, fontSize: 12, color: colors.textMuted, textAlign: d.textAlign, marginBottom: 22 },
+  bindingNotice: { fontFamily: fonts.bold, fontSize: 13, lineHeight: 20, color: colors.textSecondary, textAlign: d.textAlign, marginTop: -10, marginBottom: 18 },
   section: { marginBottom: 20 },
-  sectionTitle: { fontFamily: fonts.bold, fontSize: 15.5, color: colors.textPrimary, textAlign: 'right', marginBottom: 8 },
-  paragraph: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 22, color: colors.textSecondary, textAlign: 'right', marginBottom: 8 },
-});
+  sectionTitle: { fontFamily: fonts.bold, fontSize: 15.5, color: colors.textPrimary, textAlign: d.textAlign, marginBottom: 8 },
+  paragraph: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 22, color: colors.textSecondary, textAlign: d.textAlign, marginBottom: 8 },
+}));

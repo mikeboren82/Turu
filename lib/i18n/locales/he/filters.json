@@ -1,0 +1,46 @@
+{
+  "sheet": {
+    "title": "סינון מתקדם",
+    "clearSection": "נקה",
+    "a11y": {
+      "sectionWithCount_other": "{{title}}, {{count}} נבחרו",
+      "clearSection": "ניקוי {{title}}",
+      "expand": "פתיחת {{title}}",
+      "collapse": "סגירת {{title}}"
+    },
+    "exclusions": {
+      "title": "החרגות",
+      "hiddenCategories_other": "🚫 {{count}} קטגוריות מוסתרות",
+      "categoriesEmpty": "🚫 פעילויות שלא תרצו לראות",
+      "hiddenAreas_other": "⛔ {{count}} אזורים מוסתרים",
+      "areasEmpty": "⛔ אזורים שלא תרצו לראות"
+    }
+  },
+  "when": {
+    "dayLabel": "יום",
+    "pickDate": "בחרו תאריך",
+    "hourLabel": "שעה",
+    "allDay": "כל היום",
+    "hourAt": "שעה {{time}}",
+    "specificHour": "שעה ספציפית"
+  },
+  "age": {
+    "title": "גילאים",
+    "subtitle": "אפשר לבחור כמה טווחי גיל",
+    "rangesCount_other": "{{count}} טווחי גיל"
+  },
+  "quickPicker": {
+    "searchPlaceholder": "🔍 חיפוש..."
+  },
+  "exclude": {
+    "title": "⛔ הסר אזורים מהחיפוש",
+    "subtitle": "בחרו אזורים או מקומות שלא תרצו לראות בתוצאות",
+    "regionsLabel": "אזורים",
+    "preciseLabel": "רוצים להיות יותר מדויקים?",
+    "searchPlaceholder": "🔍 חפשו עיר או יישוב להחרגה...",
+    "summaryLabel": "לא נציג פעילויות ב:",
+    "removeA11y": "הסרת החרגה ל{{place}}",
+    "apply": "החילו סינון",
+    "doneWithCount_other": "{{label}} · {{count}} החרגות"
+  }
+}

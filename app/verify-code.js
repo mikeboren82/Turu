@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, Fragment } from 'react';
 import { View, Text, StyleSheet, TextInput, Pressable, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -9,8 +9,18 @@ import { supabase } from '../lib/supabase';
 import { enforceNotBanned } from '../lib/checkBanned';
 import { recordLegalConsentIfNeeded } from '../lib/legal';
 import { friendlyAuthError } from '../lib/authErrors';
+import { useI18n } from '../lib/i18n';
 
 const RESEND_SECONDS = 60;
+
+// מפרק תבנית מתורגמת עם {{slot}} לחלקים, כדי לשלב בתוכה רכיב Text מודגש בלי להניח סדר מילים קבוע.
+function renderTemplate(template, slots) {
+  return template.split(/(\{\{\w+\}\})/).map((part, i) => {
+    const m = part.match(/^\{\{(\w+)\}\}$/);
+    const content = m && slots[m[1]] !== undefined ? slots[m[1]] : part;
+    return content ? <Fragment key={i}>{content}</Fragment> : null;
+  });
+}
 
 function formatPhoneDisplay(e164) {
   if (!e164) return '';
@@ -27,6 +37,7 @@ function formatCountdown(seconds) {
 
 export default function VerifyCodeScreen() {
   const router = useRouter();
+  const { t } = useI18n();
   const { phone, nickname, email, channel } = useLocalSearchParams();
   const isEmailChannel = channel === 'email';
   const digitCount = isEmailChannel ? 6 : 4;
@@ -39,8 +50,8 @@ export default function VerifyCodeScreen() {
 
   useEffect(() => {
     if (secondsLeft <= 0) return;
-    const t = setTimeout(() => setSecondsLeft((s) => s - 1), 1000);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setSecondsLeft((s) => s - 1), 1000);
+    return () => clearTimeout(timer);
   }, [secondsLeft]);
 
   const code = digits.join('');
@@ -89,7 +100,7 @@ export default function VerifyCodeScreen() {
     }
 
     if (data?.user?.id && await enforceNotBanned(data.user.id)) {
-      setError('החשבון הזה חסום ולא ניתן להשתמש בו יותר');
+      setError(t('auth.errors.banned'));
       setDigits(Array(digitCount).fill(''));
       return;
     }
@@ -104,7 +115,7 @@ export default function VerifyCodeScreen() {
         .update({ email: String(email), notify_by_email: true })
         .eq('id', data.user.id);
       if (emailError) {
-        console.warn('לא ניתן לשמור את כתובת האימייל (ייתכן שהעמודה עדיין לא נוספה למסד):', emailError.message);
+        console.warn('Could not save profile email (the column may not exist yet):', emailError.message);
       }
     }
 
@@ -141,11 +152,11 @@ export default function VerifyCodeScreen() {
       <View style={styles.content}>
         <Header showBack onMenuPress={() => {}} />
 
-        <Text style={styles.headline}>{isEmailChannel ? 'בדקו את המייל 📧' : 'בדקו את הסמס 📱'}</Text>
+        <Text style={styles.headline}>{isEmailChannel ? t('auth.verify.emailHeadline') : t('auth.verify.smsHeadline')}</Text>
         <Text style={styles.subtext}>
-          {isEmailChannel
-            ? <>שלחנו קוד בן 6 ספרות לכתובת{'\n'}<Text style={styles.phoneText}>{String(email || '')}</Text></>
-            : <>שלחנו קוד בן 4 ספרות למספר{'\n'}<Text style={styles.phoneText}>{formatPhoneDisplay(String(phone || ''))}</Text></>}
+          {renderTemplate(t(isEmailChannel ? 'auth.verify.sentToEmail' : 'auth.verify.sentToPhone', { digits: digitCount }), {
+            value: <Text style={styles.phoneText}>{isEmailChannel ? String(email || '') : formatPhoneDisplay(String(phone || ''))}</Text>,
+          })}
         </Text>
 
         <View style={[styles.codeRow, isEmailChannel && styles.codeRowCompact]}>
@@ -162,7 +173,7 @@ export default function VerifyCodeScreen() {
               textAlign="center"
               textContentType={i === 0 ? 'oneTimeCode' : 'none'}
               autoComplete={i === 0 ? 'one-time-code' : 'off'}
-              accessibilityLabel={`ספרה ${i + 1} מתוך ${digitCount}`}
+              accessibilityLabel={t('auth.verify.digitLabel', { n: i + 1, total: digitCount })}
             />
           ))}
         </View>
@@ -173,11 +184,13 @@ export default function VerifyCodeScreen() {
           <View style={styles.resendRow}>
             {secondsLeft > 0 ? (
               <Text style={styles.resendText}>
-                לא קיבלתם? שליחה חוזרת בעוד <Text style={styles.resendTime}>{formatCountdown(secondsLeft)}</Text>
+                {renderTemplate(t('auth.verify.resendIn'), {
+                  time: <Text style={styles.resendTime}>{formatCountdown(secondsLeft)}</Text>,
+                })}
               </Text>
             ) : (
               <Pressable onPress={handleResend} disabled={resending}>
-                <Text style={styles.resendLink}>{resending ? 'שולח...' : 'שליחה חוזרת של הקוד'}</Text>
+                <Text style={styles.resendLink}>{resending ? t('common.actions.sending') : t('auth.verify.resend')}</Text>
               </Pressable>
             )}
           </View>
@@ -190,11 +203,11 @@ export default function VerifyCodeScreen() {
           accessibilityRole="button"
           accessibilityState={{ busy: submitting, disabled: code.length !== digitCount || submitting }}
         >
-          {submitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitBtnText}>אישור</Text>}
+          {submitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitBtnText}>{t('common.actions.ok')}</Text>}
         </Pressable>
 
         <Pressable onPress={() => router.back()}>
-          <Text style={styles.changeLink}>{isEmailChannel ? 'שינוי כתובת מייל' : 'שינוי מספר טלפון'}</Text>
+          <Text style={styles.changeLink}>{isEmailChannel ? t('auth.verify.changeEmail') : t('auth.verify.changePhone')}</Text>
         </Pressable>
       </View>
     </View>

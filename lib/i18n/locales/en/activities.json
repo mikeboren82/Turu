@@ -1,0 +1,120 @@
+{
+  "header": {
+    "title": "All activities",
+    "count_one": "1 result",
+    "count_other": "{{count}} results",
+    "discoverySubtitle": "Activities worth discovering ✨",
+    "filterLabel": "Filters",
+    "filterA11yWithCount_one": "Filters, 1 active filter",
+    "filterA11yWithCount_other": "Filters, {{count}} active filters",
+    "filterSummaryCountOnly": "Filters +{{count}}",
+    "filterSummaryMore": "{{summary}} +{{count}}"
+  },
+  "display": {
+    "a11y": "Display and sort, view: {{view}}, sort: {{sort}}",
+    "viewTitle": "View",
+    "sortTitle": "Sort",
+    "list": "List",
+    "map": "Map",
+    "recommended": "Recommended",
+    "byDistance": "By distance",
+    "chipMapDistance": "🗺️ Map · Distance",
+    "chipMap": "🗺️ Map",
+    "chipDistance": "📍 Distance"
+  },
+  "freeSearch": {
+    "placeholder": "e.g. \"indoor playground near Herzl in Tel Aviv tomorrow morning\"",
+    "clarifyArea": "📍 Which area should we search?",
+    "clarifyCity": "📍 Which city?",
+    "errorRephrase": "We couldn't understand that search. Try wording it differently",
+    "errorLocation": "We couldn't identify the location. Try wording it differently",
+    "errorUnderstand": "We couldn't understand that search"
+  },
+  "smartRadius": {
+    "expandedSmall": "We widened the search a little to find you more activities ✨",
+    "expandedTo15": "We widened the search to 15 km to find you more activities ✨"
+  },
+  "results": {
+    "loadError": "We couldn't load activities",
+    "emptyWalking": "We didn't find activities within walking distance 🚶",
+    "empty": "😕 We didn't find an activity that exactly matches your search.",
+    "clearAllFilters": "Clear all filters",
+    "widen": {
+      "withCount": "{{label}} ({{count}})",
+      "driving10": "🚗 Search up to a 10 min drive",
+      "nationwide": "📍 Show all of Israel",
+      "hours": "🕐 Widen hours",
+      "allCategories": "🎯 Show all activities",
+      "anyDay": "📅 Check any day"
+    }
+  },
+  "spontaneous": {
+    "offLink": "⚡ Now mode on · Turn off",
+    "error": "Something went wrong, please try again",
+    "emptyTitle": "🪄 We didn't find anything that fits right now",
+    "opensSoonTitle": "🕐 Opening soon",
+    "emptyHint": "Try widening the location or changing the filters.",
+    "topTitle": "🪄 Best right now",
+    "showMore_one": "Show 1 more activity",
+    "showMore_other": "Show {{count}} more activities",
+    "badge": {
+      "openNow": "🟢 Open now",
+      "opensIn": "🕐 Opens in {{minutes}} min",
+      "bookingRequired": "🎟️ Booking required"
+    }
+  },
+  "note": {
+    "title": "Personal note",
+    "placeholder": "Write a private note here...",
+    "save": "Save note"
+  },
+  "hide": {
+    "categoriesTitle": "🚫 Hide activities from search",
+    "categoriesSubtitle": "Choose things you'd rather not see in your results.",
+    "apply": "Apply filter",
+    "saveAsDefault": "Save as my default",
+    "saveAsDefaultHint": "Your choice will be saved and used in future searches too.",
+    "registerTitle": "🔒 Want Turu to remember your preferences?",
+    "registerMessage": "Sign up for free to save your choices and use them every time you come back.",
+    "registerLater": "Maybe later"
+  },
+  "gate": {
+    "title": "What are we looking for today?",
+    "subtitle": "Tell us a bit and we'll show you activities that fit",
+    "categoryLabel": "What are we in the mood for?",
+    "categorySubtitle": "You can pick several categories",
+    "categoryAll": "All activity types",
+    "locationLabel": "Near me",
+    "locationAny": "Wherever suits you",
+    "go": "Show activities",
+    "skip": "Skip, show me everything"
+  },
+  "locationPermission": {
+    "title": "📍 Location access needed",
+    "subtitle": "Allow location access to use this button",
+    "confirm": "Allow location access"
+  },
+  "sheet": {
+    "search": "🔍 Search",
+    "searchWithCount": "🔍 Search ({{count}})"
+  },
+  "card": {
+    "recommendedByPrefix": "Recommended by ",
+    "ticket": "🎟️ Ticket",
+    "a11y": {
+      "hide": "Hide activity",
+      "favorite": "Add to favorites",
+      "unfavorite": "Remove from favorites",
+      "visited": "Mark as \"been here\"",
+      "unvisited": "Unmark \"been here\"",
+      "note": "Personal note"
+    }
+  },
+  "map": {
+    "emptyOverlay": "The selected activities have no known location to show on the map",
+    "webOnlyTitle": "Map view is available in the mobile app",
+    "webLocatedCount_one": "1 activity with a known location is waiting for you on the map",
+    "webLocatedCount_other": "{{count}} activities with a known location are waiting for you on the map",
+    "noKnownLocation": "No known location for the selected activities"
+  }
+}

@@ -2,8 +2,10 @@ import { View, Text, StyleSheet } from 'react-native';
 import Header from './Header';
 import SkyBackground from './SkyBackground';
 import { colors, fonts, spacing } from '../constants/theme';
+import { useI18n } from '../lib/i18n';
 
 export default function PlaceholderScreen({ title }) {
+  const { t } = useI18n();
   return (
     <View style={styles.screen}>
       <SkyBackground />
@@ -11,7 +13,7 @@ export default function PlaceholderScreen({ title }) {
         <Header showBack onMenuPress={() => {}} />
         <View style={styles.center}>
           <Text style={styles.title}>{title}</Text>
-          <Text style={styles.note}>המסך הזה עוד ייבנה 🦘</Text>
+          <Text style={styles.note}>{t('nav.placeholder.comingSoon')}</Text>
         </View>
       </View>
     </View>

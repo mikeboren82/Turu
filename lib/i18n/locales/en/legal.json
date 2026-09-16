@@ -1,0 +1,200 @@
+{
+  "privacy": {
+    "title": "Privacy Policy",
+    "updated": "Last updated: {{date}}",
+    "bindingNotice": "This English version is provided for convenience only. The Hebrew version is the binding version and prevails in the event of any discrepancy.",
+    "intro": {
+      "p1": "This policy explains what information may be collected when you use Turu, how it is used, with whom it may be shared, and what rights users have."
+    },
+    "s1": {
+      "title": "1. What information may we collect?",
+      "p1": "Depending on how the app is used, we may collect:",
+      "p2": "Information you have provided to us, such as:",
+      "p3": "• Name.",
+      "p4": "• Email address.",
+      "p5": "• Phone number, if used for signing in.",
+      "p6": "• Sign-in details.",
+      "p7": "• Usage preferences.",
+      "p8": "• Activities you have saved.",
+      "p9": "• Personal notes you have added.",
+      "p10": "• Preferences regarding areas and types of activities.",
+      "p11": "Information about children that the user chooses to add to the account, such as:",
+      "p12": "• Name or nickname.",
+      "p13": "• Date of birth or age.",
+      "p14": "• Interests and preferences.",
+      "p15": "We recommend not entering information that is not necessary for using the service, in particular medical information, sensitive information, or personal information that is not required.",
+      "p16": "Technical information may include:",
+      "p17": "• Device type.",
+      "p18": "• Operating system.",
+      "p19": "• IP address.",
+      "p20": "• App usage data.",
+      "p21": "• Error and performance data.",
+      "p22": "• Information required to secure the service and prevent misuse."
+    },
+    "s2": {
+      "title": "2. What do we use the information for?",
+      "p1": "The information may be used to:",
+      "p2": "• Operate the app and the services.",
+      "p3": "• Create and manage user accounts.",
+      "p4": "• Save user preferences.",
+      "p5": "• Tailor results and recommendations to the user.",
+      "p6": "• Save activities and \"Destinations\".",
+      "p7": "• Show activities based on the age and preferences entered.",
+      "p8": "• Improve the service and the interface.",
+      "p9": "• Secure the system and prevent fraud and misuse.",
+      "p10": "• Handle inquiries and provide support.",
+      "p11": "• Send service messages.",
+      "p12": "• Analyze use of the service and improve it.",
+      "p13": "• Comply with legal requirements."
+    },
+    "s3": {
+      "title": "3. Location",
+      "p1": "If the user grants the appropriate permission, the app may use the device's location to show activities in the user's area.",
+      "p2": "Location permission can be revoked in the device settings.",
+      "p3": "You do not have to allow location access in order to use all of Turu's services, unless otherwise stated for a specific feature."
+    },
+    "s4": {
+      "title": "4. Information about children",
+      "p1": "Turu is intended for parents and families.",
+      "p2": "Information about a child is added to the account by the user.",
+      "p3": "We ask that you do not enter sensitive information about children that is not required for using the service.",
+      "p4": "Information about children is used, among other things, to match activities to the age and preferences entered.",
+      "p5": "The information is not intended for public disclosure, unless the user has expressly chosen to publish content through a feature that allows this."
+    },
+    "s5": {
+      "title": "5. Information we receive from third parties",
+      "p1": "We may receive information from public sources, content providers, activity operators, external sign-in services, technology providers, or other sources.",
+      "p2": "This information may include details about activities, events, prices, dates, locations, and benefits."
+    },
+    "s6": {
+      "title": "6. Sharing information with third parties",
+      "p1": "We do not sell users' personal information to third parties.",
+      "p2": "Information may be transferred to service providers that help us operate the app, such as hosting, infrastructure, user authentication, data analytics, customer service, and information security providers, to the extent necessary to provide the service.",
+      "p3": "These providers may process information on our behalf in accordance with agreements and applicable law.",
+      "p4": "In addition, information may be disclosed where required or permitted by law."
+    },
+    "s7": {
+      "title": "7. Information security",
+      "p1": "We take reasonable and customary security measures designed to protect information against unauthorized access, use, alteration, or disclosure.",
+      "p2": "However, no system connected to the internet can be guaranteed to be completely immune to security incidents."
+    },
+    "s8": {
+      "title": "8. Data retention",
+      "p1": "We will retain personal information for as long as necessary for the purposes for which it was collected, to provide the service, to comply with legal requirements, to protect our rights, and to handle disputes.",
+      "p2": "When information is no longer needed, we may delete it or convert it into information that does not allow identification, subject to applicable law."
+    },
+    "s9": {
+      "title": "9. Deleting your account and information",
+      "p1": "A registered user may contact us to request the deletion of their account and the personal information associated with it, subject to legal obligations or legitimate needs to retain information.",
+      "p2": "Requests can be sent to: {{email}}"
+    },
+    "s10": {
+      "title": "10. User rights",
+      "p1": "Subject to applicable law, users may have rights with respect to information about them, including the right to review the information and to request the correction of information that is inaccurate or out of date."
+    },
+    "s11": {
+      "title": "11. Cookies and similar technologies",
+      "p1": "The website or the service may use cookies and similar technologies to operate the service, for security, to save preferences, to measure usage, and to improve the service."
+    },
+    "s12": {
+      "title": "12. Changes to this policy",
+      "p1": "We may update this policy from time to time.",
+      "p2": "The updated version will be published in the app and will show the date of the last update."
+    },
+    "s13": {
+      "title": "13. Contact us",
+      "p1": "For questions about privacy, or to request access to, correction of, or deletion of information, you can contact:",
+      "p2": "Email: {{email}}",
+      "p3": "Name of the data controller: {{name}}"
+    }
+  },
+  "terms": {
+    "title": "Terms of Use",
+    "updated": "Last updated: {{date}}",
+    "bindingNotice": "This English version is provided for convenience only. The Hebrew version is the binding version and prevails in the event of any discrepancy.",
+    "intro": {
+      "p1": "Welcome to \"Turu\" (the \"App\", the \"Service\", \"Turu\").",
+      "p2": "Use of the App and the services offered through it is subject to these Terms of Use.",
+      "p3": "Using the App constitutes acceptance of these terms. If you do not agree to the terms, please refrain from using the App."
+    },
+    "s1": {
+      "title": "1. What is Turu?",
+      "p1": "Turu is a platform designed to help users find, discover, and save information about activities, events, attractions, and places suitable for children and families.",
+      "p2": "The information shown in the App may come from various sources, including activity operators, websites, public bodies, institutions, content providers, and other information sources."
+    },
+    "s2": {
+      "title": "2. Information in the App",
+      "p1": "Turu makes reasonable efforts to keep information up to date and accurate, but it cannot guarantee that all information shown in the App will be complete, accurate, up to date, or available at all times.",
+      "p2": "Activity dates and times, prices, admission conditions, availability, addresses, booking methods, benefits, and similar details may change.",
+      "p3": "Before attending an activity, users are advised to verify the details with the operator or the official source."
+    },
+    "s3": {
+      "title": "3. Turu is not the activity provider",
+      "p1": "Unless expressly stated otherwise, Turu is not the operator, organizer, or provider of the activities that appear in the App.",
+      "p2": "Engaging with an activity operator, purchasing tickets, booking, paying, or using a third-party service is at the user's own responsibility and is a matter between the user and that third party.",
+      "p3": "Turu is not responsible for the conduct of third parties, the quality of an activity, its safety, its cancellation, price changes, or any damage arising from engaging with an external provider, subject to applicable law."
+    },
+    "s4": {
+      "title": "4. Third-party links and services",
+      "p1": "The App may include links to third-party websites, apps, and services.",
+      "p2": "Use of these services is subject to the terms and privacy policies of those third parties.",
+      "p3": "Turu is not responsible for the content, availability, or operation of these services."
+    },
+    "s5": {
+      "title": "5. Benefits, discounts, and promotions",
+      "p1": "Turu may display benefits, discounts, coupons, and promotions offered by various entities.",
+      "p2": "These benefits may be subject to terms, validity periods, eligibility requirements, or restrictions set by the benefit provider.",
+      "p3": "Turu does not guarantee that any particular benefit will be available at all times.",
+      "p4": "We recommend checking the terms of a benefit with the entity offering it before making a purchase or booking."
+    },
+    "s6": {
+      "title": "6. User account",
+      "p1": "Some services may require creating an account.",
+      "p2": "Users are responsible for providing accurate details and keeping them up to date, and for safeguarding their account access details.",
+      "p3": "Turu may suspend or close an account in the event of use that violates these terms or the law."
+    },
+    "s7": {
+      "title": "7. Permitted use",
+      "p1": "The App may not be used for:",
+      "p2": "• Unlawful use.",
+      "p3": "• Harming the App or its systems.",
+      "p4": "• Attempting to gain unauthorized access to information or accounts.",
+      "p5": "• Distributing offensive, misleading, or unlawful content.",
+      "p6": "• Automated or commercial collection of information from the App without permission.",
+      "p7": "• Any use that may harm Turu, other users, or third parties."
+    },
+    "s8": {
+      "title": "8. User content",
+      "p1": "To the extent the App allows users to post reviews, comments, photos, or other content, users are responsible for the content they post.",
+      "p2": "You may not post content that is unlawful, misleading, offensive, or that infringes the rights of another person.",
+      "p3": "Turu may remove content that violates these terms or the law, and may restrict use of the service where necessary."
+    },
+    "s9": {
+      "title": "9. Intellectual property",
+      "p1": "All rights in the App, its design, the Turu name, the logo, the interface, and the content created by Turu belong to Turu or to the relevant rights holders.",
+      "p2": "You may not copy, modify, distribute, sell, or make commercial use of this content without prior written permission, except for use permitted by law."
+    },
+    "s10": {
+      "title": "10. Limitation of liability",
+      "p1": "Use of the App is at the user's own responsibility.",
+      "p2": "Subject to applicable law, Turu will not be liable for damage arising from reliance on information that appears in the App, from engaging with activity providers, from changes to or cancellations of activities, or from temporary unavailability of the service.",
+      "p3": "Nothing in these terms limits liability that cannot be limited or excluded under applicable law."
+    },
+    "s11": {
+      "title": "11. Changes to the service and the terms",
+      "p1": "Turu may update, change, add, or remove features of the service, and may update these terms.",
+      "p2": "The updated version will be published in the App and will show the date of the last update."
+    },
+    "s12": {
+      "title": "12. Governing law and jurisdiction",
+      "p1": "These Terms of Use are governed by the laws of the State of Israel.",
+      "p2": "The competent courts in Israel will have jurisdiction, subject to any mandatory law."
+    },
+    "s13": {
+      "title": "13. Contact us",
+      "p1": "For questions, requests, or inquiries, you can contact us:",
+      "p2": "Email: {{email}}",
+      "p3": "Service owner: {{name}}"
+    }
+  }
+}

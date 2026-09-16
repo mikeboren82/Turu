@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Modal, TextInput } from 'react-native';
+import { View, Text, ScrollView, Pressable, ActivityIndicator, Modal, TextInput } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as Location from 'expo-location';
 import Header from '../components/Header';
@@ -22,6 +22,8 @@ import { categorySummary } from '../lib/filterSummaries';
 import { rankActivitiesWithSmartRadius, countActiveFilters, normalizeFilters, getOpenNowInfo, haversineKm, locationWithDrivingTime } from '../lib/filterActivities';
 import { formatBenefitCardTag } from '../lib/benefits';
 import { parseSmartSearchQuery, intentToFilters } from '../lib/smartSearch';
+import { t, useI18n, createStyles } from '../lib/i18n';
+import { formatKm } from '../lib/i18n/format';
 
 const BOOKING_REQUIRED_VALUES = ['registration_required', 'advance_booking'];
 const SPONTANEOUS_TOP_COUNT = 5;
@@ -34,14 +36,14 @@ function buildSpontaneousBadge(activity) {
   const openInfo = getOpenNowInfo(activity);
   const parts = [];
   if (openInfo.isOpen) {
-    parts.push('🟢 פתוח עכשיו');
+    parts.push(t('activities.spontaneous.badge.openNow'));
   } else if (openInfo.minutesUntilOpenToday != null) {
-    parts.push(`🕐 נפתח בעוד ${openInfo.minutesUntilOpenToday} דק'`);
+    parts.push(t('activities.spontaneous.badge.opensIn', { minutes: openInfo.minutesUntilOpenToday }));
   } else if (!openInfo.hasScheduleData) {
     return null;
   }
   if (BOOKING_REQUIRED_VALUES.includes(activity.booking_requirement)) {
-    parts.push('🎟️ דורש הזמנה');
+    parts.push(t('activities.spontaneous.badge.bookingRequired'));
   }
   return parts.length > 0 ? parts.join(' · ') : null;
 }
@@ -63,15 +65,16 @@ function activitiesFilterSummary(filters) {
   if (filters.category?.length) segments.push(categorySummary(filters.category));
   if (segments.length === 0) {
     const total = countActiveFilters(filters);
-    return total > 0 ? `סינון +${total}` : null;
+    return total > 0 ? t('activities.header.filterSummaryCountOnly', { count: total }) : null;
   }
   const remaining = countActiveFilters(filters) - segments.length;
   const joined = segments.join(' · ');
-  return remaining > 0 ? `${joined} +${remaining}` : joined;
+  return remaining > 0 ? t('activities.header.filterSummaryMore', { summary: joined, count: remaining }) : joined;
 }
 
 export default function ActivitiesScreen() {
   const router = useRouter();
+  const { t, locale } = useI18n();
   const { homeFilters, homeCoords, openFilters, view, spontaneous } = useLocalSearchParams();
   const [filters, setFilters] = useState(() => normalizeFilters(parseJson(homeFilters, {})));
   const [deviceCoords, setDeviceCoords] = useState(() => parseJson(homeCoords, null));
@@ -212,7 +215,7 @@ export default function ActivitiesScreen() {
           }
         }
       } catch (err) {
-        if (!cancelled) setLoadError(err.message);
+        if (!cancelled) setLoadError(err?.message || 'error');
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -292,7 +295,7 @@ export default function ActivitiesScreen() {
       setSpontaneousCoords({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
       setSpontaneousActive(true);
     } catch {
-      setSpontaneousError('משהו השתבש, נסו שוב');
+      setSpontaneousError('activities.spontaneous.error');
     } finally {
       setSpontaneousLoading(false);
     }
@@ -356,18 +359,19 @@ export default function ActivitiesScreen() {
     try {
       const data = await parseSmartSearchQuery(text);
       if (data.needsClarification) {
-        setFreeSearchClarify({ message: data.needsClarification.message, pendingIntent: data.intent, mode: 'street' });
+        // השרת (smart-search) מחזיר תמיד '📍 באיזו עיר?' - מוצג מהמפתח המקומי כדי שיתורגם.
+        setFreeSearchClarify({ messageKey: 'activities.freeSearch.clarifyCity', pendingIntent: data.intent, mode: 'street' });
         return;
       }
       const loc = data.intent.location;
       const hasAnyLocation = !!(loc.city || loc.region || loc.street || loc.coords);
       if (!hasAnyLocation && !filters.location?.mode) {
-        setFreeSearchClarify({ message: '📍 באיזה אזור לחפש?', pendingIntent: data.intent, mode: 'plain' });
+        setFreeSearchClarify({ messageKey: 'activities.freeSearch.clarifyArea', pendingIntent: data.intent, mode: 'plain' });
         return;
       }
       applyFreeSearchIntent(data.intent);
-    } catch (err) {
-      setFreeSearchError(err.message || 'לא הצלחנו להבין את החיפוש, נסו לנסח אחרת');
+    } catch {
+      setFreeSearchError('activities.freeSearch.errorRephrase');
     } finally {
       setFreeSearchLoading(false);
     }
@@ -393,13 +397,13 @@ export default function ActivitiesScreen() {
       try {
         const data = await parseSmartSearchQuery(freeSearchText, { cityOverride: loc.city.trim(), pendingIntent: clarify.pendingIntent });
         if (data.needsClarification) {
-          setFreeSearchError('לא הצלחנו לזהות את המיקום, נסו לנסח אחרת');
+          setFreeSearchError('activities.freeSearch.errorLocation');
           setFreeSearchClarify(null);
           return;
         }
         applyFreeSearchIntent(data.intent);
-      } catch (err) {
-        setFreeSearchError(err.message || 'לא הצלחנו להבין את החיפוש');
+      } catch {
+        setFreeSearchError('activities.freeSearch.errorUnderstand');
         setFreeSearchClarify(null);
       } finally {
         setFreeSearchLoading(false);
@@ -466,7 +470,7 @@ export default function ActivitiesScreen() {
       });
       setNoteModalTarget(null);
     } catch (err) {
-      console.error('שגיאה בשמירת ההערה:', err);
+      console.error('Failed to save personal note:', err);
     } finally {
       setSavingNote(false);
     }
@@ -521,7 +525,7 @@ export default function ActivitiesScreen() {
           // גם city (מרכז-יישוב) ו-address, לא רק current+deviceCoords; "ממך" מוצג רק כש-mode
           // הוא 'current' בפועל (סעיף L בבקשה), אחרת "מאזור החיפוש".
           distance: spontaneousKm != null
-            ? `${spontaneousKm < 10 ? spontaneousKm.toFixed(1) : Math.round(spontaneousKm)} ק"מ ממך`
+            ? t('domain.distance.fromYou', { km: formatKm(spontaneousKm) })
             : formatSearchDistance(a, searchOriginCoords, filters.location?.mode === 'current'),
           // ספונטני פעיל -> אותה נקודת-ייחוס בדיוק שכבר מוצגת למשתמש כ"distance" למעלה (לא
           // origin אחר "מאחורי הקלעים" שהיה נראה כמו באג - סדר-המיון תמיד תואם את המספר המוצג).
@@ -533,7 +537,8 @@ export default function ActivitiesScreen() {
           spontaneousBadge: spontaneousActive ? buildSpontaneousBadge(a) : null,
         };
       }),
-    [rankedResult, hiddenIds, favoriteIds, visitedIds, notesByActivity, benefitClubs, spontaneousActive, spontaneousCoords, searchOriginCoords, filters.location?.mode]
+    // locale: {...a} מעתיק את ערכי ה-getters (ageRange/price/hours) - חישוב מחדש בהחלפת שפה.
+    [rankedResult, hiddenIds, favoriteIds, visitedIds, notesByActivity, benefitClubs, spontaneousActive, spontaneousCoords, searchOriginCoords, filters.location?.mode, locale]
   );
 
   // סעיף N בבקשה: "יש הבדל בין 'לא מצאנו מספיק תוצאות באזור' לבין 'הפילטרים מגבילים מאוד'" -
@@ -565,7 +570,7 @@ export default function ActivitiesScreen() {
   // שורת-chips נפרדת מתחת. spontaneousActive לא נכלל כאן בכוונה - הוא כבר לא "פילטר" בכלל
   // (עבר להיות trigger מעמוד הבית, ראו handleSpontaneous/useEffect(spontaneous) - סעיף 6
   // בתוכנית), אז אין לו ייצוג בתקציר-הסינון.
-  const filterSummary = useMemo(() => activitiesFilterSummary(filters), [filters]);
+  const filterSummary = useMemo(() => activitiesFilterSummary(filters), [filters, locale]);
   const hiddenCategoryCount = new Set([...excludedCategories, ...(filters.excludeCategory || [])]).size;
   const hiddenCityCount = new Set([...excludedCities, ...(filters.excludeCity || [])]).size;
   const hiddenRegionCount = new Set([...excludedRegions, ...(filters.excludeRegion || [])]).size;
@@ -619,9 +624,9 @@ export default function ActivitiesScreen() {
             שורת-subtitle נפרדת, לא עוד List/Map כאן - הם עברו ל"תצוגה/מיון" ב-toolbar, ראו למטה). */}
         <View style={styles.titleBlock}>
           <View style={styles.titleRow}>
-            <Text style={styles.pageTitle}>כל הפעילויות</Text>
+            <Text style={styles.pageTitle} numberOfLines={1}>{t('activities.header.title')}</Text>
             <Text style={styles.titleCount} numberOfLines={1}>
-              {isDiscoveryMode ? 'פעילויות שכדאי לגלות ✨' : filteredActivities.length}
+              {isDiscoveryMode ? t('activities.header.discoverySubtitle') : t('activities.header.count', { count: filteredActivities.length })}
             </Text>
           </View>
         </View>
@@ -635,11 +640,11 @@ export default function ActivitiesScreen() {
             style={[styles.toolbarChip, styles.toolbarChipFlexible, styles.toolbarChipPrimary, activeCount > 0 && styles.toolbarChipPrimaryActive]}
             onPress={() => { setDisplaySheetOpen(false); setSheetOpen((v) => !v); }}
             accessibilityRole="button"
-            accessibilityLabel={`סינון${activeCount > 0 ? `, ${activeCount} סינונים פעילים` : ''}`}
+            accessibilityLabel={activeCount > 0 ? t('activities.header.filterA11yWithCount', { count: activeCount }) : t('activities.header.filterLabel')}
           >
             <Text style={styles.toolbarChipIcon}>🎯</Text>
             <Text style={styles.toolbarChipTextPrimary} numberOfLines={1} ellipsizeMode="tail">
-              {filterSummary ? `${filterSummary}` : 'סינון'}
+              {filterSummary ? `${filterSummary}` : t('activities.header.filterLabel')}
             </Text>
           </Pressable>
 
@@ -653,18 +658,21 @@ export default function ActivitiesScreen() {
             style={[styles.toolbarChip, styles.toolbarChipCompact, (sortMode === 'distance' || viewMode === 'map') && styles.toolbarChipPrimaryActive]}
             onPress={() => { setSheetOpen(false); setDisplaySheetOpen(true); }}
             accessibilityRole="button"
-            accessibilityLabel={`תצוגה ומיון, תצוגת ${viewMode === 'map' ? 'מפה' : 'רשימה'}, מיון ${sortMode === 'distance' ? 'לפי מרחק' : 'מומלץ'}`}
+            accessibilityLabel={t('activities.display.a11y', {
+              view: t(viewMode === 'map' ? 'activities.display.map' : 'activities.display.list'),
+              sort: t(sortMode === 'distance' ? 'activities.display.byDistance' : 'activities.display.recommended'),
+            })}
           >
             <Text
               style={[styles.toolbarChipText, (sortMode === 'distance' || viewMode === 'map') && styles.toolbarChipTextPrimary]}
               numberOfLines={1}
             >
               {viewMode === 'map' && sortMode === 'distance'
-                ? '🗺️ מפה · מרחק'
+                ? t('activities.display.chipMapDistance')
                 : viewMode === 'map'
-                  ? '🗺️ מפה'
+                  ? t('activities.display.chipMap')
                   : sortMode === 'distance'
-                    ? '📍 מרחק'
+                    ? t('activities.display.chipDistance')
                     : '⚙️'}
             </Text>
           </Pressable>
@@ -673,7 +681,7 @@ export default function ActivitiesScreen() {
               toolbar, בלי ניווט למסך חדש - ראו handleFreeSearch/applyFreeSearchIntent למעלה. */}
           <Pressable style={[styles.toolbarChip, styles.toolbarChipCompact]} onPress={() => setFreeSearchOpen((v) => !v)} accessibilityRole="button">
             <Text style={styles.toolbarChipIcon}>🔍</Text>
-            <Text style={styles.toolbarChipText} numberOfLines={1}>חיפוש</Text>
+            <Text style={styles.toolbarChipText} numberOfLines={1}>{t('common.actions.search')}</Text>
           </Pressable>
         </View>
 
@@ -684,7 +692,7 @@ export default function ActivitiesScreen() {
             תופס מקום כשלא רלוונטי. */}
         {spontaneousActive ? (
           <Pressable onPress={toggleSpontaneous} hitSlop={8} style={styles.spontaneousOffLink}>
-            <Text style={styles.spontaneousOffLinkText}>⚡ עכשיו פעיל · כבה</Text>
+            <Text style={styles.spontaneousOffLinkText}>{t('activities.spontaneous.offLink')}</Text>
           </Pressable>
         ) : null}
 
@@ -695,12 +703,12 @@ export default function ActivitiesScreen() {
                 (ראו ה-Modal למטה ליד ה-gate, ו-handleClarifyPickerClose). כאן נשארת רק שורת-ההסבר,
                 שורת-החיפוש עצמה נשארת גלויה מתחתיה. */}
             {freeSearchClarify ? (
-              <Text style={styles.freeSearchClarifyText}>{freeSearchClarify.message}</Text>
+              <Text style={styles.freeSearchClarifyText}>{t(freeSearchClarify.messageKey)}</Text>
             ) : null}
             <View style={styles.freeSearchInputRow}>
                 <TextInput
                   style={styles.freeSearchInput}
-                  placeholder='למשל: "משחקייה ליד הרצל בתל אביב מחר בבוקר"'
+                  placeholder={t('activities.freeSearch.placeholder')}
                   placeholderTextColor={colors.textMuted}
                   value={freeSearchText}
                   onChangeText={setFreeSearchText}
@@ -713,10 +721,10 @@ export default function ActivitiesScreen() {
                   onPress={() => handleFreeSearch()}
                   disabled={freeSearchLoading || !freeSearchText.trim()}
                 >
-                  {freeSearchLoading ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.freeSearchBtnText}>חיפוש</Text>}
+                  {freeSearchLoading ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.freeSearchBtnText}>{t('common.actions.search')}</Text>}
                 </Pressable>
             </View>
-            {freeSearchError ? <Text style={styles.freeSearchErrorText}>{freeSearchError}</Text> : null}
+            {freeSearchError ? <Text style={styles.freeSearchErrorText}>{t(freeSearchError)}</Text> : null}
           </View>
         )}
 
@@ -724,7 +732,7 @@ export default function ActivitiesScreen() {
             came here to see activities" - כל המידע שהיא נשאה עבר לתקציר בכפתור "🎯 סינון"
             עצמו, ראו activitiesFilterSummary למעלה). FiltersSheet נשאר המקום היחיד לערוך/
             להסיר פילטר בודד - אין יותר × על המסך הזה. */}
-        {spontaneousError ? <Text style={styles.freeSearchErrorText}>{spontaneousError}</Text> : null}
+        {spontaneousError ? <Text style={styles.freeSearchErrorText}>{t(spontaneousError)}</Text> : null}
 
         {/* 🚗 Smart Radius Expansion - חיווי משני, לא modal ולא warning (סעיף M בבקשה): מוצג רק
             כשבאמת הורחב הרדיוס (searchMetadata.radiusExpanded), נעלם לגמרי אם לא היה צורך. */}
@@ -732,8 +740,8 @@ export default function ActivitiesScreen() {
           <View style={styles.radiusExpandedBanner}>
             <Text style={styles.radiusExpandedBannerText}>
               {searchMetadata.effectiveRadiusKm === 10
-                ? 'הרחבנו קצת את החיפוש כדי למצוא לכם עוד פעילויות ✨'
-                : 'הרחבנו את החיפוש עד 15 ק״מ כדי למצוא לכם עוד פעילויות ✨'}
+                ? t('activities.smartRadius.expandedSmall')
+                : t('activities.smartRadius.expandedTo15')}
             </Text>
           </View>
         ) : null}
@@ -744,14 +752,14 @@ export default function ActivitiesScreen() {
           </View>
         ) : loadError ? (
           <View style={styles.emptyState}>
-            <Text style={styles.emptyTitle}>לא הצלחנו לטעון פעילויות: {loadError}</Text>
+            <Text style={styles.emptyTitle}>{t('activities.results.loadError')}</Text>
           </View>
         ) : filteredActivities.length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyTitle}>
               {filters.location?.travelMode === 'walking'
-                ? 'לא מצאנו פעילויות ממש במרחק הליכה 🚶'
-                : '😕 לא מצאנו פעילות שמתאימה בדיוק לחיפוש שלכם.'}
+                ? t('activities.results.emptyWalking')
+                : t('activities.results.empty')}
             </Text>
             <View style={styles.emptyWidenRow}>
               {/* "הליכה" הוא explicit constraint של המשתמש (בקשת המשתמש: "אל תרחיב את החיפוש ללא
@@ -761,40 +769,48 @@ export default function ActivitiesScreen() {
                   הליכה - לא לוגיקה כפולה. */}
               {filters.location?.travelMode === 'walking' && (
                 <Pressable style={styles.emptyWidenChip} onPress={() => setField('location', locationWithDrivingTime(filters.location, 10))}>
-                  <Text style={styles.emptyWidenChipText}>🚗 חפשו עד 10 דק' נסיעה</Text>
+                  <Text style={styles.emptyWidenChipText}>{t('activities.results.widen.driving10')}</Text>
                 </Pressable>
               )}
               {filters.location?.mode && (
                 <Pressable style={styles.emptyWidenChip} onPress={() => setField('location', DEFAULT_FILTERS.location)}>
                   <Text style={styles.emptyWidenChipText}>
-                    📍 הראה בכל הארץ{widenPreviewCounts.location != null ? ` (${widenPreviewCounts.location})` : ''}
+                    {widenPreviewCounts.location != null
+                      ? t('activities.results.widen.withCount', { label: t('activities.results.widen.nationwide'), count: widenPreviewCounts.location })
+                      : t('activities.results.widen.nationwide')}
                   </Text>
                 </Pressable>
               )}
               {(filters.hour?.option || filters.hour?.custom) && (
                 <Pressable style={styles.emptyWidenChip} onPress={() => setField('hour', DEFAULT_FILTERS.hour)}>
                   <Text style={styles.emptyWidenChipText}>
-                    🕐 הרחבת שעות{widenPreviewCounts.hour != null ? ` (${widenPreviewCounts.hour})` : ''}
+                    {widenPreviewCounts.hour != null
+                      ? t('activities.results.widen.withCount', { label: t('activities.results.widen.hours'), count: widenPreviewCounts.hour })
+                      : t('activities.results.widen.hours')}
                   </Text>
                 </Pressable>
               )}
               {filters.category?.length > 0 && (
                 <Pressable style={styles.emptyWidenChip} onPress={() => setField('category', DEFAULT_FILTERS.category)}>
                   <Text style={styles.emptyWidenChipText}>
-                    🎯 הצגת כל הפעילויות{widenPreviewCounts.category != null ? ` (${widenPreviewCounts.category})` : ''}
+                    {widenPreviewCounts.category != null
+                      ? t('activities.results.widen.withCount', { label: t('activities.results.widen.allCategories'), count: widenPreviewCounts.category })
+                      : t('activities.results.widen.allCategories')}
                   </Text>
                 </Pressable>
               )}
               {filters.when?.options?.length > 0 && (
                 <Pressable style={styles.emptyWidenChip} onPress={() => setField('when', DEFAULT_FILTERS.when)}>
                   <Text style={styles.emptyWidenChipText}>
-                    📅 בדיקת כל יום{widenPreviewCounts.when != null ? ` (${widenPreviewCounts.when})` : ''}
+                    {widenPreviewCounts.when != null
+                      ? t('activities.results.widen.withCount', { label: t('activities.results.widen.anyDay'), count: widenPreviewCounts.when })
+                      : t('activities.results.widen.anyDay')}
                   </Text>
                 </Pressable>
               )}
             </View>
             <Pressable style={styles.emptyBtn} onPress={clearAll}>
-              <Text style={styles.emptyBtnText}>נקה את כל הפילטרים</Text>
+              <Text style={styles.emptyBtnText}>{t('activities.results.clearAllFilters')}</Text>
             </Pressable>
           </View>
         ) : (
@@ -808,10 +824,10 @@ export default function ActivitiesScreen() {
               // ידידותית, ואם יש מידע אמיתי על "נפתח בקרוב" (spontaneousOpensSoon, לא ניחוש) -
               // מציגים אותו; אחרת מציעים להרחיב פילטרים, בלי להמציא פעילויות.
               <View style={styles.emptyState}>
-                <Text style={styles.emptyTitle}>🪄 לא מצאנו משהו שמתאים בדיוק לעכשיו</Text>
+                <Text style={styles.emptyTitle}>{t('activities.spontaneous.emptyTitle')}</Text>
                 {spontaneousOpensSoon.length > 0 ? (
                   <>
-                    <Text style={styles.spontaneousSoonTitle}>🕐 נפתחות בקרוב</Text>
+                    <Text style={styles.spontaneousSoonTitle}>{t('activities.spontaneous.opensSoonTitle')}</Text>
                     {spontaneousOpensSoon.map((a) => (
                       <ActivityCard
                         key={a.id}
@@ -824,13 +840,13 @@ export default function ActivitiesScreen() {
                     ))}
                   </>
                 ) : (
-                  <Text style={styles.emptyWidenChipText}>נסו להרחיב את המיקום או לשנות את הפילטרים.</Text>
+                  <Text style={styles.emptyWidenChipText}>{t('activities.spontaneous.emptyHint')}</Text>
                 )}
               </View>
             ) : (
               <>
                 {spontaneousActive && (
-                  <Text style={styles.spontaneousTopTitle}>🪄 הכי מתאים עכשיו</Text>
+                  <Text style={styles.spontaneousTopTitle}>{t('activities.spontaneous.topTitle')}</Text>
                 )}
                 {(spontaneousActive ? spontaneousVisibleActivities : sortedActivities).map((a) => (
                   <ActivityCard
@@ -844,7 +860,7 @@ export default function ActivitiesScreen() {
                 ))}
                 {spontaneousActive && !showAllSpontaneous && filteredActivities.length > SPONTANEOUS_TOP_COUNT && (
                   <Pressable style={styles.showMoreBtn} onPress={() => setShowAllSpontaneous(true)}>
-                    <Text style={styles.showMoreBtnText}>הצג עוד פעילויות ({filteredActivities.length - SPONTANEOUS_TOP_COUNT})</Text>
+                    <Text style={styles.showMoreBtnText}>{t('activities.spontaneous.showMore', { count: filteredActivities.length - SPONTANEOUS_TOP_COUNT })}</Text>
                   </Pressable>
                 )}
               </>
@@ -857,14 +873,14 @@ export default function ActivitiesScreen() {
       <Modal visible={!!noteModalTarget} transparent animationType="fade" onRequestClose={() => setNoteModalTarget(null)}>
         <Pressable style={styles.gateBackdrop} onPress={() => setNoteModalTarget(null)}>
           <Pressable style={styles.gateCard} onPress={(e) => e.stopPropagation()}>
-            <Text style={styles.noteModalTitle}>הערה אישית</Text>
+            <Text style={styles.noteModalTitle}>{t('activities.note.title')}</Text>
             <Text style={styles.noteModalActivityName}>{noteModalTarget?.activity?.name}</Text>
             <TextInput
               style={styles.noteModalInput}
               value={noteModalDraft}
               onChangeText={setNoteModalDraft}
               multiline
-              placeholder="כתבו כאן הערה פרטית..."
+              placeholder={t('activities.note.placeholder')}
               placeholderTextColor={colors.textMuted}
             />
             <View style={styles.noteModalActionsRow}>
@@ -873,10 +889,10 @@ export default function ActivitiesScreen() {
                 onPress={saveNoteModal}
                 disabled={savingNote}
               >
-                <Text style={styles.noteModalSaveBtnText}>{savingNote ? 'שומר...' : 'שמירת הערה'}</Text>
+                <Text style={styles.noteModalSaveBtnText}>{savingNote ? t('common.actions.saving') : t('activities.note.save')}</Text>
               </Pressable>
               <Pressable style={styles.noteModalCancelBtn} onPress={() => setNoteModalTarget(null)}>
-                <Text style={styles.noteModalCancelBtnText}>ביטול</Text>
+                <Text style={styles.noteModalCancelBtnText}>{t('common.actions.cancel')}</Text>
               </Pressable>
             </View>
           </Pressable>
@@ -885,14 +901,14 @@ export default function ActivitiesScreen() {
 
       <QuickPicker
         visible={hideCategoriesModalOpen}
-        title="🚫 הסר פעילויות מהחיפוש"
-        subtitle="בחרו דברים שאתם מעדיפים לא לראות בתוצאות."
+        title={t('activities.hide.categoriesTitle')}
+        subtitle={t('activities.hide.categoriesSubtitle')}
         options={CATEGORY_FILTER_OPTIONS}
         value={hideDraft}
         multiple
         onChange={setHideDraft}
         onClose={handleConfirmHide}
-        doneLabel="החלת הסינון"
+        doneLabel={t('activities.hide.apply')}
         onReset={() => setHideDraft([])}
         footer={(
           <View>
@@ -900,9 +916,9 @@ export default function ActivitiesScreen() {
               <View style={[styles.toggleSmall, saveAsDefault ? styles.toggleOnSmall : styles.toggleOffSmall]}>
                 <View style={[styles.toggleDotSmall, !saveAsDefault && styles.toggleDotOffSmall]} />
               </View>
-              <Text style={styles.hideFooterText}>שמור את הבחירה כברירת מחדל</Text>
+              <Text style={styles.hideFooterText}>{t('activities.hide.saveAsDefault')}</Text>
             </Pressable>
-            <Text style={styles.hideFooterHint}>הבחירה תישמר ותשמש אתכם גם בחיפושים הבאים.</Text>
+            <Text style={styles.hideFooterHint}>{t('activities.hide.saveAsDefaultHint')}</Text>
           </View>
         )}
       />
@@ -910,9 +926,9 @@ export default function ActivitiesScreen() {
       <LoginRequiredModal
         visible={showRegisterPromptForHide}
         onClose={() => setShowRegisterPromptForHide(false)}
-        title="🔒 רוצים שתורו תזכור את ההעדפות שלכם?"
-        message="הירשמו בחינם, ותוכלו לשמור את הבחירות שלכם ולהשתמש בהן בכל פעם שתחזרו."
-        secondaryLabel="אולי אחר כך"
+        title={t('activities.hide.registerTitle')}
+        message={t('activities.hide.registerMessage')}
+        secondaryLabel={t('activities.hide.registerLater')}
         onSecondary={() => setShowRegisterPromptForHide(false)}
       />
 
@@ -921,7 +937,7 @@ export default function ActivitiesScreen() {
         value={hideAreasDraft}
         onChange={setHideAreasDraft}
         onClose={handleConfirmHideCities}
-        doneLabel="החלת הסינון"
+        doneLabel={t('activities.hide.apply')}
         onReset={() => setHideAreasDraft({ regions: [], cities: [] })}
         footer={(
           <View>
@@ -929,9 +945,9 @@ export default function ActivitiesScreen() {
               <View style={[styles.toggleSmall, saveCityAsDefault ? styles.toggleOnSmall : styles.toggleOffSmall]}>
                 <View style={[styles.toggleDotSmall, !saveCityAsDefault && styles.toggleDotOffSmall]} />
               </View>
-              <Text style={styles.hideFooterText}>שמור את הבחירה כברירת מחדל</Text>
+              <Text style={styles.hideFooterText}>{t('activities.hide.saveAsDefault')}</Text>
             </Pressable>
-            <Text style={styles.hideFooterHint}>הבחירה תישמר ותשמש אתכם גם בחיפושים הבאים.</Text>
+            <Text style={styles.hideFooterHint}>{t('activities.hide.saveAsDefaultHint')}</Text>
           </View>
         )}
       />
@@ -939,24 +955,24 @@ export default function ActivitiesScreen() {
       <LoginRequiredModal
         visible={showRegisterPromptForHideCities}
         onClose={() => setShowRegisterPromptForHideCities(false)}
-        title="🔒 רוצים שתורו תזכור את ההעדפות שלכם?"
-        message="הירשמו בחינם, ותוכלו לשמור את הבחירות שלכם ולהשתמש בהן בכל פעם שתחזרו."
-        secondaryLabel="אולי אחר כך"
+        title={t('activities.hide.registerTitle')}
+        message={t('activities.hide.registerMessage')}
+        secondaryLabel={t('activities.hide.registerLater')}
         onSecondary={() => setShowRegisterPromptForHideCities(false)}
       />
 
       <Modal visible={showGate} transparent animationType="fade" onRequestClose={() => setShowGate(false)}>
         <Pressable style={styles.gateBackdrop} onPress={() => setShowGate(false)}>
           <Pressable style={styles.gateCard} onPress={() => {}}>
-            <Text style={styles.gateTitle}>מה מחפשים היום?</Text>
-            <Text style={styles.gateSubtitle}>ספרו לנו קצת ונציג לכם פעילויות מתאימות</Text>
+            <Text style={styles.gateTitle}>{t('activities.gate.title')}</Text>
+            <Text style={styles.gateSubtitle}>{t('activities.gate.subtitle')}</Text>
 
             <Pressable style={styles.gateRow} onPress={() => setGateCategoryOpen(true)}>
               <View style={styles.gateRowRight}>
                 <Text style={styles.gateRowEmoji}>🌟</Text>
                 <View>
-                  <Text style={styles.gateRowLabel}>מה בא לנו?</Text>
-                  <Text style={styles.gateRowValue}>{filters.category?.length ? categorySummary(filters.category) : 'כל סוגי הפעילויות'}</Text>
+                  <Text style={styles.gateRowLabel}>{t('activities.gate.categoryLabel')}</Text>
+                  <Text style={styles.gateRowValue}>{filters.category?.length ? categorySummary(filters.category) : t('activities.gate.categoryAll')}</Text>
                 </View>
               </View>
               <ChevronDownIcon />
@@ -966,18 +982,18 @@ export default function ActivitiesScreen() {
               <View style={styles.gateRowRight}>
                 <Text style={styles.gateRowEmoji}>🏡</Text>
                 <View>
-                  <Text style={styles.gateRowLabel}>באיזור שלי</Text>
-                  <Text style={styles.gateRowValue}>{filters.location?.mode ? locationSummary(filters.location) : 'איפה שנוח לכם'}</Text>
+                  <Text style={styles.gateRowLabel}>{t('activities.gate.locationLabel')}</Text>
+                  <Text style={styles.gateRowValue}>{filters.location?.mode ? locationSummary(filters.location) : t('activities.gate.locationAny')}</Text>
                 </View>
               </View>
               <ChevronDownIcon />
             </Pressable>
 
             <Pressable style={styles.gateGoBtn} onPress={() => setShowGate(false)}>
-              <Text style={styles.gateGoBtnText}>הצג פעילויות</Text>
+              <Text style={styles.gateGoBtnText}>{t('activities.gate.go')}</Text>
             </Pressable>
             <Pressable onPress={() => setShowGate(false)} hitSlop={8}>
-              <Text style={styles.gateSkipText}>דלגו, הראו לי הכל</Text>
+              <Text style={styles.gateSkipText}>{t('activities.gate.skip')}</Text>
             </Pressable>
           </Pressable>
         </Pressable>
@@ -988,21 +1004,21 @@ export default function ActivitiesScreen() {
       <Modal visible={showLocationPermissionModal} transparent animationType="fade" onRequestClose={() => setShowLocationPermissionModal(false)}>
         <Pressable style={styles.gateBackdrop} onPress={() => setShowLocationPermissionModal(false)}>
           <Pressable style={styles.gateCard} onPress={() => {}}>
-            <Text style={styles.gateTitle}>📍 נדרשת גישה למיקום</Text>
-            <Text style={styles.gateSubtitle}>צריך לאשר גישה למיקום כדי להשתמש בכפתור הזה</Text>
+            <Text style={styles.gateTitle}>{t('activities.locationPermission.title')}</Text>
+            <Text style={styles.gateSubtitle}>{t('activities.locationPermission.subtitle')}</Text>
             <Pressable style={styles.gateGoBtn} onPress={confirmLocationPermission}>
-              <Text style={styles.gateGoBtnText}>אישור גישה למיקום</Text>
+              <Text style={styles.gateGoBtnText}>{t('activities.locationPermission.confirm')}</Text>
             </Pressable>
             <Pressable onPress={() => setShowLocationPermissionModal(false)} hitSlop={8}>
-              <Text style={styles.gateSkipText}>ביטול</Text>
+              <Text style={styles.gateSkipText}>{t('common.actions.cancel')}</Text>
             </Pressable>
           </Pressable>
         </Pressable>
       </Modal>
       <QuickPicker
         visible={gateCategoryOpen}
-        title="מה בא לנו?"
-        subtitle="אפשר לבחור כמה קטגוריות"
+        title={t('activities.gate.categoryLabel')}
+        subtitle={t('activities.gate.categorySubtitle')}
         options={CATEGORY_FILTER_OPTIONS}
         value={filters.category}
         multiple
@@ -1036,7 +1052,7 @@ export default function ActivitiesScreen() {
         <Pressable style={styles.filterSheetBackdrop} onPress={() => setSheetOpen(false)}>
           <Pressable style={styles.filterSheetContainer} onPress={(e) => e.stopPropagation()}>
             <View style={styles.filterSheetHandleRow}>
-              <Pressable style={styles.filterSheetCloseBtn} onPress={() => setSheetOpen(false)} hitSlop={8}>
+              <Pressable style={styles.filterSheetCloseBtn} onPress={() => setSheetOpen(false)} hitSlop={8} accessibilityRole="button" accessibilityLabel={t('common.actions.close')}>
                 <Text style={styles.filterSheetCloseBtnText}>✕</Text>
               </Pressable>
             </View>
@@ -1058,7 +1074,9 @@ export default function ActivitiesScreen() {
                 ScrollView (לא בתוכו) כדי שיישאר גלוי גם כשגוללים בין סקשני הפילטרים. */}
             <Pressable style={styles.filterSheetSearchBtn} onPress={() => setSheetOpen(false)}>
               <Text style={styles.filterSheetSearchBtnText}>
-                🔍 חפש{filteredActivities.length > 0 ? ` (${filteredActivities.length})` : ''}
+                {filteredActivities.length > 0
+                  ? t('activities.sheet.searchWithCount', { count: filteredActivities.length })
+                  : t('activities.sheet.search')}
               </Text>
             </Pressable>
           </Pressable>
@@ -1072,11 +1090,11 @@ export default function ActivitiesScreen() {
         <Pressable style={styles.filterSheetBackdrop} onPress={() => setDisplaySheetOpen(false)}>
           <Pressable style={styles.displaySheetContainer} onPress={(e) => e.stopPropagation()}>
             <View style={styles.filterSheetHandleRow}>
-              <Pressable style={styles.filterSheetCloseBtn} onPress={() => setDisplaySheetOpen(false)} hitSlop={8}>
+              <Pressable style={styles.filterSheetCloseBtn} onPress={() => setDisplaySheetOpen(false)} hitSlop={8} accessibilityRole="button" accessibilityLabel={t('common.actions.close')}>
                 <Text style={styles.filterSheetCloseBtnText}>✕</Text>
               </Pressable>
             </View>
-            <Text style={styles.displaySheetSectionTitle}>תצוגה</Text>
+            <Text style={styles.displaySheetSectionTitle}>{t('activities.display.viewTitle')}</Text>
             <View style={styles.displaySheetRow}>
               <Pressable
                 style={[styles.displaySheetOption, viewMode === 'list' && styles.displaySheetOptionSelected]}
@@ -1084,7 +1102,7 @@ export default function ActivitiesScreen() {
                 accessibilityRole="radio"
                 accessibilityState={{ checked: viewMode === 'list' }}
               >
-                <Text style={[styles.displaySheetOptionText, viewMode === 'list' && styles.displaySheetOptionTextSelected]}>רשימה</Text>
+                <Text style={[styles.displaySheetOptionText, viewMode === 'list' && styles.displaySheetOptionTextSelected]}>{t('activities.display.list')}</Text>
               </Pressable>
               <Pressable
                 style={[styles.displaySheetOption, viewMode === 'map' && styles.displaySheetOptionSelected]}
@@ -1092,10 +1110,10 @@ export default function ActivitiesScreen() {
                 accessibilityRole="radio"
                 accessibilityState={{ checked: viewMode === 'map' }}
               >
-                <Text style={[styles.displaySheetOptionText, viewMode === 'map' && styles.displaySheetOptionTextSelected]}>מפה</Text>
+                <Text style={[styles.displaySheetOptionText, viewMode === 'map' && styles.displaySheetOptionTextSelected]}>{t('activities.display.map')}</Text>
               </Pressable>
             </View>
-            <Text style={styles.displaySheetSectionTitle}>מיון</Text>
+            <Text style={styles.displaySheetSectionTitle}>{t('activities.display.sortTitle')}</Text>
             <View style={styles.displaySheetRow}>
               <Pressable
                 style={[styles.displaySheetOption, sortMode === 'recommended' && styles.displaySheetOptionSelected]}
@@ -1103,7 +1121,7 @@ export default function ActivitiesScreen() {
                 accessibilityRole="radio"
                 accessibilityState={{ checked: sortMode === 'recommended' }}
               >
-                <Text style={[styles.displaySheetOptionText, sortMode === 'recommended' && styles.displaySheetOptionTextSelected]}>מומלץ</Text>
+                <Text style={[styles.displaySheetOptionText, sortMode === 'recommended' && styles.displaySheetOptionTextSelected]}>{t('activities.display.recommended')}</Text>
               </Pressable>
               <Pressable
                 style={[styles.displaySheetOption, sortMode === 'distance' && styles.displaySheetOptionSelected]}
@@ -1111,7 +1129,7 @@ export default function ActivitiesScreen() {
                 accessibilityRole="radio"
                 accessibilityState={{ checked: sortMode === 'distance' }}
               >
-                <Text style={[styles.displaySheetOptionText, sortMode === 'distance' && styles.displaySheetOptionTextSelected]}>לפי מרחק</Text>
+                <Text style={[styles.displaySheetOptionText, sortMode === 'distance' && styles.displaySheetOptionTextSelected]}>{t('activities.display.byDistance')}</Text>
               </Pressable>
             </View>
           </Pressable>
@@ -1121,26 +1139,26 @@ export default function ActivitiesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createStyles((d) => ({
   screen: { flex: 1, backgroundColor: colors.bg },
   content: { padding: spacing.xl, paddingBottom: 40 },
   titleBlock: { marginTop: 24, marginBottom: 12 },
-  pageTitle: { fontFamily: fonts.extraBold, fontSize: 19, color: colors.textPrimary, textAlign: 'right' },
+  pageTitle: { fontFamily: fonts.extraBold, fontSize: 19, color: colors.textPrimary, textAlign: d.textAlign, flexShrink: 0 },
   // כותרת+ספירה בשורה אחת (בקשת המשתמש 2026-09-16 השנייה: "stop using a sentence" עבור מספר
   // התוצאות) - "122" צמוד ל"כל הפעילויות", לא עוד "122 פעילויות נמצאו" בשורה נפרדת. גם
   // isDiscoveryMode (הזמנה-לגלות, לא מספר) יושב באותו slot בדיוק.
-  titleRow: { flexDirection: 'row-reverse', alignItems: 'baseline', gap: 8 },
+  titleRow: { flexDirection: d.row, alignItems: 'baseline', gap: 8 },
   titleCount: { fontFamily: fonts.medium, fontSize: 14, color: colors.textSecondary, flexShrink: 1 },
 
   freeSearchBox: {
     backgroundColor: colors.card, borderWidth: 1, borderColor: colors.borderLight,
     borderRadius: radii.lg, padding: 12, marginBottom: 14,
   },
-  freeSearchInputRow: { flexDirection: 'row-reverse', gap: 8 },
+  freeSearchInputRow: { flexDirection: d.row, gap: 8 },
   freeSearchInput: {
     flex: 1, backgroundColor: colors.bg, borderWidth: 1, borderColor: colors.border,
     borderRadius: radii.pill, paddingVertical: 10, paddingHorizontal: 14,
-    fontFamily: fonts.regular, fontSize: 13.5, color: colors.textPrimary, textAlign: 'right', writingDirection: 'rtl',
+    fontFamily: fonts.regular, fontSize: 13.5, color: colors.textPrimary, textAlign: d.textAlign, writingDirection: d.writingDirection,
   },
   freeSearchBtn: {
     backgroundColor: colors.accent, borderRadius: radii.pill, paddingHorizontal: 18,
@@ -1148,16 +1166,16 @@ const styles = StyleSheet.create({
   },
   freeSearchBtnDisabled: { opacity: 0.5 },
   freeSearchBtnText: { fontFamily: fonts.bold, fontSize: 13, color: '#ffffff' },
-  freeSearchClarifyText: { fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary, textAlign: 'right', marginBottom: 8 },
+  freeSearchClarifyText: { fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary, textAlign: d.textAlign, marginBottom: 8 },
   freeSearchErrorText: { fontFamily: fonts.semiBold, fontSize: 11.5, color: colors.danger, textAlign: 'center', marginTop: 8 },
 
   // TOOLBAR - שלושה controls בלבד (סינון/תצוגה+מיון/חיפוש), בלי שורת-chips נפרדת מתחת יותר
   // (בקשת המשתמש 2026-09-16 השנייה: "the first real Activity card should appear as early as
   // possible"). Filter מקבל flex:1 (התקציר שלו הכי ארוך, ראו activitiesFilterSummary) - Search/
   // תצוגה-ומיון בגודל-תוכן בלבד (toolbarChipCompact, לא flex:1 שווה כמו קודם).
-  toolbarRow: { flexDirection: 'row-reverse', gap: 8, marginBottom: 10, zIndex: 15 },
+  toolbarRow: { flexDirection: d.row, gap: 8, marginBottom: 10, zIndex: 15 },
   toolbarChip: {
-    flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'center', gap: 5,
+    flexDirection: d.row, alignItems: 'center', justifyContent: 'center', gap: 5,
     borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card,
     borderRadius: radii.pill, paddingVertical: 9, paddingHorizontal: 12, minHeight: 38,
   },
@@ -1171,10 +1189,10 @@ const styles = StyleSheet.create({
 
   // "⚡ עכשיו פעיל · כבה" - קישור שקט/מותנה-לגמרי (כמו radiusExpandedBanner מתחת), הדרך
   // היחידה שנשארה לכבות עכשיו בלי לחזור לעמוד הבית אחרי שהצ'יפ הישן הוסר.
-  spontaneousOffLink: { alignSelf: 'flex-end', marginBottom: 10 },
+  spontaneousOffLink: { alignSelf: d.alignStart, marginBottom: 10 },
   spontaneousOffLinkText: { fontFamily: fonts.semiBold, fontSize: 12.5, color: colors.accent },
 
-  spontaneousTopTitle: { fontFamily: fonts.extraBold, fontSize: 15, color: colors.textPrimary, textAlign: 'right', marginBottom: 10 },
+  spontaneousTopTitle: { fontFamily: fonts.extraBold, fontSize: 15, color: colors.textPrimary, textAlign: d.textAlign, marginBottom: 10 },
   spontaneousSoonTitle: { fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary, textAlign: 'center', marginTop: 4, marginBottom: 14 },
   showMoreBtn: { alignItems: 'center', paddingVertical: 12, marginTop: 4 },
   showMoreBtnText: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.accent },
@@ -1183,7 +1201,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bg, borderTopLeftRadius: radii.xl, borderTopRightRadius: radii.xl,
     maxHeight: '85%', paddingHorizontal: spacing.xl, paddingTop: 10, paddingBottom: 30,
   },
-  filterSheetHandleRow: { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 4 },
+  filterSheetHandleRow: { flexDirection: 'row', justifyContent: d.alignStart, marginBottom: 4 },
   filterSheetCloseBtn: {
     width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center',
     backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border,
@@ -1195,12 +1213,12 @@ const styles = StyleSheet.create({
   },
   filterSheetSearchBtnText: { fontFamily: fonts.bold, fontSize: 15, color: '#fff' },
 
-  hideFooterRow: { flexDirection: 'row-reverse', alignItems: 'center', gap: 8, marginTop: 16 },
+  hideFooterRow: { flexDirection: d.row, alignItems: 'center', gap: 8, marginTop: 16 },
   hideFooterText: { fontFamily: fonts.semiBold, fontSize: 13, color: colors.textPrimary },
-  hideFooterHint: { fontFamily: fonts.regular, fontSize: 11.5, color: colors.textMuted, textAlign: 'right', marginTop: 4 },
+  hideFooterHint: { fontFamily: fonts.regular, fontSize: 11.5, color: colors.textMuted, textAlign: d.textAlign, marginTop: 4 },
   toggleSmall: { width: 38, height: 22, borderRadius: 11, justifyContent: 'center' },
-  toggleOnSmall: { backgroundColor: colors.accent, alignItems: 'flex-start' },
-  toggleOffSmall: { backgroundColor: colors.border, alignItems: 'flex-end' },
+  toggleOnSmall: { backgroundColor: colors.accent, alignItems: d.alignEnd },
+  toggleOffSmall: { backgroundColor: colors.border, alignItems: d.alignStart },
   toggleDotSmall: { width: 18, height: 18, borderRadius: 9, backgroundColor: '#fff', marginHorizontal: 2 },
   toggleDotOffSmall: {},
 
@@ -1210,8 +1228,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bg, borderTopLeftRadius: radii.xl, borderTopRightRadius: radii.xl,
     paddingHorizontal: spacing.xl, paddingTop: 10, paddingBottom: 30,
   },
-  displaySheetSectionTitle: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.textPrimary, textAlign: 'right', marginBottom: 8, marginTop: 12 },
-  displaySheetRow: { flexDirection: 'row-reverse', gap: 8 },
+  displaySheetSectionTitle: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.textPrimary, textAlign: d.textAlign, marginBottom: 8, marginTop: 12 },
+  displaySheetRow: { flexDirection: d.row, gap: 8 },
   // מדמה (בערכי-צבע, לא ייבוא) את ה-Chip הלא-מיוצא מ-components/FiltersSheet.js - זהות חזותית
   // בלי תלות חוצת-קובץ.
   displaySheetOption: {
@@ -1229,7 +1247,7 @@ const styles = StyleSheet.create({
 
   emptyState: { alignItems: 'center', paddingVertical: 30, paddingHorizontal: 10 },
   emptyTitle: { fontFamily: fonts.semiBold, fontSize: 14, color: colors.textSecondary, textAlign: 'center', marginBottom: 14 },
-  emptyWidenRow: { flexDirection: 'row-reverse', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginBottom: 14 },
+  emptyWidenRow: { flexDirection: d.row, flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginBottom: 14 },
   emptyWidenChip: { borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, borderRadius: radii.pill, paddingVertical: 8, paddingHorizontal: 14 },
   emptyWidenChipText: { fontFamily: fonts.semiBold, fontSize: 12.5, color: colors.textSecondary },
   emptyBtn: { borderWidth: 1.5, borderColor: colors.accent, borderRadius: radii.pill, paddingVertical: 11, paddingHorizontal: 18 },
@@ -1243,9 +1261,9 @@ const styles = StyleSheet.create({
   noteModalInput: {
     borderWidth: 1, borderColor: colors.border, borderRadius: radii.md, padding: 12, marginBottom: 14,
     fontFamily: fonts.regular, fontSize: 14, color: colors.textPrimary, backgroundColor: colors.bg,
-    textAlign: 'right', writingDirection: 'rtl', minHeight: 90, textAlignVertical: 'top',
+    textAlign: d.textAlign, writingDirection: d.writingDirection, minHeight: 90, textAlignVertical: 'top',
   },
-  noteModalActionsRow: { flexDirection: 'row-reverse', gap: 10 },
+  noteModalActionsRow: { flexDirection: d.row, gap: 10 },
   noteModalCancelBtn: { flex: 1, alignItems: 'center', paddingVertical: 13, borderRadius: radii.pill, borderWidth: 1, borderColor: colors.border },
   noteModalCancelBtnText: { fontFamily: fonts.bold, fontSize: 14, color: colors.textSecondary },
   noteModalSaveBtn: { flex: 1, alignItems: 'center', paddingVertical: 13, borderRadius: radii.pill, backgroundColor: colors.accent },
@@ -1254,17 +1272,17 @@ const styles = StyleSheet.create({
   gateTitle: { fontFamily: fonts.extraBold, fontSize: 18, color: colors.textPrimary, textAlign: 'center' },
   gateSubtitle: { fontFamily: fonts.regular, fontSize: 12.5, color: colors.textSecondary, textAlign: 'center', marginTop: 4, marginBottom: 18 },
   gateRow: {
-    flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between',
+    flexDirection: d.row, alignItems: 'center', justifyContent: 'space-between',
     borderWidth: 1, borderColor: colors.border, borderRadius: radii.lg, padding: 14, marginBottom: 10,
   },
-  gateRowRight: { flexDirection: 'row-reverse', alignItems: 'center', gap: 10, flexShrink: 1 },
+  gateRowRight: { flexDirection: d.row, alignItems: 'center', gap: 10, flexShrink: 1 },
   gateRowEmoji: { fontSize: 22 },
-  gateRowLabel: { fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary, textAlign: 'right' },
-  gateRowValue: { fontFamily: fonts.medium, fontSize: 12, color: colors.textSecondary, textAlign: 'right', marginTop: 1 },
+  gateRowLabel: { fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary, textAlign: d.textAlign },
+  gateRowValue: { fontFamily: fonts.medium, fontSize: 12, color: colors.textSecondary, textAlign: d.textAlign, marginTop: 1 },
   gateGoBtn: {
     backgroundColor: colors.accent, borderRadius: radii.pill, paddingVertical: 14,
     alignItems: 'center', marginTop: 8, marginBottom: 12,
   },
   gateGoBtnText: { fontFamily: fonts.bold, fontSize: 15, color: '#fff' },
   gateSkipText: { fontFamily: fonts.semiBold, fontSize: 12.5, color: colors.textMuted, textAlign: 'center', textDecorationLine: 'underline' },
-});
+}));

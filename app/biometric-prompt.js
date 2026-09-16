@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Pressable, ActivityIndicator, Platform } from 'react-native';
+import { View, Text, Pressable, ActivityIndicator, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as LocalAuthentication from 'expo-local-authentication';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -7,12 +7,14 @@ import Header from '../components/Header';
 import SkyBackground from '../components/SkyBackground';
 import { FingerprintIcon, PinIcon } from '../components/icons';
 import { colors, fonts, radii, spacing } from '../constants/theme';
+import { useI18n, createStyles } from '../lib/i18n';
 
 const ASKED_KEY = 'turu_asked_quick_login';
 const BIOMETRIC_ENABLED_KEY = 'turu_biometric_enabled';
 
 export default function BiometricPromptScreen() {
   const router = useRouter();
+  const { t } = useI18n();
   const [checkingHardware, setCheckingHardware] = useState(true);
   const [biometricAvailable, setBiometricAvailable] = useState(false);
   const [authenticating, setAuthenticating] = useState(false);
@@ -36,11 +38,11 @@ export default function BiometricPromptScreen() {
     setError('');
     setAuthenticating(true);
     const result = await LocalAuthentication.authenticateAsync({
-      promptMessage: 'אמתו את הזהות שלכם כדי להפעיל כניסה מהירה',
+      promptMessage: t('auth.biometric.promptMessage'),
     });
     setAuthenticating(false);
     if (!result.success) {
-      setError('לא הצלחנו לאמת - אפשר לנסות שוב, או לבחור קוד PIN במקום');
+      setError(t('auth.biometric.failed'));
       return;
     }
     await AsyncStorage.setItem(BIOMETRIC_ENABLED_KEY, 'true');
@@ -60,10 +62,8 @@ export default function BiometricPromptScreen() {
           <View style={styles.iconWrap}>
             <FingerprintIcon size={46} />
           </View>
-          <Text style={styles.headline}>כניסה מהירה בפעם הבאה?</Text>
-          <Text style={styles.bodyText}>
-            נזהה אתכם עם טביעת אצבע או זיהוי פנים, כדי שלא תצטרכו לחכות לסמס בכל פעם. תמיד אפשר לכבות את זה בהגדרות.
-          </Text>
+          <Text style={styles.headline}>{t('auth.biometric.headline')}</Text>
+          <Text style={styles.bodyText}>{t('auth.biometric.body')}</Text>
 
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
@@ -77,7 +77,7 @@ export default function BiometricPromptScreen() {
                     <ActivityIndicator color="#fff" />
                   ) : (
                     <>
-                      <Text style={styles.primaryBtnText}>כן, בואו נעשה את זה!</Text>
+                      <Text style={styles.primaryBtnText}>{t('auth.biometric.enable')}</Text>
                       <Text style={styles.primaryBtnEmoji}>🦘</Text>
                     </>
                   )}
@@ -87,16 +87,16 @@ export default function BiometricPromptScreen() {
                 <Text style={styles.noHardwareText}>
                   {/* expo-local-authentication לא נתמך בדפדפן - hasHardwareAsync תמיד false שם, גם בטלפון עם טביעת אצבע */}
                   {Platform.OS === 'web'
-                    ? 'טביעת אצבע וזיהוי פנים זמינים באפליקציה המותקנת. בדפדפן אפשר להגדיר קוד PIN'
-                    : 'המכשיר הזה לא תומך בזיהוי ביומטרי, אבל אפשר להגדיר קוד PIN'}
+                    ? t('auth.biometric.noHardwareWeb')
+                    : t('auth.biometric.noHardware')}
                 </Text>
               )}
               <Pressable style={styles.pinBtn} onPress={handleUsePinInstead}>
                 <PinIcon size={17} />
-                <Text style={styles.pinBtnText}>הגדירו קוד PIN במקום</Text>
+                <Text style={styles.pinBtnText}>{t('auth.biometric.usePin')}</Text>
               </Pressable>
               <Pressable onPress={handleSkip}>
-                <Text style={styles.linkBtn}>אולי בפעם אחרת</Text>
+                <Text style={styles.linkBtn}>{t('auth.biometric.skip')}</Text>
               </Pressable>
             </>
           )}
@@ -106,7 +106,7 @@ export default function BiometricPromptScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createStyles((d) => ({
   screen: { flex: 1, backgroundColor: colors.bg },
   content: { flex: 1, padding: spacing.xl },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14 },
@@ -126,7 +126,7 @@ const styles = StyleSheet.create({
 
   primaryBtn: {
     width: '100%', backgroundColor: colors.accent, borderRadius: radii.pill, paddingVertical: 15, marginBottom: 14,
-    flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'center', gap: 8,
+    flexDirection: d.row, alignItems: 'center', justifyContent: 'center', gap: 8,
   },
   primaryBtnText: { fontFamily: fonts.bold, fontSize: 16, color: '#fff' },
   primaryBtnEmoji: { fontSize: 16 },
@@ -134,9 +134,9 @@ const styles = StyleSheet.create({
   pinBtn: {
     width: '100%', borderWidth: 1.5, borderColor: colors.accent, backgroundColor: colors.card,
     borderRadius: radii.pill, paddingVertical: 13, marginBottom: 16,
-    flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'center', gap: 8,
+    flexDirection: d.row, alignItems: 'center', justifyContent: 'center', gap: 8,
   },
   pinBtnText: { fontFamily: fonts.bold, fontSize: 14.5, color: colors.accent },
 
   linkBtn: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.textSecondary },
-});
+}));

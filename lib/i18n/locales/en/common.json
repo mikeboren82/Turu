@@ -1,0 +1,44 @@
+{
+  "listSeparator": ", ",
+  "listAnd": "{{head}} and {{last}}",
+  "language": {
+    "label": "Language",
+    "switchTo": "Switch language to {{language}}",
+    "current": "Current language: {{language}}"
+  },
+  "actions": {
+    "save": "Save",
+    "saving": "Saving...",
+    "cancel": "Cancel",
+    "close": "Close",
+    "back": "Back",
+    "retry": "Try again",
+    "continue": "Continue",
+    "delete": "Delete",
+    "edit": "Edit",
+    "done": "Done",
+    "reset": "Reset",
+    "send": "Send",
+    "sending": "Sending...",
+    "search": "Search",
+    "clear": "Clear",
+    "clearAll": "Clear all",
+    "all": "All",
+    "showMore": "Show more",
+    "showLess": "Show less",
+    "ok": "OK",
+    "yes": "Yes",
+    "no": "No"
+  },
+  "states": {
+    "loading": "Loading...",
+    "errorGeneric": "Something went wrong. Please try again.",
+    "networkError": "You're offline or the server isn't reachable right now. Check your connection and try again.",
+    "notSpecified": "Not specified",
+    "none": "None"
+  },
+  "loginRequired": {
+    "defaultMessage": "You need to sign in to do this",
+    "action": "Sign in / Sign up"
+  }
+}

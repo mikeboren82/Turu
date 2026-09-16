@@ -1,0 +1,85 @@
+{
+  "search": {
+    "title": "Where are we off to today?",
+    "subtitle": "Search for anything, or pick what suits you",
+    "placeholder": "Haifa playground tomorrow",
+    "cta": "Find activities",
+    "or": "or",
+    "errorParse": "We couldn't understand that search. Try wording it differently.",
+    "errorParseShort": "We couldn't understand that search",
+    "errorLocation": "We couldn't find that location. Try wording it differently.",
+    "clarifyCity": "📍 Which city?",
+    "clarifyArea": "📍 Where should we look?",
+    "clarifyCityPlaceholder": "Enter a city..."
+  },
+  "recent": {
+    "title": "🕐 Recent searches",
+    "clearAllA11y": "Clear all recent searches",
+    "searchAgainA11y": "Search again: {{query}}",
+    "removeA11y": "Remove recent search: {{query}}"
+  },
+  "guided": {
+    "whereLabel": "Where works for you?",
+    "whatLabel": "What to do?",
+    "whatEmpty": "What to do?",
+    "whereA11yEmpty": "Choose a location",
+    "whereHint": "Opens location and travel distance",
+    "whatHint": "Opens activity types",
+    "a11yLabel": "{{label}} {{value}}"
+  },
+  "personal": {
+    "title": "Who's it for today?",
+    "childFallback": "Your child",
+    "childWithAge": "{{name}} · {{age}}",
+    "hint": "Your kids' ages and preferences are added to the search automatically"
+  },
+  "extraFilter": {
+    "empty": "+ {{title}}",
+    "withValue": "+ {{title}}: {{summary}}"
+  },
+  "defaults": {
+    "save": "⭐ Save as my default",
+    "update": "⭐ Update my default",
+    "saved": "Saved! These filters will be filled in every time you visit ✓",
+    "saveError": "Couldn't save. Please try again.",
+    "spontaneous": "⚡ What's open near me now?"
+  },
+  "recs": {
+    "titleInCity": "Ideas for today in {{place}}",
+    "titleNearPlace": "Ideas for today near {{place}}",
+    "titleDefault": "Activities near you today",
+    "subtitleNoLocation": "Great things to do today, right in your area",
+    "subtitlePersonalized": "Great things to do nearby, matched to your kids' ages",
+    "subtitleDefault": "Great things to do in your area today",
+    "loadError": "We couldn't load recommendations right now",
+    "emptyTitle": "We hopped all over the area and found nothing that fits exactly 🦘",
+    "widenDistance": "Widen the travel distance",
+    "clearFilters": "Clear filters"
+  },
+  "locked": {
+    "title": "Want ideas near you?",
+    "subtitle": "Tell us where to look",
+    "useMyLocation": "Use my location",
+    "chooseCity": "Choose a city or area",
+    "previewA11y": "Choose a location to see activities near you"
+  },
+  "discovery": {
+    "title": "What else might you enjoy?",
+    "subtitle": "Jump straight to activities you might love",
+    "allCategories": "All categories →",
+    "tiles": {
+      "nature": "Nature & hikes",
+      "museums": "Kids' museums",
+      "playgrounds": "Parks & playgrounds",
+      "animals": "Farms & animals",
+      "water": "Water fun",
+      "crafts": "Arts & workshops"
+    }
+  },
+  "pickers": {
+    "categoryTitle": "What to do?",
+    "categorySubtitle": "You can pick more than one",
+    "allTitle": "All categories",
+    "allSubtitle": "Pick a category and jump straight to results"
+  }
+}

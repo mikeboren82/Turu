@@ -1,11 +1,13 @@
 import { useState } from 'react';
-import { Modal, View, Text, Pressable, StyleSheet, Platform, LayoutAnimation, UIManager } from 'react-native';
+import { Modal, View, Text, Pressable, Platform, LayoutAnimation, UIManager } from 'react-native';
 import * as Location from 'expo-location';
 import { LocationPinIcon, ChevronDownIcon } from './icons';
 import CityAutocomplete from './CityAutocomplete';
 import { locationWithDrivingTime, locationWithAnyDistance } from '../lib/filterActivities';
 import { WALKING_RADIUS_KM, REGION_OPTIONS } from '../constants/filterSchema';
 import { colors, fonts, radii, spacing } from '../constants/theme';
+import { locationSummaryText, regionLabel } from '../lib/i18n/format';
+import { useI18n, createStyles } from '../lib/i18n';
 
 // אותה תשתית אנימציה בדיוק כמו components/FiltersSheet.js (LayoutAnimation מובנה ב-RN, לא
 // ספרייה חדשה) - קריאה כפולה ל-setLayoutAnimationEnabledExperimental (כאן ובקובץ ההוא) לא
@@ -27,34 +29,9 @@ const DRIVING_TIME_OPTIONS = [15, 30, 45];
 // בלי לשבור כלום, במקום להישאר "תקוע" על ערך שאין לו יותר צ'יפ תואם.
 const normalizeDrivingMinutes = (minutes) => (DRIVING_TIME_OPTIONS.includes(minutes) ? minutes : 15);
 
+// Full location summary in the active locale (see lib/i18n/format.js).
 export function locationSummary(location) {
-  if (!location) return 'באזור שלי';
-  // 'nationwide' - בלי הגבלה גאוגרפית (ראו matchesLocation ב-lib/filterActivities.js). שם-עצם
-  // ("כל הארץ", לא "בכל הארץ") כי הקוראים מוסיפים בעצמם מילת-יחס/אייקון: כותרת התוצאות
-  // "פעילויות ב{summary}", צ'יפ "📍 {summary}" (app/activities.js).
-  if (location.mode === 'nationwide') return 'כל הארץ';
-  if (location.travelMode === 'walking') {
-    if (location.mode === 'current') return 'במרחק הליכה ממני';
-    if (location.mode === 'address') return `במרחק הליכה מ${location.addressLabel || location.city || ''}`.trim();
-  }
-  if (location.travelMode === 'any') return 'בכל האזור';
-  // travelMinutes נבדק רק כש-travelMode==='driving' בפועל - הוא עשוי להישאר "זכור" ברקע גם
-  // כש-travelMode הוא 'walking'/'any' (כדי לשחזר את הבחירה האחרונה אם חוזרים ל-driving), אז
-  // typeof-check לבד לא מספיק - בלי תנאי ה-travelMode כאן, summary היה מציג "עד X דק'" גם
-  // כשבפועל לא זו הבחירה הפעילה.
-  if (location.travelMode === 'driving' && typeof location.travelMinutes === 'number') {
-    if (location.mode === 'current') return `עד ${location.travelMinutes} דק' ממני`;
-    if (location.mode === 'city' && location.city) return `עד ${location.travelMinutes} דק' מ${location.city}`;
-    if (location.mode === 'address') return `עד ${location.travelMinutes} דק' מ${location.addressLabel || location.city || ''}`.trim();
-    if (location.mode === 'region' && location.region?.length) return `עד ${location.travelMinutes} דק' מ${location.region.join(', ')}`;
-  }
-  if (location.mode === 'current') return 'המיקום שלי';
-  if (location.mode === 'city' && location.city) return location.city;
-  // 'address' - כתובת מגואוקדדת מ"חיפוש חכם" (lib/smartSearch.js) - addressLabel כבר מוכן
-  // לתצוגה ("הרצל, תל אביב"), עדיין נופל בחזרה לעיר/"באזור שלי" אם חסר משהו.
-  if (location.mode === 'address') return location.addressLabel || location.city || 'באזור שלי';
-  if (location.mode === 'region' && location.region?.length) return location.region.join(', ');
-  return 'באזור שלי';
+  return locationSummaryText(location);
 }
 
 // "נבחר מיקום תקין" - אותו סף בדיוק שהיה קיים תמיד באפליקציה (mode+city לא ריקים), לא validation
@@ -104,6 +81,7 @@ function TravelModeOption({ icon, title, subtitle, selected, disabled, hint, onP
 }
 
 export default function LocationQuickPicker({ visible, value, onChange, onCoordsResolved, onClose, deviceCoords }) {
+  const { t } = useI18n();
   const [busy, setBusy] = useState(false);
   const [regionOpen, setRegionOpen] = useState(false);
 
@@ -183,7 +161,7 @@ export default function LocationQuickPicker({ visible, value, onChange, onCoords
   const travelMode = value.travelMode;
   // כל האזורים שנבחרו (בדרך כלל אחד; מצב שמור מרובה-אזורים מוצג במלואו, ראו selectRegion)
   const selectedRegionLabel = value.mode === 'region' && (value.region || []).length
-    ? value.region.map((id) => REGION_OPTIONS.find((r) => r.id === id)?.label || id).join(', ')
+    ? value.region.map((id) => REGION_OPTIONS.find((r) => r.id === id)?.label || regionLabel(id)).join(', ')
     : null;
   const nationwideSelected = value.mode === 'nationwide';
 
@@ -228,8 +206,8 @@ export default function LocationQuickPicker({ visible, value, onChange, onCoords
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={styles.backdrop} onPress={onClose}>
         <Pressable style={styles.card} onPress={(e) => e.stopPropagation()}>
-          <Text style={styles.title}>איפה נוח לכם? 📍</Text>
-          <Text style={styles.subtitle}>נמצא פעילויות באזור שמתאים לכם</Text>
+          <Text style={styles.title}>{t('location.picker.title')}</Text>
+          <Text style={styles.subtitle}>{t('location.picker.subtitle')}</Text>
 
           {/* "השתמשו במיקום שלי" - בולט מעט יותר משאר הכפתורים בחלון הזה כברירת מחדל (2026-09-16,
               בקשת המשתמש: "צריך להישאר כמו שהוא רק להיות קצת יותר בולט") - modeBtnPrimary מוסיף
@@ -240,24 +218,24 @@ export default function LocationQuickPicker({ visible, value, onChange, onCoords
           <Pressable style={[styles.modeBtn, styles.modeBtnPrimary, locationConfirmed && styles.modeBtnActive]} onPress={useCurrentLocation} disabled={busy}>
             <LocationPinIcon size={14} color={colors.accent} />
             <Text style={[styles.modeBtnText, styles.modeBtnTextPrimary, locationConfirmed && styles.modeBtnTextActive]}>
-              {busy ? 'מאתר...' : locationConfirmed ? 'המיקום שלכם נבחר ✓' : 'השתמשו במיקום שלי'}
+              {busy ? t('location.picker.locating') : locationConfirmed ? t('location.picker.locationSelected') : t('location.picker.useMyLocation')}
             </Text>
           </Pressable>
 
-          <Text style={styles.orText}>או</Text>
+          <Text style={styles.orText}>{t('location.picker.or')}</Text>
 
-          <Text style={styles.cityLabel}>חפשו יישוב:</Text>
+          <Text style={styles.cityLabel}>{t('location.picker.cityLabel')}</Text>
           <CityAutocomplete
             inputStyle={styles.input}
-            placeholder="הקלידו עיר או יישוב..."
+            placeholder={t('location.picker.cityPlaceholder')}
             value={value.mode === 'city' ? value.city : ''}
-            onChangeText={(t) => commitLocation({ ...value, mode: t ? 'city' : null, city: t, region: t ? [] : value.region })}
+            onChangeText={(text) => commitLocation({ ...value, mode: text ? 'city' : null, city: text, region: text ? [] : value.region })}
             onSubmitEditing={onClose}
           />
 
           <Pressable style={styles.regionLink} onPress={() => { animate(); setRegionOpen((o) => !o); }}>
             <Text style={[styles.regionLinkText, selectedRegionLabel && styles.regionLinkTextActive]}>
-              {selectedRegionLabel ? `אזור: ${selectedRegionLabel}` : 'או חפשו לפי אזור'}
+              {selectedRegionLabel ? t('location.picker.regionSelected', { regions: selectedRegionLabel }) : t('location.picker.searchByRegion')}
             </Text>
             <View style={{ transform: [{ rotate: regionOpen ? '180deg' : '0deg' }] }}>
               <ChevronDownIcon size={11} color={selectedRegionLabel ? colors.accent : colors.textMuted} />
@@ -284,10 +262,10 @@ export default function LocationQuickPicker({ visible, value, onChange, onCoords
               onPress={selectNationwide}
               accessibilityRole="button"
               accessibilityState={{ selected: nationwideSelected }}
-              accessibilityLabel="בכל הארץ - כל הפעילויות בלי סינון לפי מיקום"
+              accessibilityLabel={t('location.picker.nationwideA11y')}
             >
               <Text style={[styles.modeBtnText, nationwideSelected && styles.modeBtnTextActive]}>
-                {nationwideSelected ? 'בכל הארץ ✓' : 'בכל הארץ'}
+                {nationwideSelected ? t('location.picker.nationwideSelected') : t('location.picker.nationwide')}
               </Text>
             </Pressable>
           </View>
@@ -295,22 +273,22 @@ export default function LocationQuickPicker({ visible, value, onChange, onCoords
           {/* סעיף המרחק לא רלוונטי ל'nationwide' - אין נקודת-מוצא למדוד ממנה. */}
           {locationValid && !nationwideSelected ? (
             <View style={styles.travelSection}>
-              <Text style={styles.travelTitle}>כמה רחוק מתאים לכם?</Text>
+              <Text style={styles.travelTitle}>{t('location.picker.travelTitle')}</Text>
 
               <TravelModeOption
                 icon="🚶"
-                title="במרחק הליכה"
-                subtitle="עד 10 דקות הליכה"
+                title={t('location.picker.walkingTitle')}
+                subtitle={t('location.picker.walkingSubtitle')}
                 selected={travelMode === 'walking'}
                 disabled={!precise}
-                hint={!precise ? 'זמין כשמשתמשים במיקום מדויק' : null}
+                hint={!precise ? t('location.picker.walkingHint') : null}
                 onPress={selectWalking}
               />
 
               <TravelModeOption
                 icon="🚗"
-                title="בנסיעה"
-                subtitle={travelMode === 'driving' && typeof value.travelMinutes === 'number' ? `עד ${value.travelMinutes} דקות נסיעה` : null}
+                title={t('location.picker.drivingTitle')}
+                subtitle={travelMode === 'driving' && typeof value.travelMinutes === 'number' ? t('location.picker.drivingSubtitle', { minutes: value.travelMinutes }) : null}
                 selected={travelMode === 'driving'}
                 onPress={selectDriving}
               >
@@ -320,7 +298,7 @@ export default function LocationQuickPicker({ visible, value, onChange, onCoords
                       const selected = value.travelMinutes === minutes;
                       return (
                         <Pressable key={minutes} onPress={() => selectDrivingMinutes(minutes)} style={[styles.chip, selected && styles.chipSelected]}>
-                          <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{minutes} דק'</Text>
+                          <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{t('location.picker.minutesChip', { minutes })}</Text>
                         </Pressable>
                       );
                     })}
@@ -329,13 +307,13 @@ export default function LocationQuickPicker({ visible, value, onChange, onCoords
               </TravelModeOption>
 
               <Pressable onPress={selectAnyDistance} style={[styles.anyRow, travelMode === 'any' && styles.anyRowSelected]}>
-                <Text style={[styles.anyRowText, travelMode === 'any' && styles.anyRowTextSelected]}>לא משנה לי המרחק</Text>
+                <Text style={[styles.anyRowText, travelMode === 'any' && styles.anyRowTextSelected]}>{t('location.picker.anyDistance')}</Text>
               </Pressable>
             </View>
           ) : null}
 
           <Pressable style={[styles.doneBtn, !ctaValid && styles.doneBtnDisabled]} onPress={onClose} disabled={!ctaValid || busy}>
-            <Text style={styles.doneBtnText}>הציגו לי פעילויות</Text>
+            <Text style={styles.doneBtnText}>{t('location.picker.cta')}</Text>
           </Pressable>
         </Pressable>
       </Pressable>
@@ -343,13 +321,13 @@ export default function LocationQuickPicker({ visible, value, onChange, onCoords
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createStyles((d) => ({
   backdrop: { flex: 1, backgroundColor: 'rgba(20,30,35,0.4)', justifyContent: 'center', padding: spacing.xl },
   card: { backgroundColor: colors.card, borderRadius: radii.xl, padding: spacing.xl },
   title: { fontFamily: fonts.extraBold, fontSize: 17, color: colors.textPrimary, textAlign: 'center' },
   subtitle: { fontFamily: fonts.regular, fontSize: 12.5, color: colors.textSecondary, textAlign: 'center', marginTop: 4, marginBottom: 14 },
   modeBtn: {
-    flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'center', gap: 8,
+    flexDirection: d.row, alignItems: 'center', justifyContent: 'center', gap: 8,
     borderWidth: 1.5, borderColor: colors.border, borderRadius: radii.pill, paddingVertical: 12,
   },
   modeBtnActive: { borderColor: colors.accent, backgroundColor: colors.accentTintLight },
@@ -363,18 +341,18 @@ const styles = StyleSheet.create({
   modeBtnTextPrimary: { color: colors.accent },
   modeBtnTextActive: { color: colors.accent },
   orText: { fontFamily: fonts.semiBold, fontSize: 12, color: colors.textMuted, textAlign: 'center', marginVertical: 8 },
-  cityLabel: { fontFamily: fonts.bold, fontSize: 12, color: colors.textSecondary, textAlign: 'right', marginBottom: 6 },
+  cityLabel: { fontFamily: fonts.bold, fontSize: 12, color: colors.textSecondary, textAlign: d.textAlign, marginBottom: 6 },
   input: {
     borderWidth: 1, borderColor: colors.border, borderRadius: radii.md, padding: 12,
     fontFamily: fonts.regular, fontSize: 14, color: colors.textPrimary, backgroundColor: colors.bg,
   },
   regionLink: {
-    flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'center', gap: 4,
+    flexDirection: d.row, alignItems: 'center', justifyContent: 'center', gap: 4,
     alignSelf: 'center', marginTop: 8, paddingVertical: 4, paddingHorizontal: 6,
   },
   regionLinkText: { fontFamily: fonts.semiBold, fontSize: 12, color: colors.textMuted },
   regionLinkTextActive: { color: colors.accent, fontFamily: fonts.bold },
-  regionChipsWrap: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 8, marginTop: 8 },
+  regionChipsWrap: { flexDirection: d.row, flexWrap: 'wrap', gap: 8, marginTop: 8 },
   regionChip: {
     backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border,
     borderRadius: radii.pill, paddingVertical: 8, paddingHorizontal: 13,
@@ -391,15 +369,15 @@ const styles = StyleSheet.create({
   },
   travelCardSelected: { borderColor: colors.accent, backgroundColor: colors.accentTintLight },
   travelCardDisabled: { opacity: 0.45 },
-  travelCardHeader: { flexDirection: 'row-reverse', alignItems: 'center', gap: 10 },
+  travelCardHeader: { flexDirection: d.row, alignItems: 'center', gap: 10 },
   travelEmoji: { fontSize: 19 },
-  travelTextStack: { alignItems: 'flex-end', flex: 1 },
+  travelTextStack: { alignItems: d.alignStart, flex: 1 },
   travelTitleText: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.textSecondary },
   travelTitleTextSelected: { color: colors.accent },
   travelSubtitleText: { fontFamily: fonts.regular, fontSize: 11.5, color: colors.textMuted, marginTop: 1 },
   walkHint: { fontFamily: fonts.regular, fontSize: 11, color: colors.textMuted, textAlign: 'center', marginTop: 6 },
 
-  chipsWrap: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 8, marginTop: 12 },
+  chipsWrap: { flexDirection: d.row, flexWrap: 'wrap', gap: 8, marginTop: 12 },
   chip: {
     backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border,
     borderRadius: radii.pill, paddingVertical: 9, paddingHorizontal: 14,
@@ -421,4 +399,4 @@ const styles = StyleSheet.create({
   doneBtn: { marginTop: 16, backgroundColor: colors.accent, borderRadius: radii.pill, paddingVertical: 13, alignItems: 'center' },
   doneBtnDisabled: { opacity: 0.4 },
   doneBtnText: { fontFamily: fonts.bold, fontSize: 14, color: '#fff' },
-});
+}));

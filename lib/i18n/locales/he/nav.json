@@ -1,0 +1,54 @@
+{
+  "header": {
+    "backA11y": "חזרה",
+    "logoA11y": "חזרה למסך הראשי",
+    "menuA11y": "תפריט"
+  },
+  "menu": {
+    "activities": "פעילויות",
+    "destinations": "היעדים שלי",
+    "destinationsAuth": "שמרו מקומות שאתם רוצים לבקר בהם וחזרו אליהם מתי שתרצו.",
+    "notes": "ההערות שלי",
+    "notesAuth": "כתבו לעצמכם הערות אישיות על פעילויות, ותמצאו אותן כאן בכל פעם שתחזרו.",
+    "profile": "הפרופיל שלי",
+    "chat": "שיח קהילה",
+    "about": "עלינו",
+    "contact": "צור קשר",
+    "feedback": "משהו לא עובד?",
+    "greeting": "שלום, {{name}}",
+    "greetingNoName": "שלום, שלכם",
+    "kids_one": "ילד אחד",
+    "kids_other": "{{count}} ילדים",
+    "login": "התחבר / הרשמה",
+    "logout": "התנתקות",
+    "terms": "⚖️ תנאי שימוש",
+    "privacy": "🔒 מדיניות פרטיות",
+    "logoutConfirm": "האם להתנתק?"
+  },
+  "bottom": {
+    "home": "בית",
+    "activities": "פעילויות",
+    "saved": "שמורים",
+    "profile": "פרופיל"
+  },
+  "feedback": {
+    "title": "דיווח על תקלה",
+    "subtitle": "ספרו לנו מה קרה - בלי צורך להתחבר או להשאיר פרטים",
+    "nameLabel": "שם (לא חובה)",
+    "namePlaceholder": "איך לקרוא לכם?",
+    "messageLabel": "מה קרה",
+    "messagePlaceholder": "לדוגמה: הכפתור 'חיפוש' לא מגיב במסך הראשי...",
+    "sent": "תודה! קיבלנו את הדיווח",
+    "sendError": "שגיאה בשליחה - נסו שוב",
+    "emptyMessage": "כתבו כמה מילים על מה שקרה"
+  },
+  "placeholder": {
+    "comingSoon": "המסך הזה עוד ייבנה 🦘"
+  },
+  "chat": {
+    "rooms": "שיחות קהילה",
+    "newRoom": "חדר חדש",
+    "nickname": "בחירת כינוי",
+    "room": "חדר צ'אט"
+  }
+}

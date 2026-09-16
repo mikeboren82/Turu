@@ -1,3 +1,5 @@
+import { t } from '../lib/i18n';
+
 // מקור אמת יחיד לגרסאות המסמכים המשפטיים - עדכון גרסה (למשל ל-"1.1") נעשה כאן בלבד,
 // בלי צורך לחפש בקוד. שינוי כאן לא "מהגר" בעצמו הסכמות ישנות - הן פשוט ייחשבו כלא-עדכניות
 // (ראו lib/legal.js, recordLegalConsentIfNeeded).
@@ -13,4 +15,9 @@ export const LEGAL_CONTACT_EMAIL = 'mborenmusic@gmail.com';
 
 // שם בעל השירות - נכון לעכשיו אין ישות עסקית רשומה בקוד/בפרויקט, אז נעשה שימוש בשם
 // המוצר עצמו. יש להחליף לשם עוסק/חברה רשמי אם וכשיירשם (ראו סיכום המשימה).
-export const LEGAL_ENTITY_NAME = 'תורו (TuRu)';
+// LEGAL_ENTITY_NAME נשאר כקבוע העברי (תאימות לאחור); לתצוגה לפי שפה - legalEntityName().
+export const LEGAL_ENTITY_NAME = 'תורו (TuRu)'; // i18n-ignore
+
+export function legalEntityName() {
+  return t('pages.legalEntityName');
+}

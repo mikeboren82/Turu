@@ -7,9 +7,12 @@ import SkyBackground from '../components/SkyBackground';
 import { colors, fonts, radii, spacing } from '../constants/theme';
 import { supabase } from '../lib/supabase';
 import { enforceNotBanned } from '../lib/checkBanned';
+import { friendlyAuthError } from '../lib/authErrors';
+import { useI18n } from '../lib/i18n';
 
 export default function AdminLoginScreen() {
   const router = useRouter();
+  const { t } = useI18n();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -26,13 +29,13 @@ export default function AdminLoginScreen() {
 
     if (signInError) {
       setSubmitting(false);
-      setError('שגיאה בהתחברות: ' + signInError.message);
+      setError(friendlyAuthError(signInError, 'adminLogin'));
       return;
     }
 
     if (data?.user?.id && await enforceNotBanned(data.user.id)) {
       setSubmitting(false);
-      setError('החשבון הזה חסום ולא ניתן להשתמש בו יותר');
+      setError(t('auth.errors.banned'));
       return;
     }
 
@@ -52,11 +55,11 @@ export default function AdminLoginScreen() {
       <View style={styles.content}>
         <Header showBack onMenuPress={() => {}} />
 
-        <Text style={styles.headline}>כניסת מנהל 🦘</Text>
-        <Text style={styles.subtext}>התחברות עם אימייל וסיסמה</Text>
+        <Text style={styles.headline}>{t('auth.adminLogin.headline')}</Text>
+        <Text style={styles.subtext}>{t('auth.adminLogin.subtext')}</Text>
 
         <View style={styles.field}>
-          <Text style={styles.label}>אימייל</Text>
+          <Text style={styles.label}>{t('auth.adminLogin.email')}</Text>
           <TextInput
             style={styles.input}
             value={email}
@@ -68,7 +71,7 @@ export default function AdminLoginScreen() {
         </View>
 
         <View style={styles.field}>
-          <Text style={styles.label}>סיסמה</Text>
+          <Text style={styles.label}>{t('auth.adminLogin.password')}</Text>
           <TextInput
             style={styles.input}
             value={password}
@@ -85,7 +88,7 @@ export default function AdminLoginScreen() {
           onPress={handleLogin}
           disabled={!email.trim() || !password || submitting}
         >
-          {submitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitBtnText}>התחברות</Text>}
+          {submitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitBtnText}>{t('auth.adminLogin.submit')}</Text>}
         </Pressable>
       </View>
     </View>

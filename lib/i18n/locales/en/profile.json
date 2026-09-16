@@ -1,0 +1,187 @@
+{
+  "loggedOut": {
+    "title": "You're not signed in yet",
+    "login": "Sign in"
+  },
+  "page": {
+    "title": "My family",
+    "subtitle": "Tell us a little about you, and Turu will tailor activities to your family"
+  },
+  "header": {
+    "noNickname": "No nickname",
+    "editNickname": "Edit nickname",
+    "addActivity": "Add activity"
+  },
+  "onboarding": {
+    "title": "👋 Let's get to know you",
+    "subtitle": "A few quick details help us find much better activities for you.",
+    "step1": "1. 👶 How old are your kids?",
+    "step2": "2. 📍 Where are you looking?",
+    "step3": "3. 🎯 What do you love to do?",
+    "start": "Let's get started 🚀",
+    "skip": "Not now"
+  },
+  "searchPrefs": {
+    "title": "⭐ Search preferences",
+    "hint": "We'll use these to show you the best-matching activities first - you can still change any filter in every search.",
+    "location": "📍 Default location",
+    "category": "🎯 Favorite activity types",
+    "when": "📅 When do you usually look?",
+    "price": "💰 Price preference",
+    "placeType": "🏠 Preferred place type",
+    "booking": "🎟️ Booking",
+    "duration": "⏱️ Duration",
+    "amenities": "♿ Accessibility & comfort",
+    "excludedCategories": "🚫 Categories to never show me",
+    "excludedAreas": "⛔ Remove areas from search",
+    "choose": "Choose",
+    "anyTime": "Any time",
+    "allPrices": "Any price",
+    "noPreference": "No preference",
+    "resetAll": "Reset all search preferences",
+    "save": "💾 Save preferences",
+    "saved": "✓ Preferences saved - they'll be your Home screen defaults"
+  },
+  "pickers": {
+    "excludedCategoriesTitle": "Categories to never show me",
+    "excludedCategoriesSubtitle": "Activities in the categories you pick won't appear in the app, even if they match your other filters",
+    "benefitClubsTitle": "My clubs & cards",
+    "benefitClubsSubtitle": "Which clubs and cards do you have?",
+    "benefitOtherLabel": "What do you have?",
+    "benefitOtherPlaceholder": "e.g. a sports club membership card",
+    "categoryTitle": "What does your family love?",
+    "categorySubtitle": "Pick as many categories as you like - we'll use them to suggest ideas that suit you",
+    "whenTitle": "When do you usually look?",
+    "priceTitle": "Price preference",
+    "placeTypeTitle": "Preferred place type",
+    "bookingTitle": "Booking",
+    "durationTitle": "Duration",
+    "amenitiesTitle": "Accessibility & comfort"
+  },
+  "children": {
+    "title": "👶 My kids",
+    "empty": "You haven't added any kids yet",
+    "benefitMatchTitle": "Better matches",
+    "benefitMatchText": "We'll show activities that fit your kids' ages.",
+    "benefitFasterTitle": "Less searching",
+    "benefitFasterText": "No need to pick ages again every time.",
+    "benefitPersonalTitle": "Personal picks",
+    "benefitPersonalText": "We'll suggest activities that fit your family.",
+    "fallbackName": "Child",
+    "add": "+ Add a child",
+    "footerHint": "Knowing your kids' ages helps us match activities more precisely."
+  },
+  "childForm": {
+    "editTitle": "Edit child",
+    "addTitle": "Add a child",
+    "nameLabel": "Name (optional)",
+    "namePlaceholder": "What's your child's name?",
+    "birthdateLabel": "Date of birth",
+    "day": "Day",
+    "month": "Month",
+    "year": "Year",
+    "genderLabel": "Gender (optional)",
+    "male": "👦 Boy",
+    "female": "👧 Girl",
+    "privacyNote": "We use this info to match activities to your kids.",
+    "privacyLink": "Learn more: Privacy Policy"
+  },
+  "know": {
+    "title": "What Turu knows about my family",
+    "children_one": "👦 {{count}} child",
+    "children_other": "👦 {{count}} kids"
+  },
+  "myActivities": {
+    "title": "❤️ My activities",
+    "tabs": {
+      "favorites": "❤️ Saved",
+      "planned": "📅 Want to do",
+      "visited": "✅ Been there"
+    },
+    "empty": "Nothing here yet",
+    "note": "📝 Note",
+    "addNote": "📝 Add note",
+    "allDestinations": "📍 All my places →"
+  },
+  "notes": {
+    "title": "📝 My personal notes",
+    "hint": "Your private place to remember the important stuff about activities",
+    "emptyTitle": "You don't have any personal notes yet.",
+    "emptyText": "Add a note from an activity page to remember what matters next time.",
+    "writtenAt": "Written {{date}}",
+    "all": "📝 All my notes →",
+    "modalTitle": "Edit note",
+    "placeholder": "Write a private note here...",
+    "save": "Save note",
+    "saved": "Note saved"
+  },
+  "benefits": {
+    "title": "🎟️ My perks",
+    "hint": "Which clubs and cards do you have?",
+    "intro": "Choose the perks you have, and Turu can show you activities where you'll get a discount.",
+    "row": "My clubs & cards",
+    "selectedCount": "{{n}} selected",
+    "other": "Other: {{text}}",
+    "optional": "Rather skip it? No problem. You'll still see all activities as usual."
+  },
+  "visibleFilters": {
+    "title": "🎚️ Extra filters on Home"
+  },
+  "notifications": {
+    "title": "🔔 My notifications",
+    "comingSoon": "Soon",
+    "hint": "Notifications aren't active in the app yet - we hope to turn them on soon.",
+    "emailUpdates": "Email me about new places",
+    "items": {
+      "new_nearby": "New activities in my area",
+      "matches_children": "Activities that suit my kids",
+      "weekend_ideas": "Weekend ideas",
+      "favorite_categories": "New activities in categories I love",
+      "saved_reminders": "Reminders for activities I saved"
+    }
+  },
+  "settings": {
+    "title": "⚙️ Settings",
+    "nickname": "Nickname",
+    "phone": "Phone",
+    "email": "Email",
+    "emailNotSet": "Not set",
+    "emailUnavailable": "Not available yet",
+    "quickLogin": "Quick sign-in",
+    "quickLoginOn": "On",
+    "quickLoginEnable": "Turn on",
+    "hiddenActivities": "🙈 Blocked activities"
+  },
+  "hidden": {
+    "title": "Blocked activities",
+    "hint": "Activities you chose to hide won't show up in your search results.",
+    "empty": "You don't have any blocked activities right now.",
+    "unhide": "🔓 Unblock"
+  },
+  "legal": {
+    "terms": "⚖️ Terms of Use",
+    "privacy": "🔒 Privacy Policy",
+    "deleteAccount": "🗑️ Delete account",
+    "deleteRequested": "Request sent",
+    "logout": "Sign out"
+  },
+  "deleteModal": {
+    "title": "Request account deletion",
+    "text": "We'll send our team a request to delete your account and the personal data linked to it. Requests are handled manually and not instantly - we'll get back to you soon.",
+    "submit": "Send request"
+  },
+  "errors": {
+    "prefsLoad": "Some preferences couldn't be loaded",
+    "notesLoad": "Your personal notes couldn't be loaded",
+    "noteSave": "Couldn't save the note",
+    "nicknameSave": "Couldn't save the nickname",
+    "childrenSave": "Couldn't save your kids' details",
+    "save": "Couldn't save",
+    "prefsSave": "Couldn't save your preferences",
+    "prefsReset": "Couldn't reset your preferences",
+    "benefitsSave": "Couldn't save your perks",
+    "hiddenLoad": "Couldn't load blocked activities",
+    "unhide": "Couldn't unblock the activity",
+    "deleteRequest": "Couldn't send the request"
+  }
+}

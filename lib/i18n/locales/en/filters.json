@@ -1,0 +1,51 @@
+{
+  "sheet": {
+    "title": "Advanced filters",
+    "clearSection": "Clear",
+    "a11y": {
+      "sectionWithCount_one": "{{title}}, 1 selected",
+      "sectionWithCount_other": "{{title}}, {{count}} selected",
+      "clearSection": "Clear {{title}}",
+      "expand": "Expand {{title}}",
+      "collapse": "Collapse {{title}}"
+    },
+    "exclusions": {
+      "title": "Exclusions",
+      "hiddenCategories_one": "🚫 1 hidden category",
+      "hiddenCategories_other": "🚫 {{count}} hidden categories",
+      "categoriesEmpty": "🚫 Activities you'd rather not see",
+      "hiddenAreas_one": "⛔ 1 hidden area",
+      "hiddenAreas_other": "⛔ {{count}} hidden areas",
+      "areasEmpty": "⛔ Areas you'd rather not see"
+    }
+  },
+  "when": {
+    "dayLabel": "Day",
+    "pickDate": "Pick a date",
+    "hourLabel": "Time",
+    "allDay": "All day",
+    "hourAt": "At {{time}}",
+    "specificHour": "Specific time"
+  },
+  "age": {
+    "title": "Ages",
+    "subtitle": "You can pick several age ranges",
+    "rangesCount_one": "1 age range",
+    "rangesCount_other": "{{count}} age ranges"
+  },
+  "quickPicker": {
+    "searchPlaceholder": "🔍 Search..."
+  },
+  "exclude": {
+    "title": "⛔ Remove areas from search",
+    "subtitle": "Choose areas or places you'd rather not see in your results",
+    "regionsLabel": "Regions",
+    "preciseLabel": "Want to be more precise?",
+    "searchPlaceholder": "🔍 Search a city or town to exclude...",
+    "summaryLabel": "We won't show activities in:",
+    "removeA11y": "Remove exclusion for {{place}}",
+    "apply": "Apply filter",
+    "doneWithCount_one": "{{label}} · 1 exclusion",
+    "doneWithCount_other": "{{label}} · {{count}} exclusions"
+  }
+}

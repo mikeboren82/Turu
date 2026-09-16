@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, Pressable, TextInput, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Location from 'expo-location';
 import Header from '../components/Header';
@@ -10,22 +10,29 @@ import { colors, fonts, radii, spacing } from '../constants/theme';
 import { CATEGORY_OPTIONS } from '../constants/filterSchema';
 import { supabase } from '../lib/supabase';
 import { submitUserActivity, extractActivityFromUrl } from '../lib/submitActivity';
+import { useI18n, createStyles } from '../lib/i18n';
+import { categoryLabel } from '../lib/i18n/format';
 
+// id = canonical entity_type value stored in the DB; labelKey resolved at render time.
 const ENTITY_TYPE_OPTIONS = [
-  { id: 'מקום_קבוע', label: 'מקום קבוע (שעות פתיחה)' },
-  { id: 'פעילות', label: 'חוג / פעילות חוזרת' },
-  { id: 'אירוע_קבוע', label: 'אירוע חוזר' },
-  { id: 'אירוע', label: 'אירוע חד פעמי' },
+  { id: 'מקום_קבוע', labelKey: 'contribute.addActivity.entityTypes.fixedPlace' }, // i18n-ignore
+  { id: 'פעילות', labelKey: 'contribute.addActivity.entityTypes.recurringActivity' }, // i18n-ignore
+  { id: 'אירוע_קבוע', labelKey: 'contribute.addActivity.entityTypes.recurringEvent' }, // i18n-ignore
+  { id: 'אירוע', labelKey: 'contribute.addActivity.entityTypes.oneTimeEvent' }, // i18n-ignore
 ];
 
+// Error state holds a translation key (rendered with t() so it follows locale switches).
+const errorKeyOf = (err, fallbackKey) => err?.i18nKey || fallbackKey;
+
 const EMPTY_FORM = {
-  name: '', entity_types: ['מקום_קבוע'], categories: [], city: '', location_name: '',
+  name: '', entity_types: ['מקום_קבוע'], categories: [], city: '', location_name: '', // i18n-ignore
   description: '', min_age: '', max_age: '', price_type: null, price_amount: '',
   start_time: '', end_time: '', image_urls: [],
 };
 
 export default function AddActivityScreen() {
   const router = useRouter();
+  const { t } = useI18n();
   const [mode, setMode] = useState(null); // null | 'url' | 'manual'
   const [url, setUrl] = useState('');
   const [extracting, setExtracting] = useState(false);
@@ -57,7 +64,7 @@ export default function AddActivityScreen() {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        setLocateCityError('צריך לאשר גישה למיקום כדי למלא את העיר אוטומטית');
+        setLocateCityError('contribute.addActivity.errors.locationPermission');
         return;
       }
       const pos = await Location.getCurrentPositionAsync({});
@@ -67,12 +74,12 @@ export default function AddActivityScreen() {
       });
       const city = place?.city || place?.subregion || place?.region;
       if (!city) {
-        setLocateCityError('לא הצלחנו לזהות את העיר - אפשר למלא ידנית');
+        setLocateCityError('contribute.addActivity.errors.cityNotDetected');
         return;
       }
       setField('city', city);
     } catch {
-      setLocateCityError('משהו השתבש באיתור המיקום - אפשר למלא ידנית');
+      setLocateCityError('contribute.addActivity.errors.locateFailed');
     } finally {
       setLocatingCity(false);
     }
@@ -92,7 +99,7 @@ export default function AddActivityScreen() {
       const result = await extractActivityFromUrl(url.trim());
       setSourceUrl(result.sourceUrl);
       if (!result.activities || result.activities.length === 0) {
-        setExtractError('לא הצלחנו לזהות פעילות בעמוד הזה - אפשר לנסות למלא ידנית');
+        setExtractError('contribute.addActivity.errors.noActivityFound');
         return;
       }
       if (result.activities.length === 1) {
@@ -101,7 +108,7 @@ export default function AddActivityScreen() {
         setCandidates(result.activities);
       }
     } catch (err) {
-      setExtractError(err.message || 'שגיאה בשליפת המידע');
+      setExtractError(errorKeyOf(err, 'contribute.addActivity.errors.extractFailed'));
     } finally {
       setExtracting(false);
     }
@@ -110,7 +117,7 @@ export default function AddActivityScreen() {
   const loadIntoForm = (activity) => {
     setForm({
       name: activity.name || '',
-      entity_types: activity.entity_type ? [activity.entity_type] : ['מקום_קבוע'],
+      entity_types: activity.entity_type ? [activity.entity_type] : ['מקום_קבוע'], // i18n-ignore
       categories: activity.category ? [activity.category] : [],
       city: activity.city || '',
       location_name: activity.location_name || '',
@@ -132,7 +139,7 @@ export default function AddActivityScreen() {
 
   const handleSubmit = async () => {
     if (!form.name.trim() || form.categories.length === 0 || form.entity_types.length === 0 || !form.city.trim()) {
-      setSubmitError('צריך למלא שם, קטגוריה, סוג ועיר לפחות');
+      setSubmitError('contribute.addActivity.errors.requiredFields');
       return;
     }
     setSubmitting(true);
@@ -173,7 +180,7 @@ export default function AddActivityScreen() {
         archivedCount: results.filter((r) => r.archived).length,
       });
     } catch (err) {
-      setSubmitError(err.message || 'שגיאה בשמירה');
+      setSubmitError(errorKeyOf(err, 'contribute.addActivity.errors.saveFailed'));
     } finally {
       setSubmitting(false);
     }
@@ -187,19 +194,18 @@ export default function AddActivityScreen() {
           <Header showBack onMenuPress={() => {}} />
           <View style={styles.doneWrap}>
             <Text style={styles.doneEmoji}>🎉</Text>
-            <Text style={styles.doneTitle}>תודה שהוספתם!</Text>
+            <Text style={styles.doneTitle}>{t('contribute.addActivity.done.title')}</Text>
             <Text style={styles.doneText}>
               {submitResult.count > 1
-                ? `נוספו ${submitResult.count} רשומות (אחת לכל שילוב של קטגוריה+סוג שבחרתם)` +
-                  (submitResult.archivedCount > 0
-                    ? `. ${submitResult.archivedCount} מתוכן נשמרו בארכיון - סוג פעילות שהאפליקציה כרגע לא מציגה (חוג/קייטנה שדורש הרשמה קבועה). השאר נשלחו לצוות TuRu לבדיקה, ויופיעו באפליקציה לאחר אישור`
-                    : '. כולן נשלחו לצוות TuRu לבדיקה, ותופענה באפליקציה לאחר אישור')
+                ? (submitResult.archivedCount > 0
+                    ? t('contribute.addActivity.done.multipleWithArchived', { total: submitResult.count, archived: submitResult.archivedCount })
+                    : t('contribute.addActivity.done.multiplePending', { total: submitResult.count }))
                 : submitResult.archivedCount > 0
-                  ? 'הפעילות נשמרה - זה סוג פעילות שהאפליקציה כרגע לא מציגה (חוג/קייטנה שדורש הרשמה קבועה)'
-                  : 'הפעילות נשלחה לצוות TuRu לבדיקה, ותופיע באפליקציה לאחר אישור'}
+                  ? t('contribute.addActivity.done.singleArchived')
+                  : t('contribute.addActivity.done.singlePending')}
             </Text>
             <Pressable style={styles.doneBtn} onPress={() => router.back()}>
-              <Text style={styles.doneBtnText}>חזרה</Text>
+              <Text style={styles.doneBtnText}>{t('common.actions.back')}</Text>
             </Pressable>
           </View>
         </View>
@@ -212,18 +218,18 @@ export default function AddActivityScreen() {
       <SkyBackground />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Header showBack onMenuPress={() => {}} />
-        <Text style={styles.pageTitle}>הוספת פעילות</Text>
+        <Text style={styles.pageTitle}>{t('contribute.addActivity.title')}</Text>
 
         {mode === null && (
           <View style={styles.choiceWrap}>
-            <Text style={styles.choiceIntro}>איך תרצו להוסיף את הפעילות?</Text>
+            <Text style={styles.choiceIntro}>{t('contribute.addActivity.choice.intro')}</Text>
             <Pressable style={styles.choiceCard} onPress={startUrlMode}>
-              <Text style={styles.choiceCardTitle}>🔗 יש לי קישור</Text>
-              <Text style={styles.choiceCardSub}>נמלא את הפרטים אוטומטית מתוך העמוד, ותוכלו לערוך לפני שליחה</Text>
+              <Text style={styles.choiceCardTitle}>{t('contribute.addActivity.choice.urlTitle')}</Text>
+              <Text style={styles.choiceCardSub}>{t('contribute.addActivity.choice.urlSubtitle')}</Text>
             </Pressable>
             <Pressable style={styles.choiceCard} onPress={startManualMode}>
-              <Text style={styles.choiceCardTitle}>✍️ אמלא ידנית</Text>
-              <Text style={styles.choiceCardSub}>רק כמה שדות חובה, השאר לבחירתכם</Text>
+              <Text style={styles.choiceCardTitle}>{t('contribute.addActivity.choice.manualTitle')}</Text>
+              <Text style={styles.choiceCardSub}>{t('contribute.addActivity.choice.manualSubtitle')}</Text>
             </Pressable>
           </View>
         )}
@@ -240,21 +246,21 @@ export default function AddActivityScreen() {
               onChangeText={setUrl}
             />
             <Pressable style={styles.primaryBtn} onPress={handleExtract} disabled={extracting || !url.trim()}>
-              {extracting ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryBtnText}>שליפת מידע</Text>}
+              {extracting ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryBtnText}>{t('contribute.addActivity.url.extract')}</Text>}
             </Pressable>
-            {extractError ? <Text style={styles.errorText}>{extractError}</Text> : null}
+            {extractError ? <Text style={styles.errorText}>{t(extractError)}</Text> : null}
             <Pressable onPress={startManualMode}>
-              <Text style={styles.switchModeLink}>לא הצלחתי - אמלא ידנית</Text>
+              <Text style={styles.switchModeLink}>{t('contribute.addActivity.url.switchToManual')}</Text>
             </Pressable>
           </View>
         )}
 
         {mode === 'url' && candidates && (
           <View style={styles.urlWrap}>
-            <Text style={styles.choiceIntro}>מצאנו כמה אפשרויות בעמוד הזה - איזו מהן?</Text>
+            <Text style={styles.choiceIntro}>{t('contribute.addActivity.url.candidatesIntro')}</Text>
             {candidates.map((c, i) => (
               <Pressable key={i} style={styles.candidateCard} onPress={() => loadIntoForm(c)}>
-                <Text style={styles.candidateName}>{c.name || 'ללא שם'}</Text>
+                <Text style={styles.candidateName}>{c.name || t('contribute.addActivity.url.unnamed')}</Text>
                 {c.description ? <Text style={styles.candidateDesc} numberOfLines={2}>{c.description}</Text> : null}
               </Pressable>
             ))}
@@ -264,63 +270,63 @@ export default function AddActivityScreen() {
         {(mode === 'manual' || mode === 'edit') && (
           <View style={styles.formWrap}>
             {mode === 'edit' && (
-              <Text style={styles.editIntro}>בדקו שהכל נכון ותערכו לפי הצורך לפני השליחה</Text>
+              <Text style={styles.editIntro}>{t('contribute.addActivity.form.editIntro')}</Text>
             )}
 
-            <Text style={styles.fieldLabel}>שם הפעילות *</Text>
-            <TextInput style={styles.input} value={form.name} onChangeText={(v) => setField('name', v)} placeholder="לדוגמה: פארק המשחקים בגני יהושע" placeholderTextColor={colors.textMuted} />
+            <Text style={styles.fieldLabel}>{t('contribute.addActivity.form.nameLabel')}</Text>
+            <TextInput style={styles.input} value={form.name} onChangeText={(v) => setField('name', v)} placeholder={t('contribute.addActivity.form.namePlaceholder')} placeholderTextColor={colors.textMuted} />
 
-            <Text style={styles.fieldLabel}>קטגוריה * (אפשר לבחור כמה)</Text>
+            <Text style={styles.fieldLabel}>{t('contribute.addActivity.form.categoryLabel')}</Text>
             <Pressable style={styles.selectBtn} onPress={() => setCategoryPickerOpen(true)}>
-              <Text style={styles.selectBtnText}>{form.categories.length ? form.categories.join(', ') : 'בחירת קטגוריה'}</Text>
+              <Text style={styles.selectBtnText}>{form.categories.length ? form.categories.map(categoryLabel).join(', ') : t('contribute.addActivity.form.categoryPlaceholder')}</Text>
             </Pressable>
 
-            <Text style={styles.fieldLabel}>סוג (אפשר לבחור כמה)</Text>
+            <Text style={styles.fieldLabel}>{t('contribute.addActivity.form.entityTypeLabel')}</Text>
             <View style={styles.chipsRow}>
               {ENTITY_TYPE_OPTIONS.map((opt) => (
                 <Pressable key={opt.id} style={[styles.chip, form.entity_types.includes(opt.id) && styles.chipSelected]} onPress={() => toggleEntityType(opt.id)}>
-                  <Text style={[styles.chipText, form.entity_types.includes(opt.id) && styles.chipTextSelected]}>{opt.label}</Text>
+                  <Text style={[styles.chipText, form.entity_types.includes(opt.id) && styles.chipTextSelected]}>{t(opt.labelKey)}</Text>
                 </Pressable>
               ))}
             </View>
 
             <View style={styles.fieldLabelRow}>
-              <Text style={styles.fieldLabel}>עיר/יישוב *</Text>
+              <Text style={styles.fieldLabel}>{t('contribute.addActivity.form.cityLabel')}</Text>
               <Pressable style={styles.autoLocateLink} onPress={handleAutoLocateCity} disabled={locatingCity}>
                 {locatingCity ? (
                   <ActivityIndicator size="small" color={colors.accent} />
                 ) : (
-                  <Text style={styles.autoLocateLinkText}>📍 מצא אוטומטית</Text>
+                  <Text style={styles.autoLocateLinkText}>{t('contribute.addActivity.form.autoLocate')}</Text>
                 )}
               </Pressable>
             </View>
-            <TextInput style={styles.input} value={form.city} onChangeText={(v) => setField('city', v)} placeholder="לדוגמה: תל אביב" placeholderTextColor={colors.textMuted} />
-            {locateCityError ? <Text style={styles.errorText}>{locateCityError}</Text> : null}
+            <TextInput style={styles.input} value={form.city} onChangeText={(v) => setField('city', v)} placeholder={t('contribute.addActivity.form.cityPlaceholder')} placeholderTextColor={colors.textMuted} />
+            {locateCityError ? <Text style={styles.errorText}>{t(locateCityError)}</Text> : null}
 
-            <Text style={styles.fieldLabel}>שם המקום (אופציונלי)</Text>
-            <TextInput style={styles.input} value={form.location_name} onChangeText={(v) => setField('location_name', v)} placeholder="לדוגמה: גני יהושע" placeholderTextColor={colors.textMuted} />
+            <Text style={styles.fieldLabel}>{t('contribute.addActivity.form.locationNameLabel')}</Text>
+            <TextInput style={styles.input} value={form.location_name} onChangeText={(v) => setField('location_name', v)} placeholder={t('contribute.addActivity.form.locationNamePlaceholder')} placeholderTextColor={colors.textMuted} />
 
-            <Text style={styles.fieldLabel}>תיאור (אופציונלי)</Text>
-            <TextInput style={[styles.input, styles.textarea]} value={form.description} onChangeText={(v) => setField('description', v)} multiline placeholder="כמה מילים על הפעילות..." placeholderTextColor={colors.textMuted} />
+            <Text style={styles.fieldLabel}>{t('contribute.addActivity.form.descriptionLabel')}</Text>
+            <TextInput style={[styles.input, styles.textarea]} value={form.description} onChangeText={(v) => setField('description', v)} multiline placeholder={t('contribute.addActivity.form.descriptionPlaceholder')} placeholderTextColor={colors.textMuted} />
 
             <View style={styles.rowFields}>
               <View style={styles.rowField}>
-                <Text style={styles.fieldLabel}>גיל מ- (אופציונלי)</Text>
+                <Text style={styles.fieldLabel}>{t('contribute.addActivity.form.minAgeLabel')}</Text>
                 <TextInput style={styles.input} value={form.min_age} onChangeText={(v) => setField('min_age', v.replace(/[^0-9.]/g, ''))} keyboardType="numeric" placeholder="0" placeholderTextColor={colors.textMuted} />
               </View>
               <View style={styles.rowField}>
-                <Text style={styles.fieldLabel}>גיל עד (אופציונלי)</Text>
+                <Text style={styles.fieldLabel}>{t('contribute.addActivity.form.maxAgeLabel')}</Text>
                 <TextInput style={styles.input} value={form.max_age} onChangeText={(v) => setField('max_age', v.replace(/[^0-9.]/g, ''))} keyboardType="numeric" placeholder="99" placeholderTextColor={colors.textMuted} />
               </View>
             </View>
 
-            <Text style={styles.fieldLabel}>מחיר (אופציונלי)</Text>
+            <Text style={styles.fieldLabel}>{t('contribute.addActivity.form.priceLabel')}</Text>
             <View style={styles.chipsRow}>
               <Pressable style={[styles.chip, form.price_type === 'free' && styles.chipSelected]} onPress={() => setField('price_type', form.price_type === 'free' ? null : 'free')}>
-                <Text style={[styles.chipText, form.price_type === 'free' && styles.chipTextSelected]}>חינם</Text>
+                <Text style={[styles.chipText, form.price_type === 'free' && styles.chipTextSelected]}>{t('contribute.addActivity.form.priceFree')}</Text>
               </Pressable>
               <Pressable style={[styles.chip, form.price_type === 'fixed' && styles.chipSelected]} onPress={() => setField('price_type', 'fixed')}>
-                <Text style={[styles.chipText, form.price_type === 'fixed' && styles.chipTextSelected]}>בתשלום</Text>
+                <Text style={[styles.chipText, form.price_type === 'fixed' && styles.chipTextSelected]}>{t('contribute.addActivity.form.pricePaid')}</Text>
               </Pressable>
               {form.price_type === 'fixed' && (
                 <TextInput style={styles.priceInput} value={form.price_amount} onChangeText={(v) => setField('price_amount', v.replace(/[^0-9.]/g, ''))} keyboardType="numeric" placeholder="₪" placeholderTextColor={colors.textMuted} />
@@ -329,23 +335,23 @@ export default function AddActivityScreen() {
 
             <View style={styles.rowFields}>
               <View style={styles.rowField}>
-                <Text style={styles.fieldLabel}>משעה (אופציונלי)</Text>
+                <Text style={styles.fieldLabel}>{t('contribute.addActivity.form.startTimeLabel')}</Text>
                 <TextInput style={styles.input} value={form.start_time} onChangeText={(v) => setField('start_time', v)} placeholder="09:00" placeholderTextColor={colors.textMuted} />
               </View>
               <View style={styles.rowField}>
-                <Text style={styles.fieldLabel}>עד שעה (אופציונלי)</Text>
+                <Text style={styles.fieldLabel}>{t('contribute.addActivity.form.endTimeLabel')}</Text>
                 <TextInput style={styles.input} value={form.end_time} onChangeText={(v) => setField('end_time', v)} placeholder="18:00" placeholderTextColor={colors.textMuted} />
               </View>
             </View>
 
             {form.image_urls.length > 0 && (
-              <Text style={styles.hint}>נמצאו {form.image_urls.length} תמונות בעמוד - יישמרו אוטומטית וימתינו לאישור</Text>
+              <Text style={styles.hint}>{t('contribute.addActivity.form.imagesFound', { count: form.image_urls.length })}</Text>
             )}
 
-            {submitError ? <Text style={styles.errorText}>{submitError}</Text> : null}
+            {submitError ? <Text style={styles.errorText}>{t(submitError)}</Text> : null}
 
             <Pressable style={styles.primaryBtn} onPress={handleSubmit} disabled={submitting}>
-              {submitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryBtnText}>אישור ושליחה</Text>}
+              {submitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryBtnText}>{t('contribute.addActivity.form.submit')}</Text>}
             </Pressable>
           </View>
         )}
@@ -353,8 +359,8 @@ export default function AddActivityScreen() {
 
       <QuickPicker
         visible={categoryPickerOpen}
-        title="קטגוריה"
-        subtitle="אפשר לבחור כמה קטגוריות"
+        title={t('contribute.addActivity.categoryPicker.title')}
+        subtitle={t('contribute.addActivity.categoryPicker.subtitle')}
         options={CATEGORY_OPTIONS}
         value={form.categories}
         multiple
@@ -366,18 +372,18 @@ export default function AddActivityScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createStyles((d) => ({
   screen: { flex: 1, backgroundColor: colors.bg },
   content: { padding: spacing.xl, paddingBottom: 60 },
-  pageTitle: { fontFamily: fonts.extraBold, fontSize: 20, color: colors.textPrimary, textAlign: 'right', marginTop: 20, marginBottom: 18 },
+  pageTitle: { fontFamily: fonts.extraBold, fontSize: 20, color: colors.textPrimary, textAlign: d.textAlign, marginTop: 20, marginBottom: 18 },
 
   choiceWrap: { gap: 12 },
-  choiceIntro: { fontFamily: fonts.semiBold, fontSize: 14, color: colors.textSecondary, textAlign: 'right', marginBottom: 4 },
+  choiceIntro: { fontFamily: fonts.semiBold, fontSize: 14, color: colors.textSecondary, textAlign: d.textAlign, marginBottom: 4 },
   choiceCard: {
     backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: radii.lg, padding: 16,
   },
-  choiceCardTitle: { fontFamily: fonts.extraBold, fontSize: 15.5, color: colors.textPrimary, textAlign: 'right', marginBottom: 4 },
-  choiceCardSub: { fontFamily: fonts.regular, fontSize: 12.5, color: colors.textSecondary, textAlign: 'right', lineHeight: 18 },
+  choiceCardTitle: { fontFamily: fonts.extraBold, fontSize: 15.5, color: colors.textPrimary, textAlign: d.textAlign, marginBottom: 4 },
+  choiceCardSub: { fontFamily: fonts.regular, fontSize: 12.5, color: colors.textSecondary, textAlign: d.textAlign, lineHeight: 18 },
 
   urlWrap: { gap: 12 },
   urlInput: {
@@ -386,26 +392,26 @@ const styles = StyleSheet.create({
   },
   switchModeLink: { fontFamily: fonts.semiBold, fontSize: 12.5, color: colors.accent, textAlign: 'center', textDecorationLine: 'underline' },
   candidateCard: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: radii.md, padding: 13 },
-  candidateName: { fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary, textAlign: 'right' },
-  candidateDesc: { fontFamily: fonts.regular, fontSize: 12.5, color: colors.textSecondary, textAlign: 'right', marginTop: 4 },
+  candidateName: { fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary, textAlign: d.textAlign },
+  candidateDesc: { fontFamily: fonts.regular, fontSize: 12.5, color: colors.textSecondary, textAlign: d.textAlign, marginTop: 4 },
 
   formWrap: { gap: 4 },
-  editIntro: { fontFamily: fonts.semiBold, fontSize: 13, color: colors.accent, textAlign: 'right', marginBottom: 10 },
-  fieldLabel: { fontFamily: fonts.semiBold, fontSize: 12.5, color: colors.textSecondary, textAlign: 'right', marginTop: 14, marginBottom: 6 },
-  fieldLabelRow: { flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between' },
-  autoLocateLink: { marginTop: 14, marginBottom: 6, paddingHorizontal: 4, minWidth: 20, alignItems: 'flex-start' },
+  editIntro: { fontFamily: fonts.semiBold, fontSize: 13, color: colors.accent, textAlign: d.textAlign, marginBottom: 10 },
+  fieldLabel: { fontFamily: fonts.semiBold, fontSize: 12.5, color: colors.textSecondary, textAlign: d.textAlign, marginTop: 14, marginBottom: 6 },
+  fieldLabelRow: { flexDirection: d.row, alignItems: 'center', justifyContent: 'space-between' },
+  autoLocateLink: { marginTop: 14, marginBottom: 6, paddingHorizontal: 4, minWidth: 20, alignItems: d.alignEnd },
   autoLocateLinkText: { fontFamily: fonts.semiBold, fontSize: 12, color: colors.accent },
   input: {
     borderWidth: 1, borderColor: colors.border, borderRadius: radii.md, padding: 12,
     fontFamily: fonts.regular, fontSize: 14, color: colors.textPrimary, backgroundColor: colors.card,
-    textAlign: 'right', writingDirection: 'rtl',
+    textAlign: d.textAlign, writingDirection: d.writingDirection,
   },
   textarea: { minHeight: 80, textAlignVertical: 'top' },
   selectBtn: {
     borderWidth: 1, borderColor: colors.border, borderRadius: radii.md, padding: 12, backgroundColor: colors.card,
   },
-  selectBtnText: { fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary, textAlign: 'right' },
-  chipsRow: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 8 },
+  selectBtnText: { fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary, textAlign: d.textAlign },
+  chipsRow: { flexDirection: d.row, flexWrap: 'wrap', gap: 8 },
   chip: { borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, borderRadius: radii.pill, paddingVertical: 9, paddingHorizontal: 14 },
   chipSelected: { borderColor: colors.accent, backgroundColor: colors.accentTintLight },
   chipText: { fontFamily: fonts.semiBold, fontSize: 12.5, color: colors.textSecondary },
@@ -414,9 +420,9 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: colors.border, borderRadius: radii.pill, paddingVertical: 9, paddingHorizontal: 14,
     fontFamily: fonts.regular, fontSize: 13, color: colors.textPrimary, minWidth: 70, textAlign: 'center', backgroundColor: colors.card,
   },
-  rowFields: { flexDirection: 'row-reverse', gap: 12 },
+  rowFields: { flexDirection: d.row, gap: 12 },
   rowField: { flex: 1 },
-  hint: { fontFamily: fonts.regular, fontSize: 11.5, color: colors.textMuted, textAlign: 'right', marginTop: 14 },
+  hint: { fontFamily: fonts.regular, fontSize: 11.5, color: colors.textMuted, textAlign: d.textAlign, marginTop: 14 },
   errorText: { fontFamily: fonts.semiBold, fontSize: 12.5, color: colors.danger, textAlign: 'center', marginTop: 4 },
 
   primaryBtn: { backgroundColor: colors.accent, borderRadius: radii.pill, paddingVertical: 14, alignItems: 'center', marginTop: 20 },
@@ -428,4 +434,4 @@ const styles = StyleSheet.create({
   doneText: { fontFamily: fonts.regular, fontSize: 13.5, color: colors.textSecondary, textAlign: 'center', lineHeight: 20, paddingHorizontal: 10 },
   doneBtn: { backgroundColor: colors.accent, borderRadius: radii.pill, paddingVertical: 12, paddingHorizontal: 30, marginTop: 14 },
   doneBtnText: { fontFamily: fonts.bold, fontSize: 14, color: '#fff' },
-});
+}));

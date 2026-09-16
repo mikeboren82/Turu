@@ -4,6 +4,7 @@ import { usePathname } from 'expo-router';
 import { submitFeedback } from '../lib/feedback';
 import { supabase } from '../lib/supabase';
 import { colors, fonts, radii, spacing } from '../constants/theme';
+import { useI18n, createStyles } from '../lib/i18n';
 
 // 2026-09-12 (בקשת המשתמש): הכפתור-המרחף הגלובלי הוסר מכל הדפים - הפיצ'ר עצמו (טופס דיווח-
 // תקלה, בלי צורך להתחבר) עבר להיות רכיב-מודל נשלט מבחוץ (visible/onClose), מופעל דרך "משהו
@@ -11,6 +12,7 @@ import { colors, fonts, radii, spacing } from '../constants/theme';
 // שולף את הכינוי-להצעה-מראש ב-useEffect על visible (במקום בלחיצה על הכפתור, שלא קיים יותר).
 export default function FeedbackButton({ visible, onClose }) {
   const pathname = usePathname();
+  const { t } = useI18n();
   const [name, setName] = useState('');
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
@@ -45,7 +47,8 @@ export default function FeedbackButton({ visible, onClose }) {
       setSent(true);
       setTimeout(close, 1400);
     } catch (err) {
-      setError(err.message || 'שגיאה בשליחה - נסו שוב');
+      // הודעות גולמיות מ-Supabase לא מוצגות - רק הודעת-אימות שלנו (userFacing) או הודעה כללית.
+      setError(err?.userFacing ? err.message : t('nav.feedback.sendError'));
     } finally {
       setSending(false);
     }
@@ -62,26 +65,26 @@ export default function FeedbackButton({ visible, onClose }) {
           {sent ? (
             <View style={styles.sentWrap}>
               <Text style={styles.sentEmoji}>🙏</Text>
-              <Text style={styles.sentText}>תודה! קיבלנו את הדיווח</Text>
+              <Text style={styles.sentText}>{t('nav.feedback.sent')}</Text>
             </View>
           ) : (
             <>
-              <Text style={styles.title}>דיווח על תקלה</Text>
-              <Text style={styles.subtitle}>ספרו לנו מה קרה - בלי צורך להתחבר או להשאיר פרטים</Text>
-              <Text style={styles.fieldLabel}>שם (לא חובה)</Text>
+              <Text style={styles.title}>{t('nav.feedback.title')}</Text>
+              <Text style={styles.subtitle}>{t('nav.feedback.subtitle')}</Text>
+              <Text style={styles.fieldLabel}>{t('nav.feedback.nameLabel')}</Text>
               <TextInput
                 style={styles.nameInput}
                 value={name}
                 onChangeText={setName}
-                placeholder="איך לקרוא לכם?"
+                placeholder={t('nav.feedback.namePlaceholder')}
                 placeholderTextColor={colors.textMuted}
               />
-              <Text style={styles.fieldLabel}>מה קרה</Text>
+              <Text style={styles.fieldLabel}>{t('nav.feedback.messageLabel')}</Text>
               <TextInput
                 style={styles.input}
                 value={message}
                 onChangeText={setMessage}
-                placeholder="לדוגמה: הכפתור 'חיפוש' לא מגיב במסך הראשי..."
+                placeholder={t('nav.feedback.messagePlaceholder')}
                 placeholderTextColor={colors.textMuted}
                 multiline
                 numberOfLines={4}
@@ -94,10 +97,10 @@ export default function FeedbackButton({ visible, onClose }) {
                   onPress={handleSend}
                   disabled={!message.trim() || sending}
                 >
-                  {sending ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.sendBtnText}>שליחה</Text>}
+                  {sending ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.sendBtnText}>{t('common.actions.send')}</Text>}
                 </Pressable>
                 <Pressable style={styles.cancelBtn} onPress={close}>
-                  <Text style={styles.cancelBtnText}>ביטול</Text>
+                  <Text style={styles.cancelBtnText}>{t('common.actions.cancel')}</Text>
                 </Pressable>
               </View>
             </>
@@ -108,24 +111,24 @@ export default function FeedbackButton({ visible, onClose }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createStyles((d) => ({
   backdrop: { flex: 1, backgroundColor: 'rgba(20,30,35,0.4)', justifyContent: 'center', padding: spacing.xl },
   card: { backgroundColor: colors.card, borderRadius: radii.xl, padding: spacing.xl },
   title: { fontFamily: fonts.extraBold, fontSize: 17, color: colors.textPrimary, textAlign: 'center' },
   subtitle: { fontFamily: fonts.regular, fontSize: 12.5, color: colors.textSecondary, textAlign: 'center', marginTop: 4, marginBottom: 16, lineHeight: 18 },
-  fieldLabel: { fontFamily: fonts.semiBold, fontSize: 12, color: colors.textSecondary, textAlign: 'right', marginBottom: 5 },
+  fieldLabel: { fontFamily: fonts.semiBold, fontSize: 12, color: colors.textSecondary, textAlign: d.textAlign, marginBottom: 5 },
   nameInput: {
     borderWidth: 1, borderColor: colors.border, borderRadius: radii.md, padding: 12,
     fontFamily: fonts.regular, fontSize: 14, color: colors.textPrimary, backgroundColor: colors.bg,
-    textAlign: 'right', writingDirection: 'rtl', marginBottom: 14,
+    textAlign: d.textAlign, writingDirection: d.writingDirection, marginBottom: 14,
   },
   input: {
     borderWidth: 1, borderColor: colors.border, borderRadius: radii.md, padding: 13,
     fontFamily: fonts.regular, fontSize: 14, color: colors.textPrimary, backgroundColor: colors.bg,
-    textAlign: 'right', writingDirection: 'rtl', minHeight: 100, textAlignVertical: 'top',
+    textAlign: d.textAlign, writingDirection: d.writingDirection, minHeight: 100, textAlignVertical: 'top',
   },
   errorText: { fontFamily: fonts.semiBold, fontSize: 12, color: colors.danger, textAlign: 'center', marginTop: 8 },
-  actionsRow: { flexDirection: 'row-reverse', gap: 10, marginTop: 16 },
+  actionsRow: { flexDirection: d.row, gap: 10, marginTop: 16 },
   cancelBtn: { flex: 1, alignItems: 'center', paddingVertical: 13, borderRadius: radii.pill, borderWidth: 1, borderColor: colors.border },
   cancelBtnText: { fontFamily: fonts.bold, fontSize: 14, color: colors.textSecondary },
   sendBtn: { flex: 1, alignItems: 'center', paddingVertical: 13, borderRadius: radii.pill, backgroundColor: colors.accent },
@@ -135,4 +138,4 @@ const styles = StyleSheet.create({
   sentWrap: { alignItems: 'center', paddingVertical: 10 },
   sentEmoji: { fontSize: 34, marginBottom: 8 },
   sentText: { fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary },
-});
+}));

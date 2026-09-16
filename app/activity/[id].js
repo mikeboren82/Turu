@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, Linking, ActivityIndicator, ImageBackground, Image, Modal } from 'react-native';
+import { View, Text, ScrollView, Pressable, TextInput, Linking, ActivityIndicator, ImageBackground, Image, Modal } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
@@ -18,6 +18,8 @@ import { placeholderImageFor, placeholderBgColorFor } from '../../lib/placeholde
 import { supabase } from '../../lib/supabase';
 import { uploadActivityPhoto } from '../../lib/photoUpload';
 import { relativeDate } from '../../lib/formatDate';
+import { useI18n, t as translate, createStyles, DEFAULT_LOCALE } from '../../lib/i18n';
+import { categoryLabel, placeName } from '../../lib/i18n/format';
 import { openNavigationTo } from '../../lib/openNavigation';
 import { formatBenefitDetailLines, addActivityBenefit } from '../../lib/benefits';
 import {
@@ -30,23 +32,31 @@ const PRICE_ICON_COLOR = colors.green;
 // ערכים גולמיים כפי שמאולצים ב-DB (CHECK constraints, ראו supabase/schema.sql) - שונה מ-
 // BOOKING_OPTIONS ב-constants/filterSchema.js שם הם מקובצים ל-2 buckets לצורך סינון, לא
 // לעריכה ישירה של activities.booking_requirement.
+// labelKey נפתר בזמן רינדור (t) - ה-id הוא הערך הקנוני ב-DB.
 const ENTITY_TYPE_EDIT_OPTIONS = [
-  { id: 'מקום_קבוע', label: 'מקום קבוע' },
-  { id: 'פעילות', label: 'חוג / פעילות' },
-  { id: 'אירוע_קבוע', label: 'אירוע חוזר' },
-  { id: 'אירוע', label: 'אירוע חד פעמי' },
+  { id: 'מקום_קבוע', labelKey: 'activity.admin.entityTypes.place' }, // i18n-ignore
+  { id: 'פעילות', labelKey: 'activity.admin.entityTypes.activity' }, // i18n-ignore
+  { id: 'אירוע_קבוע', labelKey: 'activity.admin.entityTypes.recurringEvent' }, // i18n-ignore
+  { id: 'אירוע', labelKey: 'activity.admin.entityTypes.event' }, // i18n-ignore
 ];
+// Raw entity_type value -> badge/description key (Hebrew values mirror the raw DB value exactly).
+const ENTITY_TYPE_BADGE_KEYS = {
+  'מקום_קבוע': 'activity.detail.entityTypes.place', // i18n-ignore
+  'פעילות': 'activity.detail.entityTypes.activity', // i18n-ignore
+  'אירוע_קבוע': 'activity.detail.entityTypes.recurringEvent', // i18n-ignore
+  'אירוע': 'activity.detail.entityTypes.event', // i18n-ignore
+};
 const INDOOR_OUTDOOR_EDIT_OPTIONS = [
-  { id: 'indoor', label: 'בתוך מבנה' },
-  { id: 'outdoor', label: 'בחוץ' },
-  { id: 'both', label: 'גם וגם' },
+  { id: 'indoor', labelKey: 'activity.admin.indoorOutdoor.indoor' },
+  { id: 'outdoor', labelKey: 'activity.admin.indoorOutdoor.outdoor' },
+  { id: 'both', labelKey: 'activity.admin.indoorOutdoor.both' },
 ];
 const BOOKING_EDIT_OPTIONS = [
-  { id: 'none', label: 'לא צוין' },
-  { id: 'walk_in', label: 'ללא הרשמה' },
-  { id: 'registration_required', label: 'דורש הרשמה' },
-  { id: 'advance_booking', label: 'דורש הזמנה מראש' },
-  { id: 'available_now', label: 'יש מקום עכשיו' },
+  { id: 'none', labelKey: 'activity.admin.booking.none' },
+  { id: 'walk_in', labelKey: 'activity.admin.booking.walkIn' },
+  { id: 'registration_required', labelKey: 'activity.admin.booking.registrationRequired' },
+  { id: 'advance_booking', labelKey: 'activity.admin.booking.advanceBooking' },
+  { id: 'available_now', labelKey: 'activity.admin.booking.availableNow' },
 ];
 
 function activityToEditForm(activity) {
@@ -54,7 +64,7 @@ function activityToEditForm(activity) {
     name: activity.title || '',
     description: activity.description || '',
     category: activity.category || '',
-    entity_type: activity.entity_type || 'מקום_קבוע',
+    entity_type: activity.entity_type || 'מקום_קבוע', // i18n-ignore
     min_age: activity.min_age != null ? String(activity.min_age) : '',
     max_age: activity.max_age != null ? String(activity.max_age) : '',
     price_type: activity.price_type || 'free',
@@ -76,13 +86,20 @@ function emptyBenefitForm() {
 }
 
 const FIELD_REPORT_OPTIONS = [
-  { key: 'age_range', label: 'גילאים' },
-  { key: 'price', label: 'מחיר' },
-  { key: 'hours', label: 'שעות פעילות' },
-  { key: 'address', label: 'מיקום / כתובת' },
-  { key: 'description', label: 'תיאור' },
-  { key: 'other', label: 'משהו אחר' },
+  { key: 'age_range', labelKey: 'activity.report.fields.ageRange' },
+  { key: 'price', labelKey: 'activity.report.fields.price' },
+  { key: 'hours', labelKey: 'activity.report.fields.hours' },
+  { key: 'address', labelKey: 'activity.report.fields.address' },
+  { key: 'description', labelKey: 'activity.report.fields.description' },
+  { key: 'other', labelKey: 'activity.report.fields.other' },
 ];
+
+// Badge / fallback-description type: category via categoryLabel, else the entity type.
+function activityTypeLabel(activity, t) {
+  if (activity.category) return categoryLabel(activity.category);
+  const key = ENTITY_TYPE_BADGE_KEYS[activity.entity_type];
+  return key ? t(key) : (activity.type || '');
+}
 
 function ActionButton({ children, onPress }) {
   return <Pressable style={styles.actionBtn} onPress={onPress} hitSlop={6}>{children}</Pressable>;
@@ -95,13 +112,14 @@ function InfoCell({ Icon, label, value, tint }) {
         <Icon size={16} />
       </View>
       <Text style={styles.infoLabel}>{label}</Text>
-      <Text style={styles.infoValue} numberOfLines={1}>{value}</Text>
+      <Text style={styles.infoValue} numberOfLines={2}>{value}</Text>
     </View>
   );
 }
 
 export default function ActivityScreen() {
   const router = useRouter();
+  const { t, dir, formatDate } = useI18n();
   const { id } = useLocalSearchParams();
   const [activity, setActivity] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -174,7 +192,7 @@ export default function ActivityScreen() {
         const notes = await fetchCommunityNotes(String(id));
         if (!cancelled) setCommunityNotes(notes);
       } catch (err) {
-        if (!cancelled) setLoadError(err.message);
+        if (!cancelled) setLoadError(true);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -206,9 +224,7 @@ export default function ActivityScreen() {
     setHidden(next);
     try {
       await toggleHidden(userId, String(id), next);
-      showNotice(next
-        ? 'הפעילות לא תוצג לכם יותר. ניתן להחזיר אותה דרך "הדף שלי" ← "פעילויות חסומות".'
-        : 'בוטלה ההסתרה');
+      showNotice(next ? t('activity.detail.hiddenNotice') : t('activity.detail.unhiddenNotice'));
     } catch {
       setHidden(!next);
     }
@@ -220,7 +236,7 @@ export default function ActivityScreen() {
     setPlanned(next);
     try {
       await togglePlanned(userId, String(id), next);
-      showNotice(next ? 'נוסף ל"רוצה לעשות"' : 'הוסר מ"רוצה לעשות"');
+      showNotice(next ? t('activity.detail.plannedAdded') : t('activity.detail.plannedRemoved'));
     } catch {
       setPlanned(!next);
     }
@@ -228,14 +244,15 @@ export default function ActivityScreen() {
 
   const handleSaveNote = async () => {
     if (!userId) return;
-    setNoteStatus('שומר...');
+    // noteStatus holds a status code ('saving' | 'saved' | 'error'), rendered via t() below.
+    setNoteStatus('saving');
     try {
       await savePersonalNote(userId, String(id), personalNote);
-      setNoteStatus('נשמר ✓');
+      setNoteStatus('saved');
       if (personalNote.trim()) setEditingNote(false);
       setTimeout(() => setNoteStatus(''), 2000);
-    } catch (err) {
-      setNoteStatus(`שגיאה בשמירה: ${err.message}`);
+    } catch {
+      setNoteStatus('error');
     }
   };
 
@@ -248,8 +265,8 @@ export default function ActivityScreen() {
       setCommunityDraft('');
       const notes = await fetchCommunityNotes(String(id));
       setCommunityNotes(notes);
-    } catch (err) {
-      showNotice(`שגיאה בפרסום ההערה: ${err.message}`);
+    } catch {
+      showNotice(t('activity.notes.postError'));
     } finally {
       setPostingNote(false);
     }
@@ -263,7 +280,7 @@ export default function ActivityScreen() {
       ? await ImagePicker.requestCameraPermissionsAsync()
       : await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      showNotice(fromCamera ? 'צריך הרשאת מצלמה כדי לצלם תמונה' : 'צריך הרשאת גישה לתמונות כדי לבחור תמונה');
+      showNotice(fromCamera ? t('activity.photos.cameraPermission') : t('activity.photos.libraryPermission'));
       return;
     }
 
@@ -273,13 +290,14 @@ export default function ActivityScreen() {
     if (result.canceled || !result.assets?.[0]) return;
 
     setUploadingPhoto(true);
-    setPhotoStatus('מעלה תמונה...');
+    // photoStatus holds a status code ('uploading' | 'sent' | 'error'), rendered via t() below.
+    setPhotoStatus('uploading');
     try {
       await uploadActivityPhoto(userId, String(id), result.assets[0].uri);
-      setPhotoStatus('✓ התמונה נשלחה, ממתינה לאישור מנהל');
+      setPhotoStatus('sent');
       setTimeout(() => setPhotoStatus(''), 4000);
-    } catch (err) {
-      setPhotoStatus(`שגיאה בהעלאה: ${err.message}`);
+    } catch {
+      setPhotoStatus('error');
     } finally {
       setUploadingPhoto(false);
     }
@@ -295,7 +313,7 @@ export default function ActivityScreen() {
 
   const handleSaveEdit = async () => {
     if (!editForm.name.trim()) {
-      setEditError('שם הפעילות לא יכול להישאר ריק');
+      setEditError(t('activity.admin.nameRequired'));
       return;
     }
     setEditSaving(true);
@@ -322,9 +340,9 @@ export default function ActivityScreen() {
       const refreshed = await fetchActivityById(String(id));
       setActivity(refreshed);
       setShowEditModal(false);
-      showNotice('✓ הפעילות עודכנה');
-    } catch (err) {
-      setEditError(err.message || 'שגיאה בשמירה');
+      showNotice(t('activity.admin.updated'));
+    } catch {
+      setEditError(t('activity.admin.saveError'));
     } finally {
       setEditSaving(false);
     }
@@ -336,8 +354,8 @@ export default function ActivityScreen() {
     try {
       await deleteActivityAsAdmin(String(id));
       router.replace('/activities');
-    } catch (err) {
-      setDeleteError(err.message || 'שגיאה במחיקה');
+    } catch {
+      setDeleteError(t('activity.admin.deleteError'));
       setDeleteSaving(false);
     }
   };
@@ -356,7 +374,7 @@ export default function ActivityScreen() {
 
   const handleSaveBenefit = async () => {
     if (!benefitForm.provider || !benefitForm.benefit_type) {
-      setBenefitError('נא לבחור נותן הטבה וסוג הטבה');
+      setBenefitError(t('activity.admin.benefit.required'));
       return;
     }
     setBenefitSaving(true);
@@ -376,9 +394,9 @@ export default function ActivityScreen() {
       const refreshed = await fetchActivityById(String(id));
       setActivity(refreshed);
       setShowAddBenefitModal(false);
-      showNotice('✓ ההטבה נוספה');
-    } catch (err) {
-      setBenefitError(err.message || 'שגיאה בשמירה');
+      showNotice(t('activity.admin.benefit.added'));
+    } catch {
+      setBenefitError(t('activity.admin.saveError'));
     } finally {
       setBenefitSaving(false);
     }
@@ -408,8 +426,8 @@ export default function ActivityScreen() {
       setReportNote('');
       setReportDone(true);
       setTimeout(() => setReportDone(false), 3000);
-    } catch (err) {
-      showNotice(`שגיאה בשליחת הדיווח: ${err.message}`);
+    } catch {
+      showNotice(t('activity.report.sendError'));
     } finally {
       setReportSubmitting(false);
     }
@@ -429,13 +447,17 @@ export default function ActivityScreen() {
     if (!fieldReportField) return;
     setFieldReportSubmitting(true);
     try {
-      const fieldLabel = FIELD_REPORT_OPTIONS.find((f) => f.key === fieldReportField)?.label || fieldReportField;
+      // reports.reason stays canonical Hebrew (DEFAULT_LOCALE) regardless of UI language - same data as before.
+      const fieldKey = FIELD_REPORT_OPTIONS.find((f) => f.key === fieldReportField)?.labelKey;
+      const fieldLabel = fieldKey ? translate(fieldKey, null, DEFAULT_LOCALE) : fieldReportField;
       const note = fieldReportNote.trim();
       const { error } = await supabase.from('reports').insert({
         reporter_id: userId,
         target_type: 'activity',
         target_id: String(id),
-        reason: `מידע שגוי - ${fieldLabel}${note ? `: ${note}` : ''}`,
+        reason: note
+          ? translate('activity.report.fieldReasonWithNote', { field: fieldLabel, note }, DEFAULT_LOCALE)
+          : translate('activity.report.fieldReason', { field: fieldLabel }, DEFAULT_LOCALE),
       });
       if (error) throw error;
       setShowFieldReport(false);
@@ -443,8 +465,8 @@ export default function ActivityScreen() {
       setFieldReportNote('');
       setFieldReportDone(true);
       setTimeout(() => setFieldReportDone(false), 3000);
-    } catch (err) {
-      showNotice(`שגיאה בשליחת הדיווח: ${err.message}`);
+    } catch {
+      showNotice(t('activity.report.sendError'));
     } finally {
       setFieldReportSubmitting(false);
     }
@@ -471,14 +493,24 @@ export default function ActivityScreen() {
         <View style={styles.content}>
           <Header showBack onMenuPress={() => {}} />
           <View style={styles.notFound}>
-            <Text style={styles.notFoundText}>{loadError ? `שגיאה בטעינה: ${loadError}` : 'לא מצאנו את הפעילות הזו'}</Text>
+            <Text style={styles.notFoundText}>{loadError ? t('activity.detail.loadError') : t('activity.detail.notFound')}</Text>
           </View>
         </View>
       </View>
     );
   }
 
-  const placeLabel = [activity.locationName, activity.city].filter(Boolean).join(' · ');
+  const placeLabel = [activity.locationName, placeName(activity.city)].filter(Boolean).join(' · ');
+  const typeLabel = activityTypeLabel(activity, t);
+  // Info tile shows "3-6" for a range (the label above already says "ages"); other shapes use the full ageRange text.
+  const ageTileValue = activity.min_age != null && activity.max_age != null && activity.min_age !== activity.max_age
+    ? `${activity.min_age}-${activity.max_age}`
+    : activity.ageRange;
+  // "Recommended by {{name}} ⭐{{stars}}" with the name styled: split the translated sentence around the name.
+  const NAME_SLOT = '@@NAME@@';
+  const [recommendedBefore, recommendedAfter = ''] = activity.recommendedBy?.nickname
+    ? t('activity.detail.recommendedBy', { name: NAME_SLOT, stars: activity.recommendedBy.stars }).split(NAME_SLOT)
+    : [''];
 
   const openNavigation = () => {
     openNavigationTo({ title: activity.title, locationName: activity.locationName, city: activity.city, lat: activity.lat, lng: activity.lng });
@@ -500,9 +532,11 @@ export default function ActivityScreen() {
   };
 
   const descText = activity.description
-    || `${activity.title} - ${activity.category || activity.entity_type}, מתאים ל${activity.ageRange}.`
-      + (activity.booking_requirement === 'registration_required' ? ' דורש הרשמה מראש.' : '')
-      + (activity.indoor_outdoor === 'indoor' ? ' פעילות בתוך מבנה.' : activity.indoor_outdoor === 'outdoor' ? ' פעילות בחוץ.' : '');
+    || [
+      t('activity.detail.fallbackDescription', { title: activity.title, type: typeLabel, age: activity.ageRange }),
+      activity.booking_requirement === 'registration_required' ? t('activity.detail.fallbackRegistration') : null,
+      activity.indoor_outdoor === 'indoor' ? t('activity.detail.fallbackIndoor') : activity.indoor_outdoor === 'outdoor' ? t('activity.detail.fallbackOutdoor') : null,
+    ].filter(Boolean).join(' ');
 
   const heroActions = (
     <>
@@ -547,67 +581,67 @@ export default function ActivityScreen() {
           {notice ? <View style={styles.noticeBox}><Text style={styles.noticeText}>{notice}</Text></View> : null}
           <View style={styles.titleRow}>
             <Text style={styles.title}>{activity.title}</Text>
-            <View style={styles.typeBadge}><Text style={styles.typeBadgeText}>{activity.type}</Text></View>
+            <View style={styles.typeBadge}><Text style={styles.typeBadgeText}>{typeLabel}</Text></View>
           </View>
           <View style={styles.locationRow}>
             <LocationPinIcon />
-            <Text style={styles.locationText}>{placeLabel || 'מיקום לא צוין'}</Text>
+            <Text style={[styles.locationText, { writingDirection: dir.writingDirection }]}>{placeLabel || t('activity.detail.locationNotSpecified')}</Text>
           </View>
           {activity.recommendedBy?.nickname ? (
             <Text style={styles.recommendedText}>
-              הומלץ ע"י <Text style={styles.recommendedName}>{activity.recommendedBy.nickname}</Text> ⭐{activity.recommendedBy.stars}
+              {recommendedBefore}<Text style={styles.recommendedName}>{activity.recommendedBy.nickname}</Text>{recommendedAfter}
             </Text>
           ) : null}
 
           {isAdmin ? (
             <View style={styles.adminBar}>
-              <Text style={styles.adminBarLabel}>🛠️ ניהול</Text>
+              <Text style={styles.adminBarLabel}>{t('activity.admin.bar')}</Text>
               <View style={styles.adminBarActions}>
                 <Pressable style={styles.adminEditBtn} onPress={openEditModal}>
-                  <Text style={styles.adminEditBtnText}>✏️ עריכה</Text>
+                  <Text style={styles.adminEditBtnText}>{t('activity.admin.edit')}</Text>
                 </Pressable>
                 <Pressable style={styles.adminEditBtn} onPress={openAddBenefitModal}>
-                  <Text style={styles.adminEditBtnText}>🎟️ הוספת הטבה</Text>
+                  <Text style={styles.adminEditBtnText}>{t('activity.admin.addBenefit')}</Text>
                 </Pressable>
                 <Pressable style={styles.adminDeleteBtn} onPress={() => { setDeleteError(''); setShowDeleteConfirm(true); }}>
-                  <Text style={styles.adminDeleteBtnText}>🗑️ מחיקה</Text>
+                  <Text style={styles.adminDeleteBtnText}>{t('activity.admin.delete')}</Text>
                 </Pressable>
               </View>
             </View>
           ) : null}
 
           <View style={styles.infoGrid}>
-            <InfoCell Icon={SlidersIcon} label="גילאים" value={activity.ageRange.replace('גילאים ', '')} tint={colors.greenTint} />
-            <InfoCell Icon={PriceIcon} label="מחיר" value={activity.price} tint={colors.greenTint} />
-            <InfoCell Icon={ClockIcon} label="שעות" value={activity.hours} tint={colors.yellowTint} />
+            <InfoCell Icon={SlidersIcon} label={t('activity.detail.info.ages')} value={ageTileValue} tint={colors.greenTint} />
+            <InfoCell Icon={PriceIcon} label={t('activity.detail.info.price')} value={activity.price} tint={colors.greenTint} />
+            <InfoCell Icon={ClockIcon} label={t('activity.detail.info.hours')} value={activity.hours} tint={colors.yellowTint} />
           </View>
 
           {activity.occurrences?.length > 1 ? (
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>📅 מועדים קרובים</Text>
+              <Text style={styles.sectionTitle}>{t('activity.detail.upcomingDates')}</Text>
               {activity.occurrences.slice(0, 12).map((o) => (
-                <View key={`${o.date}-${o.start || ''}`} style={{ flexDirection: 'row-reverse', justifyContent: 'space-between', paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: colors.border }}>
-                  <Text style={{ fontFamily: fonts.bold, color: colors.textPrimary }}>{new Date(o.date).toLocaleDateString('he-IL', { weekday: 'short', day: 'numeric', month: 'numeric' })}{o.start ? ` · ${o.start}${o.end ? `–${o.end}` : ''}` : ''}</Text>
+                <View key={`${o.date}-${o.start || ''}`} style={{ flexDirection: dir.row, justifyContent: 'space-between', paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: colors.border }}>
+                  <Text style={{ fontFamily: fonts.bold, color: colors.textPrimary }}>{formatDate(o.date, { weekday: 'short', day: 'numeric', month: 'numeric' })}{o.start ? ` · ${o.start}${o.end ? `–${o.end}` : ''}` : ''}</Text>
                   {o.bookingUrl ? (
-                    <Pressable onPress={() => Linking.openURL(o.bookingUrl)}><Text style={{ fontFamily: fonts.bold, color: colors.accent }}>🎟️ רכישה</Text></Pressable>
+                    <Pressable onPress={() => Linking.openURL(o.bookingUrl)}><Text style={{ fontFamily: fonts.bold, color: colors.accent }}>{t('activity.detail.occurrenceBuy')}</Text></Pressable>
                   ) : null}
                 </View>
               ))}
-              {activity.occurrences.length > 12 ? <Text style={{ fontFamily: fonts.regular, color: colors.textSecondary, textAlign: 'right', marginTop: 6 }}>ועוד {activity.occurrences.length - 12} מועדים</Text> : null}
+              {activity.occurrences.length > 12 ? <Text style={{ fontFamily: fonts.regular, color: colors.textSecondary, textAlign: dir.textAlign, marginTop: 6 }}>{t('activity.detail.moreDates', { count: activity.occurrences.length - 12 })}</Text> : null}
             </View>
           ) : null}
 
           {activity.requiresTicket ? (
             <Pressable onPress={() => Linking.openURL(activity.sourceUrl)} style={styles.ticketBtnWrap}>
               <LinearGradient colors={['#ffbb4d', '#ff8a3d']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.ticketBtn}>
-                <Text style={styles.ticketBtnText}>🎟️ רכישת כרטיסים ותשלום</Text>
+                <Text style={styles.ticketBtnText}>{t('activity.detail.buyTickets')}</Text>
               </LinearGradient>
             </Pressable>
           ) : null}
 
           {activity.benefits?.length > 0 ? (
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>🎟️ הטבות והנחות</Text>
+              <Text style={styles.sectionTitle}>{t('activity.benefits.sectionTitle')}</Text>
               {activity.benefits.map((benefit) => {
                 const b = formatBenefitDetailLines(benefit, benefitClubs);
                 return (
@@ -615,11 +649,11 @@ export default function ActivityScreen() {
                     <Text style={styles.benefitProvider}>{b.isPersonalized ? '🟢 ' : ''}{b.provider}</Text>
                     <Text style={styles.benefitHeadline}>{b.headline}</Text>
                     {b.validityText ? <Text style={styles.benefitMeta}>{b.validityText}</Text> : null}
-                    {b.redemptionText ? <Text style={styles.benefitMeta}>איך מממשים: {b.redemptionText}</Text> : null}
+                    {b.redemptionText ? <Text style={styles.benefitMeta}>{t('activity.benefits.howToRedeem', { text: b.redemptionText })}</Text> : null}
                     {b.terms ? <Text style={styles.benefitTerms}>{b.terms}</Text> : null}
                     {b.redemptionUrl ? (
                       <Pressable onPress={() => Linking.openURL(b.redemptionUrl)} hitSlop={6}>
-                        <Text style={styles.sourceLink}>לפרטי ההטבה ←</Text>
+                        <Text style={styles.sourceLink}>{t('activity.benefits.detailsLink')}</Text>
                       </Pressable>
                     ) : null}
                   </View>
@@ -629,39 +663,41 @@ export default function ActivityScreen() {
           ) : null}
 
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>על הפעילות</Text>
-            <Text style={styles.desc}>{descText}</Text>
+            <Text style={styles.sectionTitle}>{t('activity.detail.about')}</Text>
+            {/* Generated fallback text is UI-language prose around a (usually Hebrew) title: pin its direction so
+                bidi auto-detection doesn't flip the whole English sentence. Real DB descriptions keep auto. */}
+            <Text style={[styles.desc, !activity.description && { writingDirection: dir.writingDirection }]}>{descText}</Text>
             {activity.officialUrl ? (
               <Pressable onPress={() => Linking.openURL(activity.officialUrl)} hitSlop={6}>
-                <Text style={styles.sourceLink}>🔗 אתר רשמי</Text>
+                <Text style={styles.sourceLink}>{t('activity.detail.officialSite')}</Text>
               </Pressable>
             ) : activity.sourceUrl && !activity.sourceUrl.includes('openstreetmap.org') ? (
               <Pressable onPress={() => Linking.openURL(activity.sourceUrl)} hitSlop={6}>
-                <Text style={styles.sourceLink}>🔗 המידע נאסף מהאתר הזה - למקור</Text>
+                <Text style={styles.sourceLink}>{t('activity.detail.sourceLink')}</Text>
               </Pressable>
             ) : null}
           </View>
 
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>מיקום</Text>
+            <Text style={styles.sectionTitle}>{t('activity.detail.location')}</Text>
             <View style={styles.mapPlaceholder}>
               <LocationPinIcon size={24} color={colors.accent} />
             </View>
             <View style={styles.addressRow}>
               <Text style={styles.addressText}>
-                {placeLabel || 'מיקום לא צוין'}{activity.locationDetail ? ` (${activity.locationDetail})` : ''}
+                {placeLabel || t('activity.detail.locationNotSpecified')}{activity.locationDetail ? ` (${activity.locationDetail})` : ''}
               </Text>
               <Pressable style={styles.navBtn} onPress={openNavigation}>
-                <Text style={styles.navBtnText}>ניווט</Text>
+                <Text style={styles.navBtnText}>{t('activity.detail.navigate')}</Text>
               </Pressable>
             </View>
             <Pressable style={styles.similarBtn} onPress={findSimilarNearby}>
-              <Text style={styles.similarBtnText}>🔍 חפש פעילות דומה באזור</Text>
+              <Text style={styles.similarBtnText}>{t('activity.detail.findSimilar')}</Text>
             </Pressable>
           </View>
 
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>תמונות מהמקום</Text>
+            <Text style={styles.sectionTitle}>{t('activity.photos.title')}</Text>
             {activity.imageUrls.length > 0 ? (
               <View style={styles.photoRow}>
                 {activity.imageUrls.map((url, i) => (
@@ -669,83 +705,91 @@ export default function ActivityScreen() {
                 ))}
               </View>
             ) : (
-              <Text style={styles.noNotesText}>עדיין אין תמונות - היו הראשונים להוסיף</Text>
+              <Text style={styles.noNotesText}>{t('activity.photos.empty')}</Text>
             )}
             {showPhotoOptions ? (
               <View style={styles.photoOptionsRow}>
                 <Pressable style={styles.photoOptionBtn} onPress={() => handlePickPhoto(false)} disabled={uploadingPhoto}>
-                  <Text style={styles.photoOptionBtnText}>📁 מהגלריה</Text>
+                  <Text style={styles.photoOptionBtnText}>{t('activity.photos.fromGallery')}</Text>
                 </Pressable>
                 <Pressable style={styles.photoOptionBtn} onPress={() => handlePickPhoto(true)} disabled={uploadingPhoto}>
-                  <Text style={styles.photoOptionBtnText}>📸 צילום עכשיו</Text>
+                  <Text style={styles.photoOptionBtnText}>{t('activity.photos.takePhoto')}</Text>
                 </Pressable>
                 <Pressable style={styles.photoOptionCancel} onPress={() => setShowPhotoOptions(false)}>
-                  <Text style={styles.photoOptionCancelText}>ביטול</Text>
+                  <Text style={styles.photoOptionCancelText}>{t('common.actions.cancel')}</Text>
                 </Pressable>
               </View>
             ) : (
               <Pressable style={styles.addPhotoBtn} onPress={() => setShowPhotoOptions(true)} disabled={uploadingPhoto}>
-                <Text style={styles.addPhotoBtnText}>{uploadingPhoto ? 'מעלה...' : '+ הוספת תמונות'}</Text>
+                <Text style={styles.addPhotoBtnText}>{uploadingPhoto ? t('activity.photos.uploadingShort') : t('activity.photos.add')}</Text>
               </Pressable>
             )}
-            {photoStatus ? <Text style={styles.hint}>{photoStatus}</Text> : null}
+            {photoStatus ? (
+              <Text style={styles.hint}>
+                {photoStatus === 'uploading' ? t('activity.photos.uploading') : photoStatus === 'sent' ? t('activity.photos.sent') : t('activity.photos.uploadError')}
+              </Text>
+            ) : null}
           </View>
 
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>הערות קהילה ({communityNotes.length})</Text>
+            <Text style={styles.sectionTitle}>{t('activity.notes.communityTitle', { n: communityNotes.length })}</Text>
             {communityNotes.length === 0 ? (
-              <Text style={styles.noNotesText}>עדיין אין הערות - היו הראשונים לכתוב אחת</Text>
+              <Text style={styles.noNotesText}>{t('activity.notes.communityEmpty')}</Text>
             ) : (
-              communityNotes.map((n) => (
-                <View key={n.id} style={styles.note}>
-                  <View style={styles.noteAvatar}><Text style={styles.noteAvatarText}>{n.nickname[0]}</Text></View>
-                  <View style={{ flex: 1 }}>
-                    <View style={styles.noteHeadRow}>
-                      <Pressable
-                        onPress={() => router.push({
-                          pathname: '/report',
-                          params: { targetType: 'community_note', targetId: n.id, preview: `${n.nickname}: ${n.note}` },
-                        })}
-                      >
-                        <Text style={styles.reportLink}>דווח</Text>
-                      </Pressable>
-                      <Text style={styles.noteText}><Text style={styles.noteNick}>{n.nickname} ⭐{n.stars} </Text>{n.note}</Text>
+              communityNotes.map((n) => {
+                // nickname is null when the author's public profile isn't available - fallback resolved here, per locale.
+                const nickname = n.nickname || t('activity.notes.anonymousAuthor');
+                return (
+                  <View key={n.id} style={styles.note}>
+                    <View style={styles.noteAvatar}><Text style={styles.noteAvatarText}>{nickname[0]}</Text></View>
+                    <View style={{ flex: 1 }}>
+                      <View style={styles.noteHeadRow}>
+                        <Pressable
+                          onPress={() => router.push({
+                            pathname: '/report',
+                            params: { targetType: 'community_note', targetId: n.id, preview: `${nickname}: ${n.note}` },
+                          })}
+                        >
+                          <Text style={styles.reportLink}>{t('activity.notes.report')}</Text>
+                        </Pressable>
+                        <Text style={styles.noteText}><Text style={styles.noteNick}>{nickname} ⭐{n.stars} </Text>{n.note}</Text>
+                      </View>
+                      <Text style={styles.noteDate}>{relativeDate(n.created_at)}</Text>
                     </View>
-                    <Text style={styles.noteDate}>{relativeDate(n.created_at)}</Text>
                   </View>
-                </View>
-              ))
+                );
+              })
             )}
             <View style={styles.addNoteRow}>
               <TextInput
                 style={styles.addNoteInput}
-                placeholder="הוסיפו הערה לקהילה..."
+                placeholder={t('activity.notes.communityPlaceholder')}
                 placeholderTextColor={colors.textMuted}
                 value={communityDraft}
                 onChangeText={setCommunityDraft}
               />
               <Pressable style={styles.sendBtn} onPress={handlePostCommunityNote} disabled={postingNote}>
-                <Text style={styles.sendBtnText}>{postingNote ? '...' : 'שלח'}</Text>
+                <Text style={styles.sendBtnText}>{postingNote ? '...' : t('activity.notes.send')}</Text>
               </Pressable>
             </View>
-            {!userId && <Text style={styles.hint}>צריך להתחבר כדי לכתוב הערת קהילה</Text>}
+            {!userId && <Text style={styles.hint}>{t('activity.notes.communityLoginRequired')}</Text>}
           </View>
 
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>ההערה האישית שלי</Text>
+            <Text style={styles.sectionTitle}>{t('activity.notes.personalTitle')}</Text>
             {!editingNote && personalNote ? (
               <View style={styles.notePreviewBox}>
-                <Text style={styles.notePreviewHead}>📝 יש לכם הערה אישית על הפעילות</Text>
+                <Text style={styles.notePreviewHead}>{t('activity.notes.personalHasNote')}</Text>
                 <Text style={styles.notePreviewText}>{personalNote}</Text>
                 <Pressable style={styles.noteEditBtn} onPress={() => setEditingNote(true)}>
-                  <Text style={styles.noteEditBtnText}>✏️ עריכה</Text>
+                  <Text style={styles.noteEditBtnText}>{t('activity.notes.edit')}</Text>
                 </Pressable>
               </View>
             ) : (
               <>
                 <TextInput
                   style={styles.personalNote}
-                  placeholder="כתבו כאן הערה פרטית - רק אתם תראו אותה..."
+                  placeholder={t('activity.notes.personalPlaceholder')}
                   placeholderTextColor={colors.textMuted}
                   multiline
                   value={personalNote}
@@ -755,14 +799,18 @@ export default function ActivityScreen() {
                   autoFocus={editingNote && !!personalNote}
                 />
                 {userId ? (
-                  noteStatus ? <Text style={styles.hint}>{noteStatus}</Text> : (
-                    <Text style={styles.hint}>ההערה נשמרת אוטומטית ברגע שיוצאים מהשדה - רק אתם רואים אותה</Text>
+                  noteStatus ? (
+                    <Text style={styles.hint}>
+                      {noteStatus === 'saving' ? t('common.actions.saving') : noteStatus === 'saved' ? t('activity.notes.saved') : t('activity.notes.saveError')}
+                    </Text>
+                  ) : (
+                    <Text style={styles.hint}>{t('activity.notes.autoSaveHint')}</Text>
                   )
                 ) : (
                   <View style={styles.hintRow}>
-                    <Text style={styles.hintInline}>צריך להתחבר כדי לשמור הערה אישית - </Text>
+                    <Text style={styles.hintInline}>{t('activity.notes.personalLoginPrompt')}</Text>
                     <Pressable onPress={() => router.push('/login')}>
-                      <Text style={styles.hintLink}>להרשמה</Text>
+                      <Text style={styles.hintLink}>{t('activity.notes.signUp')}</Text>
                     </Pressable>
                   </View>
                 )}
@@ -772,18 +820,18 @@ export default function ActivityScreen() {
 
           <View style={styles.reportSection}>
             {reportDone ? (
-              <Text style={styles.reportDoneText}>✓ הדיווח נשלח, תודה</Text>
+              <Text style={styles.reportDoneText}>{t('activity.report.sent')}</Text>
             ) : (
               <>
                 <Pressable onPress={handleReportPress}>
-                  <Text style={styles.reportLink}>🚩 דווח על הפעילות</Text>
+                  <Text style={styles.reportLink}>{t('activity.report.activityLink')}</Text>
                 </Pressable>
                 {showReportChoice ? (
                   showReportNoteInput ? (
                     <View style={styles.reportNoteBox}>
                       <TextInput
                         style={styles.reportNoteInput}
-                        placeholder="מה לא בסדר עם הפעילות הזו?"
+                        placeholder={t('activity.report.notePlaceholder')}
                         placeholderTextColor={colors.textMuted}
                         multiline
                         value={reportNote}
@@ -795,23 +843,23 @@ export default function ActivityScreen() {
                           onPress={() => submitReport(reportNote.trim())}
                           disabled={reportSubmitting || !reportNote.trim()}
                         >
-                          <Text style={styles.reportSubmitBtnText}>{reportSubmitting ? '...' : 'שליחת דיווח'}</Text>
+                          <Text style={styles.reportSubmitBtnText}>{reportSubmitting ? '...' : t('activity.report.submit')}</Text>
                         </Pressable>
                         <Pressable onPress={() => setShowReportChoice(false)}>
-                          <Text style={styles.reportCancelText}>ביטול</Text>
+                          <Text style={styles.reportCancelText}>{t('common.actions.cancel')}</Text>
                         </Pressable>
                       </View>
                     </View>
                   ) : (
                     <View style={styles.reportChoiceRow}>
                       <Pressable style={styles.reportSubmitBtn} onPress={() => submitReport(null)} disabled={reportSubmitting}>
-                        <Text style={styles.reportSubmitBtnText}>{reportSubmitting ? '...' : 'דיווח מהיר'}</Text>
+                        <Text style={styles.reportSubmitBtnText}>{reportSubmitting ? '...' : t('activity.report.quick')}</Text>
                       </Pressable>
                       <Pressable style={styles.reportOptionBtn} onPress={() => setShowReportNoteInput(true)}>
-                        <Text style={styles.reportOptionBtnText}>הוספת הערה ודיווח</Text>
+                        <Text style={styles.reportOptionBtnText}>{t('activity.report.addNote')}</Text>
                       </Pressable>
                       <Pressable onPress={() => setShowReportChoice(false)}>
-                        <Text style={styles.reportCancelText}>ביטול</Text>
+                        <Text style={styles.reportCancelText}>{t('common.actions.cancel')}</Text>
                       </Pressable>
                     </View>
                   )
@@ -820,15 +868,15 @@ export default function ActivityScreen() {
             )}
 
             {fieldReportDone ? (
-              <Text style={[styles.reportDoneText, { marginTop: 10 }]}>✓ הדיווח נשלח, תודה</Text>
+              <Text style={[styles.reportDoneText, { marginTop: 10 }]}>{t('activity.report.sent')}</Text>
             ) : (
               <>
                 <Pressable onPress={handleFieldReportPress} style={{ marginTop: 10 }}>
-                  <Text style={styles.reportLink}>✏️ יש מידע לא נכון בכרטיסייה?</Text>
+                  <Text style={styles.reportLink}>{t('activity.report.fieldLink')}</Text>
                 </Pressable>
                 {showFieldReport ? (
                   <View style={styles.reportNoteBox}>
-                    <Text style={styles.fieldReportPrompt}>איזה מידע שגוי?</Text>
+                    <Text style={styles.fieldReportPrompt}>{t('activity.report.fieldPrompt')}</Text>
                     <View style={styles.fieldChipsRow}>
                       {FIELD_REPORT_OPTIONS.map((f) => (
                         <Pressable
@@ -836,13 +884,13 @@ export default function ActivityScreen() {
                           style={[styles.fieldChip, fieldReportField === f.key && styles.fieldChipSelected]}
                           onPress={() => setFieldReportField(f.key)}
                         >
-                          <Text style={[styles.fieldChipText, fieldReportField === f.key && styles.fieldChipTextSelected]}>{f.label}</Text>
+                          <Text style={[styles.fieldChipText, fieldReportField === f.key && styles.fieldChipTextSelected]}>{t(f.labelKey)}</Text>
                         </Pressable>
                       ))}
                     </View>
                     <TextInput
                       style={styles.reportNoteInput}
-                      placeholder="פרטו מה לא נכון (לא חובה)..."
+                      placeholder={t('activity.report.fieldNotePlaceholder')}
                       placeholderTextColor={colors.textMuted}
                       multiline
                       value={fieldReportNote}
@@ -854,10 +902,10 @@ export default function ActivityScreen() {
                         onPress={submitFieldReport}
                         disabled={fieldReportSubmitting || !fieldReportField}
                       >
-                        <Text style={styles.reportSubmitBtnText}>{fieldReportSubmitting ? '...' : 'שליחת דיווח'}</Text>
+                        <Text style={styles.reportSubmitBtnText}>{fieldReportSubmitting ? '...' : t('activity.report.submit')}</Text>
                       </Pressable>
                       <Pressable onPress={() => setShowFieldReport(false)}>
-                        <Text style={styles.reportCancelText}>ביטול</Text>
+                        <Text style={styles.reportCancelText}>{t('common.actions.cancel')}</Text>
                       </Pressable>
                     </View>
                   </View>
@@ -873,18 +921,18 @@ export default function ActivityScreen() {
       <Modal visible={showEditModal} animationType="slide" onRequestClose={() => setShowEditModal(false)} presentationStyle="pageSheet">
         <View style={styles.editSheet}>
           <View style={styles.editHeader}>
-            <Text style={styles.editHeaderTitle}>עריכת פעילות</Text>
+            <Text style={styles.editHeaderTitle}>{t('activity.admin.editTitle')}</Text>
             <Pressable onPress={() => setShowEditModal(false)}><Text style={styles.editCloseText}>✕</Text></Pressable>
           </View>
           {editForm && (
             <ScrollView contentContainerStyle={styles.editBody}>
-              <Text style={styles.fieldReportPrompt}>שם הפעילות *</Text>
+              <Text style={styles.fieldReportPrompt}>{t('activity.admin.nameLabel')}</Text>
               <TextInput style={styles.editInput} value={editForm.name} onChangeText={(v) => setEditField('name', v)} />
 
-              <Text style={styles.fieldReportPrompt}>תיאור</Text>
+              <Text style={styles.fieldReportPrompt}>{t('activity.admin.descriptionLabel')}</Text>
               <TextInput style={[styles.editInput, styles.editTextarea]} value={editForm.description} onChangeText={(v) => setEditField('description', v)} multiline />
 
-              <Text style={styles.fieldReportPrompt}>קטגוריה</Text>
+              <Text style={styles.fieldReportPrompt}>{t('activity.admin.categoryLabel')}</Text>
               <View style={styles.fieldChipsRow}>
                 {CATEGORY_OPTIONS.map((opt) => (
                   <Pressable key={opt.id} style={[styles.fieldChip, editForm.category === opt.id && styles.fieldChipSelected]} onPress={() => setEditField('category', opt.id)}>
@@ -893,33 +941,33 @@ export default function ActivityScreen() {
                 ))}
               </View>
 
-              <Text style={styles.fieldReportPrompt}>סוג</Text>
+              <Text style={styles.fieldReportPrompt}>{t('activity.admin.typeLabel')}</Text>
               <View style={styles.fieldChipsRow}>
                 {ENTITY_TYPE_EDIT_OPTIONS.map((opt) => (
                   <Pressable key={opt.id} style={[styles.fieldChip, editForm.entity_type === opt.id && styles.fieldChipSelected]} onPress={() => setEditField('entity_type', opt.id)}>
-                    <Text style={[styles.fieldChipText, editForm.entity_type === opt.id && styles.fieldChipTextSelected]}>{opt.label}</Text>
+                    <Text style={[styles.fieldChipText, editForm.entity_type === opt.id && styles.fieldChipTextSelected]}>{t(opt.labelKey)}</Text>
                   </Pressable>
                 ))}
               </View>
 
               <View style={styles.editRow}>
                 <View style={styles.editRowItem}>
-                  <Text style={styles.fieldReportPrompt}>גיל מ-</Text>
+                  <Text style={styles.fieldReportPrompt}>{t('activity.admin.ageFrom')}</Text>
                   <TextInput style={styles.editInput} value={editForm.min_age} onChangeText={(v) => setEditField('min_age', v.replace(/[^0-9.]/g, ''))} keyboardType="numeric" />
                 </View>
                 <View style={styles.editRowItem}>
-                  <Text style={styles.fieldReportPrompt}>גיל עד</Text>
+                  <Text style={styles.fieldReportPrompt}>{t('activity.admin.ageTo')}</Text>
                   <TextInput style={styles.editInput} value={editForm.max_age} onChangeText={(v) => setEditField('max_age', v.replace(/[^0-9.]/g, ''))} keyboardType="numeric" />
                 </View>
               </View>
 
-              <Text style={styles.fieldReportPrompt}>מחיר</Text>
+              <Text style={styles.fieldReportPrompt}>{t('activity.admin.priceLabel')}</Text>
               <View style={styles.fieldChipsRow}>
                 <Pressable style={[styles.fieldChip, editForm.price_type === 'free' && styles.fieldChipSelected]} onPress={() => setEditField('price_type', 'free')}>
-                  <Text style={[styles.fieldChipText, editForm.price_type === 'free' && styles.fieldChipTextSelected]}>חינם</Text>
+                  <Text style={[styles.fieldChipText, editForm.price_type === 'free' && styles.fieldChipTextSelected]}>{t('domain.activityMeta.priceFree')}</Text>
                 </Pressable>
                 <Pressable style={[styles.fieldChip, editForm.price_type === 'fixed' && styles.fieldChipSelected]} onPress={() => setEditField('price_type', 'fixed')}>
-                  <Text style={[styles.fieldChipText, editForm.price_type === 'fixed' && styles.fieldChipTextSelected]}>בתשלום</Text>
+                  <Text style={[styles.fieldChipText, editForm.price_type === 'fixed' && styles.fieldChipTextSelected]}>{t('activity.admin.pricePaid')}</Text>
                 </Pressable>
                 {editForm.price_type === 'fixed' && (
                   <TextInput
@@ -933,37 +981,37 @@ export default function ActivityScreen() {
                 )}
               </View>
 
-              <Text style={styles.fieldReportPrompt}>משך (דקות)</Text>
+              <Text style={styles.fieldReportPrompt}>{t('activity.admin.durationLabel')}</Text>
               <TextInput style={styles.editInput} value={editForm.duration_minutes} onChangeText={(v) => setEditField('duration_minutes', v.replace(/[^0-9.]/g, ''))} keyboardType="numeric" />
 
-              <Text style={styles.fieldReportPrompt}>סוג מקום</Text>
+              <Text style={styles.fieldReportPrompt}>{t('activity.admin.placeTypeLabel')}</Text>
               <View style={styles.fieldChipsRow}>
                 {INDOOR_OUTDOOR_EDIT_OPTIONS.map((opt) => (
                   <Pressable key={opt.id} style={[styles.fieldChip, editForm.indoor_outdoor === opt.id && styles.fieldChipSelected]} onPress={() => setEditField('indoor_outdoor', opt.id)}>
-                    <Text style={[styles.fieldChipText, editForm.indoor_outdoor === opt.id && styles.fieldChipTextSelected]}>{opt.label}</Text>
+                    <Text style={[styles.fieldChipText, editForm.indoor_outdoor === opt.id && styles.fieldChipTextSelected]}>{t(opt.labelKey)}</Text>
                   </Pressable>
                 ))}
               </View>
 
-              <Text style={styles.fieldReportPrompt}>הזמנה</Text>
+              <Text style={styles.fieldReportPrompt}>{t('activity.admin.bookingLabel')}</Text>
               <View style={styles.fieldChipsRow}>
                 {BOOKING_EDIT_OPTIONS.map((opt) => (
                   <Pressable key={opt.id} style={[styles.fieldChip, editForm.booking_requirement === opt.id && styles.fieldChipSelected]} onPress={() => setEditField('booking_requirement', opt.id)}>
-                    <Text style={[styles.fieldChipText, editForm.booking_requirement === opt.id && styles.fieldChipTextSelected]}>{opt.label}</Text>
+                    <Text style={[styles.fieldChipText, editForm.booking_requirement === opt.id && styles.fieldChipTextSelected]}>{t(opt.labelKey)}</Text>
                   </Pressable>
                 ))}
               </View>
 
-              <Text style={styles.fieldReportPrompt}>עיר</Text>
+              <Text style={styles.fieldReportPrompt}>{t('activity.admin.cityLabel')}</Text>
               <TextInput style={styles.editInput} value={editForm.city} onChangeText={(v) => setEditField('city', v)} />
 
-              <Text style={styles.fieldReportPrompt}>שם המקום</Text>
+              <Text style={styles.fieldReportPrompt}>{t('activity.admin.placeNameLabel')}</Text>
               <TextInput style={styles.editInput} value={editForm.location_name} onChangeText={(v) => setEditField('location_name', v)} />
 
               {editError ? <Text style={styles.editErrorText}>{editError}</Text> : null}
 
               <Pressable style={styles.editSaveBtn} onPress={handleSaveEdit} disabled={editSaving}>
-                <Text style={styles.editSaveBtnText}>{editSaving ? 'שומר...' : 'שמירת שינויים'}</Text>
+                <Text style={styles.editSaveBtnText}>{editSaving ? t('common.actions.saving') : t('activity.admin.saveChanges')}</Text>
               </Pressable>
             </ScrollView>
           )}
@@ -973,12 +1021,12 @@ export default function ActivityScreen() {
       <Modal visible={showAddBenefitModal} animationType="slide" onRequestClose={() => setShowAddBenefitModal(false)} presentationStyle="pageSheet">
         <View style={styles.editSheet}>
           <View style={styles.editHeader}>
-            <Text style={styles.editHeaderTitle}>הוספת הטבה</Text>
+            <Text style={styles.editHeaderTitle}>{t('activity.admin.benefit.title')}</Text>
             <Pressable onPress={() => setShowAddBenefitModal(false)}><Text style={styles.editCloseText}>✕</Text></Pressable>
           </View>
           {benefitForm && (
             <ScrollView contentContainerStyle={styles.editBody}>
-              <Text style={styles.fieldReportPrompt}>נותן ההטבה *</Text>
+              <Text style={styles.fieldReportPrompt}>{t('activity.admin.benefit.provider')}</Text>
               <View style={styles.fieldChipsRow}>
                 {BENEFIT_PROVIDER_EDIT_OPTIONS.map((opt) => (
                   <Pressable key={opt.id} style={[styles.fieldChip, benefitForm.provider === opt.id && styles.fieldChipSelected]} onPress={() => setBenefitField('provider', opt.id)}>
@@ -987,7 +1035,7 @@ export default function ActivityScreen() {
                 ))}
               </View>
 
-              <Text style={styles.fieldReportPrompt}>סוג ההטבה *</Text>
+              <Text style={styles.fieldReportPrompt}>{t('activity.admin.benefit.type')}</Text>
               <View style={styles.fieldChipsRow}>
                 {BENEFIT_TYPE_EDIT_OPTIONS.map((opt) => (
                   <Pressable key={opt.id} style={[styles.fieldChip, benefitForm.benefit_type === opt.id && styles.fieldChipSelected]} onPress={() => setBenefitField('benefit_type', opt.id)}>
@@ -996,20 +1044,20 @@ export default function ActivityScreen() {
                 ))}
               </View>
 
-              <Text style={styles.fieldReportPrompt}>ערך ההטבה (למשל 20%)</Text>
-              <TextInput style={styles.editInput} value={benefitForm.value} onChangeText={(v) => setBenefitField('value', v)} placeholder="20% / 1+1 / ילד שני ב-50%" placeholderTextColor={colors.textMuted} />
+              <Text style={styles.fieldReportPrompt}>{t('activity.admin.benefit.value')}</Text>
+              <TextInput style={styles.editInput} value={benefitForm.value} onChangeText={(v) => setBenefitField('value', v)} placeholder={t('activity.admin.benefit.valuePlaceholder')} placeholderTextColor={colors.textMuted} />
 
               {benefitForm.benefit_type === 'special_price' && (
                 <>
-                  <Text style={styles.fieldReportPrompt}>מחיר מיוחד (₪)</Text>
+                  <Text style={styles.fieldReportPrompt}>{t('activity.admin.benefit.specialPrice')}</Text>
                   <TextInput style={styles.editInput} value={benefitForm.special_price} onChangeText={(v) => setBenefitField('special_price', v.replace(/[^0-9.]/g, ''))} keyboardType="numeric" />
                 </>
               )}
 
-              <Text style={styles.fieldReportPrompt}>תאריך סיום (אופציונלי)</Text>
+              <Text style={styles.fieldReportPrompt}>{t('activity.admin.benefit.validUntil')}</Text>
               <TextInput style={styles.editInput} value={benefitForm.valid_until} onChangeText={(v) => setBenefitField('valid_until', v)} placeholder="YYYY-MM-DD" placeholderTextColor={colors.textMuted} />
 
-              <Text style={styles.fieldReportPrompt}>איך מממשים</Text>
+              <Text style={styles.fieldReportPrompt}>{t('activity.admin.benefit.redemption')}</Text>
               <View style={styles.fieldChipsRow}>
                 {REDEMPTION_METHOD_EDIT_OPTIONS.map((opt) => (
                   <Pressable key={opt.id} style={[styles.fieldChip, benefitForm.redemption_method === opt.id && styles.fieldChipSelected]} onPress={() => setBenefitField('redemption_method', opt.id)}>
@@ -1020,25 +1068,25 @@ export default function ActivityScreen() {
 
               {benefitForm.redemption_method === 'link' && (
                 <>
-                  <Text style={styles.fieldReportPrompt}>קישור למימוש</Text>
+                  <Text style={styles.fieldReportPrompt}>{t('activity.admin.benefit.redemptionUrl')}</Text>
                   <TextInput style={styles.editInput} value={benefitForm.redemption_url} onChangeText={(v) => setBenefitField('redemption_url', v)} autoCapitalize="none" keyboardType="url" />
                 </>
               )}
 
               {benefitForm.redemption_method === 'coupon_code' && (
                 <>
-                  <Text style={styles.fieldReportPrompt}>קוד קופון</Text>
+                  <Text style={styles.fieldReportPrompt}>{t('activity.admin.benefit.couponCode')}</Text>
                   <TextInput style={styles.editInput} value={benefitForm.coupon_code} onChangeText={(v) => setBenefitField('coupon_code', v)} autoCapitalize="none" />
                 </>
               )}
 
-              <Text style={styles.fieldReportPrompt}>תנאי ההטבה</Text>
+              <Text style={styles.fieldReportPrompt}>{t('activity.admin.benefit.terms')}</Text>
               <TextInput style={[styles.editInput, styles.editTextarea]} value={benefitForm.terms} onChangeText={(v) => setBenefitField('terms', v)} multiline />
 
               {benefitError ? <Text style={styles.editErrorText}>{benefitError}</Text> : null}
 
               <Pressable style={styles.editSaveBtn} onPress={handleSaveBenefit} disabled={benefitSaving}>
-                <Text style={styles.editSaveBtnText}>{benefitSaving ? 'שומר...' : 'הוספת ההטבה'}</Text>
+                <Text style={styles.editSaveBtnText}>{benefitSaving ? t('common.actions.saving') : t('activity.admin.benefit.submit')}</Text>
               </Pressable>
             </ScrollView>
           )}
@@ -1048,15 +1096,15 @@ export default function ActivityScreen() {
       <Modal visible={showDeleteConfirm} transparent animationType="fade" onRequestClose={() => !deleteSaving && setShowDeleteConfirm(false)}>
         <Pressable style={styles.registerBackdrop} onPress={() => !deleteSaving && setShowDeleteConfirm(false)}>
           <Pressable style={styles.deleteConfirmBox} onPress={(e) => e.stopPropagation()}>
-            <Text style={styles.deleteConfirmTitle}>למחוק את "{activity.title}"?</Text>
-            <Text style={styles.deleteConfirmText}>הפעולה לא הפיכה - הפעילות תימחק לצמיתות מהמערכת.</Text>
+            <Text style={styles.deleteConfirmTitle}>{t('activity.admin.deleteTitle', { title: activity.title })}</Text>
+            <Text style={styles.deleteConfirmText}>{t('activity.admin.deleteText')}</Text>
             {deleteError ? <Text style={styles.editErrorText}>{deleteError}</Text> : null}
             <View style={styles.deleteConfirmActions}>
               <Pressable style={styles.deleteConfirmBtn} onPress={handleConfirmDelete} disabled={deleteSaving}>
-                <Text style={styles.deleteConfirmBtnText}>{deleteSaving ? '...' : 'כן, למחוק'}</Text>
+                <Text style={styles.deleteConfirmBtnText}>{deleteSaving ? '...' : t('activity.admin.deleteConfirm')}</Text>
               </Pressable>
               <Pressable style={styles.deleteCancelBtn} onPress={() => setShowDeleteConfirm(false)} disabled={deleteSaving}>
-                <Text style={styles.deleteCancelBtnText}>ביטול</Text>
+                <Text style={styles.deleteCancelBtnText}>{t('common.actions.cancel')}</Text>
               </Pressable>
             </View>
           </Pressable>
@@ -1066,37 +1114,37 @@ export default function ActivityScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createStyles((d) => ({
   screen: { flex: 1, backgroundColor: colors.bg },
   headerWrap: { paddingHorizontal: spacing.xl, paddingTop: spacing.xl },
   hero: { width: '100%', height: 240, marginTop: 12, position: 'relative' },
-  actionRowRight: { position: 'absolute', top: 14, right: 16, flexDirection: 'row-reverse', gap: 8 },
-  actionRowLeft: { position: 'absolute', top: 14, left: 16, flexDirection: 'row', gap: 8 },
+  actionRowRight: { position: 'absolute', top: 14, [d.start]: 16, flexDirection: d.row, gap: 8 },
+  actionRowLeft: { position: 'absolute', top: 14, [d.end]: 16, flexDirection: 'row', gap: 8 },
   actionBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.92)', alignItems: 'center', justifyContent: 'center' },
 
   content: { padding: spacing.xl },
   titleRow: { marginBottom: 8 },
-  title: { fontFamily: fonts.extraBold, fontSize: 21, color: colors.textPrimary, textAlign: 'right' },
-  typeBadge: { alignSelf: 'flex-start', marginTop: 6, backgroundColor: colors.accentTintLight, borderRadius: 7, paddingVertical: 4, paddingHorizontal: 10 },
+  title: { fontFamily: fonts.extraBold, fontSize: 21, color: colors.textPrimary, textAlign: d.textAlign },
+  typeBadge: { alignSelf: d.alignEnd, marginTop: 6, backgroundColor: colors.accentTintLight, borderRadius: 7, paddingVertical: 4, paddingHorizontal: 10 },
   typeBadgeText: { fontFamily: fonts.bold, fontSize: 12, color: colors.accent },
-  locationRow: { flexDirection: 'row-reverse', alignItems: 'center', gap: 6, marginBottom: 18 },
+  locationRow: { flexDirection: d.row, alignItems: 'center', gap: 6, marginBottom: 18 },
   locationText: { fontFamily: fonts.regular, fontSize: 13.5, color: colors.textSecondary },
-  recommendedText: { fontFamily: fonts.regular, fontSize: 12.5, color: colors.textMuted, textAlign: 'right', marginTop: -12, marginBottom: 18 },
+  recommendedText: { fontFamily: fonts.regular, fontSize: 12.5, color: colors.textMuted, textAlign: d.textAlign, marginTop: -12, marginBottom: 18 },
   recommendedName: { fontFamily: fonts.bold, color: colors.accent },
 
   adminBar: {
-    flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8,
+    flexDirection: d.row, alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8,
     backgroundColor: '#fff8ec', borderWidth: 1, borderColor: '#f0dcae', borderRadius: radii.lg,
     paddingVertical: 10, paddingHorizontal: 14, marginBottom: 18,
   },
   adminBarLabel: { fontFamily: fonts.bold, fontSize: 12.5, color: colors.warn },
-  adminBarActions: { flexDirection: 'row-reverse', gap: 8, flexWrap: 'wrap' },
+  adminBarActions: { flexDirection: d.row, gap: 8, flexWrap: 'wrap' },
   adminEditBtn: { borderWidth: 1, borderColor: colors.accent, backgroundColor: colors.accentTintLight, borderRadius: radii.pill, paddingVertical: 7, paddingHorizontal: 12 },
   adminEditBtnText: { fontFamily: fonts.bold, fontSize: 12, color: colors.accent },
   adminDeleteBtn: { borderWidth: 1, borderColor: colors.danger, backgroundColor: '#fdeceb', borderRadius: radii.pill, paddingVertical: 7, paddingHorizontal: 12 },
   adminDeleteBtnText: { fontFamily: fonts.bold, fontSize: 12, color: colors.danger },
 
-  infoGrid: { flexDirection: 'row', gap: 10, marginBottom: 24 },
+  infoGrid: { flexDirection: d.rowReverse, gap: 10, marginBottom: 24 },
   ticketBtnWrap: {
     borderRadius: radii.pill, overflow: 'hidden', marginBottom: 24,
     shadowColor: '#ff8a3d', shadowOpacity: 0.3, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 3,
@@ -1106,28 +1154,28 @@ const styles = StyleSheet.create({
   infoCell: { flex: 1, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: radii.lg, padding: 12, alignItems: 'center' },
   infoIcon: { width: 30, height: 30, borderRadius: 9, alignItems: 'center', justifyContent: 'center', marginBottom: 6 },
   infoLabel: { fontFamily: fonts.semiBold, fontSize: 11, color: colors.textSecondary, marginBottom: 2 },
-  infoValue: { fontFamily: fonts.extraBold, fontSize: 13.5, color: colors.textPrimary },
+  infoValue: { fontFamily: fonts.extraBold, fontSize: 13.5, color: colors.textPrimary, textAlign: 'center' },
 
   section: { marginBottom: 26 },
-  sectionTitle: { fontFamily: fonts.extraBold, fontSize: 15, color: colors.textPrimary, marginBottom: 10, textAlign: 'right' },
-  desc: { fontFamily: fonts.regular, fontSize: 13.5, lineHeight: 21, color: colors.textSecondary, textAlign: 'right' },
-  sourceLink: { fontFamily: fonts.semiBold, fontSize: 12, color: colors.accent, textAlign: 'right', marginTop: 10 },
+  sectionTitle: { fontFamily: fonts.extraBold, fontSize: 15, color: colors.textPrimary, marginBottom: 10, textAlign: d.textAlign },
+  desc: { fontFamily: fonts.regular, fontSize: 13.5, lineHeight: 21, color: colors.textSecondary, textAlign: d.textAlign },
+  sourceLink: { fontFamily: fonts.semiBold, fontSize: 12, color: colors.accent, textAlign: d.textAlign, marginTop: 10 },
 
   benefitCard: {
     borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card,
     borderRadius: radii.lg, padding: 14, marginBottom: 10,
   },
   benefitCardPersonalized: { borderColor: colors.accentTint, backgroundColor: colors.accentTintLight },
-  benefitProvider: { fontFamily: fonts.bold, fontSize: 12.5, color: colors.accent, textAlign: 'right', marginBottom: 4 },
-  benefitHeadline: { fontFamily: fonts.extraBold, fontSize: 16, color: colors.textPrimary, textAlign: 'right', marginBottom: 6 },
-  benefitMeta: { fontFamily: fonts.regular, fontSize: 12.5, color: colors.textSecondary, textAlign: 'right', marginBottom: 4 },
-  benefitTerms: { fontFamily: fonts.regular, fontSize: 11.5, color: colors.textMuted, textAlign: 'right', marginBottom: 4 },
+  benefitProvider: { fontFamily: fonts.bold, fontSize: 12.5, color: colors.accent, textAlign: d.textAlign, marginBottom: 4 },
+  benefitHeadline: { fontFamily: fonts.extraBold, fontSize: 16, color: colors.textPrimary, textAlign: d.textAlign, marginBottom: 6 },
+  benefitMeta: { fontFamily: fonts.regular, fontSize: 12.5, color: colors.textSecondary, textAlign: d.textAlign, marginBottom: 4 },
+  benefitTerms: { fontFamily: fonts.regular, fontSize: 11.5, color: colors.textMuted, textAlign: d.textAlign, marginBottom: 4 },
 
   mapPlaceholder: {
     height: 140, borderRadius: radii.lg, backgroundColor: colors.accentTintLight,
     alignItems: 'center', justifyContent: 'center', marginBottom: 10,
   },
-  addressRow: { flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between' },
+  addressRow: { flexDirection: d.row, alignItems: 'center', justifyContent: 'space-between' },
   addressText: { fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary },
   navBtn: { borderWidth: 1.5, borderColor: colors.accent, backgroundColor: colors.accentTintLight, borderRadius: radii.pill, paddingVertical: 8, paddingHorizontal: 14 },
   navBtnText: { fontFamily: fonts.bold, fontSize: 12.5, color: colors.accent },
@@ -1137,14 +1185,14 @@ const styles = StyleSheet.create({
   },
   similarBtnText: { fontFamily: fonts.bold, fontSize: 12.5, color: colors.textPrimary },
 
-  photoRow: { flexDirection: 'row-reverse', flexWrap: 'wrap', justifyContent: 'flex-start', gap: 8, marginBottom: 12 },
+  photoRow: { flexDirection: d.row, flexWrap: 'wrap', justifyContent: 'flex-start', gap: 8, marginBottom: 12 },
   photoThumb: { width: 96, height: 96, borderRadius: radii.md, backgroundColor: colors.card },
   addPhotoBtn: {
-    alignSelf: 'flex-end', borderWidth: 1.5, borderColor: colors.accent, backgroundColor: colors.accentTintLight,
+    alignSelf: d.alignStart, borderWidth: 1.5, borderColor: colors.accent, backgroundColor: colors.accentTintLight,
     borderRadius: radii.pill, paddingVertical: 9, paddingHorizontal: 16,
   },
   addPhotoBtnText: { fontFamily: fonts.bold, fontSize: 12.5, color: colors.accent },
-  photoOptionsRow: { flexDirection: 'row-reverse', gap: 8, flexWrap: 'wrap' },
+  photoOptionsRow: { flexDirection: d.row, gap: 8, flexWrap: 'wrap' },
   photoOptionBtn: {
     borderWidth: 1.5, borderColor: colors.accent, backgroundColor: colors.accentTintLight,
     borderRadius: radii.pill, paddingVertical: 9, paddingHorizontal: 14,
@@ -1157,41 +1205,41 @@ const styles = StyleSheet.create({
   noticeText: { fontFamily: fonts.semiBold, fontSize: 12.5, color: colors.accent, textAlign: 'center' },
 
   noNotesText: { fontFamily: fonts.regular, fontSize: 12.5, color: colors.textMuted, textAlign: 'center', marginBottom: 12 },
-  note: { flexDirection: 'row-reverse', gap: 10, marginBottom: 12 },
+  note: { flexDirection: d.row, gap: 10, marginBottom: 12 },
   noteAvatar: { width: 30, height: 30, borderRadius: 15, backgroundColor: colors.accentTint, alignItems: 'center', justifyContent: 'center' },
   noteAvatarText: { fontFamily: fonts.bold, fontSize: 12, color: colors.accent },
-  noteHeadRow: { flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 },
+  noteHeadRow: { flexDirection: d.row, justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 },
   reportLink: { fontFamily: fonts.regular, fontSize: 11, color: colors.textMuted, textDecorationLine: 'underline' },
-  noteText: { flex: 1, fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, textAlign: 'right', lineHeight: 19 },
+  noteText: { flex: 1, fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, textAlign: d.textAlign, lineHeight: 19 },
   noteNick: { fontFamily: fonts.bold, color: colors.textPrimary },
-  noteDate: { fontFamily: fonts.regular, fontSize: 10.5, color: colors.textMuted, textAlign: 'right', marginTop: 2 },
-  addNoteRow: { flexDirection: 'row-reverse', gap: 8, marginTop: 4 },
-  addNoteInput: { flex: 1, borderWidth: 1, borderColor: colors.border, borderRadius: radii.pill, paddingVertical: 11, paddingHorizontal: 15, fontFamily: fonts.regular, fontSize: 13, color: colors.textPrimary, textAlign: 'right', writingDirection: 'rtl' },
+  noteDate: { fontFamily: fonts.regular, fontSize: 10.5, color: colors.textMuted, textAlign: d.textAlign, marginTop: 2 },
+  addNoteRow: { flexDirection: d.row, gap: 8, marginTop: 4 },
+  addNoteInput: { flex: 1, borderWidth: 1, borderColor: colors.border, borderRadius: radii.pill, paddingVertical: 11, paddingHorizontal: 15, fontFamily: fonts.regular, fontSize: 13, color: colors.textPrimary, textAlign: d.textAlign, writingDirection: d.writingDirection },
   sendBtn: { backgroundColor: colors.accent, borderRadius: radii.pill, paddingVertical: 11, paddingHorizontal: 18, justifyContent: 'center' },
   sendBtnText: { fontFamily: fonts.bold, fontSize: 13, color: '#fff' },
 
   personalNote: {
     borderWidth: 1, borderColor: colors.border, borderRadius: radii.md, padding: 12,
     fontFamily: fonts.regular, fontSize: 13, color: colors.textPrimary, minHeight: 70,
-    backgroundColor: '#fdf9ee', textAlignVertical: 'top', textAlign: 'right', writingDirection: 'rtl',
+    backgroundColor: '#fdf9ee', textAlignVertical: 'top', textAlign: d.textAlign, writingDirection: d.writingDirection,
   },
   notePreviewBox: {
     borderWidth: 1, borderColor: colors.border, borderRadius: radii.md, padding: 12,
     backgroundColor: '#fdf9ee',
   },
-  notePreviewHead: { fontFamily: fonts.bold, fontSize: 12, color: colors.textSecondary, textAlign: 'right' },
-  notePreviewText: { fontFamily: fonts.regular, fontSize: 13, color: colors.textPrimary, textAlign: 'right', lineHeight: 19, marginTop: 6 },
-  noteEditBtn: { alignSelf: 'flex-end', marginTop: 10 },
+  notePreviewHead: { fontFamily: fonts.bold, fontSize: 12, color: colors.textSecondary, textAlign: d.textAlign },
+  notePreviewText: { fontFamily: fonts.regular, fontSize: 13, color: colors.textPrimary, textAlign: d.textAlign, lineHeight: 19, marginTop: 6 },
+  noteEditBtn: { alignSelf: d.alignStart, marginTop: 10 },
   noteEditBtnText: { fontFamily: fonts.bold, fontSize: 12.5, color: colors.accent },
-  hint: { fontFamily: fonts.regular, fontSize: 11, color: colors.textMuted, marginTop: 6, textAlign: 'right' },
-  hintRow: { flexDirection: 'row-reverse', flexWrap: 'wrap', marginTop: 6 },
-  hintInline: { fontFamily: fonts.regular, fontSize: 11, color: colors.textMuted, textAlign: 'right' },
+  hint: { fontFamily: fonts.regular, fontSize: 11, color: colors.textMuted, marginTop: 6, textAlign: d.textAlign },
+  hintRow: { flexDirection: d.row, flexWrap: 'wrap', marginTop: 6 },
+  hintInline: { fontFamily: fonts.regular, fontSize: 11, color: colors.textMuted, textAlign: d.textAlign },
   hintLink: { fontFamily: fonts.bold, fontSize: 11, color: colors.accent, textDecorationLine: 'underline' },
 
-  reportSection: { marginTop: 6, alignItems: 'flex-end' },
+  reportSection: { marginTop: 6, alignItems: d.alignStart },
   reportLink: { fontFamily: fonts.semiBold, fontSize: 12.5, color: colors.textMuted },
   reportDoneText: { fontFamily: fonts.bold, fontSize: 12.5, color: colors.greenStrong },
-  reportChoiceRow: { flexDirection: 'row-reverse', alignItems: 'center', gap: 10, marginTop: 10, flexWrap: 'wrap' },
+  reportChoiceRow: { flexDirection: d.row, alignItems: 'center', gap: 10, marginTop: 10, flexWrap: 'wrap' },
   reportOptionBtn: {
     borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card,
     borderRadius: radii.pill, paddingVertical: 9, paddingHorizontal: 14,
@@ -1203,13 +1251,13 @@ const styles = StyleSheet.create({
   reportNoteBox: { width: '100%', marginTop: 10 },
   reportNoteInput: {
     borderWidth: 1, borderColor: colors.border, borderRadius: radii.md, padding: 10,
-    fontFamily: fonts.regular, fontSize: 13, color: colors.textPrimary, minHeight: 60, textAlignVertical: 'top', textAlign: 'right', writingDirection: 'rtl',
+    fontFamily: fonts.regular, fontSize: 13, color: colors.textPrimary, minHeight: 60, textAlignVertical: 'top', textAlign: d.textAlign, writingDirection: d.writingDirection,
   },
-  reportNoteActions: { flexDirection: 'row-reverse', alignItems: 'center', gap: 10, marginTop: 8 },
+  reportNoteActions: { flexDirection: d.row, alignItems: 'center', gap: 10, marginTop: 8 },
   primaryBtnDisabled: { opacity: 0.4 },
 
-  fieldReportPrompt: { fontFamily: fonts.semiBold, fontSize: 12.5, color: colors.textPrimary, textAlign: 'right', marginBottom: 8 },
-  fieldChipsRow: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 8, marginBottom: 10 },
+  fieldReportPrompt: { fontFamily: fonts.semiBold, fontSize: 12.5, color: colors.textPrimary, textAlign: d.textAlign, marginBottom: 8 },
+  fieldChipsRow: { flexDirection: d.row, flexWrap: 'wrap', gap: 8, marginBottom: 10 },
   fieldChip: { borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, borderRadius: radii.pill, paddingVertical: 7, paddingHorizontal: 13 },
   fieldChipSelected: { borderColor: colors.accent, backgroundColor: colors.accentTintLight },
   fieldChipText: { fontFamily: fonts.semiBold, fontSize: 12, color: colors.textSecondary },
@@ -1222,7 +1270,7 @@ const styles = StyleSheet.create({
 
   editSheet: { flex: 1, backgroundColor: colors.bg },
   editHeader: {
-    flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between',
+    flexDirection: d.row, alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: spacing.lg, paddingTop: spacing.lg, paddingBottom: spacing.md,
     borderBottomWidth: 1, borderBottomColor: colors.borderLight, backgroundColor: colors.card,
   },
@@ -1232,10 +1280,10 @@ const styles = StyleSheet.create({
   editInput: {
     borderWidth: 1, borderColor: colors.border, borderRadius: radii.md, padding: 12,
     fontFamily: fonts.regular, fontSize: 14, color: colors.textPrimary, backgroundColor: colors.card,
-    textAlign: 'right', writingDirection: 'rtl', marginBottom: 4,
+    textAlign: d.textAlign, writingDirection: d.writingDirection, marginBottom: 4,
   },
   editTextarea: { minHeight: 80, textAlignVertical: 'top' },
-  editRow: { flexDirection: 'row-reverse', gap: 12 },
+  editRow: { flexDirection: d.row, gap: 12 },
   editRowItem: { flex: 1 },
   editPriceInput: {
     borderWidth: 1, borderColor: colors.border, borderRadius: radii.pill, paddingVertical: 7, paddingHorizontal: 14,
@@ -1248,9 +1296,9 @@ const styles = StyleSheet.create({
   deleteConfirmBox: { backgroundColor: colors.card, borderRadius: radii.xl, padding: spacing.xl },
   deleteConfirmTitle: { fontFamily: fonts.extraBold, fontSize: 15.5, color: colors.textPrimary, textAlign: 'center', marginBottom: 8 },
   deleteConfirmText: { fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, textAlign: 'center', lineHeight: 19 },
-  deleteConfirmActions: { flexDirection: 'row-reverse', gap: 10, marginTop: 20 },
+  deleteConfirmActions: { flexDirection: d.row, gap: 10, marginTop: 20 },
   deleteConfirmBtn: { flex: 1, backgroundColor: colors.danger, borderRadius: radii.pill, paddingVertical: 13, alignItems: 'center' },
   deleteConfirmBtnText: { fontFamily: fonts.bold, fontSize: 14, color: '#fff' },
   deleteCancelBtn: { flex: 1, borderWidth: 1, borderColor: colors.border, borderRadius: radii.pill, paddingVertical: 13, alignItems: 'center' },
   deleteCancelBtnText: { fontFamily: fonts.bold, fontSize: 14, color: colors.textSecondary },
-});
+}));

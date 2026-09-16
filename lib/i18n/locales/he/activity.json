@@ -1,0 +1,191 @@
+{
+  "detail": {
+    "loadError": "שגיאה בטעינה",
+    "notFound": "לא מצאנו את הפעילות הזו",
+    "locationNotSpecified": "מיקום לא צוין",
+    "recommendedBy": "הומלץ ע\"י {{name}} ⭐{{stars}}",
+    "info": {
+      "ages": "גילאים",
+      "price": "מחיר",
+      "hours": "שעות"
+    },
+    "upcomingDates": "📅 מועדים קרובים",
+    "occurrenceBuy": "🎟️ רכישה",
+    "moreDates_other": "ועוד {{count}} מועדים",
+    "buyTickets": "🎟️ רכישת כרטיסים ותשלום",
+    "about": "על הפעילות",
+    "officialSite": "🔗 אתר רשמי",
+    "sourceLink": "🔗 המידע נאסף מהאתר הזה - למקור",
+    "location": "מיקום",
+    "navigate": "ניווט",
+    "findSimilar": "🔍 חפש פעילות דומה באזור",
+    "fallbackDescription": "{{title}} - {{type}}, מתאים ל{{age}}.",
+    "fallbackRegistration": "דורש הרשמה מראש.",
+    "fallbackIndoor": "פעילות בתוך מבנה.",
+    "fallbackOutdoor": "פעילות בחוץ.",
+    "entityTypes": {
+      "place": "מקום_קבוע",
+      "activity": "פעילות",
+      "recurringEvent": "אירוע_קבוע",
+      "event": "אירוע"
+    },
+    "hiddenNotice": "הפעילות לא תוצג לכם יותר. ניתן להחזיר אותה דרך \"הדף שלי\" ← \"פעילויות חסומות\".",
+    "unhiddenNotice": "בוטלה ההסתרה",
+    "plannedAdded": "נוסף ל\"רוצה לעשות\"",
+    "plannedRemoved": "הוסר מ\"רוצה לעשות\""
+  },
+  "photos": {
+    "title": "תמונות מהמקום",
+    "empty": "עדיין אין תמונות - היו הראשונים להוסיף",
+    "fromGallery": "📁 מהגלריה",
+    "takePhoto": "📸 צילום עכשיו",
+    "uploadingShort": "מעלה...",
+    "add": "+ הוספת תמונות",
+    "cameraPermission": "צריך הרשאת מצלמה כדי לצלם תמונה",
+    "libraryPermission": "צריך הרשאת גישה לתמונות כדי לבחור תמונה",
+    "uploading": "מעלה תמונה...",
+    "sent": "✓ התמונה נשלחה, ממתינה לאישור מנהל",
+    "uploadError": "שגיאה בהעלאה"
+  },
+  "notes": {
+    "communityTitle": "הערות קהילה ({{n}})",
+    "communityEmpty": "עדיין אין הערות - היו הראשונים לכתוב אחת",
+    "anonymousAuthor": "הורה",
+    "report": "דווח",
+    "communityPlaceholder": "הוסיפו הערה לקהילה...",
+    "send": "שלח",
+    "communityLoginRequired": "צריך להתחבר כדי לכתוב הערת קהילה",
+    "postError": "שגיאה בפרסום ההערה",
+    "personalTitle": "ההערה האישית שלי",
+    "personalHasNote": "📝 יש לכם הערה אישית על הפעילות",
+    "edit": "✏️ עריכה",
+    "personalPlaceholder": "כתבו כאן הערה פרטית - רק אתם תראו אותה...",
+    "autoSaveHint": "ההערה נשמרת אוטומטית ברגע שיוצאים מהשדה - רק אתם רואים אותה",
+    "personalLoginPrompt": "צריך להתחבר כדי לשמור הערה אישית - ",
+    "signUp": "להרשמה",
+    "saved": "נשמר ✓",
+    "saveError": "שגיאה בשמירה"
+  },
+  "report": {
+    "activityLink": "🚩 דווח על הפעילות",
+    "sent": "✓ הדיווח נשלח, תודה",
+    "notePlaceholder": "מה לא בסדר עם הפעילות הזו?",
+    "submit": "שליחת דיווח",
+    "quick": "דיווח מהיר",
+    "addNote": "הוספת הערה ודיווח",
+    "sendError": "שגיאה בשליחת הדיווח",
+    "fieldLink": "✏️ יש מידע לא נכון בכרטיסייה?",
+    "fieldPrompt": "איזה מידע שגוי?",
+    "fieldNotePlaceholder": "פרטו מה לא נכון (לא חובה)...",
+    "fieldReason": "מידע שגוי - {{field}}",
+    "fieldReasonWithNote": "מידע שגוי - {{field}}: {{note}}",
+    "fields": {
+      "ageRange": "גילאים",
+      "price": "מחיר",
+      "hours": "שעות פעילות",
+      "address": "מיקום / כתובת",
+      "description": "תיאור",
+      "other": "משהו אחר"
+    },
+    "sheet": {
+      "titles": {
+        "communityNote": "דיווח על הערה",
+        "chatMessage": "דיווח על הודעה",
+        "user": "דיווח על משתמש",
+        "default": "דיווח"
+      },
+      "loginRequired": "צריך להתחבר כדי לדווח",
+      "login": "התחברות",
+      "invalidTarget": "לא ברור מה מדווחים עליו",
+      "success": "הדיווח נשלח, תודה! 🙏",
+      "subtitle": "הדיווח יישלח לצוות TuRu לבדיקה",
+      "reasons": {
+        "offensive": "תוכן פוגעני או מטריד",
+        "spam": "ספאם או פרסומת",
+        "misleading": "מידע שגוי או מטעה",
+        "inappropriate": "תוכן לא הולם לילדים",
+        "other": "משהו אחר"
+      }
+    }
+  },
+  "benefits": {
+    "sectionTitle": "🎟️ הטבות והנחות",
+    "howToRedeem": "איך מממשים: {{text}}",
+    "detailsLink": "לפרטי ההטבה ←",
+    "specialPrice": "מחיר מיוחד: {{price}} ₪",
+    "tagPersonal": "{{headline}} עם {{provider}}",
+    "tagPersonalNoHeadline": "יש לכם הטבה עם {{provider}}",
+    "tagMembers": "{{headline}} לחברי {{provider}}",
+    "tagMembersNoHeadline": "הטבה לחברי {{provider}}",
+    "defaultHeadline": "הטבה מיוחדת",
+    "validUntil": "ההטבה תקפה עד {{date}}.",
+    "couponRedemption": "מימוש באמצעות קוד קופון: {{code}}",
+    "redemption": {
+      "link": "רכישה/מימוש דרך קישור ההטבה.",
+      "showCard": "הציגו את הכרטיס/החברות שלכם במקום.",
+      "automatic": "ההטבה מופעלת אוטומטית, אין צורך לעשות דבר מיוחד."
+    }
+  },
+  "admin": {
+    "bar": "🛠️ ניהול",
+    "edit": "✏️ עריכה",
+    "addBenefit": "🎟️ הוספת הטבה",
+    "delete": "🗑️ מחיקה",
+    "editTitle": "עריכת פעילות",
+    "nameLabel": "שם הפעילות *",
+    "descriptionLabel": "תיאור",
+    "categoryLabel": "קטגוריה",
+    "typeLabel": "סוג",
+    "ageFrom": "גיל מ-",
+    "ageTo": "גיל עד",
+    "priceLabel": "מחיר",
+    "pricePaid": "בתשלום",
+    "durationLabel": "משך (דקות)",
+    "placeTypeLabel": "סוג מקום",
+    "bookingLabel": "הזמנה",
+    "cityLabel": "עיר",
+    "placeNameLabel": "שם המקום",
+    "nameRequired": "שם הפעילות לא יכול להישאר ריק",
+    "saveChanges": "שמירת שינויים",
+    "saveError": "שגיאה בשמירה",
+    "updated": "✓ הפעילות עודכנה",
+    "deleteError": "שגיאה במחיקה",
+    "entityTypes": {
+      "place": "מקום קבוע",
+      "activity": "חוג / פעילות",
+      "recurringEvent": "אירוע חוזר",
+      "event": "אירוע חד פעמי"
+    },
+    "indoorOutdoor": {
+      "indoor": "בתוך מבנה",
+      "outdoor": "בחוץ",
+      "both": "גם וגם"
+    },
+    "booking": {
+      "none": "לא צוין",
+      "walkIn": "ללא הרשמה",
+      "registrationRequired": "דורש הרשמה",
+      "advanceBooking": "דורש הזמנה מראש",
+      "availableNow": "יש מקום עכשיו"
+    },
+    "benefit": {
+      "title": "הוספת הטבה",
+      "provider": "נותן ההטבה *",
+      "type": "סוג ההטבה *",
+      "value": "ערך ההטבה (למשל 20%)",
+      "valuePlaceholder": "20% / 1+1 / ילד שני ב-50%",
+      "specialPrice": "מחיר מיוחד (₪)",
+      "validUntil": "תאריך סיום (אופציונלי)",
+      "redemption": "איך מממשים",
+      "redemptionUrl": "קישור למימוש",
+      "couponCode": "קוד קופון",
+      "terms": "תנאי ההטבה",
+      "required": "נא לבחור נותן הטבה וסוג הטבה",
+      "submit": "הוספת ההטבה",
+      "added": "✓ ההטבה נוספה"
+    },
+    "deleteTitle": "למחוק את \"{{title}}\"?",
+    "deleteText": "הפעולה לא הפיכה - הפעילות תימחק לצמיתות מהמערכת.",
+    "deleteConfirm": "כן, למחוק"
+  }
+}

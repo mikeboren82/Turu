@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, Fragment } from 'react';
 import { View, Text, StyleSheet, TextInput, Pressable, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import Header from '../components/Header';
@@ -7,9 +7,20 @@ import { colors, fonts, radii, spacing } from '../constants/theme';
 import { supabase } from '../lib/supabase';
 import { verifyPin } from '../lib/pin';
 import { enforceNotBanned } from '../lib/checkBanned';
+import { useI18n } from '../lib/i18n';
+
+// מפרק תבנית מתורגמת עם {{slot}} לחלקים, כדי לשלב בתוכה רכיב Text מודגש בלי להניח סדר מילים קבוע.
+function renderTemplate(template, slots) {
+  return template.split(/(\{\{\w+\}\})/).map((part, i) => {
+    const m = part.match(/^\{\{(\w+)\}\}$/);
+    const content = m && slots[m[1]] !== undefined ? slots[m[1]] : part;
+    return content ? <Fragment key={i}>{content}</Fragment> : null;
+  });
+}
 
 export default function EnterPinScreen() {
   const router = useRouter();
+  const { t } = useI18n();
   const { nickname: nicknameParam } = useLocalSearchParams();
   const [nickname, setNickname] = useState(nicknameParam ? String(nicknameParam) : '');
   const [digits, setDigits] = useState(['', '', '', '']);
@@ -45,7 +56,7 @@ export default function EnterPinScreen() {
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.user?.id && await enforceNotBanned(session.user.id)) {
           setChecking(false);
-          setError('החשבון הזה חסום ולא ניתן להשתמש בו יותר');
+          setError(t('auth.errors.banned'));
           setDigits(['', '', '', '']);
           return;
         }
@@ -53,7 +64,7 @@ export default function EnterPinScreen() {
         router.replace('/');
       } else {
         setChecking(false);
-        setError('קוד שגוי - נסו שוב');
+        setError(t('auth.enterPin.wrongPin'));
         setDigits(['', '', '', '']);
         inputs.current[0]?.focus();
       }
@@ -72,8 +83,12 @@ export default function EnterPinScreen() {
       <View style={styles.content}>
         <Header showBack onMenuPress={() => {}} />
 
-        <Text style={styles.headline}>הזינו את קוד ה-PIN שלכם 🔐</Text>
-        <Text style={styles.subtext}>שלום שוב{nickname ? ', ' : ''}<Text style={styles.nameText}>{nickname}</Text></Text>
+        <Text style={styles.headline}>{t('auth.enterPin.headline')}</Text>
+        <Text style={styles.subtext}>
+          {nickname
+            ? renderTemplate(t('auth.enterPin.greetingWithName'), { name: <Text style={styles.nameText}>{nickname}</Text> })
+            : t('auth.enterPin.greeting')}
+        </Text>
 
         <View style={styles.codeRow}>
           {digits.map((d, i) => (
@@ -97,7 +112,7 @@ export default function EnterPinScreen() {
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
         <Pressable onPress={() => router.replace('/login')}>
-          <Text style={styles.forgotLink}>שכחתם? התחברות עם קוד בסמס</Text>
+          <Text style={styles.forgotLink}>{t('auth.enterPin.forgot')}</Text>
         </Pressable>
       </View>
     </View>

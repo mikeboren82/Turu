@@ -1,0 +1,97 @@
+{
+  "title": "❤️ My stuff",
+  "subtitle": "Everything you saved, planned and noted for yourself.",
+  "tabs": {
+    "saved": "❤️ Saved",
+    "planned": "📅 Planning",
+    "visited": "✅ Been there",
+    "notes": "📝 My notes"
+  },
+  "sort": {
+    "label": "Sort: {{option}} ▾",
+    "new": "Newest first",
+    "old": "Oldest first",
+    "name": "By activity name"
+  },
+  "notes": {
+    "heading": "My notes",
+    "headingWithCount": "My notes ({{n}})",
+    "private": "🔒 Private",
+    "hint": "All your personal notes, gathered in one place.",
+    "emptyTitle": "You don't have any personal notes yet.",
+    "emptyText": "Add a note from an activity page to remember what matters next time.",
+    "writtenAt": "Written {{date}}",
+    "edit": "✏️ Edit",
+    "delete": "🗑️ Delete"
+  },
+  "tools": {
+    "filter": "🔍 Filter",
+    "map": "🗺️ Map",
+    "list": "📋 List"
+  },
+  "filters": {
+    "category": "🎯 Category",
+    "region": "📍 Region",
+    "age": "👶 Age",
+    "clear": "Clear filters"
+  },
+  "searchPlaceholder": "🔍 Search my places...",
+  "count_one": "{{count}} place",
+  "count_other": "{{count}} places",
+  "empty": {
+    "noneTitle": "Your places are waiting right here",
+    "noneText": "Found an activity you'd love to do? Save it, and it'll be waiting for you here.",
+    "noMatchTitle": "No matching places",
+    "noMatchText": "Try changing the filters or your search words.",
+    "find": "Find an activity 🔍"
+  },
+  "unavailable": {
+    "text": "⚠️ This activity isn't available right now",
+    "findSimilar": "Find something similar"
+  },
+  "card": {
+    "pastDue": "📅 Was planned for {{date}} - still want to go?",
+    "updateDate": "Update date",
+    "markDone": "Mark as done",
+    "navigate": "🗺️ Directions",
+    "editNote": "✏️ Edit note",
+    "addNote": "📝 Add note",
+    "remove": "🗑️ Remove",
+    "changeDate": "📅 Change date",
+    "addDate": "📅 Add date",
+    "unmarkVisited": "↩️ Undo \"Been there\"",
+    "markVisited": "✅ Been there"
+  },
+  "dateModal": {
+    "title": "Target date",
+    "pick": "Pick a date (optional)",
+    "labelField": "Or a description (e.g. \"Passover break\")",
+    "labelPlaceholder": "When, roughly",
+    "clear": "Haven't decided yet (clear date)"
+  },
+  "noteModal": {
+    "title": "Personal note",
+    "placeholder": "Write a private note here...",
+    "save": "Save note"
+  },
+  "deleteNote": {
+    "title": "Delete this note?",
+    "warning": "A deleted note can't be restored.",
+    "deleting": "Deleting..."
+  },
+  "notices": {
+    "removed": "Removed from your places",
+    "markedVisited": "Marked \"Been there\"",
+    "unmarkedVisited": "Removed from \"Been there\"",
+    "dateSaved": "Target date saved",
+    "noteSaved": "Note saved",
+    "noteDeleted": "Note deleted"
+  },
+  "errors": {
+    "load": "Couldn't load your places",
+    "remove": "Couldn't remove it",
+    "dateSave": "Couldn't save the date",
+    "noteSave": "Couldn't save the note",
+    "noteDelete": "Couldn't delete the note"
+  }
+}

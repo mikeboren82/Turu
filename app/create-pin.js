@@ -5,6 +5,7 @@ import Header from '../components/Header';
 import SkyBackground from '../components/SkyBackground';
 import { colors, fonts, radii, spacing } from '../constants/theme';
 import { savePin } from '../lib/pin';
+import { useI18n } from '../lib/i18n';
 
 function PinRow({ digits, onChangeDigit, onKeyPress, inputsRef, active }) {
   return (
@@ -30,6 +31,7 @@ function PinRow({ digits, onChangeDigit, onKeyPress, inputsRef, active }) {
 
 export default function CreatePinScreen() {
   const router = useRouter();
+  const { t } = useI18n();
   const [chosen, setChosen] = useState(['', '', '', '']);
   const [confirm, setConfirm] = useState(['', '', '', '']);
   const [confirmActive, setConfirmActive] = useState(false);
@@ -78,7 +80,7 @@ export default function CreatePinScreen() {
   const handleSave = async () => {
     if (chosenCode.length !== 4 || confirmCode.length !== 4) return;
     if (chosenCode !== confirmCode) {
-      setError('הקודים לא תואמים - נסו שוב');
+      setError(t('auth.createPin.mismatch'));
       setConfirm(['', '', '', '']);
       confirmInputs.current[0]?.focus();
       return;
@@ -97,27 +99,27 @@ export default function CreatePinScreen() {
       <View style={styles.content}>
         <Header showBack onMenuPress={() => {}} />
 
-        <Text style={styles.headline}>בחרו קוד PIN 🔐</Text>
-        <Text style={styles.subtext}>4 ספרות שתשתמשו בהן להתחברות מהירה{'\n'}בפעם הבאה, במקום סמס</Text>
+        <Text style={styles.headline}>{t('auth.createPin.headline')}</Text>
+        <Text style={styles.subtext}>{t('auth.createPin.subtext')}</Text>
 
         <View style={styles.pinSection}>
-          <Text style={styles.pinLabel}>בחרו קוד</Text>
+          <Text style={styles.pinLabel}>{t('auth.createPin.chooseLabel')}</Text>
           <PinRow digits={chosen} onChangeDigit={handleChosenChange} onKeyPress={handleChosenKeyPress} inputsRef={chosenInputs} active />
         </View>
 
         <View style={styles.pinSection}>
-          <Text style={styles.pinLabel}>אשרו שוב</Text>
+          <Text style={styles.pinLabel}>{t('auth.createPin.confirmLabel')}</Text>
           <PinRow digits={confirm} onChangeDigit={handleConfirmChange} onKeyPress={handleConfirmKeyPress} inputsRef={confirmInputs} active={confirmActive} />
         </View>
 
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
         <Pressable style={[styles.submitBtn, !canSave && styles.submitBtnDisabled]} onPress={handleSave} disabled={!canSave || saving}>
-          {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitBtnText}>שמרו את הקוד</Text>}
+          {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitBtnText}>{t('auth.createPin.save')}</Text>}
         </Pressable>
 
         <Pressable onPress={() => router.back()}>
-          <Text style={styles.cancelLink}>ביטול</Text>
+          <Text style={styles.cancelLink}>{t('common.actions.cancel')}</Text>
         </Pressable>
       </View>
     </View>

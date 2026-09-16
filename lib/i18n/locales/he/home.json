@@ -1,0 +1,85 @@
+{
+  "search": {
+    "title": "לאן קופצים היום?",
+    "subtitle": "חפשו מה שבא לכם, או בחרו מה מתאים לכם",
+    "placeholder": "ג'ימבורי באזור השרון מחר",
+    "cta": "מצאו פעילויות",
+    "or": "או",
+    "errorParse": "לא הצלחנו להבין את החיפוש, נסו לנסח אחרת",
+    "errorParseShort": "לא הצלחנו להבין את החיפוש",
+    "errorLocation": "לא הצלחנו לזהות את המיקום, נסו לנסח אחרת",
+    "clarifyCity": "📍 באיזו עיר?",
+    "clarifyArea": "📍 באיזה אזור לחפש?",
+    "clarifyCityPlaceholder": "הזינו שם עיר..."
+  },
+  "recent": {
+    "title": "🕐 חיפושים אחרונים",
+    "clearAllA11y": "נקה את כל החיפושים האחרונים",
+    "searchAgainA11y": "חפש שוב: {{query}}",
+    "removeA11y": "מחק חיפוש אחרון: {{query}}"
+  },
+  "guided": {
+    "whereLabel": "איפה נח לכם?",
+    "whatLabel": "מה עושים?",
+    "whatEmpty": "מה עושים?",
+    "whereA11yEmpty": "בחרו מיקום",
+    "whereHint": "פותח בחירת מיקום וטווח נסיעה",
+    "whatHint": "פותח בחירת סוגי פעילויות",
+    "a11yLabel": "{{label}} {{value}}"
+  },
+  "personal": {
+    "title": "למי מחפשים היום?",
+    "childFallback": "הילד/ה שלכם",
+    "childWithAge": "{{name}} · {{age}}",
+    "hint": "הגיל וההעדפות שלכם ייכנסו אוטומטית לחיפוש"
+  },
+  "extraFilter": {
+    "empty": "+ {{title}}",
+    "withValue": "+ {{title}}: {{summary}}"
+  },
+  "defaults": {
+    "save": "⭐ שמור את הבחירה כברירת מחדל",
+    "update": "⭐ עדכן את ברירת המחדל שלי",
+    "saved": "נשמר! הפילטרים האלה יתמלאו אוטומטית בכל כניסה ✓",
+    "saveError": "שגיאה בשמירה, נסו שוב",
+    "spontaneous": "⚡ מה פתוח עכשיו לידי?"
+  },
+  "recs": {
+    "titleInCity": "רעיונות להיום ב{{place}}",
+    "titleNearPlace": "רעיונות להיום ליד {{place}}",
+    "titleDefault": "פעילויות לידכם היום",
+    "subtitleNoLocation": "פעילויות שוות להיום, ממש באזור שלכם",
+    "subtitlePersonalized": "פעילויות שוות באזור שלכם, מותאמות לגיל הילדים",
+    "subtitleDefault": "פעילויות שוות באזור שלכם להיום",
+    "loadError": "לא הצלחנו לטעון המלצות כרגע",
+    "emptyTitle": "קפצנו בכל האזור ולא מצאנו משהו שמתאים בדיוק 🦘",
+    "widenDistance": "הרחיבו את מרחק הנסיעה",
+    "clearFilters": "נקו את הסינון"
+  },
+  "locked": {
+    "title": "רוצים רעיונות לידכם?",
+    "subtitle": "ספרו לנו איפה לחפש",
+    "useMyLocation": "השתמשו במיקום שלי",
+    "chooseCity": "בחרו עיר או אזור",
+    "previewA11y": "בחרו מיקום כדי לראות פעילויות לידכם"
+  },
+  "discovery": {
+    "title": "מה עוד מעניין אתכם?",
+    "subtitle": "קפצו ישר לפעילויות שאולי תאהבו",
+    "allCategories": "לכל הקטגוריות ←",
+    "tiles": {
+      "nature": "טבע וטיולים",
+      "museums": "מוזיאונים לילדים",
+      "playgrounds": "פארקים וגנים",
+      "animals": "חוות ובעלי חיים",
+      "water": "פעילויות מים",
+      "crafts": "יצירה וסדנאות"
+    }
+  },
+  "pickers": {
+    "categoryTitle": "מה עושים?",
+    "categorySubtitle": "אפשר לבחור כמה קטגוריות",
+    "allTitle": "כל הקטגוריות",
+    "allSubtitle": "בחרו קטגוריה ועברו ישר לתוצאות"
+  }
+}

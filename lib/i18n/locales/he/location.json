@@ -1,0 +1,26 @@
+{
+  "picker": {
+    "title": "איפה נוח לכם? 📍",
+    "subtitle": "נמצא פעילויות באזור שמתאים לכם",
+    "useMyLocation": "השתמשו במיקום שלי",
+    "locating": "מאתר...",
+    "locationSelected": "המיקום שלכם נבחר ✓",
+    "or": "או",
+    "cityLabel": "חפשו יישוב:",
+    "cityPlaceholder": "הקלידו עיר או יישוב...",
+    "regionSelected": "אזור: {{regions}}",
+    "searchByRegion": "או חפשו לפי אזור",
+    "nationwide": "בכל הארץ",
+    "nationwideSelected": "בכל הארץ ✓",
+    "nationwideA11y": "בכל הארץ - כל הפעילויות בלי סינון לפי מיקום",
+    "travelTitle": "כמה רחוק מתאים לכם?",
+    "walkingTitle": "במרחק הליכה",
+    "walkingSubtitle": "עד 10 דקות הליכה",
+    "walkingHint": "זמין כשמשתמשים במיקום מדויק",
+    "drivingTitle": "בנסיעה",
+    "drivingSubtitle": "עד {{minutes}} דקות נסיעה",
+    "minutesChip": "{{minutes}} דק'",
+    "anyDistance": "לא משנה לי המרחק",
+    "cta": "הציגו לי פעילויות"
+  }
+}
