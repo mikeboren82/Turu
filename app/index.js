@@ -1,27 +1,30 @@
-import { useState, useCallback, useEffect, useMemo, createElement } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, ActivityIndicator, Image, Platform, useWindowDimensions } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Location from 'expo-location';
-import Svg, { Circle, Rect, Polygon, Polyline, Line, Path, G } from 'react-native-svg';
+import Svg, { Circle, Polygon, Polyline, Line, Path, G } from 'react-native-svg';
 import Header from '../components/Header';
+import SkyBackground from '../components/SkyBackground';
 import LoginRequiredModal from '../components/LoginRequiredModal';
 import QuickPicker from '../components/QuickPicker';
 import LocationQuickPicker, { locationSummary } from '../components/LocationQuickPicker';
 import CityAutocomplete from '../components/CityAutocomplete';
 import ActivityCard from '../components/ActivityCard';
+import { ChevronLeftIcon } from '../components/icons';
 import {
   CATEGORY_FILTER_OPTIONS, DEFAULT_FILTERS, FILTER_SCHEMA,
   PRICE_OPTIONS, PLACE_TYPE_OPTIONS, BOOKING_OPTIONS, DURATION_OPTIONS, AMENITY_COMFORT_OPTIONS,
 } from '../constants/filterSchema';
 import { normalizeFilters, rankActivities } from '../lib/filterActivities';
-import { whenSummary, hebrewJoin, categorySummary } from '../lib/filterSummaries';
+import { whenSummary, hebrewJoin } from '../lib/filterSummaries';
 import { supabase } from '../lib/supabase';
 import { fetchUserPreferences, saveDefaultHomeFilters } from '../lib/preferences';
 import { childrenToDefaultAgeFilter, formatChildAge } from '../lib/children';
 import { parseSmartSearchQuery, intentToFilters } from '../lib/smartSearch';
 import { fetchApprovedActivities, formatDistance } from '../lib/activities';
+import { placeholderImageFor, PLACEHOLDER_IMAGES } from '../lib/placeholderImages';
 import { fetchUserActivityFlags, toggleFavorite, toggleVisited, toggleHidden, fetchAllPersonalNotes } from '../lib/interactions';
 import { formatBenefitCardTag } from '../lib/benefits';
 import { colors, fonts, radii, spacing } from '../constants/theme';
@@ -30,18 +33,13 @@ import { colors, fonts, radii, spacing } from '../constants/theme';
 // יש רק מסך בית אחד"). קודם לכן היו שני מסכי-בית מקבילים (app/index.js ו-app/home2.js) שמוזגו
 // יחד לקובץ הזה בשלב קודם, ואז home2.js נמחק לגמרי - זה כל הסיפור, אין יותר מסך שני.
 
-// "☀️ בוקר טוב" וכו' - אלמנט-הקשר קטן, לא שולף את כינוי המשתמש בעצמו (Header.js כבר שולף
-// אותו פנימית לתפריט הנפתח, מועבר החוצה דרך onNicknameResolved - אין טעם לשכפל את השליפה).
-function greetingForNow() {
-  const h = new Date().getHours();
-  if (h < 5) return '🌙 לילה טוב';
-  if (h < 12) return '☀️ בוקר טוב';
-  if (h < 17) return '🌤️ צהריים טובים';
-  if (h < 21) return '🌛 ערב טוב';
-  return '🌙 לילה טוב';
-}
-
 const RECOMMENDATIONS_LIMIT = 8;
+
+// ניסוי חזותי (2026-09-16): פקד-כוונת-חיפוש מאוחד (GuidedSearchIntentControl) אחד עם שני
+// סגמנטים לחיצים במקום שני Selection Pills נפרדים - ראו ההשוואה בדוח. true = מציג את הגרסה
+// המאוחדת החדשה; false = חוזר לשני ה-pills הישנים (CompactFilterField/filtersRow) בלי לגעת
+// באף קוד אחר - נתיב-נסיגה מיידי, לא feature-flag מורכב. אין state/logic אחר תלוי בדגל הזה.
+const SHOW_UNIFIED_GUIDED_SEARCH = true;
 
 const DISCOVERY_TILES = [
   { id: 'nature', emoji: '🌳', label: 'טבע וטיולים', category: 'טבע' },
@@ -51,6 +49,12 @@ const DISCOVERY_TILES = [
   { id: 'water', emoji: '💦', label: 'פעילויות מים', category: 'פעילות מים' },
   { id: 'crafts', emoji: '🎨', label: 'יצירה וסדנאות', category: 'יצירה' },
 ];
+
+// תמונות-fallback לכרטיסי ה"נעול" כש-locationKnown===false, כשלפעילות עצמה אין imageUrl/
+// placeholderGroup תואם (או שהפעילות עדיין לא נטענה) - אותן 4 תמונות JPG אמיתיות שכבר קיימות
+// בפרויקט (lib/placeholderImages.js, assets/placeholders/) ומשמשות בכל האפליקציה ל"אין תמונה",
+// לא asset חדש. מסתובבות לפי אינדקס כדי שהקרוסלה לא תיראה כמו אותה תמונה 4 פעמים.
+const PREVIEW_FALLBACK_IMAGES = Object.values(PLACEHOLDER_IMAGES);
 
 // שורת שלד-כרטיס בזמן טעינת ההמלצות - בלי טקסט "טוען...", רק מלבנים אפורים בגובה/רוחב של
 // ActivityCard אמיתי כדי שהקרוסלה לא "קופצת" כשהנתונים מגיעים.
@@ -81,21 +85,6 @@ const GUEST_HOME_LOCATION_KEY = 'turu_guest_home_location';
 // יחס הרוחב/גובה של איור הדשא (assets/grass-footer.png).
 const GRASS_ASPECT_RATIO = 939 / 148;
 
-// אובייקט-style גולמי (לא דרך StyleSheet.create) ל-<span> אמיתי בווב בלבד - ראו ההערה במקום
-// השימוש למטה (JSX) להסבר המלא למה זה חייב להיות span+CSS ולא RN Text/SVG.
-const TAGLINE_GRADIENT_SPAN_STYLE = {
-  display: 'block', textAlign: 'center', fontFamily: 'Assistant_800ExtraBold', fontSize: 19,
-  fontWeight: '800', marginTop: -2, marginBottom: 16,
-  backgroundImage: 'linear-gradient(90deg, #1cb0e0, #00647f)',
-  backgroundClip: 'text', color: 'transparent',
-  // בלי זה, לסימני-פיסוק ניטרליים בסוף הטקסט (כמו "?") אין הקשר-בסיס RTL להיצמד אליו, אז הם
-  // נופלים לפי כיוון ברירת המחדל (LTR) ומוצגים בטעות בקצה הימני (תחילת המשפט) במקום השמאלי
-  // (סוף המשפט) - נמדד ישירות ב-DOM (getBoundingClientRect לכל תו) לפני התיקון: "?" הופיע ב-
-  // x=242, ימני יותר אפילו מהאות הראשונה ("ל" ב-x=232). זו תכונת CSS (direction), לא ה-attribute
-  // "dir" ש-RN Web מוסיף אוטומטית ל-<Text> ושכבר תועד ששובר את הגרדיאנט - שני מנגנונים שונים.
-  direction: 'rtl',
-};
-
 // לכל מפתח פילטר "ניתן-להוספה" (מה שהמשתמש הפעיל בעמוד האישי, ראו app/profile.js) - איך
 // לתקצר את הערך הנוכחי שלו לטקסט קצר בקישור העדין במסך הראשי.
 const HOME_FILTER_OPTIONS_BY_KEY = {
@@ -112,54 +101,157 @@ function summaryForHomeFilterKey(key, filters) {
   return hebrewJoin(labels);
 }
 
+// תצוגה-בלבד לשדה הקומפקטי "איפה?" בעמוד הבית: סיכום סמנטי מה-state המבני עצמו (mode/
+// travelMode/travelMinutes/city/...) - לא קיצוץ-מחרוזת של הפלט של locationSummary() המשותף
+// (components/LocationQuickPicker.js, לא משתנה - עדיין נפתח עם ה-state המלא). אותם ענפים בדיוק
+// כמו locationSummary, רק ניסוח קצר יותר שמתאים לשדה חצי-רוחב: בלי "עד" (מיותר), הליכה בלי מספר
+// קבוע (WALKING_RADIUS_KM ב-LocationQuickPicker הוא מרחק קבוע (750מ'), לא באמת "כמה דקות" - אין
+// ל-Turu מנוע ETA, אז "מרחק הליכה" נכון יותר מ"10 דק'") ו"כל מרחק" במקום "בכל האזור". הפולבק
+// כש-mode לא מוכר (בלי label נפרד מעל השדה יותר - הבקרה עצמה היא ה-affordance, ראו CompactFilterField)
+// זהה לברירת-המחדל "לא נבחר" (PRIMARY_FILTERS למטה) - "איפה?" קצר, לא "בחרו מיקום".
+function compactLocationLabel(location) {
+  // 'nationwide' ("בכל הארץ" ב-LocationQuickPicker) - בחירה מפורשת, לא "לא נבחר" (mode:null → 'איפה?')
+  if (location.mode === 'nationwide') return 'כל הארץ';
+  if (location.travelMode === 'walking') return 'מרחק הליכה';
+  if (location.travelMode === 'any') return 'כל מרחק';
+  if (location.travelMode === 'driving' && typeof location.travelMinutes === 'number') {
+    if (location.mode === 'current') return `${location.travelMinutes} דק' ממני`;
+    if (location.mode === 'city' && location.city) return `${location.travelMinutes} דק' מ${location.city}`;
+    if (location.mode === 'address') return `${location.travelMinutes} דק' מ${location.addressLabel || location.city || ''}`.trim();
+    if (location.mode === 'region' && location.region?.length) return `${location.travelMinutes} דק' מ${location.region.join(', ')}`;
+  }
+  if (location.mode === 'current') return 'המיקום שלי';
+  if (location.mode === 'city' && location.city) return location.city;
+  if (location.mode === 'address') return location.addressLabel || location.city || 'המיקום שלי';
+  if (location.mode === 'region' && location.region?.length) return location.region.join(', ');
+  return 'איפה?';
+}
+
+// תצוגה-בלבד לשדה הקומפקטי "מה עושים?" בעמוד הבית: סיכום סמנטי של הקטגוריות הנבחרות.
+// filters.category הוא מערך של הלייבלים עצמם (CATEGORY_OPTIONS ב-constants/filterSchema.js:
+// id===label, אין טבלת-מיפוי נפרדת) - "פארק" כבר הערך המלא, לא ID לפענוח.
+// 0 -> "מה עושים?" (הבקרה עצמה היא ה-affordance, ראו CompactFilterField/GuidedIntentSegment).
+// 1 -> השם עצמו. 2 -> ניסוח טבעי (hebrewJoin, "יצירה וג'ימבורי") *רק* אם המחרוזת המשורשרת
+// נשארת קצרה מספיק לשורה אחת בפקד-הכוונה-המאוחד ב-375px (נמדד בפועל בדפדפן, לא ניחוש) -
+// אחרת נופל לאותה "2 סוגי פעילויות" כמו 3+, כדי לא לייצר "...ופארקים ו..." חתוך. 3+ -> תמיד
+// "N סוגי פעילויות" - אף פעם לא שרשור שמות (המשתמש תמיד יודע כמה נבחרו בלי לנחש מהריכוז).
+const CATEGORY_JOIN_MAX_CHARS = 16;
+function compactCategoryLabel(selected) {
+  if (!selected || selected.length === 0) return 'מה עושים?';
+  if (selected.length === 1) return selected[0];
+  if (selected.length === 2) {
+    const joined = hebrewJoin(selected);
+    if (joined.length <= CATEGORY_JOIN_MAX_CHARS) return joined;
+  }
+  return `${selected.length} סוגי פעילויות`;
+}
+
 function ChevronDown() {
   return (
-    <Svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke={colors.textSecondary} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+    <Svg width={9.5} height={9.5} viewBox="0 0 24 24" fill="none" stroke={colors.textSecondary} strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round">
       <Polyline points="6 9 12 15 18 9" />
     </Svg>
   );
 }
 
-function CategoryIcon({ color }) {
+// אייקון חיפוש מונוכרומטי-עדין לשדה החיפוש החופשי - לא אימוג'י (יש כבר "🔎" בטקסט הכפתור "חיפוש
+// 🔎" ולא רוצים שני חיפושים-חזותיים שונים), ולא ספרייה חדשה - SVG מקומי עם אותם primitives
+// (Svg/Circle/Line) שכבר בשימוש בכל שאר האייקונים בקובץ הזה. מכוון (לא צבוע/badge) בכוונה: זו
+// affordance פונקציונלית לשדה הראשי, לא מזהה-קטגוריה מעוטר כמו האייקונים ב"מה עושים/איפה נח לכם".
+function SearchIcon({ size = 18, color = colors.textMuted }) {
   return (
-    <Svg width={17} height={17} viewBox="0 0 24 24">
-      <Path d="M12 2.5c.6 3.1 1.2 5 2.4 6.2 1.2 1.2 3.1 1.8 6.1 2.3-3 .5-4.9 1.1-6.1 2.3-1.2 1.2-1.8 3.1-2.4 6.2-.6-3.1-1.2-5-2.4-6.2-1.2-1.2-3.1-1.8-6.1-2.3 3-.5 4.9-1.1 6.1-2.3 1.2-1.2 1.8-3.1 2.4-6.2z" fill={color} />
-      <Circle cx="19.3" cy="4.8" r="1.6" fill={color} opacity={0.75} />
-      <Circle cx="4.2" cy="19" r="1.3" fill={color} opacity={0.75} />
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <Circle cx="11" cy="11" r="7" />
+      <Line x1="21" y1="21" x2="16.65" y2="16.65" />
     </Svg>
   );
 }
 
-function LocationIcon({ color }) {
+// "כפתור-בחירה" (selection pill) ל"מה עושים?"/"איפה נח לכם?" (2026-09-16, מעבר מ"שדה קומפקטי"
+// ל-pill אמיתי - בקשת המשתמש: הבקרות האלה הן טריגר-בחירה קליל, לא עוד שדה-טופס). בלי label נפרד
+// מעל הכפתור - הבקרה עצמה היא ה-affordance, כשלא נבחר כלום f.subtitle כבר מציג "מה עושים?"/
+// "איפה?" בעצמו (ראו compactCategoryLabel/compactLocationLabel). f.label הסמנטי לא נעלם - הוא
+// עדיין מוזן ל-accessibilityLabel/accessibilityHint, רק לא מרונדר יותר כ-Text חזותי משלו. בלי
+// wrapper View חיצוני יותר (לא צריך flex:1/half-width - ה-pill גודלו לפי תוכן, ראו
+// compactFieldButton). האייקון המקורי (decorEmoji - 🌟/🏡) חוזר בתוך chip צבוע קטן (tint מקורי).
+// row-reverse: הילד הראשון (ה-chip) יושב מימין, הערך אחריו, ה-chevron בקצה השמאלי.
+function CompactFilterField({ f, onPress }) {
   return (
-    <Svg width={17} height={17} viewBox="0 0 24 24">
-      <Path d="M12 21.5s-7.5-6.4-7.5-11.5a7.5 7.5 0 0 1 15 0c0 5.1-7.5 11.5-7.5 11.5z" fill={color} />
-      <Circle cx="12" cy="10" r="2.8" fill="#ffffff" />
-    </Svg>
-  );
-}
-
-function FilterRow({ f, isLast, onPress }) {
-  return (
-    <Pressable style={[styles.filterRow, isLast && styles.filterRowLast]} onPress={onPress}>
-      <View style={styles.filterRightGroup}>
-        {f.decorEmoji ? <Text style={styles.decorEmoji}>{f.decorEmoji}</Text> : <f.DecorIcon color={f.color} />}
-        <View style={styles.filterTextStack}>
-          <Text style={styles.filterLabel}>{f.label}</Text>
-          <Text style={[styles.filterValue, f.active && styles.filterValueActive]}>{f.subtitle}</Text>
-        </View>
+    <Pressable
+      style={({ pressed }) => [
+        styles.compactFieldButton,
+        f.active && styles.compactFieldButtonActive,
+        pressed && styles.compactFieldPressed,
+      ]}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`${f.label} ${f.a11yValue || f.subtitle}`}
+      accessibilityHint={f.a11yHint}
+    >
+      <View style={[styles.compactFieldIconChip, { backgroundColor: f.tint }]}>
+        <Text style={styles.compactFieldEmoji}>{f.decorEmoji}</Text>
       </View>
-      <View style={styles.filterLeftGroup}>
-        <View style={[styles.iconChip, { backgroundColor: f.tint }]}>
-          <f.Icon color={f.color} />
-        </View>
-        <ChevronDown />
-      </View>
+      <Text
+        style={[styles.compactFieldValue, f.active && styles.compactFieldValueActive]}
+        numberOfLines={1}
+        ellipsizeMode="tail"
+      >
+        {f.subtitle}
+      </Text>
+      <ChevronDown />
     </Pressable>
   );
 }
 
-// "למי מחפשים היום?" - מחליף את שורות "מה בא לנו?"/"באיזור שלי" רק למשתמש מחובר עם ילדים
+// ניסוי (2026-09-16, ראו SHOW_UNIFIED_GUIDED_SEARCH): פקד-כוונת-חיפוש מאוחד - משטח אחד (border/
+// bg/radius יחיד), שתי שורות לחיצות במלוא הרוחב זו-מתחת-לזו (לא עוד שורה אופקית אחת - עם ערכים
+// ארוכים בעברית זה יצא צפוף מדי, ראו סבב-בדיקה חזותי 2026-09-16 השני). Presentation-only: לא
+// כפילות לוגיקה - משתמש באותו PRIMARY_FILTERS/state/handlers/pickers בדיוק כמו CompactFilterField,
+// רק העטיפה החזותית שונה. chevron (ChevronLeftIcon, components/icons.js) חוזר הפעם: בשורה
+// במלוא-הרוחב האייקון הצבוע+הטקסט כבר לא מספיקים כרמז-לחיצה יחיד כמו בפקד הקומפקטי הקודם -
+// אותה קונבנציית "השורה הזו פותחת בורר" כמו ב-app/profile.js/FiltersSheet.js.
+function GuidedIntentSegment({ f }) {
+  return (
+    <Pressable
+      style={({ pressed }) => [styles.guidedIntentSegment, pressed && styles.compactFieldPressed]}
+      onPress={f.onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`${f.label} ${f.a11yValue || f.subtitle}`}
+      accessibilityHint={f.a11yHint}
+    >
+      <View style={styles.guidedIntentSegmentMain}>
+        <View style={[styles.compactFieldIconChip, { backgroundColor: f.tint }]}>
+          <Text style={styles.compactFieldEmoji}>{f.decorEmoji}</Text>
+        </View>
+        <Text
+          style={[styles.guidedIntentValue, f.active && styles.compactFieldValueActive]}
+          numberOfLines={1}
+          ellipsizeMode="tail"
+        >
+          {f.subtitle}
+        </Text>
+      </View>
+      <ChevronLeftIcon size={12} color={colors.textMuted} />
+    </Pressable>
+  );
+}
+
+// שתי שורות זו-מתחת-לזו בתוך משטח אחד (guidedIntentControl), לא שני controls נפרדים - קו
+// דק (guidedIntentDivider) ביניהן במקום "·" הקודם, כדי שיקראו כקבוצה אחת. סדר תצוגה: מה עושים
+// קודם, איפה נח לכם אחריו (בקשת המשתמש - סדר-הקריאה האנכי, לא סדר ה-array שנשאר [where, category]
+// מסיבות היסטוריות של הפריסה האופקית הקודמת).
+function GuidedSearchIntentControl({ fields }) {
+  const [where, category] = fields;
+  return (
+    <View style={styles.guidedIntentControl}>
+      <GuidedIntentSegment f={category} />
+      <View style={styles.guidedIntentDivider} />
+      <GuidedIntentSegment f={where} />
+    </View>
+  );
+}
+
+// "למי מחפשים היום?" - מחליף את הבוררים "מה עושים?"/"איפה נח לכם?" רק למשתמש מחובר עם ילדים
 // (ראו isPersonalized ב-HomeScreen). בחירת ילד/ים כאן מעדכנת את filters.age מיידית; מיקום/
 // קטגוריה כבר נכנסים אוטומטית מ-default_home_filters השמור, בלי קשר לכרטיס הזה.
 function PersonalPicker({ kids, selectedChildIds, onToggleChild }) {
@@ -187,59 +279,118 @@ function PersonalPicker({ kids, selectedChildIds, onToggleChild }) {
   );
 }
 
-// "📍 איפה אתם מחפשים?" - prompt קומפקטי בתוך section "✨ רעיונות לידכם היום" עצמו (לא section
-// נפרד עם כותרת משלו) - מוצג מעל locked-הקרוסלה (LockedRecommendationCard למטה) כש-
-// locationKnown===false, כדי שהפעולה כאן תיראה כ"פותחת" את מה שמתחתיה. שתי הפעולות: "השתמשו
-// במיקום שלי" מפעילה ישירות את אותו geolocation flow (בלי לפתוח modal ביניים - אין page reload),
-// "בחרו עיר או אזור" פותחת את אותו LocationQuickPicker בדיוק כמו "איפה נוח לכם?" (onPickCity,
-// לא modal חדש).
-function RecommendationsLocationPrompt({ busy, denied, onUseLocation, onPickCity }) {
+// בוחר תמונה אמיתית עבור כרטיס מטושטש - אותה היררכיה בדיוק כמו ActivityCard.js (imageUrl →
+// placeholderImageFor(placeholderGroup)), עם תמונת-branding אמיתית כ-fallback אחרון (במקום
+// gradient מצויר) - כדי שתמיד יהיה <Image> אמיתי להפעיל עליו blurRadius, גם לפני
+// שהפעילויות האמיתיות נטענות (recActivities עדיין ב-recLoading) - אין רגע של skeleton.
+function sourceForLockedCard(activity, index) {
+  if (activity?.imageUrl) return { uri: activity.imageUrl };
+  const ph = activity?.placeholderGroup ? placeholderImageFor(activity.placeholderGroup) : null;
+  if (ph) return ph;
+  return PREVIEW_FALLBACK_IMAGES[index % PREVIEW_FALLBACK_IMAGES.length];
+}
+
+// עוצמת הטשטוש - blurRadius, פרופ' מובנה של RN Image (לא simulation/צורות מצוירות). נבדק ואומת
+// גם ב-Expo Web: react-native-web מיישם blurRadius כ-CSS filter:blur() אמיתי על אלמנט ה-DOM שבו
+// הוא בפועל מצייר את התמונה (getComputedStyle על אותו אלמנט מחזיר בפועל "blur(5px)" כש-5 - יחס
+// 1:1) - לא על ה-<img> הנגיש-בלבד/מוסתר ש-RN Web גם מרנדר בנפרד (ל-onLoad/accessibility), שם
+// ה-filter תמיד 'none' וזה תקין - שווה לזכור כשבודקים בדפדפן, כדי לא להסיק בטעות ש-blurRadius "לא
+// עובד" מבדיקה על האלמנט הלא-נכון. כלומר blurRadius לבדו מספיק בכל הפלטפורמות, בלי workaround
+// נוסף. הורד מ-6 ל-5 (2026-09-16, בקשת המשתמש: "עוד טיפה פחות מטושטש") - עדיין digestible-בלבד
+// (אין תוכן קריא בכוונה), רק מעט פחות אגרסיבי.
+const BLUR_RADIUS = 5;
+
+// תמונת הכרטיס המטושטש - <Image> אמיתי עם blurRadius אמיתי (ראו הערה מעל). resizeMode="cover"
+// ממלא את הפריים לגמרי (לא contain+letterbox כמו ב-ActivityCard הרגיל - כאן ממילא הכל מטושטש,
+// אין צורך לשמר את הדמות המלאה של איור ה-placeholder). veil לבן-עדין מעל (לא "שוטף" את התמונה -
+// עדיין רואים גוונים/צורות מבעד לו).
+function LockedCardImage({ activity, index, icon }) {
   return (
-    <View style={styles.recPromptCard}>
-      <Text style={styles.recPromptTitle}>📍 איפה אתם מחפשים?</Text>
-      <Text style={styles.recPromptSubtitle}>כדי להציג לכם פעילויות שמתאימות להיום באזור שלכם, ספרו לנו איפה לחפש.</Text>
-      <View style={styles.recPromptActions}>
-        <Pressable style={styles.recPromptPrimaryBtn} onPress={onUseLocation} disabled={busy}>
-          {busy ? (
-            <ActivityIndicator color="#fff" size="small" />
-          ) : (
-            <Text style={styles.recPromptPrimaryBtnText}>📍 השתמשו במיקום שלי</Text>
-          )}
-        </Pressable>
-        <Pressable onPress={onPickCity} hitSlop={8}>
-          <Text style={styles.recPromptSecondaryText}>בחרו עיר או אזור</Text>
-        </Pressable>
-      </View>
-      {denied ? <Text style={styles.recPromptDeniedText}>לא הצלחנו לקבל את המיקום. אפשר לבחור עיר במקום.</Text> : null}
+    <View style={styles.lockedCardImageWrap}>
+      <Image
+        source={sourceForLockedCard(activity, index)}
+        resizeMode="cover"
+        blurRadius={BLUR_RADIUS}
+        style={styles.lockedCardImagePhoto}
+      />
+      <View pointerEvents="none" style={styles.lockedCardVeil} />
+      {icon ? (
+        <View pointerEvents="none" style={styles.lockedCardImageIconBadge}>
+          <View style={styles.lockedCardIconCircle}>
+            <Text style={styles.lockedCardLockIconReal}>{icon}</Text>
+          </View>
+        </View>
+      ) : null}
     </View>
   );
 }
 
-// כרטיסי-פלייסהולדר "נעולים" - מציגים ל-locationKnown===false שיש המלצות אמיתיות מחכות, בלי
-// לטעון/להציג nationwide activities אמיתיות (סעיף 3/4 בבקשה) ובלי query נוסף - אין כאן שום
-// data fetching, רק Views סטטיים. שונה במכוון מ-SkeletonCard (למעלה): זה state מכוון (locked,
-// ממתין לבחירת מיקום), לא loading - לכן אייקון 📍 קבוע במקום shimmer/אנימציה, כדי שלא יראה כמו
-// "עוד רגע נטען" (סעיף 5/14 בבקשה). לחיצה פותחת את אותו location picker כמו "בחרו עיר או אזור".
-function LockedRecommendationCard({ onPress }) {
+// "גוף" הכרטיס המטושטש - קווים מנוקדים ("••••") לא פסי-skeleton מלאים: נקרא כ"מידע מוסתר
+// בכוונה" (redacted), לא כ"טוען" - בלי shimmer/אנימציה, בלי טקסט/מיקום אמיתי של הפעילות.
+function LockedCardBody() {
   return (
-    <Pressable style={styles.recCardWrap} onPress={onPress} accessibilityRole="button" accessibilityLabel="בחרו עיר או אזור כדי לראות את הפעילויות כאן">
-      <View style={styles.lockedImage}>
-        <Text style={styles.lockedImageIcon}>📍</Text>
-      </View>
-      <View style={styles.lockedLineWide} />
-      <View style={styles.lockedLineNarrow} />
-    </Pressable>
+    <View style={styles.lockedCardBody}>
+      <Text style={styles.lockedCardRedactedTitle} numberOfLines={1}>{'••••••• ••••'}</Text>
+      <Text style={styles.lockedCardRedactedMeta} numberOfLines={1}>{'•••• ••'}</Text>
+    </View>
   );
 }
 
-function Cloud({ x, y, scale = 1, opacity = 0.6 }) {
+// כרטיס-פעילות מטושטש: תמונה אמיתית (activity.imageUrl/placeholderGroup מ-recommendations, אותו
+// מקור בדיוק שמזין את הקרוסלה הרגילה כש-locationKnown===true - ראו recommendations useMemo למעלה,
+// ובלי fetch חדש) עם blurRadius אמיתי של React Native Image, לא ציור/simulation. תוכן הכרטיס
+// (כותרת/עיר) לעולם לא נחשף - הגוף מציג רק placeholder מנוקד (LockedCardBody).
+function BlurredActivityCard({ activity, index, icon, overlay }) {
   return (
-    <G transform={`translate(${x}, ${y}) scale(${scale})`} opacity={opacity}>
-      <Rect x="4" y="14" width="52" height="20" rx="10" fill="#ffffff" />
-      <Circle cx="14" cy="16" r="14" fill="#ffffff" />
-      <Circle cx="31" cy="10" r="18" fill="#ffffff" />
-      <Circle cx="48" cy="17" r="13" fill="#ffffff" />
-    </G>
+    <View style={styles.lockedCardOuter}>
+      <LockedCardImage activity={activity} index={index} icon={overlay ? null : icon} />
+      <LockedCardBody />
+      {overlay}
+    </View>
+  );
+}
+
+// כרטיס 1 בקרוסלה כש-locationKnown===false: אותו BlurredActivityCard בדיוק כמו כרטיסים 2+ (תמונה
+// אמיתית+blurRadius מאחורי הכל), עם overlay קריא וחד (לא מטושטש) עליו - לא prompt נפרד מעל
+// הקרוסלה. שתי הפעולות פותחות את אותו LocationQuickPicker/GPS בדיוק כמו "איפה נח לכם?"
+// (openLocationPicker/setWhereQuickOpen - מקור-אמת יחיד, לא flow-geolocation נפרד וגם לא modal
+// חדש).
+function LocationPromptCard({ onPress, activity }) {
+  return (
+    <BlurredActivityCard
+      index={0}
+      activity={activity}
+      overlay={
+        <View pointerEvents="box-none" style={styles.lockedCardOverlayWrap}>
+          <View style={styles.lockedCardOverlay}>
+            <Text style={styles.lockedCardOverlayIcon}>📍</Text>
+            <Text style={styles.lockedCardOverlayTitle}>רוצים רעיונות לידכם?</Text>
+            <Text style={styles.lockedCardOverlaySubtitle}>ספרו לנו איפה לחפש</Text>
+            <Pressable style={styles.lockedCardOverlayBtn} onPress={onPress}>
+              <Text style={styles.lockedCardOverlayBtnText}>השתמשו במיקום שלי</Text>
+            </Pressable>
+            <Pressable onPress={onPress} hitSlop={8}>
+              <Text style={styles.lockedCardOverlaySecondary}>בחרו עיר או אזור</Text>
+            </Pressable>
+          </View>
+        </View>
+      }
+    />
+  );
+}
+
+// כרטיסים 2+ - אותו BlurredActivityCard כמו כרטיס 1, בלי overlay-טופס (רק 🔒 עדין על התמונה) - לא
+// חוזרים על הפרומפט/הכפתורים, כל הכרטיס לחיץ ופותח את אותו picker.
+function LockedPreviewCard({ index, onPress, activity }) {
+  return (
+    <Pressable
+      style={({ pressed }) => [pressed && styles.itemPressed]}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel="בחרו מיקום כדי לראות פעילויות לידכם"
+    >
+      <BlurredActivityCard index={index} activity={activity} icon="🔒" />
+    </Pressable>
   );
 }
 
@@ -274,16 +425,6 @@ function SunMascot({ headerLayout }) {
   );
 }
 
-function SkyClouds() {
-  return (
-    <Svg width="100%" height={230} viewBox="0 0 375 230" style={styles.skyClouds} pointerEvents="none">
-      <Cloud x={210} y={18} scale={1.3} opacity={0.5} />
-      <Cloud x={40} y={70} scale={0.9} opacity={0.4} />
-      <Cloud x={260} y={110} scale={0.7} opacity={0.35} />
-    </Svg>
-  );
-}
-
 // רוחב/גובה מחושבים במספרים מוחלטים (לא aspectRatio על ה-View + '100%' על ה-Image) - השילוב
 // הזה ידוע כבעייתי ב-Yoga על אנדרואיד (נצפה בפועל: התמונה נחתכה/הוצגה רק בחלק מהרוחב על מכשיר
 // אמיתי, למרות שברשת זה עבד מושלם) - width/height מפורשים בפיקסלים על שני האלמנטים עוקפים את
@@ -308,23 +449,16 @@ function GrassFooter({ width }) {
 
 export default function HomeScreen() {
   const router = useRouter();
-  // מובייל (כולל האפליקציה הנטיבית - תמיד צרה) מקבל כפתור חיפוש רחב-מלא מתחת לשדה, לא בתוך
-  // השורה - קל יותר ללחיצה ביד אחת. דסקטופ/רוחב-רחב (רק ווב) שומר על השורה המשולבת הקיימת.
-  // 480px: breakpoint פשוט, לא קשור לתוכן קיים - כמעט כל טלפון (כולל טאבלטים קטנים) נופל מתחתיו.
   const { width: windowWidth } = useWindowDimensions();
-  const isNarrowScreen = windowWidth < 480;
   // מדידה אמיתית (onLayout) של שורת ה-Header, כדי ש-SunMascot (position:absolute, מחוץ ל-
   // ScrollView) יתיישר איתה בכל פלטפורמה/מכשיר - ראו הערה מלאה ליד SunMascot למעלה.
   const [headerLayout, setHeaderLayout] = useState(null);
-  // כינוי המשתמש לברכת "צהריים טובים <שם>" - מגיע מ-Header (onNicknameResolved), לא נשלף כאן
-  // בנפרד, כדי לא לשכפל את קריאת ה-profile שכבר קורית שם בכל מקרה.
-  const [nickname, setNickname] = useState('');
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
   const [deviceCoords, setDeviceCoords] = useState(null);
   const [categoryQuickOpen, setCategoryQuickOpen] = useState(false);
   const [whereQuickOpen, setWhereQuickOpen] = useState(false);
   // "מה עוד מעניין אתכם?" (discovery shortcuts) - allCategoriesOpen פותח את אותו QuickPicker
-  // שכבר קיים ל"מה בא לנו?" (לא מסך/modal חדש), רק ב-multiple=false כדי שבחירה תסגור ותחזיר
+  // שכבר קיים ל"מה עושים?" (לא מסך/modal חדש), רק ב-multiple=false כדי שבחירה תסגור ותחזיר
   // מיד (ראו toggle ב-components/QuickPicker.js - זו כבר ההתנהגות המובנית שלו). pendingCategory
   // שומר את הקטגוריה שנלחצה כשעדיין אין location ידוע, כדי לבצע את החיפוש מיד אחרי שהמיקום
   // נבחר - בלי לזרוק את המשתמש בחזרה למסך הבית (ראו handleWhereQuickClose למטה).
@@ -345,7 +479,23 @@ export default function HomeScreen() {
   const [smartSearchClarify, setSmartSearchClarify] = useState(null); // { message, pendingIntent }
   const [smartSearchClarifyCity, setSmartSearchClarifyCity] = useState('');
   const [recentSearches, setRecentSearches] = useState([]);
-  const [recentSearchesOpen, setRecentSearchesOpen] = useState(false);
+  // חיפושים אחרונים כ-dropdown תלוי-פוקוס, לא section קבוע (בקשת המשתמש 2026-09-16 השנייה:
+  // "כמו מנוע חיפוש מודרני" - נעלם/מופיע לפי פוקוס בשדה, לא toggle ידני). searchFocused נשלט
+  // מ-onFocus/onBlur של ה-TextInput למטה, בלי screen-wide touch-dismiss (בקשת המשתמש: לא לעטוף
+  // את כל מסך הבית ב-TouchableWithoutFeedback רק בשביל זה, אלא אם בדיקה בדפדפן תוכיח שזה הכרחי
+  // ושזה לא פוגע בקרוסלה/discovery/CTA/גלילה - עדיין לא הוכח כזה). blurTimeoutRef עוקף את מרוץ
+  // ה-blur-לפני-press הקלאסי ב-React Native Web (mousedown על ה-Pressable של שורת-היסטוריה/×/
+  // נקה-הכל מעביר focus בדפדפן ומפעיל onBlur *לפני* שה-onClick/press עצמו מגיע) - onBlur לא סוגר
+  // מיד, רק אחרי השהיה קצרה; לחיצה על שורה/×/נקה-הכל מבטלת את ה-timeout ומריצה את הפעולה שלה
+  // תוך כדי שהפאנל עדיין mounted. searchInputRef מאפשר להחזיר פוקוס לשדה במפורש אחרי מחיקת
+  // פריט/נקה-הכל (כדי שהשדה "יישאר ממוקד" בפועל גם ב-web, לא רק ב-state שלנו).
+  const [searchFocused, setSearchFocused] = useState(false);
+  const searchInputRef = useRef(null);
+  const searchBlurTimeoutRef = useRef(null);
+
+  useEffect(() => () => {
+    if (searchBlurTimeoutRef.current) clearTimeout(searchBlurTimeoutRef.current);
+  }, []);
 
   // ✨ המלצות מותאמות - excludedCategories/excludedCities/benefitClubs זהים בדיוק למה
   // ש-app/activities.js טוען, כדי שהקרוסלה כאן תתאים לאותם חוקי-דירוג/הסתרה בדיוק כמו עמוד
@@ -361,9 +511,6 @@ export default function HomeScreen() {
   const [excludedCities, setExcludedCities] = useState([]);
   const [excludedRegions, setExcludedRegions] = useState([]);
   const [benefitClubs, setBenefitClubs] = useState([]);
-  // "📍 איפה אתם מחפשים?" - מצב-onboarding בתוך section "רעיונות לידכם היום" כשאין locationKnown.
-  const [recLocationBusy, setRecLocationBusy] = useState(false);
-  const [recLocationDenied, setRecLocationDenied] = useState(false);
 
   useEffect(() => {
     AsyncStorage.getItem(RECENT_SEARCHES_KEY).then((raw) => {
@@ -451,6 +598,42 @@ export default function HomeScreen() {
     AsyncStorage.removeItem(RECENT_SEARCHES_KEY);
   };
 
+  const removeRecentSearch = (text) => {
+    setRecentSearches((prev) => {
+      const next = prev.filter((q) => q !== text);
+      AsyncStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(next));
+      return next;
+    });
+  };
+
+  // ראו הערה מפורטת ליד searchFocused למעלה - עוקף מרוץ blur-לפני-press. clearSearchBlurTimeout
+  // מבוטל בתחילת כל handler-לחיצה בפאנל (שורה/×/נקה-הכל) לפני שממשיכים בפעולה שלו עצמו.
+  const clearSearchBlurTimeout = () => {
+    if (searchBlurTimeoutRef.current) {
+      clearTimeout(searchBlurTimeoutRef.current);
+      searchBlurTimeoutRef.current = null;
+    }
+  };
+
+  const handleRecentSearchPress = (q) => {
+    clearSearchBlurTimeout();
+    setSearchFocused(false);
+    setSmartSearchText(q);
+    handleSmartSearch(q);
+  };
+
+  const handleRemoveRecentSearch = (q) => {
+    clearSearchBlurTimeout();
+    removeRecentSearch(q);
+    searchInputRef.current?.focus();
+  };
+
+  const handleClearRecentSearches = () => {
+    clearSearchBlurTimeout();
+    clearRecentSearches();
+    searchInputRef.current?.focus();
+  };
+
   // useFocusEffect (לא useEffect רגיל) - בדיוק כמו app/profile.js - כדי שכל המעברים בין מצבים
   // (התחברות/התנתקות/הוספת-הסרת ילד ב-/profile) ישתקפו נכון בכניסה הבאה למסך הבית, לא רק
   // ב-mount הראשוני. כשאין session בכלל - מאפסים ל"לא מחובר" (חשוב: בלי זה, משתמש שמתנתק
@@ -530,35 +713,34 @@ export default function HomeScreen() {
   // "רעיונות ליד" אמיתיים; לא ניתן לבחירה מהמסך הזה בלאו הכי.
   const locationKnown = filters.location?.mode === 'current' || filters.location?.mode === 'city' || filters.location?.mode === 'address';
 
-  // "בחרו עיר או אזור" (onboarding prompt) פותח את אותו LocationQuickPicker בדיוק כמו "איפה נוח
-  // לכם?" - לא modal חדש (סעיף 3/7 בבקשה).
-  const handleUseLocationForRecommendations = async () => {
-    setRecLocationBusy(true);
-    setRecLocationDenied(false);
-    try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        setRecLocationDenied(true);
-        setRecLocationBusy(false);
-        return;
-      }
-      const pos = await Location.getCurrentPositionAsync({});
-      setDeviceCoords({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
-      setFilters((prev) => ({ ...prev, location: { ...prev.location, mode: 'current', radiusKm: prev.location.radiusKm || 10 } }));
-    } catch {
-      setRecLocationDenied(true);
-    }
-    setRecLocationBusy(false);
-  };
+  // מקור-אמת יחיד לפתיחת בחירת-מיקום: אותה פונקציה בדיוק עבור צ'יפ "איפה נח לכם?" למעלה וכרטיסי
+  // ה-Preview ב"רעיונות לידכם היום" כש-locationKnown===false (סעיף 8/9/27 בבקשה) - לא flow
+  // geolocation נפרד (כך שהיה קודם ב-handleUseLocationForRecommendations שהוסר) ולא modal חדש.
+  const openLocationPicker = () => setWhereQuickOpen(true);
 
   // כותרת/תת-כותרת אמיתיות ביחס לאלגוריתם בפועל (סעיף 9 בבקשה) - לא טוענות "מותאם לגיל" סתם:
   // רק אם isPersonalized (יש בפועל age-matching אמיתי מגילאי הילדים, ראו scoreActivity).
   // display name קיים בלבד (filters.location.city) - לא hardcoded ערים (סעיף 8).
+  // "ב-עיר" מול "ליד עיר" (בקשת המשתמש 2026-09-16): mode:'city' בלי מרחק-נסיעה בפועל על גביה -
+  // בחירת עיר "נקייה" - matchesLocation (lib/filterActivities.js) ממילא מסנן כאן תמיד להתאמת-עיר
+  // מדויקת, אז "ב" מדויק. ברגע שיש הליכה/כל-מרחק/נסיעה-בדקות בפועל הכוונה המפורשת של המשתמש היא
+  // "מסביב ל-X ק"מ מהעיר", לא "רק בעיר עצמה" - "ליד" מתאר את זה נכון. התנאי כאן זהה בכוונה
+  // ל-3 הענפים הראשונים ב-compactLocationLabel למעלה (לא סתם !!travelMode - "נסיעה" בלי
+  // travelMinutes מספרי הוא שריד-state לא-פעיל, compactLocationLabel עצמו נופל בו לשם העיר
+  // הרגיל, אז גם הכותרת כאן חייבת ליפול לאותו "ב" בדיוק, לא סתם לבדוק אם travelMode קיים).
+  // mode:'address' (כתובת מגואוקדדת, לא שם-עיר) תמיד "ליד" - התאמת-מרחק מנקודה, אף פעם לא "בדיוק שם".
+  const cityHasTravelModifier = filters.location?.mode === 'city' && (
+    filters.location.travelMode === 'walking'
+    || filters.location.travelMode === 'any'
+    || (filters.location.travelMode === 'driving' && typeof filters.location.travelMinutes === 'number')
+  );
   const recHeaderTitle = filters.location?.mode === 'city' && filters.location.city
-    ? `רעיונות להיום ליד ${filters.location.city}`
+    ? cityHasTravelModifier
+      ? `רעיונות להיום ליד ${filters.location.city}`
+      : `רעיונות להיום ב${filters.location.city}`
     : filters.location?.mode === 'address' && (filters.location.addressLabel || filters.location.city)
       ? `רעיונות להיום ליד ${filters.location.addressLabel || filters.location.city}`
-      : 'רעיונות לידכם היום';
+      : 'פעילויות לידכם היום';
   // locationKnown===false: תת-כותרת קבועה (סעיף 11 בבקשה) - "באזור שלכם" עדיין לא אמיתי (אין
   // location), זו הבטחה למה שמחכה אחרי שיספקו אחד, לא תיאור-מצב. isPersonalized (גיל הילדים)
   // רלוונטי רק כשיש בפועל אזור-חיפוש להתאים אליו.
@@ -605,26 +787,45 @@ export default function HomeScreen() {
 
   const hasSelectedCategory = filters.category.length > 0;
   const hasChosenLocation = !!filters.location?.mode;
-  // ה-CTA של מסלול ההעדפות מוצג רק אחרי interaction אמיתי (לא רק ערכי-ברירת-מחדל) - category/
-  // location כבר מתחילים ב-[]/null ב-DEFAULT_FILTERS ורק בחירה בפועל של המשתמש (או ברירת-מחדל
-  // ששמר בעבר, ראו fetchUserPreferences למעלה - גם היא "בחירה" לגיטימית) הופכת אותם ל-truthy,
-  // אז אין צורך ב-state נפרד רק כדי להבדיל בין "ברירת מחדל" לבין "המשתמש בחר" - הדגלים active
-  // הקיימים כבר בדיוק זה. isPersonalized נשאר בהתנהגות הישנה (CTA תמיד מוצג) - מסלול נפרד
-  // ("למי מחפשים היום?") שלא חלק מהבקשה הזו.
-  const showPreferenceCTA = isPersonalized || hasSelectedCategory || hasChosenLocation;
+  // האם ל"מצאו לי פעילויות" יש בחירה משמעותית לבצע - לא אם ה-CTA מוצג (הוא מוצג תמיד עכשיו, ראו
+  // ה-Pressable למטה) אלא אם הוא ACTIVE או DISABLED. handleGo עצמו תמיד "בר-ביצוע" טכנית (גם עם
+  // ברירות-המחדל הוא ינסה GPS/יפתח את פיקר המיקום) - אין ל-guided search validation אמיתי מעבר
+  // לזה, אז ה"תקפות" כאן היא קריטריון UX בלבד: category/location כבר מתחילים ב-[]/null ב-
+  // DEFAULT_FILTERS, ורק בחירה בפועל של המשתמש (או ברירת-מחדל ששמר בעבר, ראו fetchUserPreferences
+  // למעלה - גם היא "בחירה" לגיטימית) הופכת אותם ל-truthy - בדיוק הדגלים active הקיימים כבר, בלי
+  // state כפול. isPersonalized תמיד "בחירה תקפה" (מסלול "למי מחפשים היום?" הנפרד).
+  const canSubmitGuidedSearch = isPersonalized || hasSelectedCategory || hasChosenLocation;
+  // כרטיס-חיפוש מאוחד (2026-09-16): ה-CTA היחיד תקף אם יש כוונה משמעותית כלשהי - טקסט חופשי
+  // שהוקלד, או בחירה מודרכת תקפה (canSubmitGuidedSearch למעלה, ללא שינוי בהגדרה שלו עצמה) - "או"
+  // פשוט, לא היוריסטיקה חדשה: משלב את שני תנאי-ה-active הקיימים של שני הכפתורים הישנים.
+  const canSubmitUnifiedSearch = !!smartSearchText.trim() || canSubmitGuidedSearch;
 
+  // סדר המערך קובע את סדר-התצוגה ב-filtersRow (flexDirection:'row' רגיל, לא row-reverse - נבדק
+  // חזותית בדפדפן, לא רק מהנחת flexDirection): הדף לא forceRTL ברמת ה-layout (רק textAlign/
+  // writingDirection ידניים) - 'row' רגיל מתנהג כמו LTR-layout, אז הפריט הראשון במערך יושב
+  // משמאל. לכן "where" (איפה?) ראשון -> משמאל, "category" (מה עושים?) שני -> מימין - זו הדרישה
+  // (WHAT מימין, WHERE משמאל ב-RTL), לא הפוך.
   const PRIMARY_FILTERS = [
     {
-      key: 'category', label: 'מה בא לנו?',
-      subtitle: hasSelectedCategory ? categorySummary(filters.category) : 'כל סוגי הפעילויות',
-      active: hasSelectedCategory,
-      Icon: CategoryIcon, decorEmoji: '🌟', tint: '#fdf3d9', color: '#e8bf36', onPress: () => setCategoryQuickOpen(true),
+      key: 'where', label: 'איפה נח לכם?',
+      subtitle: hasChosenLocation ? compactLocationLabel(filters.location) : 'איפה?',
+      // a11yValue: התיאור המלא (locationSummary המשותף, לא הגרסה הקומפקטית) - compactLocationLabel
+      // כבר לא מאבד מידע סמנטי בפועל, אבל אין סיבה לא לתת ל-screen reader את הניסוח המלא ביותר
+      // הקיים כשזה כבר מחושב בכל מקרה.
+      a11yValue: hasChosenLocation ? locationSummary(filters.location) : 'בחרו מיקום',
+      a11yHint: 'פותח בחירת מיקום וטווח נסיעה',
+      active: hasChosenLocation,
+      decorEmoji: '🏡', tint: '#e2f5e7', onPress: openLocationPicker,
     },
     {
-      key: 'where', label: 'איפה נח לכם?',
-      subtitle: hasChosenLocation ? locationSummary(filters.location) : 'באיזור שלי',
-      active: hasChosenLocation,
-      Icon: LocationIcon, decorEmoji: '🏡', tint: '#e2f5e7', color: '#3fb36d', onPress: () => setWhereQuickOpen(true),
+      key: 'category', label: 'מה עושים?',
+      subtitle: compactCategoryLabel(filters.category),
+      // a11yValue: כשהתצוגה מכווצת ל-"N סוגי פעילויות" (2+), ה-screen reader עדיין מקבל את
+      // הרשימה המלאה של הקטגוריות הנבחרות בפועל - לא רק את המספר.
+      a11yValue: filters.category.length > 0 ? hebrewJoin(filters.category) : 'הכל',
+      a11yHint: 'פותח בחירת סוגי פעילויות',
+      active: hasSelectedCategory,
+      decorEmoji: '🌟', tint: '#fdf3d9', onPress: () => setCategoryQuickOpen(true),
     },
   ];
 
@@ -735,7 +936,12 @@ export default function HomeScreen() {
   // rankActivities/applyFilters הקיימים ב-app/activities.js.
   const goToSmartSearchResults = (intent) => {
     const builtFilters = intentToFilters(intent, {
-      children, fallbackLocation: filters.location?.mode ? filters.location : null,
+      children,
+      fallbackLocation: filters.location?.mode ? filters.location : null,
+      // כרטיס-חיפוש מאוחד (2026-09-16): בחירת "מה עושים?" המובנית לא נמחקת בשקט כשהטקסט עצמו
+      // לא ציין קטגוריה - אותו דפוס עדיפות בדיוק כמו fallbackLocation למעלה (טקסט מפורש מנצח,
+      // אחרת נופלים לבחירה המובנית הקיימת). ראו lib/smartSearch.js.
+      fallbackCategory: filters.category?.length ? filters.category : null,
     });
     const params = { homeFilters: JSON.stringify(builtFilters) };
     if (builtFilters.location.mode === 'address' && builtFilters.location.coords) {
@@ -810,6 +1016,16 @@ export default function HomeScreen() {
     }
   };
 
+  // כרטיס-חיפוש מאוחד (2026-09-16) - נקודת-כניסה אחת ל-CTA וגם ל-Enter מהמקלדת, בלי handler
+  // כפול: יש טקסט חופשי → עובר את צינור ה-AI הקיים (handleSmartSearch, ללא שינוי בו עצמו) -
+  // WHAT/WHERE המובנים עדיין משפיעים על התוצאה דרך fallbackCategory/fallbackLocation בתוך
+  // goToSmartSearchResults למעלה. אין טקסט בכלל → המסלול המודרך הישיר הקיים (handleGo, ללא
+  // שינוי) - הוא כבר יודע להשתמש ב-filters (WHAT/WHERE) כמות שהם, כולל בקשת GPS אם צריך.
+  const handleUnifiedSearch = () => {
+    if (smartSearchText.trim()) { handleSmartSearch(); return; }
+    handleGo();
+  };
+
   // --- ✨ המלצות מותאמות (קרוסלה אופקית) ---
   const recNotesByActivity = useMemo(() => new Map(recNotes.map((n) => [n.activity_id, n.note])), [recNotes]);
 
@@ -826,6 +1042,11 @@ export default function HomeScreen() {
         benefitTag: formatBenefitCardTag(a.benefits, benefitClubs),
       }))
   ), [recActivities, filters, deviceCoords, excludedCategories, benefitClubs, excludedCities, excludedRegions, recHiddenIds, recFavoriteIds, recVisitedIds, recNotesByActivity]);
+
+  // 4 הפעילויות הראשונות מתוך recommendations - מוזנות לכרטיסים המטושטשים (LocationPromptCard/
+  // LockedPreviewCard) כש-locationKnown===false. אותו מקור-נתונים בדיוק כמו הקרוסלה הרגילה -
+  // undefined (recActivities עדיין בטעינה) מטופל בתוך BlurredActivityCard עצמו (fallback מדומה).
+  const previewActivities = useMemo(() => recommendations.slice(0, 4), [recommendations]);
 
   const handleToggleRecFavorite = async (activityId) => {
     if (!userId) { setShowLoginPrompt(true); return; }
@@ -861,57 +1082,96 @@ export default function HomeScreen() {
     clearAllFilters();
   };
 
+  // "+ מחיר/גיל/..." (קישורים עדינים לפילטרים מתקדמים, ראו visibleHomeFilters) - אותו JSX בדיוק
+  // נחוץ בשני הענפים (isPersonalized/רגיל) מתחת לחיפוש המודרך, אז מחושב פעם אחת כאן במקום
+  // להישכפל.
+  const extraFiltersBlock = visibleHomeFilters.length > 0 ? (
+    <View style={styles.extraFiltersWrap}>
+      {FILTER_SCHEMA.filter((f) => visibleHomeFilters.includes(f.key)).map((f) => {
+        const summary = summaryForHomeFilterKey(f.key, filters);
+        return (
+          <Pressable key={f.key} style={styles.ageAddRow} onPress={handleAdvancedFilters} hitSlop={8}>
+            <Text style={[styles.ageAddText, summary && styles.ageAddTextActive]}>
+              {summary ? `+ ${f.title}: ${summary}` : `+ ${f.title}`}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  ) : null;
+
+  // כרטיס-חיפוש מאוחד (2026-09-16): CTA יחיד לכל המודול (טקסט חופשי + מה עושים/איפה נח לכם ביחד,
+  // לא שני מסלולים נפרדים) - מוצג תמיד (לא מותנה), כדי שלא יגרום ל-layout shift כשמשהו נבחר/מוקלד.
+  // canSubmitUnifiedSearch (למעלה) קובע רק active מול disabled - לא render. onPress=
+  // handleUnifiedSearch: אותה נקודת-כניסה שמשמשת גם את onSubmitEditing של שדה הטקסט (Enter) -
+  // אין handler כפול.
+  const unifiedCtaButton = (
+    <Pressable
+      style={[
+        styles.smartSearchBtn,
+        styles.smartSearchBtnFullWidth,
+        (smartSearchLoading || locatingForSearch || !canSubmitUnifiedSearch) && styles.smartSearchBtnDisabled,
+      ]}
+      onPress={handleUnifiedSearch}
+      disabled={smartSearchLoading || locatingForSearch || !canSubmitUnifiedSearch}
+      accessibilityRole="button"
+      accessibilityState={{ disabled: smartSearchLoading || locatingForSearch || !canSubmitUnifiedSearch }}
+    >
+      {smartSearchLoading || locatingForSearch ? (
+        <ActivityIndicator color="#ffffff" size="small" />
+      ) : (
+        <Text style={styles.smartSearchBtnText}>מצאו פעילויות</Text>
+      )}
+    </Pressable>
+  );
+
   return (
     <View style={styles.screen}>
-      <LinearGradient colors={[colors.accentTint, colors.accentTintLight, colors.bg]} style={styles.topGradient} />
-      <SkyClouds />
+      <SkyBackground />
       <SunMascot headerLayout={headerLayout} />
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {/* "☀️ בוקר טוב <שם>" - אלמנט-הקשר קטן. השם מגיע מ-Header (onNicknameResolved) - אין
-            שליפת profile כפולה כאן. */}
-        <View style={styles.greetingRow}>
-          <Text style={styles.greetingText}>{greetingForNow()}{nickname ? `, ${nickname}` : ''}</Text>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        <Header onMenuPress={() => {}} onHeaderLayout={setHeaderLayout} />
+
+        {/* 🧭 "לאן קופצים היום?" - כותרת-העל של כל מודול החיפוש (קלט חופשי + מה עושים/איפה נח
+            לכם, טופס אחד), לכן מחוץ לכרטיס עצמו - לא רק כותרת של שדה הטקסט הפנימי. האייקון חלק
+            ממערכת כותרות-section אחידה בעמוד הבית (ראו homeHeadingIcon/sectionTitleRow). תת-כותרת
+            (2026-09-16, בקשת המשתמש) - אותה sectionSubtitle בדיוק כמו שתי הכותרות האחרות, כדי
+            שהמבנה יהיה זהה בשלושתן: עטיפה חיצונית (searchModuleHeaderWrap) נושאת את המרווח
+            מעל/מתחת, שורת אייקון+כותרת פנימית (searchModuleTitleRow) בלי margin משלה - בדיוק כמו
+            sectionHeaderRow/sectionTitleRow למטה. */}
+        <View style={styles.searchModuleHeaderWrap}>
+          <View style={styles.searchModuleTitleRow}>
+            <Text style={styles.homeHeadingIcon}>🧭</Text>
+            <Text style={styles.searchModuleTitle}>לאן קופצים היום?</Text>
+          </View>
+          <Text style={styles.sectionSubtitle}>חפשו מה שבא לכם, או בחרו מה מתאים לכם</Text>
         </View>
-        <Header onMenuPress={() => {}} onHeaderLayout={setHeaderLayout} onNicknameResolved={setNickname} />
 
-        {Platform.OS === 'web' ? (
-          // גרדיאנט-טקסט אמיתי (צהוב חם→ירוק רענן) - חייב <span> גולמי, לא <Text> של RN: RN
-          // Web מוסיף אוטומטית dir="auto" לכל <Text>, וצירוף dir+background-clip:text שובר
-          // את הרינדור בדפדפן (נבדק ישירות - עם dir מוצג צבע אחיד, בלי dir הגרדיאנט תקין).
-          // SVG fill=url(#gradient) על <text> נבדק גם הוא ונכשל כאן (מגבלת דפדפן/מנוע נפרדת -
-          // גרדיאנט על SVG shapes תקין, על SVG <text> לא) - span+CSS הוא הפתרון היחיד שעבד בפועל.
-          createElement('span', { style: TAGLINE_GRADIENT_SPAN_STYLE }, 'לאן קופצים היום?')
-        ) : (
-          <Text style={styles.tagline}>לאן קופצים היום?</Text>
-        )}
-
-        {/* 🔎 חיפוש חכם - תוספת, לא תחליף: הפילטרים הרגילים למטה (מה בא לנו/איפה נח לכם/סינון
-            מתקדם) ממשיכים לעבוד זהה לגמרי, בלי שינוי. */}
+        {/* כרטיס-חיפוש מאוחד (2026-09-16, סבב פישוט נוסף) - טופס אחד עם קלטים אופציונליים
+            (טקסט חופשי, מה עושים, איפה נח לכם) ו-CTA יחיד (unifiedCtaButton למטה) - לא שני
+            מסלולי-חיפוש נפרדים עם שני כפתורים ומפריד "או" ביניהם. handleUnifiedSearch כבר יודע
+            לשלב טקסט+בחירה מובנית (fallbackCategory/fallbackLocation ב-goToSmartSearchResults). */}
         <View style={styles.smartSearchCard}>
-          <Text style={styles.smartSearchTitle}>🔎 יודעים מה אתם מחפשים?</Text>
-          <View style={isNarrowScreen ? styles.smartSearchInputRowStacked : styles.smartSearchInputRow}>
+          <View style={styles.smartSearchInputWrap}>
+            <SearchIcon />
             <TextInput
+              ref={searchInputRef}
               style={styles.smartSearchInput}
-              placeholder='למשל: "משחקייה ליד רחוב הרצל בתל אביב מחר בבוקר"'
+              placeholder="ג'ימבורי באזור השרון מחר"
               placeholderTextColor={colors.textMuted}
               value={smartSearchText}
               onChangeText={setSmartSearchText}
-              onSubmitEditing={() => handleSmartSearch()}
+              onSubmitEditing={handleUnifiedSearch}
+              onFocus={() => { clearSearchBlurTimeout(); setSearchFocused(true); }}
+              onBlur={() => { searchBlurTimeoutRef.current = setTimeout(() => setSearchFocused(false), 150); }}
               returnKeyType="search"
               editable={!smartSearchLoading}
             />
-            <Pressable
-              style={[
-                styles.smartSearchBtn,
-                isNarrowScreen && styles.smartSearchBtnFullWidth,
-                (smartSearchLoading || !smartSearchText.trim()) && styles.smartSearchBtnDisabled,
-              ]}
-              onPress={() => handleSmartSearch()}
-              disabled={smartSearchLoading || !smartSearchText.trim()}
-            >
-              {smartSearchLoading ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.smartSearchBtnText}>חיפוש 🔎</Text>}
-            </Pressable>
           </View>
 
           {smartSearchError ? <Text style={styles.smartSearchErrorText}>{smartSearchError}</Text> : null}
@@ -934,93 +1194,88 @@ export default function HomeScreen() {
                 <Text style={styles.smartSearchBtnText}>{smartSearchLoading ? '...' : 'המשך'}</Text>
               </Pressable>
             </View>
-          ) : (
+          ) : searchFocused && !smartSearchText.trim() && recentSearches.length > 0 ? (
+            // dropdown תלוי-פוקוס (לא section קבוע יותר) - ראו הערה מלאה ליד searchFocused/
+            // clearSearchBlurTimeout למעלה. יושב באותו מקום בדיוק בזרימה הרגילה, מתחת לשדה
+            // החיפוש ובתוך אותו smartSearchCard - בלי overlay/position:absolute נפרד (אין
+            // infrastructure כזה בקובץ, ואין סיבה טובה להוסיף אחד רק בשביל זה).
             <View style={styles.smartSearchIdeasWrap}>
-              <Pressable
-                style={styles.recentSearchesHeader}
-                onPress={() => setRecentSearchesOpen((open) => !open)}
-                accessibilityLabel="חיפושים אחרונים"
-              >
+              <View style={styles.recentSearchesHeader}>
                 <Text style={styles.smartSearchIdeasTitle}>🕐 חיפושים אחרונים</Text>
-                <Text style={styles.recentSearchesChevron}>{recentSearchesOpen ? '▲' : '▼'}</Text>
-              </Pressable>
-              {recentSearchesOpen ? (
-                recentSearches.length > 0 ? (
-                  <>
-                    <View style={styles.smartSearchIdeasRow}>
-                      {recentSearches.map((q, i) => (
-                        <Pressable
-                          key={`${q}-${i}`}
-                          style={styles.smartSearchIdeaChip}
-                          onPress={() => { setSmartSearchText(q); handleSmartSearch(q); }}
-                          disabled={smartSearchLoading}
-                        >
-                          <Text style={styles.smartSearchIdeaChipText}>{q}</Text>
-                        </Pressable>
-                      ))}
-                    </View>
-                    <Pressable onPress={clearRecentSearches} hitSlop={6}>
-                      <Text style={styles.clearRecentSearchesText}>🗑️ מחק היסטוריה</Text>
+                <Pressable onPress={handleClearRecentSearches} hitSlop={8} accessibilityRole="button" accessibilityLabel="נקה את כל החיפושים האחרונים">
+                  <Text style={styles.clearRecentSearchesText}>נקה הכל</Text>
+                </Pressable>
+              </View>
+              <View style={styles.smartSearchIdeasList}>
+                {recentSearches.map((q, i) => (
+                  <View key={`${q}-${i}`} style={styles.recentSearchRow}>
+                    <Pressable
+                      style={styles.recentSearchRowMain}
+                      onPress={() => handleRecentSearchPress(q)}
+                      disabled={smartSearchLoading}
+                      accessibilityRole="button"
+                      accessibilityLabel={`חפש שוב: ${q}`}
+                    >
+                      <Text style={styles.recentSearchIcon}>🕐</Text>
+                      <Text style={styles.recentSearchText} numberOfLines={1} ellipsizeMode="tail">{q}</Text>
                     </Pressable>
-                  </>
-                ) : (
-                  <Text style={styles.recentSearchesEmptyText}>עדיין אין חיפושים - נסו לחפש משהו למעלה 🔎</Text>
-                )
-              ) : null}
+                    <Pressable
+                      onPress={() => handleRemoveRecentSearch(q)}
+                      hitSlop={8}
+                      accessibilityRole="button"
+                      accessibilityLabel={`מחק חיפוש אחרון: ${q}`}
+                    >
+                      <Text style={styles.recentSearchDelete}>×</Text>
+                    </Pressable>
+                  </View>
+                ))}
+              </View>
             </View>
-          )}
-        </View>
+          ) : null}
 
-        <View style={styles.orDividerRow}>
-          <View style={styles.orDividerLine} />
-          <Text style={styles.orDividerText}>או תנו לנו למצוא בשבילכם ✨</Text>
-          <View style={styles.orDividerLine} />
+          {/* WHAT+WHERE (מה עושים/איפה נח לכם) יושבים ישירות בתוך הכרטיס המאוחד - בלי container/
+              card נוסף סביבם (לא "קופסה בתוך קופסה"). מפריד "או" קליל (searchOrDivider) לפני
+              השורה מתקשר שזו בחירה חלופית לטקסט החופשי (הקלד-או-בחר), בלי לפצל לשני טפסים/CTA
+              נפרדים - עדיין קלט אחד משלים לאותו טופס, ה-CTA עדיין יחיד. "או בחרו" קוצר ל"או" בלבד
+              (2026-09-16) - כותרת-המשנה מעל "לאן קופצים היום?" כבר אומרת "...או בחרו מה מתאים
+              לכם", אז אין טעם לחזור על "בחרו" פעמיים באותו מודול קטן. isPersonalized (PersonalPicker,
+              כבר card עצמאי בפני עצמו עם רקע/borderWidth משלו) נשאר מחוץ לכרטיס המאוחד בכוונה -
+              קופסה-בתוך-קופסה גם אם רק למשתמש הזה - זהה להתנהגות הקודמת עבור המקרה הזה בלבד (בלי
+              מפריד "או" משלו); ה-CTA עדיין יחיד לכל המסך (unifiedCtaButton, אותו מופע-JSX בשני
+              הענפים - אף פעם לא מרונדר פעמיים יחד). */}
+          {!isPersonalized ? (
+            <View style={styles.searchOrDivider}>
+              <View style={styles.searchOrDividerLine} />
+              <Text style={styles.searchOrDividerText}>או</Text>
+              <View style={styles.searchOrDividerLine} />
+            </View>
+          ) : null}
+          {/* WHAT+WHERE - שני מימושים חיים זה-לצד-זה לצורך השוואה חזותית (סעיף 22 בבקשה:
+              "preserve an easy rollback path", בלי feature-flag מורכב) - SHOW_UNIFIED_GUIDED_SEARCH
+              בראש הקובץ בוחר איזה מוצג. הישן (Selection Pills, 2026-09-16): כל pill מתגמד לפי
+              התוכן שלו ויושב בשורה אחת כל עוד יש מקום, flexWrap מוריד את השני לשורה משלו רק אם
+              צריך. החדש (GuidedSearchIntentControl): משטח-כוונה מאוחד אחד, ראו ההערה שם. */}
+          {!isPersonalized ? (
+            SHOW_UNIFIED_GUIDED_SEARCH ? (
+              <GuidedSearchIntentControl fields={PRIMARY_FILTERS} />
+            ) : (
+              <View style={styles.filtersRow}>
+                {PRIMARY_FILTERS.map((f) => (
+                  <CompactFilterField key={f.key} f={f} onPress={f.onPress} />
+                ))}
+              </View>
+            )
+          ) : null}
+          {!isPersonalized ? extraFiltersBlock : null}
+          {!isPersonalized ? unifiedCtaButton : null}
         </View>
 
         {isPersonalized ? (
-          <PersonalPicker kids={children} selectedChildIds={selectedChildIds} onToggleChild={toggleChild} />
-        ) : (
-          <View style={styles.filtersCard}>
-            {PRIMARY_FILTERS.map((f, i) => (
-              <FilterRow key={f.key} f={f} isLast={i === PRIMARY_FILTERS.length - 1} onPress={f.onPress} />
-            ))}
-          </View>
-        )}
-
-        {visibleHomeFilters.length > 0 ? (
-          <View style={styles.extraFiltersWrap}>
-            {FILTER_SCHEMA.filter((f) => visibleHomeFilters.includes(f.key)).map((f) => {
-              const summary = summaryForHomeFilterKey(f.key, filters);
-              return (
-                <Pressable key={f.key} style={styles.ageAddRow} onPress={handleAdvancedFilters} hitSlop={8}>
-                  <Text style={[styles.ageAddText, summary && styles.ageAddTextActive]}>
-                    {summary ? `+ ${f.title}: ${summary}` : `+ ${f.title}`}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        ) : null}
-
-        {/* ה-CTA שייך למסלול ההעדפות בלבד (מה בא לנו/איפה נוח לכם) - מוצג רק אחרי interaction
-            אמיתי (showPreferenceCTA למעלה), ישר מתחת ל-selectors/extraFiltersWrap ובלי מרווח
-            גדול, כדי שייקרא ויזואלית כיחידה אחת איתם. כשלא מוצג - פשוט לא render, בלי placeholder
-            ובלי disabled state, כדי לא להשאיר מקום ריק ולא לרמוז שהוא חובה גם לחיפוש חופשי
-            (זה בדיוק היה הבלבול שהוביל לשינוי הזה - חיפוש חופשי מבצע את עצמו מיידית, ראו
-            handleSmartSearch, בלי תלות ב-CTA הזה בכלל). */}
-        {showPreferenceCTA ? (
-          <Pressable style={styles.searchBtnWrap} onPress={handleGo} disabled={locatingForSearch}>
-            <LinearGradient colors={['#1cb0e0', '#00647f']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.searchBtn}>
-              {locatingForSearch ? (
-                <ActivityIndicator color="#ffffff" size="small" />
-              ) : (
-                <>
-                  <Text style={styles.searchBtnText}>מצאו לי פעילויות</Text>
-                  <Text style={styles.searchBtnEmoji}>✨</Text>
-                </>
-              )}
-            </LinearGradient>
-          </Pressable>
+          <>
+            <PersonalPicker kids={children} selectedChildIds={selectedChildIds} onToggleChild={toggleChild} />
+            {extraFiltersBlock}
+            {unifiedCtaButton}
+          </>
         ) : null}
 
         {userId ? (
@@ -1041,72 +1296,69 @@ export default function HomeScreen() {
 
         {/* ✨ המלצות מותאמות - קרוסלה אופקית: כרטיס גדול + "הצצה" לכרטיס הבא, לא גריד. section
             אחד קבוע (כותרת+תת-כותרת תמיד "✨ רעיונות...", לא section/כותרת נפרדים) -
-            locationKnown קובע רק מה מוצג *בתוכו*: prompt+locked-cards כשאין מיקום (בלי לטעון
-            nationwide activities אמיתיות בכלל, סעיף 3/4/15 בבקשת השדרוג), אחרת הקרוסלה הרגילה. */}
+            locationKnown קובע רק מה מוצג *בתוכו*: כרטיסי-Preview עם פעילויות אמיתיות מהמאגר
+            (recommendations, אותו מקור-נתונים בדיוק כמו הקרוסלה הרגילה) אבל מטושטשות (BlurView),
+            כשאין מיקום, אחרת הקרוסלה הרגילה הלא-מטושטשת. */}
         <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionTitle}>✨ {recHeaderTitle}</Text>
+          <View style={styles.sectionTitleRow}>
+            <Text style={styles.homeHeadingIcon}>✨</Text>
+            <Text style={styles.sectionTitle}>{recHeaderTitle}</Text>
+          </View>
           <Text style={styles.sectionSubtitle}>{recHeaderSubtitle}</Text>
         </View>
 
-        {!locationKnown ? (
-          <>
-            <RecommendationsLocationPrompt
-              busy={recLocationBusy}
-              denied={recLocationDenied}
-              onUseLocation={handleUseLocationForRecommendations}
-              onPickCity={() => setWhereQuickOpen(true)}
-            />
+        {/* recCarouselWrap (2026-09-16, בקשת המשתמש: שלוש כותרות-ה-section זהות) - marginBottom
+            קבוע כאן, זהה בכל חמשת המצבים האפשריים (carousel/loading/error/ריק), כדי שהמרווח מעל
+            "💡 מה עוד מעניין אתכם?" יצא זהה למרווח מעל "✨ פעילויות לידכם היום" (זה שמגיע מ-
+            smartSearchCard.marginBottom למעלה) - בלי ה-wrapper הזה כל branch היה תורם מרווח-סיום
+            שונה משלו (recRow: רק paddingBottom:6, emptyRecState: 8, recErrorText: 20). */}
+        <View style={styles.recCarouselWrap}>
+          {!locationKnown ? (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.recRow}>
-              {[0, 1, 2, 3].map((i) => (
-                <LockedRecommendationCard key={i} onPress={() => setWhereQuickOpen(true)} />
+              <LocationPromptCard onPress={openLocationPicker} activity={previewActivities[0]} />
+              {[1, 2, 3].map((i) => (
+                <LockedPreviewCard key={i} index={i} onPress={openLocationPicker} activity={previewActivities[i]} />
               ))}
             </ScrollView>
-            {/* הרשמה היא תוספת אופציונלית (persistence/personalization), לא תנאי לראות המלצות
-                מקומיות - זה כבר קיים ברגע שיש location, גם ל-guest (סעיף 7/10 בבקשה). לכן ניווט
-                ישיר ל-/login (אותו flow קיים שכבר יודע להציג הרשמה/כניסה לפי המכשיר) ולא
-                LoginRequiredModal המשותף - זה נועד ל"חייבים להתחבר כדי..." (מועדפים/ביקרתי/וכו'),
-                וההודעה שלו לא מתאימה כאן. */}
-            <Pressable onPress={() => router.push('/login')} hitSlop={8} style={styles.recRegisterHintRow}>
-              <Text style={styles.recRegisterHintText}>
-                או <Text style={styles.recRegisterHintLink}>הירשמו</Text> כדי שתורו תכיר ותזכור אתכם
-              </Text>
-            </Pressable>
-          </>
-        ) : recLoading ? (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.recRow}>
-            <SkeletonCard /><SkeletonCard /><SkeletonCard />
-          </ScrollView>
-        ) : recError ? (
-          <Text style={styles.recErrorText}>לא הצלחנו לטעון המלצות כרגע</Text>
-        ) : recommendations.length === 0 ? (
-          <View style={styles.emptyRecState}>
-            <Text style={styles.emptyRecTitle}>קפצנו בכל האזור ולא מצאנו משהו שמתאים בדיוק 🦘</Text>
-            <Pressable onPress={handleWidenSearch} hitSlop={8}>
-              <Text style={styles.emptyRecAction}>
-                {filters.location?.radiusKm ? 'הרחיבו את מרחק הנסיעה' : 'נקו את הסינון'}
-              </Text>
-            </Pressable>
-          </View>
-        ) : (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.recRow}>
-            {recommendations.map((a) => (
-              <View key={a.id} style={styles.recCardWrap}>
-                <ActivityCard
-                  {...a}
-                  onToggleFavorite={() => handleToggleRecFavorite(a.id)}
-                  onToggleVisited={() => handleToggleRecVisited(a.id)}
-                  onOpenNote={() => router.push(`/activity/${a.id}`)}
-                  onHide={() => handleHideRec(a.id)}
-                />
-              </View>
-            ))}
-          </ScrollView>
-        )}
+          ) : recLoading ? (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.recRow}>
+              <SkeletonCard /><SkeletonCard /><SkeletonCard />
+            </ScrollView>
+          ) : recError ? (
+            <Text style={styles.recErrorText}>לא הצלחנו לטעון המלצות כרגע</Text>
+          ) : recommendations.length === 0 ? (
+            <View style={styles.emptyRecState}>
+              <Text style={styles.emptyRecTitle}>קפצנו בכל האזור ולא מצאנו משהו שמתאים בדיוק 🦘</Text>
+              <Pressable onPress={handleWidenSearch} hitSlop={8}>
+                <Text style={styles.emptyRecAction}>
+                  {filters.location?.radiusKm ? 'הרחיבו את מרחק הנסיעה' : 'נקו את הסינון'}
+                </Text>
+              </Pressable>
+            </View>
+          ) : (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.recRow}>
+              {recommendations.map((a) => (
+                <View key={a.id} style={styles.recCardWrap}>
+                  <ActivityCard
+                    {...a}
+                    onToggleFavorite={() => handleToggleRecFavorite(a.id)}
+                    onToggleVisited={() => handleToggleRecVisited(a.id)}
+                    onOpenNote={() => router.push(`/activity/${a.id}`)}
+                    onHide={() => handleHideRec(a.id)}
+                  />
+                </View>
+              ))}
+            </ScrollView>
+          )}
+        </View>
 
         {/* 🌳 עוד לגלות - discovery shortcuts: SEE→TAP→RESULTS, לא עוד filter-flow (בקשת
             המשתמש). לא selected state קבוע - לחיצה היא navigation, לא בחירת-filter. */}
         <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionTitle}>מה עוד מעניין אתכם?</Text>
+          <View style={styles.sectionTitleRow}>
+            <Text style={styles.homeHeadingIcon}>💡</Text>
+            <Text style={styles.sectionTitle}>מה עוד מעניין אתכם?</Text>
+          </View>
           <Text style={styles.sectionSubtitle}>קפצו ישר לפעילויות שאולי תאהבו</Text>
         </View>
         <View style={styles.discoveryGrid}>
@@ -1132,7 +1384,7 @@ export default function HomeScreen() {
 
       <QuickPicker
         visible={categoryQuickOpen}
-        title="מה בא לנו?"
+        title="מה עושים?"
         subtitle="אפשר לבחור כמה קטגוריות"
         options={CATEGORY_FILTER_OPTIONS}
         value={filters.category}
@@ -1144,7 +1396,7 @@ export default function HomeScreen() {
       {/* "לכל הקטגוריות" (מ"מה עוד מעניין אתכם?") - אותה קומפוננטה בדיוק כמו QuickPicker למעלה,
           מופע נפרד כי ההתנהגות-אחרי-בחירה שונה לגמרי: כאן זו navigation מיידית לתוצאות
           (multiple=false, ראו handleAllCategoriesSelect), לא עדכון filters.category ממתין
-          ל-CTA. value={[]} - זה תמיד "בחירה טרייה", לא ממשיך בחירה קודמת מ"מה בא לנו?". */}
+          ל-CTA. value={[]} - זה תמיד "בחירה טרייה", לא ממשיך בחירה קודמת מ"מה עושים?". */}
       <QuickPicker
         visible={allCategoriesOpen}
         title="כל הקטגוריות"
@@ -1171,43 +1423,93 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   content: { padding: spacing.xl, paddingBottom: 40 },
-  greetingRow: { alignItems: 'flex-end', marginBottom: 2 },
-  greetingText: { fontFamily: fonts.semiBold, fontSize: 13, color: colors.textSecondary },
-  topGradient: {
-    position: 'absolute', top: 0, left: 0, right: 0, height: 320,
-  },
-  skyClouds: {
-    position: 'absolute', top: 0, left: 0, right: 0, height: 230,
-  },
   sunMascot: {
     // 'fixed' בווב: הדף עצמו גולל (לא ה-ScrollView הפנימי בלבד), אז 'absolute' רגיל היה נגרר
     // עם התוכן במקום להישאר צמוד לפינת המסך. ב-native ה-ScrollView כן קוצץ את עצמו כראוי,
     // ו-'fixed' לא קיים ב-RN native - 'absolute' שם כבר נשאר במקום כמצופה.
     position: Platform.OS === 'web' ? 'fixed' : 'absolute', top: 46, left: 10,
   },
-  // כותרת "לאן קופצים היום?" - ממש מתחת ללוגו (שעבר ל-Header המשותף, מוצג בכל עמוד). גרדיאנט
-  // אמיתי (צהוב חם→ירוק רענן) רק בווב
-  // דרך background-clip: text; ב-native (RN אמיתי לא תומך ב-CSS gradient-text בלי ספריית
-  // masked-view שהוסרה בעבר בכוונה אחרי שהמשתמש דחה שימוש בה על הלוגו) - נופל לצבע ירוק אחיד
-  // (הקצה החם-פחות של אותו גרדיאנט), לא ריק/שקוף.
-  // native (iOS/Android): אין CSS background-clip בלי תלות native נוספת (הוסרה בעבר בכוונה
-  // אחרי שהמשתמש דחה אותה על הלוגו) - צבע אחיד, הקצה הכהה של אותו גרדיאנט בדיוק (תואם לכפתור
-  // "יאללה, יוצאים לדרך!").
-  tagline: {
-    textAlign: 'center', fontFamily: fonts.extraBold, fontSize: 19,
-    marginTop: -2, marginBottom: 16, color: '#00647f',
-  },
   grassFooter: {
     marginTop: 28, marginHorizontal: -spacing.xl,
   },
   grassFooterFade: { position: 'absolute', top: 0, left: 0 },
-  orDividerRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 22 },
-  orDividerLine: { flex: 1, height: 1, backgroundColor: colors.borderLight },
-  orDividerText: { fontFamily: fonts.semiBold, fontSize: 12.5, color: colors.textMuted },
-  filtersCard: {
-    backgroundColor: colors.card, borderRadius: radii.xl, borderWidth: 1, borderColor: colors.borderLight,
-    overflow: 'hidden', marginBottom: 18,
+  // WHAT+WHERE side-by-side, כ-pills קומפקטיים (2026-09-16, מעבר מ"שדה חצי-רוחב" ל-selection
+  // pill - בקשת המשתמש). 'row' רגיל (לא row-reverse!) - נבדק ויזואלית בדפדפן, לא רק מהנחה: הדף
+  // לא forceRTL ברמת ה-layout (טקסט מיושר-ימין ידנית בלבד), אז 'row' מתנהג LTR - הפריט הראשון
+  // במערך (PRIMARY_FILTERS[0]="where"/איפה?) יושב פיזית משמאל, השני ("category"/מה עושים?)
+  // מימין. זו בדיוק הדרישה (WHAT מימין, WHERE משמאל) - row-reverse היה הופך את זה. flexWrap
+  // מחליף את selectorsStacked/filtersColumn הישנים: כל pill מתגמד לפי תוכן (בלי flex:1) ונשאר
+  // בשורה אחת כל עוד יש מקום; רק אם שני ערכים ארוכים ביחד לא נכנסים (למשל ~320px), ה-wrap מוריד
+  // pill שני לשורה משלו בלי לוותר על צורת ה-pill (לא חוזר לשדה מלא-רוחב).
+  filtersRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 18 },
+  // מפריד "או" קליל בין הטקסט החופשי (+חיפושים אחרונים) לבין WHAT+WHERE: שתי קווי flex:1
+  // סימטריים סביב הטקסט - ריכוז אוטומטי בלי textAlign, ולכן RTL-safe מעצם הסימטריה. בלי
+  // רקע/border/צל - נשמע כמו מפריד שקט, לא כותרת-section רביעית (searchModuleTitle/
+  // sectionTitle משתמשים ב-bold+גודל גדול יותר בכוונה, כדי שההבדל יהיה ברור). הטקסט עצמו "או"
+  // בלבד (לא "או בחרו") - כותרת-המשנה מעל "לאן קופצים היום?" כבר אומרת "...או בחרו מה מתאים
+  // לכם", אין טעם לחזור על "בחרו" פעמיים.
+  searchOrDivider: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 14, marginBottom: 12 },
+  searchOrDividerLine: { flex: 1, height: 1, backgroundColor: colors.borderLight },
+  searchOrDividerText: { fontFamily: fonts.regular, fontSize: 11.5, color: colors.textMuted },
+  // "כפתור-בחירה" (selection pill), לא שדה-טופס: radii.pill (היה radii.lg - מלבן מעוגל) +
+  // alignSelf:'flex-start' (לא flex:1) + maxWidth נותנים גודל-לפי-תוכן עם תקרה סבירה, במקום
+  // שני שדות שכל אחד תמיד תופס בדיוק חצי מרוחב השורה. אין יותר label נפרד מעל ה-pill (2026-09-16,
+  // פישוט קודם) - הבקרה עצמה (אייקון+ערך, ראו CompactFilterField) היא ה-affordance וה-label גם
+  // יחד; "מה עושים?"/"איפה?" מוצגים כערך ברירת-המחדל בתוך ה-pill (compactCategoryLabel/
+  // compactLocationLabel) כשלא נבחר כלום. ה-label הסמנטי (f.label) עדיין קיים ב-data ומוזן ל-
+  // accessibilityLabel של ה-pill (screen reader), רק לא מרונדר יותר כ-Text חזותי.
+  // padding/gap/maxWidth נמדדו בפועל בדפדפן (getBoundingClientRect, לא ניחוש): שתי הדוגמאות
+  // המורכבות שצריכות לשבת יחד בשורה אחת ב-375px ("3 סוגי פעילויות"+"30 דק' מנתניה", וגם "יצירה
+  // וסדנאות"+"45 דק' מתנובות") לא נכנסו יחד ברוחב הזמין בפועל בכרטיס (293px) עם paddingHorizontal
+  // 14/gap 6 (היו יוצאות ל-~300-309px, ה-wrap היה מוריד pill שני לשורה משלו גם ב-375px, לא רק
+  // ב-~320px כמו שצריך) - צומצם ל-10/4 (ועדיין הרבה יותר נדיב מה-6/3 של השדה-הקומפקטי הישן) כדי
+  // שהזוגות האלה בפועל יכנסו בנוחות עם שוליים אמיתיים, לא רק בדיוק-בקושי.
+  compactFieldButton: {
+    flexDirection: 'row-reverse', alignItems: 'center', alignSelf: 'flex-start', gap: 4,
+    backgroundColor: colors.card, borderWidth: 1, borderColor: colors.borderLight, borderRadius: radii.pill,
+    paddingVertical: 10, paddingHorizontal: 10, minHeight: 42, maxWidth: 170,
   },
+  // מצב "נבחר" עדין - אותו דפוס בדיוק כמו personalChipSelected למטה (tint בהיר + border accent),
+  // לא כפתור-CTA כחול רווי: ה-pill לא צריך להתחרות עם unifiedCtaButton על תשומת-הלב.
+  compactFieldButtonActive: { backgroundColor: colors.accentTintLight, borderColor: colors.accent, borderWidth: 1.5 },
+  compactFieldPressed: { opacity: 0.6 },
+  // אותו chip צבוע מקורי - 15px (בין ה-16px של השדה-הישן ל-18px שנוסה קודם ולא נכנס בזוגות
+  // המורכבים ב-375px, ראו מדידה ליד compactFieldButton).
+  compactFieldIconChip: { width: 15, height: 15, borderRadius: 6, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  compactFieldEmoji: { fontSize: 9, textAlign: 'center', lineHeight: 11.5 },
+  // flexShrink (לא flex:1 כמו קודם) - flex:1 היה נכון רק כש-wrapper אילץ רוחב-קבוע (חצי-שדה);
+  // עכשיו שה-pill מתגמד לפי תוכן עם maxWidth כתקרה, flex:1 היה "נלחם" בחישוב הגודל הטבעי.
+  // minWidth:0 עדיין נחוץ כדי ש-numberOfLines/ellipsizeMode יוכלו בכלל לקצץ אם התקרה מגיעה.
+  compactFieldValue: { flexShrink: 1, minWidth: 0, fontFamily: fonts.semiBold, fontSize: 13.5, color: colors.textSecondary, textAlign: 'right' },
+  compactFieldValueActive: { fontFamily: fonts.bold, color: colors.accent },
+
+  // GuidedSearchIntentControl (2026-09-16, סבב שני: חזרה ל-two full-width rows במקום שורה
+  // אופקית אחת - בקשת המשתמש, ראו ההערה המלאה ליד הפונקציה עצמה). משטח אחד: bg/border/radius
+  // יחידים, קלילים יותר משדה החיפוש החופשי (smartSearchInputWrap למטה - bg שם colors.bg +
+  // border colors.border, כאן card+borderLight - "not styled like a text input"). radii.lg
+  // (לא radii.pill כמו קודם) - pill על קופסה בגובה שתי-שורות היה יוצא כמו קפסולה, לא כרטיס-רשימה.
+  guidedIntentControl: {
+    backgroundColor: colors.card, borderWidth: 1, borderColor: colors.borderLight,
+    borderRadius: radii.lg, marginBottom: 18, overflow: 'hidden',
+  },
+  // שורה במלוא הרוחב (בלי flexShrink/maxWidth כמו הפקד הקומפקטי הישן) - justifyContent:
+  // 'space-between' עם flexDirection:'row-reverse' דוחף את קבוצת אייקון+טקסט (guidedIntentSegmentMain)
+  // לקצה ימין (תחילת-קריאה ב-RTL) ואת ה-chevron לקצה שמאל (כיוון-קריאה-הבא), אותה קונבנציה
+  // בדיוק כמו שורות "פותח בורר" ב-app/profile.js/FiltersSheet.js.
+  guidedIntentSegment: {
+    flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between',
+    paddingVertical: 13, paddingHorizontal: 14, minHeight: 46,
+  },
+  guidedIntentSegmentMain: {
+    flexDirection: 'row-reverse', alignItems: 'center', gap: 8, flex: 1, minWidth: 0,
+  },
+  // קו דק בין שתי השורות - לא "·" בין שני segments יותר (הפריסה כבר לא אופקית) - מפריד עדין,
+  // לא heavy divider (בקשת המשתמש: "Do not use a strong divider").
+  guidedIntentDivider: { height: 1, backgroundColor: colors.borderLight },
+  // flex:1 (לא flexShrink כמו בפקד הקומפקטי הישן) - השורה עכשיו במלוא-הרוחב, אז לערך יש הרבה
+  // יותר מקום; numberOfLines/ellipsizeMode ב-GuidedIntentSegment עדיין המוצא-האחרון לערכים
+  // ארוכים במיוחד, לא כיווץ-טיפוגרפיה.
+  guidedIntentValue: { flex: 1, minWidth: 0, fontFamily: fonts.semiBold, fontSize: 13.5, color: colors.textSecondary, textAlign: 'right' },
   personalCard: {
     backgroundColor: colors.card, borderRadius: radii.xl, borderWidth: 1, borderColor: colors.borderLight,
     padding: 16, marginBottom: 18,
@@ -1222,48 +1524,66 @@ const styles = StyleSheet.create({
   personalChipText: { fontFamily: fonts.semiBold, fontSize: 13.5, color: colors.textSecondary },
   personalChipTextSelected: { color: colors.accent, fontFamily: fonts.bold },
   personalHint: { fontFamily: fonts.regular, fontSize: 11.5, color: colors.textMuted, textAlign: 'right', marginTop: 10 },
-  // "📍 איפה אתם מחפשים?" - אותה שפה עיצובית בדיוק כמו personalCard למעלה (card+borderLight+xl),
-  // כדי שירגיש כמו חלק טבעי מהעמוד, לא כמו חסימה/אזהרה (קומפקטי, לא card ענק).
-  recPromptCard: {
-    backgroundColor: colors.card, borderRadius: radii.xl, borderWidth: 1, borderColor: colors.borderLight,
-    padding: 16, marginBottom: 18,
+  // מעטפת-כרטיס לכל כרטיסי ה"נעול" (כרטיס-1 עם ה-overlay וגם כרטיסים 2+) - שונה מ-recCardWrap
+  // המשותף (שאין לו radius/overflow משלו - ActivityCard האמיתי מביא את זה בעצמו) כי כאן צריך
+  // clip אחיד לכל הכרטיס (תמונה+גוף+overlay) כדי שה-overlay הקריא בכרטיס 1 יקבל פינות מעוגלות
+  // נקיות בלי לגעת בסגנון המשותף של הכרטיסים האמיתיים.
+  lockedCardOuter: { width: 260, alignSelf: 'flex-start', borderRadius: radii.lg, overflow: 'hidden' },
+  // עטיפת-התמונה המטושטשת - אותו גובה/רוחב בדיוק כמו image ב-ActivityCard.js (158, 100%), עם
+  // overflow:'hidden' כדי שה-blurRadius (שמגדיל מעט את "טווח" הפיקסלים המוצג בקצוות) לא ידלוף
+  // מחוץ לפינות המעוגלות של הכרטיס. backgroundColor הוא רק רשת-ביטחון לרגע שלפני שהתמונה נטענת.
+  lockedCardImageWrap: {
+    width: '100%', height: 158, overflow: 'hidden', position: 'relative', backgroundColor: colors.borderLight,
   },
-  recPromptTitle: { fontFamily: fonts.extraBold, fontSize: 15.5, color: colors.textPrimary, textAlign: 'right', marginBottom: 4 },
-  recPromptSubtitle: { fontFamily: fonts.regular, fontSize: 12.5, color: colors.textSecondary, textAlign: 'right', marginBottom: 14 },
-  recPromptActions: { flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' },
-  recPromptPrimaryBtn: {
-    backgroundColor: colors.accent, borderRadius: radii.pill, paddingVertical: 11, paddingHorizontal: 18,
-    alignItems: 'center', justifyContent: 'center', flexGrow: 1,
+  // ה-<Image> עצמו - כאן ה-blurRadius האמיתי מופעל (ראו LockedCardImage), לא simulation.
+  lockedCardImagePhoto: { width: '100%', height: '100%' },
+  // "צעיף" לבן עדין מעל התמונה המטושטשת - לא שוטף אותה: עדיין רואים גוונים/צורות מבעד לו, רק
+  // מרכך קצת את הניגודיות כדי שהטקסט/אייקונים שמעליו (🔒 / ה-overlay בכרטיס 1) יהיו קריאים על
+  // כל תמונה, לא משנה כמה כהה/בהירה.
+  lockedCardVeil: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(255,255,255,0.15)' },
+  // תג ה-🔒 בכרטיסים 2+ - מרוכז על אזור התמונה בלבד (לא על כל הכרטיס), כמו כפתורי הפעולה
+  // (מועדפים/הסתרה) שמונחים על התמונה ב-ActivityCard האמיתי. עיגול לבן-שקוף מתחת לאייקון בשביל
+  // ניגודיות עקבית מעל תמונות שונות בבהירות.
+  lockedCardImageIconBadge: {
+    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center',
   },
-  recPromptPrimaryBtnText: { fontFamily: fonts.bold, fontSize: 13.5, color: '#fff' },
-  recPromptSecondaryText: { fontFamily: fonts.semiBold, fontSize: 12.5, color: colors.textSecondary, textDecorationLine: 'underline' },
-  recPromptDeniedText: { fontFamily: fonts.regular, fontSize: 11.5, color: colors.textMuted, textAlign: 'right', marginTop: 10 },
-  // LockedRecommendationCard - אותם מידות/רדיוס בדיוק כמו SkeletonCard (skeletonImage/Line*
-  // למעלה) כדי לשמור על אותו horizontal carousel affordance, אבל opacity מופחת + אייקון 📍 קבוע
-  // (לא shimmer) כדי שלא ירגיש כמו loading state (סעיף 5/14 בבקשת השדרוג).
-  lockedImage: {
-    width: '100%', height: 158, borderRadius: radii.lg, backgroundColor: colors.borderLight,
-    alignItems: 'center', justifyContent: 'center', opacity: 0.7,
+  lockedCardIconCircle: {
+    width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.85)',
+    alignItems: 'center', justifyContent: 'center',
   },
-  lockedImageIcon: { fontSize: 26, opacity: 0.6 },
-  lockedLineWide: { width: '80%', height: 14, borderRadius: 7, backgroundColor: colors.borderLight, marginTop: 12, opacity: 0.7 },
-  lockedLineNarrow: { width: '50%', height: 12, borderRadius: 6, backgroundColor: colors.borderLight, marginTop: 8, opacity: 0.7 },
-  recRegisterHintRow: { alignItems: 'center', marginTop: 14 },
-  recRegisterHintText: { fontFamily: fonts.regular, fontSize: 12, color: colors.textMuted, textAlign: 'center' },
-  recRegisterHintLink: { fontFamily: fonts.bold, color: colors.accent, textDecorationLine: 'underline' },
-  filterRow: {
-    flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between',
-    paddingVertical: 13, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: colors.borderLight,
+  lockedCardLockIconReal: { fontSize: 17 },
+  // "גוף" הכרטיס - ראו LockedCardBody. קווים מנוקדים (לא פסי-skeleton אפורים-שטוחים, לא shimmer) -
+  // נקראים כ"מידע מוסתר בכוונה" (redacted), לא כ"בטעינה". letterSpacing מרווח את הנקודות כדי
+  // שהתבנית תיקרא ברור כ"מוסתר" גם מרחוק, לא כטקסט-שנקטע.
+  lockedCardBody: { backgroundColor: colors.card, padding: 14 },
+  lockedCardRedactedTitle: {
+    fontFamily: fonts.extraBold, fontSize: 15, color: colors.textMuted, textAlign: 'right', letterSpacing: 3,
   },
-  filterRowLast: { borderBottomWidth: 0 },
-  filterLeftGroup: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  filterRightGroup: { flexDirection: 'row-reverse', alignItems: 'center', gap: 10 },
-  decorEmoji: { fontSize: 26, width: 26, height: 26, textAlign: 'center', lineHeight: 28 },
-  iconChip: { width: 30, height: 30, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  filterTextStack: { alignItems: 'flex-end' },
-  filterLabel: { fontFamily: fonts.bold, fontSize: 14.5, color: colors.textPrimary },
-  filterValue: { fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 1 },
-  filterValueActive: { fontFamily: fonts.bold, color: colors.accent },
+  lockedCardRedactedMeta: {
+    fontFamily: fonts.regular, fontSize: 13, color: colors.textMuted, textAlign: 'right', marginTop: 8, letterSpacing: 3,
+  },
+  // overlay קריא לכרטיס 1 בלבד - בקשת המשתמש המפורשת (2026-09-16): לא "לשטוף" את כל הכרטיס
+  // בלבן (זה מסתיר את התמונה המטושטשת וגורם לכרטיס להיראות ריק/לא-מטושטש) - רק "ריבוע לבן"
+  // (קופסה) סביב הטקסט/כפתורים עצמם, כדי שהתמונה המטושטשת תיראה ברור סביב/מאחורי הקופסה בדיוק
+  // כמו בכרטיסים 2+. lockedCardOverlayWrap ממרכז את הקופסה בתוך הכרטיס; pointerEvents="box-none"
+  // כדי שהשוליים השקופים סביב הקופסה לא יחסמו קליקים על התמונה (לא שממילא יש שם onPress, אבל
+  // עקבי עם הכוונה - רק הקופסה עצמה אינטראקטיבית).
+  lockedCardOverlayWrap: {
+    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', padding: 14,
+  },
+  lockedCardOverlay: {
+    backgroundColor: 'rgba(255,255,255,0.96)', borderRadius: radii.lg, alignItems: 'center',
+    paddingVertical: 16, paddingHorizontal: 18, maxWidth: '92%',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.12, shadowRadius: 8, elevation: 3,
+  },
+  lockedCardOverlayIcon: { fontSize: 20, marginBottom: 4 },
+  lockedCardOverlayTitle: { fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary, textAlign: 'center' },
+  lockedCardOverlaySubtitle: { fontFamily: fonts.regular, fontSize: 11.5, color: colors.textSecondary, textAlign: 'center', marginTop: 2, marginBottom: 10 },
+  lockedCardOverlayBtn: { backgroundColor: colors.accent, borderRadius: radii.pill, paddingVertical: 8, paddingHorizontal: 18 },
+  lockedCardOverlayBtnText: { fontFamily: fonts.bold, fontSize: 12.5, color: '#fff' },
+  lockedCardOverlaySecondary: {
+    fontFamily: fonts.semiBold, fontSize: 11.5, color: colors.textSecondary, textDecorationLine: 'underline', marginTop: 9,
+  },
   ageAddRow: { alignItems: 'center', marginBottom: 18 },
   extraFiltersWrap: { alignItems: 'center' },
   ageAddText: { fontFamily: fonts.semiBold, fontSize: 12.5, color: colors.textMuted },
@@ -1271,32 +1591,39 @@ const styles = StyleSheet.create({
   saveDefaultLink: { alignItems: 'center', marginBottom: 14 },
   saveDefaultText: { fontFamily: fonts.semiBold, fontSize: 12.5, color: colors.accent },
   defaultNoticeText: { fontFamily: fonts.semiBold, fontSize: 12, color: colors.greenStrong, textAlign: 'center', marginBottom: 10 },
-  searchBtnWrap: {
-    width: '100%', borderRadius: radii.pill, overflow: 'hidden', marginBottom: 20,
-    shadowColor: colors.accent, shadowOpacity: 0.3, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 4,
+  // "לאן קופצים היום?" - כותרת-העל של כל מודול החיפוש (מחוץ לכרטיס, ראו ה-JSX), לא רק של החיפוש
+  // החופשי בתוכו. עטיפה חיצונית (searchModuleHeaderWrap) נושאת marginTop/marginBottom - בדיוק
+  // אותו מבנה כמו sectionHeaderRow למטה (2026-09-16, בקשת המשתמש: שלוש הכותרות "בדיוק אותו דבר",
+  // ועכשיו גם תת-כותרת לכולן) - spacing.xl תואם את marginBottom של smartSearchCard שמתחת, כדי
+  // שהמרווח מעל כותרת "פעילויות לידכם היום" ייצא זהה. searchModuleTitleRow (אייקון 🧭+הכותרת)
+  // עצמו בלי margin משלו יותר - בדיוק כמו sectionTitleRow - כי תת-הכותרת (sectionSubtitle, עם
+  // marginTop:2 משלה) יושבת אחריו בתוך אותה עטיפה, לא ה-row עצמו נוגע בכרטיס שמתחת.
+  searchModuleHeaderWrap: { marginTop: spacing.xl, marginBottom: 12 },
+  searchModuleTitleRow: { flexDirection: 'row-reverse', alignItems: 'center', gap: 6 },
+  searchModuleTitle: {
+    fontFamily: fonts.extraBold, fontSize: 17, color: colors.textPrimary, textAlign: 'right',
   },
-  searchBtn: {
-    flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'center', gap: 8,
-    paddingVertical: 15,
-  },
-  searchBtnText: { fontFamily: fonts.bold, fontSize: 16.5, color: '#ffffff' },
-  searchBtnEmoji: { fontSize: 16.5 },
-  // 🔎 חיפוש חכם - shadow עדין (לא צבע חדש, אותו colors.accent שכבר על המסגרת) בנוסף למסגרת
-  // המודגשת הקיימת - מרים ויזואלית את הכרטיס הזה מעל "או בחרו בעצמכם"/הפילטרים הידניים מתחתיו
-  // (ל-filtersCard אין shadow בכלל), בלי הפיכתו לכרטיס "כבד" - עדיין אותו padding/רדיוס בדיוק.
+  // 🔎 כרטיס-חיפוש מאוחד: חיפוש חופשי + "או שנמצא לכם" + חיפוש מודרך - הכל בתוך משטח-white אחד
+  // (לא שני כרטיסים). הכותרת עברה מחוץ לכרטיס (searchModuleTitle למעלה) - אין לו יותר marginTop
+  // נשימה משלו, זה כבר מטופל על-ידי marginBottom של הכותרת. border/shadow עדינים (לא מסגרת
+  // accent עבה) כדי שהכרטיס יתבלוט בעדינות בלי להרגיש כבד.
   smartSearchCard: {
-    backgroundColor: colors.card, borderWidth: 1.5, borderColor: colors.accent,
-    borderRadius: radii.xl, padding: spacing.lg, marginBottom: 28,
-    shadowColor: colors.accent, shadowOpacity: 0.12, shadowRadius: 14, shadowOffset: { width: 0, height: 5 }, elevation: 2,
+    backgroundColor: colors.card, borderWidth: 1, borderColor: colors.accentTintLight,
+    borderRadius: radii.xl, padding: spacing.lg, marginBottom: 22,
+    shadowColor: colors.accent, shadowOpacity: 0.08, shadowRadius: 14, shadowOffset: { width: 0, height: 5 }, elevation: 2,
   },
-  smartSearchTitle: { fontFamily: fonts.extraBold, fontSize: 15.5, color: colors.textPrimary, textAlign: 'right', marginBottom: 12 },
-  smartSearchInputRow: { flexDirection: 'row-reverse', gap: 8 },
-  // מסך צר (כולל האפליקציה הנטיבית): שדה מלא-רוחב, ואז כפתור מלא-רוחב מתחתיו (לא לצידו) - ראו
-  // isNarrowScreen ב-JSX. gap אנכי קטן יותר מהאופקי כדי שהזוג עדיין ירגיש כמו יחידה אחת.
-  smartSearchInputRowStacked: { flexDirection: 'column', gap: 10 },
+  // כרטיס-חיפוש מאוחד: שדה הטקסט הוא הקלט היחיד בשורה הזו (אין יותר כפתור "חיפוש" לצידו) - ה-
+  // pill/border/bg יושבים כאן כדי שאייקון-החיפוש יישב "בתוך" השדה חזותית, לא ליד שדה נפרד.
+  // row-reverse: SearchIcon (ילד ראשון) מימין, TextInput ממלא את השאר. marginBottom נותן את
+  // המרווח הבסיסי לפני מה שמתחת (חיפושים אחרונים/מפריד "או"/PersonalPicker) - המפריד "או"
+  // עצמו (searchOrDivider) יושב נמוך יותר, ממש לפני WHAT+WHERE, לא כאן.
+  smartSearchInputWrap: {
+    flexDirection: 'row-reverse', alignItems: 'center', gap: 6, marginBottom: 16,
+    backgroundColor: colors.bg, borderWidth: 1, borderColor: colors.border,
+    borderRadius: radii.pill, paddingHorizontal: 14,
+  },
   smartSearchInput: {
-    flex: 1, backgroundColor: colors.bg, borderWidth: 1, borderColor: colors.border,
-    borderRadius: radii.pill, paddingVertical: 12, paddingHorizontal: 16,
+    flex: 1, paddingVertical: 12,
     fontFamily: fonts.regular, fontSize: 14, color: colors.textPrimary, textAlign: 'right', writingDirection: 'rtl',
   },
   smartSearchBtn: {
@@ -1317,28 +1644,53 @@ const styles = StyleSheet.create({
     backgroundColor: colors.accent, borderRadius: radii.pill, paddingVertical: 12,
     alignItems: 'center', marginTop: 10,
   },
-  smartSearchIdeasWrap: { marginTop: 14, paddingTop: 14, borderTopWidth: 1, borderTopColor: colors.borderLight },
-  smartSearchIdeasTitle: { fontFamily: fonts.bold, fontSize: 12.5, color: colors.textSecondary, textAlign: 'right', marginBottom: 8 },
-  recentSearchesHeader: { flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between' },
-  recentSearchesChevron: { fontSize: 11, color: colors.textMuted, marginBottom: 8 },
-  clearRecentSearchesText: { fontFamily: fonts.semiBold, fontSize: 11.5, color: colors.danger, textAlign: 'right', marginTop: 6 },
-  recentSearchesEmptyText: { fontFamily: fonts.regular, fontSize: 12.5, color: colors.textMuted, textAlign: 'right' },
-  smartSearchIdeasRow: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 8 },
-  smartSearchIdeaChip: {
-    borderWidth: 1, borderColor: colors.border, backgroundColor: colors.bg,
-    borderRadius: radii.pill, paddingVertical: 7, paddingHorizontal: 13,
+  // בלי borderTop/paddingTop משלו בכוונה (2026-09-15): קו-מפריד כאן היה נערם חזותית עם
+  // searchOrDivider החדש שמתחתיו כשההיסטוריה מכווצת - מרווח בלבד מספיק, searchOrDivider הוא
+  // המפריד המשמעותי היחיד בין חיפוש-חופשי לבחירה-מונחית.
+  // חיפושים אחרונים כ-dropdown תלוי-פוקוס (2026-09-16, סבב שני) - יושב באותו מקום-JSX בדיוק
+  // כמו קודם (מתחת לשדה, בתוך אותו smartSearchCard), רק בלי accordion ידני (recentSearchesOpen
+  // הוסר) - נראה/נעלם לפי searchFocused, ראו ההערה המלאה ליד ה-state עצמו.
+  smartSearchIdeasWrap: { marginTop: 12 },
+  smartSearchIdeasTitle: { fontFamily: fonts.bold, fontSize: 12.5, color: colors.textSecondary, textAlign: 'right' },
+  recentSearchesHeader: { flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 },
+  // "נקה הכל" - פעולה משנית שקטה בכותרת הפאנל (בקשת המשתמש), לא כפתור ראשי - אותו צבע-אזהרה
+  // עדין (colors.danger) שהיה על "🗑️ מחק היסטוריה" הקודם.
+  clearRecentSearchesText: { fontFamily: fonts.semiBold, fontSize: 11.5, color: colors.danger, textAlign: 'right' },
+  smartSearchIdeasList: { gap: 2 },
+  // שורה במלוא-הרוחב (לא chip מתגמד-לתוכן כמו קודם) - "כמו מנוע חיפוש מודרני": אייקון+טקסט
+  // לחיצים יחד (recentSearchRowMain, מבצע את החיפוש), × נפרד בקצה (מוחק פריט בודד בלבד, לא
+  // מבצע חיפוש - לכן Pressable משלו, לא חלק מ-recentSearchRowMain).
+  recentSearchRow: {
+    flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between', gap: 8,
+    paddingVertical: 8,
   },
-  smartSearchIdeaChipText: { fontFamily: fonts.semiBold, fontSize: 12, color: colors.textSecondary },
+  recentSearchRowMain: { flexDirection: 'row-reverse', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 },
+  recentSearchIcon: { fontSize: 12 },
+  recentSearchText: { flex: 1, minWidth: 0, fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, textAlign: 'right' },
+  recentSearchDelete: { fontSize: 16, color: colors.textMuted, paddingHorizontal: 4, fontFamily: fonts.regular },
 
   sectionHeaderRow: { marginBottom: 12 },
+  // שורת-כותרת עם אייקון סמנטי (🧭/✨/💡) - חלק ממערכת כותרות-section אחידה בעמוד הבית (ראו גם
+  // searchModuleTitleRow למעלה): row-reverse+gap+alignItems:'center' זהים בשלושתם כך שהאייקון
+  // תמיד יושב באותו מקום/גודל/יישור ביחס לטקסט, בלי קשר לגודל הפונט של הכותרת עצמה.
+  sectionTitleRow: { flexDirection: 'row-reverse', alignItems: 'center', gap: 6 },
   sectionTitle: { fontFamily: fonts.extraBold, fontSize: 17, color: colors.textPrimary, textAlign: 'right' },
   sectionSubtitle: { fontFamily: fonts.regular, fontSize: 12.5, color: colors.textSecondary, textAlign: 'right', marginTop: 2 },
+  // גודל אחיד לאייקון בכל שלוש כותרות ה-section (searchModuleTitle/sectionTitle גם משתמשות
+  // באותו fontSize:17 אחרי האיחוד - ראו searchModuleTitleRow למעלה - אז זה כבר לא רק "פיצוי" על
+  // הבדל גודל, אלא עקביות מלאה: אותו אייקון, אותו גודל, בכל שלוש הכותרות).
+  homeHeadingIcon: { fontSize: 15 },
+
+  // marginBottom קבוע - ראו ההערה ליד ה-JSX (recCarouselWrap) למעלה: המרווח האחיד לפני "💡 מה
+  // עוד מעניין אתכם?" יושב כאן, לא בתוך recRow/emptyRecState/recErrorText עצמם (שממשיכים לשרת
+  // את התפקיד הפנימי-להם - ריווח מתחת לצללי הכרטיסים בגלילה, לא ריווח בין-סקשנים).
+  recCarouselWrap: { marginBottom: 16 },
 
   // row רגיל (לא row-reverse) בכוונה - ה-אפליקציה מכבה forceRTL לגמרי (app/_layout.js), אז אין
   // anchor-גלילה מה-RTL האמיתי ו-offset=0 תמיד מציג את הקצה הפיזי-שמאלי של התוכן - row-reverse
   // רק היה מזיז את הכרטיס המדורג-ראשון (הכי רלוונטי) אל הקצה שדורש גלילה כדי לראות.
   recRow: { flexDirection: 'row', gap: 12, paddingBottom: 6 },
-  recCardWrap: { width: 260 },
+  recCardWrap: { width: 260, alignSelf: 'flex-start' },
   recErrorText: { fontFamily: fonts.semiBold, fontSize: 13, color: colors.textMuted, textAlign: 'center', marginBottom: 20 },
 
   skeletonImage: { width: '100%', height: 158, borderRadius: radii.lg, backgroundColor: colors.borderLight },

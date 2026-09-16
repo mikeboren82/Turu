@@ -1,14 +1,13 @@
 import { useState } from 'react';
-import { View, Text, StyleSheet, Pressable, Platform, LayoutAnimation, UIManager } from 'react-native';
-import * as Location from 'expo-location';
+import { View, Text, StyleSheet, Pressable, Platform, LayoutAnimation, UIManager, ActivityIndicator } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import {
-  FILTER_SCHEMA, REGION_OPTIONS, RADIUS_OPTIONS, WHEN_OPTIONS, HOUR_OPTIONS, DEFAULT_FILTERS,
+  FILTER_SCHEMA, WHEN_OPTIONS, HOUR_OPTIONS, DEFAULT_FILTERS,
 } from '../constants/filterSchema';
 import { countForKey } from '../lib/filterActivities';
 import { colors, fonts, radii, spacing } from '../constants/theme';
-import { ChevronDownIcon, LocationPinIcon } from './icons';
-import CityAutocomplete from './CityAutocomplete';
+import { ChevronDownIcon, ChevronLeftIcon } from './icons';
+import LocationQuickPicker, { locationSummary } from './LocationQuickPicker';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -42,99 +41,13 @@ function ChipsGrid({ options, value, multiple, onChange }) {
   );
 }
 
-function LocationSection({ value, onChange, onCoordsResolved }) {
-  const [busy, setBusy] = useState(false);
-
-  const useCurrentLocation = async () => {
-    setBusy(true);
-    try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        onChange({ ...value, mode: 'current', radiusKm: value.radiusKm || 10 });
-        setBusy(false);
-        return;
-      }
-      const pos = await Location.getCurrentPositionAsync({});
-      onCoordsResolved({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
-      onChange({ ...value, mode: 'current', radiusKm: value.radiusKm || 10 });
-    } catch (e) {
-      // אין הרשאה/GPS זמין - נשארים במצב "current" בלי קואורדינטות, הסינון לפי מרחק פשוט לא יוחל
-      onChange({ ...value, mode: 'current' });
-    }
-    setBusy(false);
-  };
-
-  return (
-    <View>
-      {/* מצב 'address' (רחוב מגואוקדד, מגיע רק מ"חיפוש חכם" - lib/smartSearch.js) לא היה מיוצג
-          כאן בכלל (רק בצ'יפ הנשלף בעמוד התוצאות) - נמצא בבדיקה שהמשתמש לא יכול לראות/לתקן אותו
-          דרך "סינון מתקדם" כמו שסעיף 15 בבקשה דורש. בחירת current/city/region למטה כבר מחליפה
-          את ה-mode כרגיל - זו דרך התיקון, בלי UI כפול חדש. */}
-      {value.mode === 'address' && (
-        <View style={styles.addressBanner}>
-          <LocationPinIcon size={13} color={colors.accent} />
-          <Text style={styles.addressBannerText} numberOfLines={1}>
-            {value.addressLabel} (ברדיוס {value.radiusKm} ק"מ)
-          </Text>
-          <Pressable onPress={() => { animate(); onChange({ ...value, mode: null }); }} hitSlop={8}>
-            <Text style={styles.addressBannerClear}>✕</Text>
-          </Pressable>
-        </View>
-      )}
-      <View style={styles.modeRow}>
-        <Pressable
-          style={[styles.modeBtn, value.mode === 'current' && styles.modeBtnActive]}
-          onPress={useCurrentLocation}
-          disabled={busy}
-        >
-          <LocationPinIcon size={13} color={value.mode === 'current' ? colors.accent : colors.textSecondary} />
-          <Text style={[styles.modeBtnText, value.mode === 'current' && styles.modeBtnTextActive]}>
-            {busy ? 'מאתר...' : 'המיקום הנוכחי שלי'}
-          </Text>
-        </Pressable>
-      </View>
-
-      {value.mode === 'current' && (
-        <View style={styles.subSection}>
-          <Text style={styles.subLabel}>רדיוס מרחק</Text>
-          <View style={styles.chipsWrap}>
-            {RADIUS_OPTIONS.map((r) => (
-              <Chip key={r.id} label={r.label} selected={value.radiusKm === r.km} onPress={() => { animate(); onChange({ ...value, radiusKm: r.km }); }} />
-            ))}
-          </View>
-        </View>
-      )}
-
-      <View style={styles.subSection}>
-        <Text style={styles.subLabel}>עיר / יישוב</Text>
-        <CityAutocomplete
-          inputStyle={styles.textInput}
-          placeholder="הזינו שם עיר..."
-          value={value.mode === 'city' ? value.city : ''}
-          onChangeText={(t) => onChange({ ...value, mode: t ? 'city' : null, city: t })}
-        />
-      </View>
-
-      <View style={styles.subSection}>
-        <Text style={styles.subLabel}>אזור בארץ</Text>
-        <View style={styles.chipsWrap}>
-          {REGION_OPTIONS.map((r) => (
-            <Chip
-              key={r.id}
-              label={r.label}
-              selected={value.mode === 'region' && value.region.includes(r.id)}
-              onPress={() => {
-                animate();
-                const current = value.mode === 'region' ? value.region : [];
-                const next = current.includes(r.id) ? current.filter((x) => x !== r.id) : [...current, r.id];
-                onChange({ ...value, mode: next.length ? 'region' : null, region: next });
-              }}
-            />
-          ))}
-        </View>
-      </View>
-    </View>
-  );
+// סקשן "מיקום" (2026-09-16, בקשת המשתמש): לא עוד UI מקומי משלו (היה כאן LocationSection נפרד עם
+// GPS+רדיוס+עיר+צ'יפי-אזור מרובי-בחירה) - לחיצה על השורה פותחת את *אותו* LocationQuickPicker בדיוק
+// שעמוד הבית ("איפה נח לכם?") ועמוד הפרופיל משתמשים בו: מקור-אמת אחד לבחירת מיקום/מרחק/"בכל הארץ".
+// מודל הנתונים (location.region כמערך) לא השתנה - רק ה-UI אוחד; ראו ההערה ליד selectRegion שם.
+function LocationRowValue({ value }) {
+  if (!value?.mode) return null;
+  return <Text style={styles.locationValueText} numberOfLines={1}>{locationSummary(value)}</Text>;
 }
 
 function toHHMM(date) {
@@ -242,8 +155,14 @@ function WhenSection({ value, hourValue, onChangeWhen, onChangeHour }) {
 // `only` (אופציונלי) - מגביל אילו סקשנים מתוך FILTER_SCHEMA מוצגים (למשל בעמוד "המשפחה שלי",
 // שם category/location/age כבר מקבלים שורות ייעודיות משלהם למעלה - אין טעם לשכפל אותם כאן).
 // בלי `only`, מתנהג בדיוק כמו קודם ומציג את כל FILTER_SCHEMA.
-export default function FiltersSheet({ filters, onChange, onClearAll, onCoordsResolved, only }) {
+export default function FiltersSheet({
+  filters, onChange, onClearAll, onCoordsResolved, deviceCoords = null, only,
+  hiddenCategoryCount = 0, hiddenAreaCount = 0, onOpenExcludeCategories, onOpenExcludeAreas,
+  spontaneousActive = false, spontaneousLoading = false, spontaneousError = '', onToggleSpontaneous,
+}) {
   const sections = only ? FILTER_SCHEMA.filter((s) => only.includes(s.key)) : FILTER_SCHEMA;
+  // "מיקום" לא נפתח כ-accordion אלא כ-LocationQuickPicker (ראו LocationRowValue למעלה)
+  const [locationPickerOpen, setLocationPickerOpen] = useState(false);
   // כל הסקשנים תמיד מתחילים סגורים - accordion טהור, כל שורה נפתחת/נסגרת רק בלחיצה עליה
   // עצמה (toggleOpen). בעבר סקשן שנפתח דרך "סינון מתקדם" מעמוד הבית פתח את כולם בבת אחת;
   // המשתמש ביקש במפורש שזה תמיד יהיה סגור כברירת מחדל, גם בכניסה הראשונה.
@@ -257,6 +176,7 @@ export default function FiltersSheet({ filters, onChange, onClearAll, onCoordsRe
       return next;
     });
   };
+  const openSection = (key) => (key === 'location' ? setLocationPickerOpen(true) : toggleOpen(key));
 
   // מנקה שדה בודד בלי לפתוח את הסקשן - 'when' הוא היחיד שכותב לשני מפתחות (when+hour, ראו
   // countForKey ב-lib/filterActivities.js שסופר את שניהם יחד), אז צריך לאפס את שניהם יחד.
@@ -277,13 +197,36 @@ export default function FiltersSheet({ filters, onChange, onClearAll, onCoordsRe
         <Text style={styles.panelTitle}>סינון מתקדם</Text>
       </View>
 
+      {/* "⚡ עכשיו" - עבר לכאן מהראש של עמוד התוצאות (בקשת המשתמש, סעיף 2: "if 'עכשיו' is an
+          actual filter option, it should belong inside the existing Filter experience rather
+          than being a permanent top-level Results action"). אותו onToggleSpontaneous/
+          spontaneousActive/spontaneousLoading/spontaneousError בדיוק מ-app/activities.js
+          (toggleSpontaneous) - כאן רק ה-UI-trigger, בלי לוגיקת-מיקום/הרשאה כפולה. Chip הקיים
+          כבר בשימוש בכל שאר סקשני הקובץ הזה - לא רכיב חדש. */}
+      {onToggleSpontaneous && (
+        <View style={styles.section}>
+          <View style={styles.excludeSectionTitleRow}>
+            <Text style={styles.sectionIcon}>⚡</Text>
+            <Text style={styles.sectionTitle}>עכשיו</Text>
+          </View>
+          <View style={styles.sectionBody}>
+            {spontaneousLoading ? (
+              <View style={styles.spontaneousLoadingRow}><ActivityIndicator size="small" color={colors.accent} /></View>
+            ) : (
+              <Chip label="פעילויות פתוחות עכשיו לידי" selected={spontaneousActive} onPress={onToggleSpontaneous} />
+            )}
+            {spontaneousError ? <Text style={styles.spontaneousErrorText}>{spontaneousError}</Text> : null}
+          </View>
+        </View>
+      )}
+
       {sections.map((section) => {
         const isOpen = openKeys.has(section.key);
         const count = countForKey(filters, section.key);
         return (
           <View key={section.key} style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Pressable style={styles.sectionHeaderLeft} onPress={() => toggleOpen(section.key)}>
+              <Pressable style={styles.sectionHeaderLeft} onPress={() => openSection(section.key)}>
                 <Text style={styles.sectionIcon}>{section.icon}</Text>
                 <Text style={styles.sectionTitle}>{section.title}</Text>
                 {count > 0 && (
@@ -296,7 +239,7 @@ export default function FiltersSheet({ filters, onChange, onClearAll, onCoordsRe
                     <Text style={styles.sectionClearText}>נקה</Text>
                   </Pressable>
                 )}
-                <Pressable onPress={() => toggleOpen(section.key)} hitSlop={8}>
+                <Pressable onPress={() => openSection(section.key)} hitSlop={8}>
                   <View style={{ transform: [{ rotate: isOpen ? '180deg' : '0deg' }] }}>
                     <ChevronDownIcon size={13} />
                   </View>
@@ -304,15 +247,9 @@ export default function FiltersSheet({ filters, onChange, onClearAll, onCoordsRe
               </View>
             </View>
 
+            {section.type === 'location' ? <LocationRowValue value={filters.location} /> : null}
             {isOpen && (
               <View style={styles.sectionBody}>
-                {section.type === 'location' && (
-                  <LocationSection
-                    value={filters.location}
-                    onChange={(v) => onChange('location', v)}
-                    onCoordsResolved={onCoordsResolved}
-                  />
-                )}
                 {section.type === 'when' && (
                   <WhenSection
                     value={filters.when}
@@ -334,6 +271,46 @@ export default function FiltersSheet({ filters, onChange, onClearAll, onCoordsRe
           </View>
         );
       })}
+
+      {/* "החרגות" - "🚫 הסר פעילויות"/"⛔ הסר אזורים" עברו לכאן מהראש של עמוד התוצאות (בקשת
+          המשתמש, סעיף 11: "אלה advanced filters, הם לא צריכים להיות visible controls קבועים
+          במסך התוצאות"). אותם handlers/modals/state בדיוק (app/activities.js) - השורות כאן רק
+          קוראות להם דרך ה-props, בלי לוגיקת-הסתרה חדשה. לא accordion (בניגוד לסקשני FILTER_SCHEMA
+          למעלה) - לחיצה פותחת ישירות את אותו QuickPicker/ExcludeAreasPicker שהיה קיים תמיד. */}
+      {(onOpenExcludeCategories || onOpenExcludeAreas) && (
+        <View style={styles.section}>
+          <View style={styles.excludeSectionTitleRow}>
+            <Text style={styles.sectionIcon}>🚫</Text>
+            <Text style={styles.sectionTitle}>החרגות</Text>
+          </View>
+          {onOpenExcludeCategories && (
+            <Pressable style={styles.excludeRow} onPress={onOpenExcludeCategories}>
+              <Text style={styles.excludeRowText}>
+                {hiddenCategoryCount > 0 ? `🚫 ${hiddenCategoryCount} קטגוריות מוסתרות` : '🚫 פעילויות שלא תרצו לראות'}
+              </Text>
+              <ChevronLeftIcon size={13} />
+            </Pressable>
+          )}
+          {onOpenExcludeAreas && (
+            <Pressable style={styles.excludeRow} onPress={onOpenExcludeAreas}>
+              <Text style={styles.excludeRowText}>
+                {hiddenAreaCount > 0 ? `⛔ ${hiddenAreaCount} אזורים מוסתרים` : '⛔ אזורים שלא תרצו לראות'}
+              </Text>
+              <ChevronLeftIcon size={13} />
+            </Pressable>
+          )}
+        </View>
+      )}
+
+      {/* אותו רכיב בדיוק כמו "איפה נח לכם?" בעמוד הבית - Modal מעל ה-sheet (RN תומך ב-Modal מקונן). */}
+      <LocationQuickPicker
+        visible={locationPickerOpen}
+        value={filters.location}
+        onChange={(v) => onChange('location', v)}
+        onCoordsResolved={onCoordsResolved}
+        onClose={() => setLocationPickerOpen(false)}
+        deviceCoords={deviceCoords}
+      />
     </View>
   );
 }
@@ -360,6 +337,17 @@ const styles = StyleSheet.create({
   countBadge: { backgroundColor: colors.accent, borderRadius: 10, minWidth: 20, height: 20, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 5 },
   countBadgeText: { fontFamily: fonts.bold, fontSize: 11, color: '#fff' },
   sectionBody: { paddingHorizontal: 13, paddingBottom: 13 },
+  excludeSectionTitleRow: { flexDirection: 'row-reverse', alignItems: 'center', gap: 8, padding: 13, paddingBottom: 6 },
+  excludeRow: {
+    flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 13, paddingVertical: 11,
+  },
+  excludeRowText: { fontFamily: fonts.semiBold, fontSize: 13, color: colors.textPrimary, textAlign: 'right' },
+  spontaneousLoadingRow: { alignItems: 'flex-end', paddingVertical: 4 },
+  spontaneousErrorText: { fontFamily: fonts.semiBold, fontSize: 11.5, color: colors.danger, textAlign: 'right', marginTop: 8 },
+  // הערך הנוכחי של "מיקום" מוצג מתחת לכותרת-השורה (אין לו accordion להיפתח אליו - הלחיצה פותחת
+  // את LocationQuickPicker), באותם טוקנים כמו chipText כדי שייקרא כחלק מהשורה ולא כטקסט זר.
+  locationValueText: { fontFamily: fonts.semiBold, fontSize: 12.5, color: colors.accent, textAlign: 'right', paddingHorizontal: 13, paddingBottom: 12, marginTop: -6 },
 
   chipsWrap: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 8 },
   chip: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: radii.pill, paddingVertical: 8, paddingHorizontal: 13 },
@@ -367,27 +355,8 @@ const styles = StyleSheet.create({
   chipText: { fontFamily: fonts.semiBold, fontSize: 12.5, color: colors.textSecondary },
   chipTextSelected: { color: colors.accent, fontFamily: fonts.bold },
 
-  addressBanner: {
-    flexDirection: 'row-reverse', alignItems: 'center', gap: 8,
-    backgroundColor: colors.accentTintLight, borderRadius: radii.md, padding: 10, marginBottom: 10,
-  },
-  addressBannerText: { flex: 1, fontFamily: fonts.semiBold, fontSize: 12.5, color: colors.accent, textAlign: 'right' },
-  addressBannerClear: { fontFamily: fonts.bold, fontSize: 13, color: colors.accent },
   subSection: { marginTop: 14 },
   subLabel: { fontFamily: fonts.bold, fontSize: 12, color: colors.textSecondary, marginBottom: 8 },
-  modeRow: { marginTop: 4 },
-  modeBtn: {
-    flexDirection: 'row-reverse', alignItems: 'center', gap: 8, alignSelf: 'flex-start',
-    borderWidth: 1.5, borderColor: colors.border, borderRadius: radii.pill, paddingVertical: 9, paddingHorizontal: 14,
-  },
-  modeBtnActive: { borderColor: colors.accent, backgroundColor: colors.accentTintLight },
-  modeBtnText: { fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary },
-  modeBtnTextActive: { color: colors.accent },
-  textInput: {
-    borderWidth: 1, borderColor: colors.border, borderRadius: radii.md, padding: 11,
-    fontFamily: fonts.regular, fontSize: 13.5, color: colors.textPrimary,
-  },
   dateBtn: { borderWidth: 1, borderColor: colors.border, borderRadius: radii.md, padding: 11, alignItems: 'center' },
   dateBtnText: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.accent },
-  hint: { fontFamily: fonts.regular, fontSize: 11.5, color: colors.textMuted, marginTop: 8 },
 });

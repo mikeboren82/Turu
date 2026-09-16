@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import Header from '../../components/Header';
+import SkyBackground from '../../components/SkyBackground';
 import LoginRequiredModal from '../../components/LoginRequiredModal';
 import {
   StarIcon, HideIcon, CheckIcon, CalendarIcon, LocationPinIcon, SlidersIcon, ClockIcon, PriceIcon,
@@ -452,6 +453,7 @@ export default function ActivityScreen() {
   if (loading) {
     return (
       <View style={styles.screen}>
+        <SkyBackground />
         <View style={styles.content}>
           <Header showBack onMenuPress={() => {}} />
           <View style={styles.notFound}>
@@ -465,6 +467,7 @@ export default function ActivityScreen() {
   if (loadError || !activity) {
     return (
       <View style={styles.screen}>
+        <SkyBackground />
         <View style={styles.content}>
           <Header showBack onMenuPress={() => {}} />
           <View style={styles.notFound}>
@@ -516,6 +519,7 @@ export default function ActivityScreen() {
 
   return (
     <View style={styles.screen}>
+      <SkyBackground />
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={styles.headerWrap}>
           <Header showBack onMenuPress={() => {}} />

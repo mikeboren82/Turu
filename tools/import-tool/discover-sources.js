@@ -45,6 +45,14 @@ const FAMILY_QUERIES = {
   theater: ['{city} הצגות ילדים לוח הצגות היכל התרבות', 'תיאטרון {city} הצגות ילדים'],
   farm_nature: ['{city} חווה חינוכית פינת חי פעילות משפחות', '{city} מרכז מבקרים פעילות לילדים'],
   organizer: ['{city} הפעלות לילדים מפיק אירועי ילדים לוח אירועים', '{city} אירועי ילדים חינם השבוע'],
+  // "חדרי בריחה" (2026-09-16) - direct venue discovery for the new category. Config only: this
+  // family/queries make the venue *findable*, they don't publish anything - a human still runs
+  // discover -> reviews discovery-candidates-<date>.json -> --register -> seed-venues-and-sources.js
+  // --apply, same as every other family. Not run yet as part of this change.
+  escape_room: [
+    'חדרי בריחה {city}', 'חדר בריחה {city}', 'חדרי בריחה לילדים {city}',
+    'חדר בריחה לילדים {city}', 'חדרי בריחה למשפחות {city}',
+  ],
 };
 
 async function serp(query) {
@@ -95,6 +103,9 @@ function guessFamily(u, title) {
   if (/קניון|mall|סנטר|center|מרכז מסחרי|azrieli|amot|ofer|big/.test(h + t)) return 'mall';
   if (/תיאטרון|היכל|theater|הצג/.test(h + t)) return 'theater';
   if (/חוו|פינת חי|farm|zoo|טבע|park/.test(h + t)) return 'farm_nature';
+  // full phrase only ("חדר"/"משחק"/"חוויה" alone are common words in unrelated venue names/text and
+  // are not sufficient signal by themselves)
+  if (/חדרי בריחה|חדר בריחה|escape room/.test(h + t)) return 'escape_room';
   return 'other';
 }
 

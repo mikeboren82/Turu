@@ -111,3 +111,24 @@ Deno.test("child relevance: an 'adults' label contradicted by an explicit child 
   assertEquals(assessChildRelevance({ audience: 'adults', name: 'סדנה למבוגרים בני 40+', description: '' }), 'reject');
   assertEquals(hasExplicitChildAge('תיאטרון סיפור לגילאי 4 -2'), true);
 });
+
+// חדרי בריחה (escape rooms, 2026-09-16): a new category exercising the SAME generic gates - no
+// category-specific branching added anywhere in extraction.ts, just fixtures proving the existing
+// audience/age machinery already does the right thing (plus one real gap it closed: min_age>=18 as
+// adult evidence, see hasAdult above - previously an operator's page labeled "family" for the venue
+// as a whole with an explicit min_age:18 on one room silently passed as 'ok').
+Deno.test('escape rooms: clear family framing and explicit child age pass, an adult-only room is rejected even when mislabeled family, unclear suitability is reviewed (never invented)', () => {
+  // A: clear family escape room
+  assertEquals(assessChildRelevance({ audience: 'family', name: 'חדר בריחה למשפחות ולילדים', category: 'חדרי בריחה' }), 'ok');
+  // B: explicit child age evidence ("מגיל 8") is preserved through the existing hasExplicitChildAge/min_age model, not dropped
+  assertEquals(hasExplicitChildAge('מתאים לילדים מגיל 8'), true);
+  assertEquals(assessChildRelevance({ audience: 'unknown', name: 'חדר הפיראטים', description: 'מתאים לילדים מגיל 8', category: 'חדרי בריחה', min_age: 8 }), 'ok');
+  // D: an explicit adult marker rejects outright regardless of category
+  assertEquals(assessChildRelevance({ audience: 'unknown', name: 'חדר בריחה - אימה 18+', category: 'חדרי בריחה' }), 'reject');
+  // D: the venue page's own "family" audience label does not override an explicit min_age:18 on this
+  // room - this is the exact case the new hasAdult min_age signal fixes (was silently 'ok' before)
+  assertEquals(assessChildRelevance({ audience: 'family', name: 'חדר בריחה קיצוני', description: 'מתאים מגיל 18 בלבד', category: 'חדרי בריחה', min_age: 18 }), 'review');
+  // E: escape-room identity is clear but child suitability isn't stated at all - existing
+  // confidence/review rules apply (never invented as ok, never blanket-rejected either)
+  assertEquals(assessChildRelevance({ audience: 'unknown', name: 'חדרי בריחה - האולפן', category: 'חדרי בריחה' }), 'review');
+});

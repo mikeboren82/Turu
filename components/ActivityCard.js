@@ -16,6 +16,7 @@ export default function ActivityCard({
   title,
   type,
   distance,
+  city = null,
   ageRange,
   price,
   hours,
@@ -40,6 +41,7 @@ export default function ActivityCard({
   const cardBorder = favorite ? colors.accentTint : visited ? '#a9e3b6' : colors.border;
 
   const stop = (fn) => (e) => { e.stopPropagation?.(); fn?.(); };
+  const showCityLine = !!city && /ק"מ/.test(String(distance ?? ''));
 
   const imageOverlay = (
     <>
@@ -88,10 +90,15 @@ export default function ActivityCard({
             <Text style={styles.typeBadgeText}>{type}</Text>
           </View>
         </View>
-        <View style={styles.metaRow}>
+        {/* שם היישוב מתחת לשורת המרחק (2026-09-16, בקשת המשתמש) - רק כשהמרחק הוא מספר ק"מ אמיתי
+            ("1.8 ק"מ מאזור החיפוש"/"ממך"). כשאין מקור-מרחק, formatDistance (lib/activities.js) כבר
+            מציג במקום המרחק את הכתובת/העיר עצמה - שורת-עיר נוספת מתחת הייתה חוזרת על אותו מידע.
+            תצוגה בלבד: city כבר מגיע ב-{...a} מ-mapActivityRow, בלי שינוי בשאילתה. */}
+        <View style={[styles.metaRow, showCityLine && styles.metaRowWithCity]}>
           <LocationPinIcon />
           <Text style={styles.metaText}>{distance}</Text>
         </View>
+        {showCityLine ? <Text style={styles.cityText} numberOfLines={1}>{city}</Text> : null}
         {recommendedBy?.nickname ? (
           <View style={styles.recommendedRow}>
             <Text style={styles.recommendedText}>
@@ -143,6 +150,10 @@ const styles = StyleSheet.create({
   typeBadgeText: { fontFamily: fonts.bold, fontSize: 11.5, color: colors.accent },
   metaRow: { flexDirection: 'row-reverse', alignItems: 'center', gap: 6, marginBottom: 10 },
   metaText: { fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary },
+  // כששורת-עיר מוצגת מתחת, המרווח התחתון עובר אליה (שתי השורות נקראות כיחידת-מיקום אחת);
+  // paddingRight מיישר את שם העיר מתחת לטקסט המרחק, לא מתחת לאייקון הסיכה (row-reverse: הסיכה מימין).
+  metaRowWithCity: { marginBottom: 2 },
+  cityText: { fontFamily: fonts.regular, fontSize: 12.5, color: colors.textMuted, textAlign: 'right', paddingRight: 22, marginBottom: 10 },
   recommendedRow: { marginBottom: 10 },
   recommendedText: { fontFamily: fonts.regular, fontSize: 11.5, color: colors.textMuted, textAlign: 'right' },
   recommendedName: { fontFamily: fonts.bold, color: colors.accent },

@@ -16,6 +16,7 @@ const DIRECT_MAP = {
   'פעילות קהילתית': 'CULTURE_CREATIVITY',
 
   'ספורט': 'SPORTS_ADVENTURE', 'בריכה': 'SPORTS_ADVENTURE', 'פעילות מים': 'SPORTS_ADVENTURE',
+  'חדרי בריחה': 'SPORTS_ADVENTURE',
 };
 
 const AMBIGUOUS_CATEGORIES = new Set(['פארק', 'אטרקציה', 'אחר', 'הפעלה', 'חוג', 'קייטנה']);

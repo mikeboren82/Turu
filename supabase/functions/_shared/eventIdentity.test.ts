@@ -102,6 +102,34 @@ Deno.test('URL-kind keys: only verified, event-shaped detail URLs; the detail UR
   assertEquals(findEventMatch({ name, event_key: urlKey.key, event_key_kind: 'detail_url', venue_id: null }, [withUrl], 'src-other', today), null);
 });
 
+Deno.test('escape rooms (2026-09-16): 3 distinct rooms at one venue get 3 distinct event keys with no code change (title is part of the key); rescanning one room matches only itself, never siblings, never a duplicate', () => {
+  const venueId = 'v-escape-netanya';
+  const rooms = ['חדר בריחה - הפיראטים האבודים', 'חדר בריחה - המעבדה הסודית', 'חדר בריחה - האוצר האבוד'].map((title) => ({
+    title, key: computeEventKey({ sourceId: S, title, venueId })!,
+  }));
+  // C: same venue, three different titles => three different keys - no duplicate venue creation
+  // implied either (venue_id is shared and untouched by event-identity logic)
+  assertEquals(new Set(rooms.map((r) => r.key.key)).size, 3);
+  assertEquals(rooms.every((r) => r.key.kind === 'title_venue_source'), true);
+
+  const existing: ExistingActivity[] = rooms.map((r, i) => ({
+    ...base, id: `room-${i}`, name: r.title, category: 'חדרי בריחה', min_age: null, max_age: null,
+    venue_id: venueId, event_key: r.key.key, event_key_kind: r.key.kind,
+    entity_type: 'מקום_קבוע', schedule_type: 'fixed_hours', one_time_date: null, occurrences: [],
+  }));
+
+  // F: rescanning "חדר בריחה - המעבדה הסודית" matches only its own row, never the other two rooms at the same venue
+  const rescanned = { name: rooms[1].title, venue_id: venueId, event_key: rooms[1].key.key, event_key_kind: rooms[1].key.kind };
+  const m = findEventMatch(rescanned, existing, S, today);
+  assert(m && m.activity.id === 'room-1');
+  assertEquals(computeEventKey({ sourceId: S, title: rooms[1].title, venueId })!.key, rooms[1].key.key);
+
+  // a single generic evergreen venue-level offering (no distinct rooms exposed by the source) stays
+  // one activity - not manufactured into several
+  const singleOffering = computeEventKey({ sourceId: S, title: 'חדר בריחה - נתניה', venueId: 'v-escape-generic' });
+  assertEquals(singleOffering!.key, computeEventKey({ sourceId: S, title: 'חדר בריחה - נתניה', venueId: 'v-escape-generic' })!.key);
+});
+
 Deno.test('address replacement: only a derived address may be replaced, and only by the official detail page', () => {
   const derived: ExistingActivity = { ...base, address: 'חפץ חיים', address_source: 'cleaner:reverse_geocode' };
   const fromDetail = { name, city: 'רעננה', venue_id: 'v-mishkan', pageUrl: 'x', address: 'הפלמ"ח 2 א', address_source: 'monster:detail', one_time_date: '2026-10-12', start_time: '16:30', occurrences: base.occurrences, image_urls: [] };

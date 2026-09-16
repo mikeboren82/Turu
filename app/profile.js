@@ -4,6 +4,7 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Svg, { Path, Circle, Line } from 'react-native-svg';
 import Header from '../components/Header';
+import SkyBackground from '../components/SkyBackground';
 import QuickPicker from '../components/QuickPicker';
 import ExcludeAreasPicker from '../components/ExcludeAreasPicker';
 import LocationQuickPicker, { locationSummary } from '../components/LocationQuickPicker';
@@ -542,6 +543,7 @@ export default function ProfileScreen() {
   if (loading) {
     return (
       <View style={styles.screen}>
+        <SkyBackground />
         <View style={styles.content}>
           <Header onMenuPress={() => {}} />
           <View style={styles.center}><ActivityIndicator color={colors.accent} /></View>
@@ -553,6 +555,7 @@ export default function ProfileScreen() {
   if (!session) {
     return (
       <View style={styles.screen}>
+        <SkyBackground />
         <View style={styles.content}>
           <Header onMenuPress={() => {}} />
           <View style={styles.center}>
@@ -582,6 +585,7 @@ export default function ProfileScreen() {
 
   return (
     <View style={styles.screen}>
+      <SkyBackground />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Header onMenuPress={() => {}} />
 

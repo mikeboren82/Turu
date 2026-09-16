@@ -4,6 +4,7 @@ import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import Header from '../components/Header';
+import SkyBackground from '../components/SkyBackground';
 import ActivitiesMap from '../components/ActivitiesMap';
 import { ChevronDownIcon } from '../components/icons';
 import { colors, fonts, radii, spacing } from '../constants/theme';
@@ -307,6 +308,7 @@ export default function MyThingsScreen() {
   if (loading) {
     return (
       <View style={styles.screen}>
+        <SkyBackground />
         <View style={styles.content}>
           <Header showBack onMenuPress={() => {}} />
           <View style={styles.center}><ActivityIndicator color={colors.accent} /></View>
@@ -319,6 +321,7 @@ export default function MyThingsScreen() {
 
   return (
     <View style={styles.screen}>
+      <SkyBackground />
       <View style={styles.content}>
         <Header showBack onMenuPress={() => {}} />
         <ScrollView showsVerticalScrollIndicator={false}>

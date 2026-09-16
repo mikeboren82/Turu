@@ -47,6 +47,7 @@ supabase/.temp/
 
 # one-time script run output (logs/CSVs/audit JSON/checkpoints) - not source, regenerated per-run
 tools/import-tool/*.log
+tools/import-tool/logs/
 tools/import-tool/_playground-name-migration-audit-*.json
 tools/import-tool/_final_examples*.txt
 tools/import-tool/_audit_sample.txt

@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Modal
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as Location from 'expo-location';
 import Header from '../components/Header';
+import SkyBackground from '../components/SkyBackground';
 import LoginRequiredModal from '../components/LoginRequiredModal';
 import ActivityCard from '../components/ActivityCard';
 import ActivitiesMap from '../components/ActivitiesMap';
@@ -10,7 +11,6 @@ import FiltersSheet from '../components/FiltersSheet';
 import QuickPicker from '../components/QuickPicker';
 import ExcludeAreasPicker from '../components/ExcludeAreasPicker';
 import LocationQuickPicker, { locationSummary } from '../components/LocationQuickPicker';
-import CityAutocomplete from '../components/CityAutocomplete';
 import { ageSummary } from '../components/AgeQuickPicker';
 import { ChevronDownIcon } from '../components/icons';
 import { colors, fonts, radii, spacing } from '../constants/theme';
@@ -58,17 +58,6 @@ function labelsFor(options, ids) {
   return (ids || []).map((id) => options.find((o) => o.id === id)?.label || id);
 }
 
-// בונה את המשפט הדינמי בראש התוצאות ("פעילויות לילדים בגיל 3–5 בנתניה") מתוך הפילטרים
-// הכי "מזהים" (קטגוריה, גיל, מיקום) - שאר הפילטרים מיוצגים בשורת ה-chips שמתחת, לא במשפט עצמו.
-function buildSearchSentence(filters) {
-  const hasCategory = filters.category?.length > 0;
-  const bits = [hasCategory ? categorySummary(filters.category) : 'פעילויות'];
-  if (filters.age?.length) bits.push(`לגיל ${ageSummary(filters.age)}`);
-  if (filters.location?.mode) bits.push(`ב${locationSummary(filters.location)}`);
-  if (!hasCategory && bits.length === 1) return 'כל הפעילויות';
-  return bits.join(' ');
-}
-
 // רשימת ה-chips הניתנים-להסרה מעל התוצאות - כל chip יודע גם להציג את עצמו וגם לנקות את
 // הפילטר שלו (setField עם ערך ברירת המחדל המתאים מתוך DEFAULT_FILTERS).
 function buildActiveChips(filters) {
@@ -90,60 +79,6 @@ function buildActiveChips(filters) {
   return chips;
 }
 
-const SORT_OPTIONS = [
-  { id: 'recommended', label: '✨ מומלץ', shortLabel: 'מומלץ' },
-  { id: 'distance', label: '📍 הקרובים ביותר', shortLabel: 'הקרובים ביותר' },
-];
-
-// ↕️ מיון - chip קומפקטי + תפריט-נפתח קטן (לא Modal, בקשת המשתמש: "אל תוסיף modal גדול בשביל
-// שתי אפשרויות בלבד") - אותה טכניקה בדיוק כמו dropdown ה-CityAutocomplete הקיים באותו מסך
-// (position:relative על ה-wrapper, position:absolute עם top:'100%' על התפריט) - כבר מוכח שעובד
-// בתוך ה-ScrollView הזה, לא מנגנון חדש. הכותרת מציגה תמיד "לפי מרחק"/"הקרובים ביותר" ולא "הכי
-// קרוב אליי" - כי ה-origin עשוי להיות עיר/כתובת שחיפשו, לא בהכרח ה-GPS הנוכחי (ראו searchOriginKm
-// למעלה) - ה-copy הזה לא מניח בטעות "קרוב אליי" כשבפועל זה "קרוב לתנובות" למשל.
-function SortControl({ sortMode, menuOpen, onToggleMenu, onSelect }) {
-  const current = SORT_OPTIONS.find((o) => o.id === sortMode) || SORT_OPTIONS[0];
-  return (
-    <View style={styles.sortWrap}>
-      <Pressable
-        style={styles.sortChip}
-        onPress={onToggleMenu}
-        accessibilityRole="button"
-        accessibilityState={{ expanded: menuOpen }}
-        accessibilityLabel={`מיון: ${current.label}`}
-      >
-        <Text style={styles.sortChipIcon}>↕️</Text>
-        <Text style={styles.sortChipText} numberOfLines={1}>מיון: {current.shortLabel}</Text>
-        <View style={{ transform: [{ rotate: menuOpen ? '180deg' : '0deg' }] }}>
-          <ChevronDownIcon size={11} />
-        </View>
-      </Pressable>
-      {menuOpen && (
-        // אין backdrop-למסך-מלא בכוונה (מיקום-absolute שכזה בתוך ScrollView לא אמין ב-RN) - סגירה
-        // בבחירת אפשרות או בלחיצה חוזרת על ה-chip, אותו דפוס בדיוק כמו freeSearchOpen/sheetOpen
-        // הקיימים באותו מסך (toggle, לא backdrop-dismiss).
-        <View style={styles.sortMenu} accessibilityRole="menu">
-          {SORT_OPTIONS.map((opt) => {
-            const selected = opt.id === sortMode;
-            return (
-              <Pressable
-                key={opt.id}
-                style={[styles.sortMenuItem, selected && styles.sortMenuItemSelected]}
-                onPress={() => onSelect(opt.id)}
-                accessibilityRole="menuitem"
-                accessibilityState={{ selected }}
-              >
-                <Text style={[styles.sortMenuItemText, selected && styles.sortMenuItemTextSelected]}>{opt.label}</Text>
-                {selected && <Text style={styles.sortMenuItemCheck}>✓</Text>}
-              </Pressable>
-            );
-          })}
-        </View>
-      )}
-    </View>
-  );
-}
-
 export default function ActivitiesScreen() {
   const router = useRouter();
   const { homeFilters, homeCoords, openFilters, view } = useLocalSearchParams();
@@ -161,11 +96,6 @@ export default function ActivitiesScreen() {
   // בחזרה ל-'recommended' עם עזיבת המסך, בדיוק כמו viewMode/sheetOpen למעלה - האפליקציה לא
   // שומרת העדפת-מיון בשום מקום אחר היום, אז לא ממציאים persistence חדש כאן.
   const [sortMode, setSortMode] = useState('recommended');
-  const [sortMenuOpen, setSortMenuOpen] = useState(false);
-  // 🚫 "הסרה" - dropdown יחיד שמאחד את שתי פעולות ההסרה (קטגוריות/אזורים) שהיו קודם שני כפתורים
-  // נפרדים על המסך - אותו טכניקת-דרופדאון בדיוק כמו SortControl ממש לידו (position:relative
-  // + absolute עם top:'100%'), לא Modal חדש.
-  const [hideMenuOpen, setHideMenuOpen] = useState(false);
   const [activities, setActivities] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
@@ -219,8 +149,9 @@ export default function ActivitiesScreen() {
   const [freeSearchText, setFreeSearchText] = useState('');
   const [freeSearchLoading, setFreeSearchLoading] = useState(false);
   const [freeSearchError, setFreeSearchError] = useState('');
-  const [freeSearchClarify, setFreeSearchClarify] = useState(null); // { message, pendingIntent, mode }
-  const [freeSearchClarifyCity, setFreeSearchClarifyCity] = useState('');
+  // { message, pendingIntent, mode:'plain'|'street' } - כל עוד לא null, LocationQuickPicker (למטה, ליד
+  // ה-gate) פתוח; הבחירה נסגרת דרך handleClarifyPickerClose. אין יותר תיבת-עיר מקומית.
+  const [freeSearchClarify, setFreeSearchClarify] = useState(null);
 
   // 🚗 Smart Radius Expansion - נקודת-הייחוס למצב 'city' דורשת שליפה מ-DB (טבלת settlements,
   // ראו fetchSettlementCoords), אז זה state+effect נפרד, לא חישוב סינכרוני כמו deviceCoords/
@@ -437,29 +368,40 @@ export default function ActivitiesScreen() {
     }
   };
 
-  const handleFreeSearchClarifyCity = async () => {
-    if (!freeSearchClarify || !freeSearchClarifyCity.trim()) return;
-    const city = freeSearchClarifyCity.trim();
-    if (freeSearchClarify.mode === 'plain') {
-      setFreeSearchClarifyCity('');
-      applyFreeSearchIntent({ ...freeSearchClarify.pendingIntent, location: { ...freeSearchClarify.pendingIntent.location, city } });
+  // סגירת LocationQuickPicker של ההבהרה (CTA "הציגו לי פעילויות" או לחיצה על הרקע). onChange של
+  // הפיקר כבר כתב את הבחירה ל-filters.location בזמן-אמת (אותו חיווט כמו ה-gate), אז כאן רק
+  // ממשיכים את החיפוש שהמשתמש הקליד:
+  //  - 'plain' (לא הוזכר מיקום בטקסט): applyFreeSearchIntent עם ה-intent המקורי - intentToFilters
+  //    כבר נופל ל-fallbackLocation=filters.location כשב-intent אין מיקום, בלי להמציא עיר.
+  //  - 'street' (רחוב בלי עיר, הפונקציה ביקשה "באיזו עיר?"): אם נבחרה עיר בפיקר - סבב-הבהרה לשרת
+  //    עם cityOverride (גאוקודינג של רחוב+עיר, בדיוק כמו קודם); אם נבחר משהו אחר (אזור/GPS/בכל
+  //    הארץ) - אין עיר לגאוקד, מחפשים לפי המיקום שנבחר ומוותרים על הרחוב (לא מנחשים עיר).
+  //  - נסגר בלי לבחור כלום: מבטלים את ההבהרה, הטקסט שהוקלד נשאר בשדה.
+  const handleClarifyPickerClose = async () => {
+    const clarify = freeSearchClarify;
+    if (!clarify) return;
+    const loc = filters.location;
+    if (!loc?.mode) { setFreeSearchClarify(null); return; }
+    if (clarify.mode === 'street' && loc.mode === 'city' && (loc.city || '').trim()) {
+      setFreeSearchError('');
+      setFreeSearchLoading(true);
+      try {
+        const data = await parseSmartSearchQuery(freeSearchText, { cityOverride: loc.city.trim(), pendingIntent: clarify.pendingIntent });
+        if (data.needsClarification) {
+          setFreeSearchError('לא הצלחנו לזהות את המיקום, נסו לנסח אחרת');
+          setFreeSearchClarify(null);
+          return;
+        }
+        applyFreeSearchIntent(data.intent);
+      } catch (err) {
+        setFreeSearchError(err.message || 'לא הצלחנו להבין את החיפוש');
+        setFreeSearchClarify(null);
+      } finally {
+        setFreeSearchLoading(false);
+      }
       return;
     }
-    setFreeSearchError('');
-    setFreeSearchLoading(true);
-    try {
-      const data = await parseSmartSearchQuery(freeSearchText, { cityOverride: city, pendingIntent: freeSearchClarify.pendingIntent });
-      if (data.needsClarification) {
-        setFreeSearchError('לא הצלחנו לזהות את המיקום, נסו לנסח אחרת');
-        return;
-      }
-      setFreeSearchClarifyCity('');
-      applyFreeSearchIntent(data.intent);
-    } catch (err) {
-      setFreeSearchError(err.message || 'לא הצלחנו להבין את החיפוש');
-    } finally {
-      setFreeSearchLoading(false);
-    }
+    applyFreeSearchIntent(clarify.pendingIntent);
   };
 
   const handleToggleFavorite = async (activityId) => {
@@ -615,6 +557,20 @@ export default function ActivitiesScreen() {
 
   const activeCount = countActiveFilters(filters);
   const activeChips = useMemo(() => buildActiveChips(filters), [filters]);
+  // ⚡ "עכשיו" עבר לגור בתוך "🎯 סינון" (FiltersSheet, סעיף 2 בבקשה: "if 'עכשיו' is an actual
+  // filter option, it should belong inside the existing Filter experience") - הוא state נפרד
+  // מ-filters (spontaneousActive, לא נוגע ב-countActiveFilters/isDiscoveryMode למעלה, שממשיכים
+  // לפעול בדיוק כמו קודם), אז הוא לא נספר על-ידי activeCount עצמו. toolbarFilterCount הוא
+  // רק תצוגה-לתג "🎯 סינון N" (לא state חדש, לא נשמר בשום מקום) שמוסיפה +1 כשהוא פעיל, כדי
+  // שהמספר על הכפתור ישקף במדויק את מה שבאמת מוצג כ-chip תחתיו.
+  const toolbarFilterCount = activeCount + (spontaneousActive ? 1 : 0);
+  // ה-chip של "⚡ עכשיו" (כשפעיל) מוצג עכשיו יחד עם שאר ה-active chips תחת "🎯 סינון" ממש כמו
+  // כל פילטר אחר. אין לו filters[key] אמיתי (זה state נפרד, לא שדה ב-filters) אז אין לו clear()
+  // בסגנון buildActiveChips - ה-JSX למטה מזהה key==='spontaneous' ומפעיל toggleSpontaneous
+  // ישירות במקום setField, כדי לא "לכתוב" מפתח מומצא ל-filters.
+  const displayChips = spontaneousActive
+    ? [{ key: 'spontaneous', label: '⚡ עכשיו' }, ...activeChips]
+    : activeChips;
   const hiddenCategoryCount = new Set([...excludedCategories, ...(filters.excludeCategory || [])]).size;
   const hiddenCityCount = new Set([...excludedCities, ...(filters.excludeCity || [])]).size;
   const hiddenRegionCount = new Set([...excludedRegions, ...(filters.excludeRegion || [])]).size;
@@ -656,64 +612,96 @@ export default function ActivitiesScreen() {
 
   const setField = (key, value) => setFilters((prev) => ({ ...prev, [key]: value }));
   const clearAll = () => setFilters(DEFAULT_FILTERS);
+  // "יש תוצאות להציג כרגע" - אותו תנאי בדיוק ששימש בעבר לשער viewToggleRow (רק רשימה/מפה עצמם
+  // הוזזו למעלה, ליד הכותרת; התנאי לא השתנה).
+  const hasResults = !loading && !loadError && filteredActivities.length > 0;
 
   return (
     <View style={styles.screen}>
+      <SkyBackground />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Header showBack onMenuPress={() => {}} />
 
+        {/* כותרת = זהות קבועה ("כל הפעילויות"), לא עוד משפט דינמי שחוזר על category/age/location -
+            אלה כבר מיוצגים במלואם ב-quick+active chips מתחת (בקשת המשתמש, סעיף 2/3/17: "ONE PIECE
+            OF INFORMATION = ONE PRIMARY VISUAL REPRESENTATION"). subtitle נשאר "מצב החיפוש" (ספירה
+            חיה) - רשימה/מפה יושבים לידו באותה שורה, לא עוד שורה נפרדת משלהם למטה. */}
         <View style={styles.titleBlock}>
-          <Text style={styles.pageTitle}>{buildSearchSentence(filters)}</Text>
-          <Text style={styles.pageSubtitle}>
-            {isDiscoveryMode
-              ? 'פעילויות שכדאי לגלות ✨'
-              : (filteredActivities.length === 1 ? 'פעילות אחת נמצאה' : `${filteredActivities.length} פעילויות נמצאו`)}
-          </Text>
-        </View>
-
-        {activeChips.length > 0 && (
-          <View style={styles.activeChipsRow}>
-            {activeChips.map((c) => (
-              <Pressable key={c.key} style={styles.activeChip} onPress={() => setField(c.key, c.clear())}>
-                <Text style={styles.activeChipText} numberOfLines={1}>{c.label}</Text>
-                <Text style={styles.activeChipRemove}>✕</Text>
-              </Pressable>
-            ))}
-          </View>
-        )}
-
-        {/* 🔎 חיפוש חופשי - קומפקטי, collapsed כברירת מחדל (סעיפים 2/17 בבקשה): לא תיבת-החיפוש
-            הגדולה של עמוד הבית, גישה מהירה בלבד לאותו Smart Search Engine. פותח/סוגר inline,
-            בלי ניווט למסך חדש - ראו handleFreeSearch/applyFreeSearchIntent למעלה. */}
-        <Pressable style={styles.freeSearchToggle} onPress={() => setFreeSearchOpen((v) => !v)}>
-          <Text style={styles.freeSearchToggleIcon}>🔎</Text>
-          <Text style={styles.freeSearchToggleText}>חיפוש חופשי</Text>
-          <View style={{ transform: [{ rotate: freeSearchOpen ? '180deg' : '0deg' }] }}>
-            <ChevronDownIcon size={11} />
-          </View>
-        </Pressable>
-        {freeSearchOpen && (
-          <View style={styles.freeSearchBox}>
-            {freeSearchClarify ? (
-              <View>
-                <Text style={styles.freeSearchClarifyText}>{freeSearchClarify.message}</Text>
-                <CityAutocomplete
-                  inputStyle={styles.freeSearchInput}
-                  placeholder="הזינו שם עיר..."
-                  value={freeSearchClarifyCity}
-                  onChangeText={setFreeSearchClarifyCity}
-                  onSubmitEditing={handleFreeSearchClarifyCity}
-                />
+          <Text style={styles.pageTitle}>כל הפעילויות</Text>
+          <View style={styles.subtitleRow}>
+            <Text style={styles.pageSubtitle}>
+              {isDiscoveryMode
+                ? 'פעילויות שכדאי לגלות ✨'
+                : (filteredActivities.length === 1 ? 'פעילות אחת נמצאה' : `${filteredActivities.length} פעילויות נמצאו`)}
+            </Text>
+            {hasResults && (
+              <View style={styles.viewToggleRowCompact} accessibilityRole="tablist">
                 <Pressable
-                  style={[styles.freeSearchBtn, (!freeSearchClarifyCity.trim() || freeSearchLoading) && styles.freeSearchBtnDisabled]}
-                  onPress={handleFreeSearchClarifyCity}
-                  disabled={!freeSearchClarifyCity.trim() || freeSearchLoading}
+                  style={[styles.viewToggleBtnCompact, viewMode === 'list' && styles.viewToggleBtnCompactActive]}
+                  onPress={() => setViewMode('list')}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: viewMode === 'list' }}
                 >
-                  <Text style={styles.freeSearchBtnText}>{freeSearchLoading ? '...' : 'המשך'}</Text>
+                  <Text style={[styles.viewToggleTextCompact, viewMode === 'list' && styles.viewToggleTextCompactActive]}>📋 רשימה</Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.viewToggleBtnCompact, viewMode === 'map' && styles.viewToggleBtnCompactActive]}
+                  onPress={() => setViewMode('map')}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: viewMode === 'map' }}
+                >
+                  <Text style={[styles.viewToggleTextCompact, viewMode === 'map' && styles.viewToggleTextCompactActive]}>🗺️ מפה</Text>
                 </Pressable>
               </View>
-            ) : (
-              <View style={styles.freeSearchInputRow}>
+            )}
+          </View>
+        </View>
+
+        {/* TOOLBAR - שלושה controls ראשיים בלבד: סינון (המרכז - כל צמצום-תוצאות עובר דרכו,
+            כולל "עכשיו" שעבר לגור בתוכו, ראו למטה), לפי מרחק (toggle בינארי, לא dropdown), חיפוש.
+            "🎯 סינון" נשאר הבולט (accent) - הוא ה-parent-control המושגי, לא peer טכני. */}
+        <View style={styles.toolbarRow}>
+          <Pressable
+            style={[styles.toolbarChip, styles.toolbarChipPrimary, activeCount > 0 && styles.toolbarChipPrimaryActive]}
+            onPress={() => setSheetOpen((v) => !v)}
+            accessibilityRole="button"
+          >
+            <Text style={styles.toolbarChipIcon}>🎯</Text>
+            <Text style={styles.toolbarChipTextPrimary} numberOfLines={1}>סינון{toolbarFilterCount > 0 ? ` · ${toolbarFilterCount}` : ''}</Text>
+          </Pressable>
+
+          {/* "📍 לפי מרחק" - toggle בינארי בלבד (סעיף 3 בבקשה: אין טעם ב-dropdown "מיון" כשיש רק
+              אלטרנטיבה משמעותית אחת ל-recommended). אותו sortMode/setSortMode בדיוק, אותו
+              sortedActivities למטה - רק ה-UI-trigger פשוט משמעותית: לחיצה נוספת מחזירה
+              ל-'recommended' (טוגל, לא תפריט). */}
+          <Pressable
+            style={[styles.toolbarChip, sortMode === 'distance' && styles.toolbarChipPrimaryActive]}
+            onPress={() => setSortMode((m) => (m === 'distance' ? 'recommended' : 'distance'))}
+            accessibilityRole="button"
+            accessibilityState={{ selected: sortMode === 'distance' }}
+          >
+            <Text style={styles.toolbarChipIcon}>📍</Text>
+            <Text style={[styles.toolbarChipText, sortMode === 'distance' && styles.toolbarChipTextPrimary]} numberOfLines={1}>לפי מרחק</Text>
+          </Pressable>
+
+          {/* 🔎 חיפוש חופשי - גישה מהירה לאותו Smart Search Engine, פותח/סוגר inline מתחת ל-
+              toolbar, בלי ניווט למסך חדש - ראו handleFreeSearch/applyFreeSearchIntent למעלה. */}
+          <Pressable style={styles.toolbarChip} onPress={() => setFreeSearchOpen((v) => !v)} accessibilityRole="button">
+            <Text style={styles.toolbarChipIcon}>🔍</Text>
+            <Text style={styles.toolbarChipText} numberOfLines={1}>חיפוש</Text>
+          </Pressable>
+        </View>
+
+        {freeSearchOpen && (
+          <View style={styles.freeSearchBox}>
+            {/* הבהרת-מיקום (2026-09-16, בקשת המשתמש): במקום תיבת-עיר מקומית ("📍 באיזה אזור לחפש?"
+                + CityAutocomplete) נפתח *אותו* LocationQuickPicker כמו "איפה נח לכם?" בעמוד הבית
+                (ראו ה-Modal למטה ליד ה-gate, ו-handleClarifyPickerClose). כאן נשארת רק שורת-ההסבר,
+                שורת-החיפוש עצמה נשארת גלויה מתחתיה. */}
+            {freeSearchClarify ? (
+              <Text style={styles.freeSearchClarifyText}>{freeSearchClarify.message}</Text>
+            ) : null}
+            <View style={styles.freeSearchInputRow}>
                 <TextInput
                   style={styles.freeSearchInput}
                   placeholder='למשל: "משחקייה ליד הרצל בתל אביב מחר בבוקר"'
@@ -731,74 +719,39 @@ export default function ActivitiesScreen() {
                 >
                   {freeSearchLoading ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.freeSearchBtnText}>חיפוש</Text>}
                 </Pressable>
-              </View>
-            )}
+            </View>
             {freeSearchError ? <Text style={styles.freeSearchErrorText}>{freeSearchError}</Text> : null}
           </View>
         )}
 
-        <Pressable style={styles.advToggle} onPress={() => setSheetOpen((v) => !v)}>
-          <Text style={styles.advToggleIcon}>🎯</Text>
-          <Text style={styles.advToggleText}>סינון{activeCount > 0 ? ` · ${activeCount}` : ''}</Text>
-          <View style={{ transform: [{ rotate: sheetOpen ? '180deg' : '0deg' }] }}>
-            <ChevronDownIcon size={12} />
-          </View>
-        </Pressable>
-
-        {/* RESULT CONTROLS - "↕️ מיון" בצד ימין, "🚫 הסרה" (dropdown המאחד את שתי פעולות ההסרה
-            הקודמות) בצד שמאל, באותה שורה - לפי בקשת המשתמש. כפתור "⚡ פעילויות עכשיו" הוסר
-            מהמסך (לוגיקת הספונטני עצמה - toggleSpontaneous/spontaneousProximityScore/הדירוג -
-            נשארה בקוד בלי שינוי, פשוט אין עוד טריגר UI שמפעיל אותה מהמסך הזה). */}
-        <View style={styles.resultControlsRow}>
-          {!loading && !loadError && filteredActivities.length > 0 && (
-            <SortControl
-              sortMode={sortMode}
-              menuOpen={sortMenuOpen}
-              onToggleMenu={() => { setSortMenuOpen((v) => !v); setHideMenuOpen(false); }}
-              onSelect={(mode) => { setSortMode(mode); setSortMenuOpen(false); }}
-            />
-          )}
-
-          <View style={styles.hideMenuWrap}>
-            <Pressable
-              style={styles.hideMenuChip}
-              onPress={() => { setHideMenuOpen((v) => !v); setSortMenuOpen(false); }}
-              accessibilityRole="button"
-              accessibilityState={{ expanded: hideMenuOpen }}
-              accessibilityLabel={`הסרה מהחיפוש${hiddenAreaCount + hiddenCategoryCount > 0 ? `, ${hiddenAreaCount + hiddenCategoryCount} פעילים` : ''}`}
-            >
-              <Text style={styles.hideMenuChipIcon}>🚫</Text>
-              <Text style={styles.hideMenuChipText} numberOfLines={1}>
-                הסרה{hiddenAreaCount + hiddenCategoryCount > 0 ? ` · ${hiddenAreaCount + hiddenCategoryCount}` : ''}
-              </Text>
-              <View style={{ transform: [{ rotate: hideMenuOpen ? '180deg' : '0deg' }] }}>
-                <ChevronDownIcon size={11} />
-              </View>
-            </Pressable>
-            {hideMenuOpen && (
-              <View style={styles.hideMenu} accessibilityRole="menu">
-                <Pressable
-                  style={styles.hideMenuItem}
-                  onPress={() => { setHideMenuOpen(false); openHideCategoriesModal(); }}
-                  accessibilityRole="menuitem"
-                >
-                  <Text style={styles.hideMenuItemText}>
-                    {hiddenCategoryCount > 0 ? `🚫 ${hiddenCategoryCount} קטגוריות מוסתרות` : '🚫 הסר פעילויות מהחיפוש'}
-                  </Text>
-                </Pressable>
-                <Pressable
-                  style={styles.hideMenuItem}
-                  onPress={() => { setHideMenuOpen(false); openHideLocationsModal(); }}
-                  accessibilityRole="menuitem"
-                >
-                  <Text style={styles.hideMenuItemText}>
-                    {hiddenAreaCount > 0 ? `⛔ ${hiddenAreaCount} אזורים מוסתרים` : '⛔ הסר אזורים מהחיפוש'}
-                  </Text>
-                </Pressable>
-              </View>
-            )}
-          </View>
-        </View>
+        {/* ACTIVE FILTERS - הפכו ל"ילדים" חזותיים של "🎯 סינון" (סעיף 5-7 בבקשה), לא peers
+            נוספים של ה-toolbar: marginTop קטן מתחת ל-toolbar (צמוד ל-Filter) לעומת marginBottom
+            רגיל מתחתיהם (לפני התוצאות) - קירבה, לא קו-מחבר מצויר. הצ'יפים עצמם קטנים/עדינים
+            יותר מ-toolbar chips (activeChip: גובה/font נמוכים משמעותית מ-toolbarChip), אותו
+            גוון accentTintLight+accent-border כמו מצב-פעיל של Filter עצמו - שפה חזותית משותפת.
+            שורה אחת גוללת אופקית (לא flexWrap). קורסת לגמרי (לא מרונדרת) כשאין chips - סעיף 13:
+            "collapse completely", לא שורה ריקה/רווח נוסף. "⚡ עכשיו" (כשפעיל) הוא chip רגיל כאן
+            עכשיו, לא כפתור-toolbar קבוע - ראו displayChips למעלה. */}
+        {displayChips.length > 0 && (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.quickChipsRow}
+            contentContainerStyle={styles.quickChipsContent}
+          >
+            {displayChips.map((c) => (
+              <Pressable
+                key={c.key}
+                style={styles.activeChip}
+                onPress={() => (c.key === 'spontaneous' ? toggleSpontaneous() : setField(c.key, c.clear()))}
+              >
+                <Text style={styles.activeChipText} numberOfLines={1}>{c.label}</Text>
+                <Text style={styles.activeChipRemove}>✕</Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+        )}
+        {spontaneousError ? <Text style={styles.freeSearchErrorText}>{spontaneousError}</Text> : null}
 
         {/* 🚗 Smart Radius Expansion - חיווי משני, לא modal ולא warning (סעיף M בבקשה): מוצג רק
             כשבאמת הורחב הרדיוס (searchMetadata.radiusExpanded), נעלם לגמרי אם לא היה צורך. */}
@@ -873,28 +826,8 @@ export default function ActivitiesScreen() {
           </View>
         ) : (
           <>
-            {/* VIEW - רשימה/מפה כ-segmented control ויזואלי אחד (track יחיד עם border, כל
-                Pressable הוא "חצי" פנימי בלי מסגרת עצמאית) - אותו behavior/state בדיוק
-                (viewMode), רק restyling. */}
-            <View style={styles.viewToggleRow} accessibilityRole="tablist">
-              <Pressable
-                style={[styles.viewToggleBtn, viewMode === 'list' && styles.viewToggleBtnActive]}
-                onPress={() => setViewMode('list')}
-                accessibilityRole="tab"
-                accessibilityState={{ selected: viewMode === 'list' }}
-              >
-                <Text style={[styles.viewToggleText, viewMode === 'list' && styles.viewToggleTextActive]}>📋 רשימה</Text>
-              </Pressable>
-              <Pressable
-                style={[styles.viewToggleBtn, viewMode === 'map' && styles.viewToggleBtnActive]}
-                onPress={() => setViewMode('map')}
-                accessibilityRole="tab"
-                accessibilityState={{ selected: viewMode === 'map' }}
-              >
-                <Text style={[styles.viewToggleText, viewMode === 'map' && styles.viewToggleTextActive]}>🗺️ מפה</Text>
-              </Pressable>
-            </View>
-
+            {/* רשימה/מפה - הבחירה עצמה עברה לשורת ה-subtitle למעלה (ליד מספר התוצאות), כאן רק
+                המשך-הרינדור לפי viewMode - אותו state/behavior בדיוק. */}
             {viewMode === 'map' ? (
               <ActivitiesMap activities={sortedActivities} deviceCoords={deviceCoords} />
             ) : spontaneousActive && spontaneousOpenCount === 0 ? (
@@ -1112,6 +1045,16 @@ export default function ActivitiesScreen() {
         onClose={() => setGateLocationOpen(false)}
         deviceCoords={deviceCoords}
       />
+      {/* הבהרת-מיקום של החיפוש החופשי ("📍 באיזה אזור לחפש?" / "באיזו עיר?") - אותו רכיב בדיוק כמו
+          "איפה נח לכם?" בעמוד הבית, במקום תיבת-עיר מקומית (ראו handleClarifyPickerClose). */}
+      <LocationQuickPicker
+        visible={!!freeSearchClarify}
+        value={filters.location}
+        onChange={(v) => setField('location', v)}
+        onCoordsResolved={setDeviceCoords}
+        onClose={handleClarifyPickerClose}
+        deviceCoords={deviceCoords}
+      />
 
       {/* "סינון מתקדם" - נפתח כחלון צף (bottom sheet) מעל התוכן במקום להתרחב inline ולדחוף
           את התוצאות למטה. FiltersSheet עצמו (לוגיקה/עיצוב פנימי/כפתורים) לא השתנה בכלל -
@@ -1130,6 +1073,15 @@ export default function ActivitiesScreen() {
                 onChange={setField}
                 onClearAll={clearAll}
                 onCoordsResolved={setDeviceCoords}
+                deviceCoords={deviceCoords}
+                hiddenCategoryCount={hiddenCategoryCount}
+                hiddenAreaCount={hiddenAreaCount}
+                onOpenExcludeCategories={openHideCategoriesModal}
+                onOpenExcludeAreas={openHideLocationsModal}
+                spontaneousActive={spontaneousActive}
+                spontaneousLoading={spontaneousLoading}
+                spontaneousError={spontaneousError}
+                onToggleSpontaneous={toggleSpontaneous}
               />
             </ScrollView>
             {/* התוצאות כבר מתעדכנות בזמן-אמת מתחת (filteredActivities תלוי ב-filters), אז
@@ -1150,29 +1102,25 @@ export default function ActivitiesScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   content: { padding: spacing.xl, paddingBottom: 40 },
-  titleBlock: { marginTop: 24, marginBottom: 14 },
+  titleBlock: { marginTop: 24, marginBottom: 12 },
   pageTitle: { fontFamily: fonts.extraBold, fontSize: 19, color: colors.textPrimary, textAlign: 'right' },
-  pageSubtitle: { fontFamily: fonts.medium, fontSize: 12.5, color: colors.textSecondary, marginTop: 2, textAlign: 'right' },
+  // שורת subtitle+view-toggle - מספר התוצאות מימין (RTL), רשימה/מפה משמאל באותה שורה בדיוק
+  // (סעיף 12/13 בבקשה: "אל תיצור card גדול עבור summary", "הפוך אותם ל-view control קטן").
+  subtitleRow: { flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between', marginTop: 2, gap: 8 },
+  pageSubtitle: { fontFamily: fonts.medium, fontSize: 12.5, color: colors.textSecondary },
 
-  activeChipsRow: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
+  // מכוון קטן/עדין יותר מ-toolbarChip (גובה/ריפוד/font נמוכים משמעותית, minHeight:38 שם לעומת
+  // בלי minHeight כאן) - סעיף 9 בבקשה: ה-chips הם "ילדים" תת-הררכיים של Filter, לא עוד שורת
+  // כפתורים ראשיים. אותו גוון accentTintLight+accent-border כמו toolbarChipPrimaryActive -
+  // שפה חזותית משותפת עם Filter במקום עיצוב-ניטרלי נפרד.
   activeChip: {
-    flexDirection: 'row-reverse', alignItems: 'center', gap: 6,
+    flexDirection: 'row-reverse', alignItems: 'center', gap: 5,
     backgroundColor: colors.accentTintLight, borderWidth: 1, borderColor: colors.accent,
-    borderRadius: radii.pill, paddingVertical: 6, paddingHorizontal: 12,
+    borderRadius: radii.pill, paddingVertical: 5, paddingHorizontal: 11,
   },
-  activeChipText: { fontFamily: fonts.bold, fontSize: 12, color: colors.accent, maxWidth: 160 },
-  activeChipRemove: { fontFamily: fonts.bold, fontSize: 11, color: colors.accent },
+  activeChipText: { fontFamily: fonts.bold, fontSize: 11.5, color: colors.accent, maxWidth: 160 },
+  activeChipRemove: { fontFamily: fonts.bold, fontSize: 10.5, color: colors.accent },
 
-  // 🔎 חיפוש חופשי - כלי משני-אך-נגיש (סעיף 25 בבקשה: "כמו כלי ניווט, לא אזור עצמאי") - גוון
-  // ניטרלי (card/border/textSecondary) בכוונה, לא accent-כחול כמו "🎯 סינון" ממש מתחתיו, כדי
-  // שההיררכיה הוויזואלית תבדיל בין "כלי חיפוש נוסף" (עדין) ל"כלי הסינון המרכזי" (בולט יותר).
-  freeSearchToggle: {
-    flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'center', gap: 6,
-    borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card,
-    borderRadius: radii.pill, paddingVertical: 9, marginBottom: 8,
-  },
-  freeSearchToggleIcon: { fontSize: 13 },
-  freeSearchToggleText: { fontFamily: fonts.semiBold, fontSize: 13, color: colors.textSecondary },
   freeSearchBox: {
     backgroundColor: colors.card, borderWidth: 1, borderColor: colors.borderLight,
     borderRadius: radii.lg, padding: 12, marginBottom: 14,
@@ -1192,20 +1140,29 @@ const styles = StyleSheet.create({
   freeSearchClarifyText: { fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary, textAlign: 'right', marginBottom: 8 },
   freeSearchErrorText: { fontFamily: fonts.semiBold, fontSize: 11.5, color: colors.danger, textAlign: 'center', marginTop: 8 },
 
-  advToggle: {
-    flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'center', gap: 6,
-    borderWidth: 1.5, borderColor: colors.accent, backgroundColor: colors.accentTintLight,
-    borderRadius: radii.pill, paddingVertical: 10, marginBottom: 10,
+  // TOOLBAR - שלושה controls ראשיים בלבד (סינון/לפי מרחק/חיפוש) בשורה אחת קומפקטית. marginBottom
+  // מכוון קטן (6, לא 10) - כשיש active chips מתחת, המרחק ל-Filter נשאר צמוד יותר מהמרחק בין
+  // ה-chips לתוצאות (quickChipsRow.marginBottom) - קירבה מבטאת "שייכות", לא קו-מחבר מצויר
+  // (סעיף 7 בבקשה). כל chip flex:1 כדי שהשורה תישאר אחת גם ב-375px; "🎯 סינון" נשאר הבולט
+  // (accent) - הוא ה-parent-control המושגי.
+  toolbarRow: { flexDirection: 'row-reverse', gap: 8, marginBottom: 6, zIndex: 15 },
+  toolbarChip: {
+    flex: 1, flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'center', gap: 5,
+    borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card,
+    borderRadius: radii.pill, paddingVertical: 9, paddingHorizontal: 8, minHeight: 38,
   },
-  advToggleIcon: { fontSize: 14 },
-  advToggleText: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.accent },
+  toolbarChipPrimary: { borderColor: colors.border, backgroundColor: colors.card },
+  toolbarChipPrimaryActive: { borderWidth: 1.5, borderColor: colors.accent, backgroundColor: colors.accentTintLight },
+  toolbarChipIcon: { fontSize: 13 },
+  toolbarChipText: { fontFamily: fonts.semiBold, fontSize: 13, color: colors.textSecondary },
+  toolbarChipTextPrimary: { fontFamily: fonts.bold, fontSize: 13, color: colors.accent },
 
-  // RESULT CONTROLS - "↕️ מיון" בצד ימין, "🚫 הסרה" בצד שמאל, באותה שורה. flexWrap כדי שאם
-  // התוויות הארוכות לא נכנסות ברוחב-מסך צר מאוד, הן יורדות לשורה חדשה במקום overflow אופקי.
-  resultControlsRow: {
-    flexDirection: 'row-reverse', flexWrap: 'wrap', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8,
-    marginBottom: 10, zIndex: 15,
-  },
+  // שורת active filters - גלילה אופקית יחידה (לא flexWrap, סעיף 8 בבקשה: "אל תאפשר ל-active
+  // chips ליצור 2-3 שורות"). לא מרונדרת בכלל כשאין chips (ראו displayChips.length>0 ב-JSX) -
+  // סעיף 13: "collapse completely". negative margin מפצה על ה-padding האופקי של ה-ScrollView
+  // עצמו כדי שהצ'יפ הראשון/אחרון יישרו בדיוק עם שאר התוכן, לא "יזוזו" פנימה.
+  quickChipsRow: { marginHorizontal: -spacing.xl, marginBottom: 10 },
+  quickChipsContent: { flexDirection: 'row-reverse', gap: 8, paddingHorizontal: spacing.xl },
   spontaneousTopTitle: { fontFamily: fonts.extraBold, fontSize: 15, color: colors.textPrimary, textAlign: 'right', marginBottom: 10 },
   spontaneousSoonTitle: { fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary, textAlign: 'center', marginTop: 4, marginBottom: 14 },
   showMoreBtn: { alignItems: 'center', paddingVertical: 12, marginTop: 4 },
@@ -1227,31 +1184,6 @@ const styles = StyleSheet.create({
   },
   filterSheetSearchBtnText: { fontFamily: fonts.bold, fontSize: 15, color: '#fff' },
 
-  // כפתורי "🚫 הסר פעילויות" / "⛔ אזורים שלא להציג" - במכוון שקטים/משניים (טקסט בלבד, בלי
-  // מסגרת/רקע), בניגוד ל-advToggle הבולט למעלה - אלה פעולות מתקדמות, לא אמורות להתחרות עם
-  // "סינון מתקדם". שני הכפתורים באותה שורה כדי לא לתפוס עוד שורה אנכית מיותרת בעמוד.
-  // 🚫 "הסרה" - dropdown באותה משפחת-עיצוב בדיוק כמו sortChip/sortMenu (chip + תפריט-נפתח
-  // absolute) - ה-chip הזה יושב בצד שמאל של השורה (בקשת המשתמש), אז התפריט מוצמד ל-left:0
-  // (לא right:0 כמו sortMenu) כדי לא "לברוח" מקצה המסך.
-  hideMenuWrap: { position: 'relative', zIndex: 15, alignItems: 'flex-start' },
-  hideMenuChip: {
-    flexDirection: 'row-reverse', alignItems: 'center', gap: 6,
-    borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card,
-    borderRadius: radii.pill, paddingVertical: 8, paddingHorizontal: 14, minHeight: 36,
-  },
-  hideMenuChipIcon: { fontSize: 13 },
-  hideMenuChipText: { fontFamily: fonts.semiBold, fontSize: 13, color: colors.textSecondary },
-  hideMenu: {
-    position: 'absolute', top: '100%', left: 0, marginTop: 4, minWidth: 220,
-    backgroundColor: colors.card, borderRadius: radii.md, borderWidth: 1, borderColor: colors.border,
-    shadowColor: '#000', shadowOpacity: 0.12, shadowOffset: { width: 0, height: 4 }, shadowRadius: 10,
-    elevation: 6, overflow: 'hidden', zIndex: 15,
-  },
-  hideMenuItem: {
-    paddingVertical: 12, paddingHorizontal: 14, borderBottomWidth: 1, borderBottomColor: colors.borderLight, minHeight: 44, justifyContent: 'center',
-  },
-  hideMenuItemText: { fontFamily: fonts.semiBold, fontSize: 13.5, color: colors.textPrimary, textAlign: 'right' },
-
   hideFooterRow: { flexDirection: 'row-reverse', alignItems: 'center', gap: 8, marginTop: 16 },
   hideFooterText: { fontFamily: fonts.semiBold, fontSize: 13, color: colors.textPrimary },
   hideFooterHint: { fontFamily: fonts.regular, fontSize: 11.5, color: colors.textMuted, textAlign: 'right', marginTop: 4 },
@@ -1261,43 +1193,17 @@ const styles = StyleSheet.create({
   toggleDotSmall: { width: 18, height: 18, borderRadius: 9, backgroundColor: '#fff', marginHorizontal: 2 },
   toggleDotOffSmall: {},
 
-  // ↕️ מיון - chip יחיד לא-נמתח (בניגוד ל-viewToggleBtn למטה, שם flex:1) כדי לא "להתחרות" עם
-  // כפתורי רשימה/מפה מתחתיו - שורה נפרדת משלו, לא נדחס לאותה שורה (בקשת המשתמש: לא ליצור שורה
-  // אופקית עמוסה ב-375px). zIndex גבוה כדי שהתפריט-הנפתח יופיע מעל viewToggleRow/כרטיסי-הפעילות
-  // שמתחתיו, אותו עיקרון כמו CityAutocomplete הקיים.
-  sortWrap: { position: 'relative', zIndex: 15, alignItems: 'flex-start' },
-  sortChip: {
-    flexDirection: 'row-reverse', alignItems: 'center', gap: 6,
-    borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card,
-    borderRadius: radii.pill, paddingVertical: 8, paddingHorizontal: 14, minHeight: 36,
-  },
-  sortChipIcon: { fontSize: 13 },
-  sortChipText: { fontFamily: fonts.semiBold, fontSize: 13, color: colors.textSecondary },
-  sortMenu: {
-    position: 'absolute', top: '100%', right: 0, marginTop: 4, minWidth: 190,
-    backgroundColor: colors.card, borderRadius: radii.md, borderWidth: 1, borderColor: colors.border,
-    shadowColor: '#000', shadowOpacity: 0.12, shadowOffset: { width: 0, height: 4 }, shadowRadius: 10,
-    elevation: 6, overflow: 'hidden', zIndex: 15,
-  },
-  sortMenuItem: {
-    flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between',
-    paddingVertical: 12, paddingHorizontal: 14, borderBottomWidth: 1, borderBottomColor: colors.borderLight, minHeight: 44,
-  },
-  sortMenuItemSelected: { backgroundColor: colors.accentTintLight },
-  sortMenuItemText: { fontFamily: fonts.semiBold, fontSize: 13.5, color: colors.textPrimary },
-  sortMenuItemTextSelected: { color: colors.accent, fontFamily: fonts.bold },
-  sortMenuItemCheck: { fontFamily: fonts.bold, fontSize: 13, color: colors.accent },
-
-  // רשימה/מפה - segmented control ויזואלי אחד: track יחיד עם מסגרת+padding, וכל "חצי" פנימי
-  // בלי מסגרת עצמאית משלו (בניגוד לשני כפתורי-pill נפרדים כמו קודם).
-  viewToggleRow: {
-    flexDirection: 'row-reverse', gap: 4, marginBottom: 12, padding: 4,
+  // רשימה/מפה - segmented control קטן, יושב עכשיו בשורת ה-subtitle ליד מספר התוצאות (לא עוד
+  // שורה מלאה משלו, סעיף 13 בבקשה: "הפוך אותם ל-view control קטן"). אותו track+"חצי"-פנימי-
+  // בלי-מסגרת-עצמאית כמו קודם, רק במידות קומפקטיות יותר.
+  viewToggleRowCompact: {
+    flexDirection: 'row-reverse', gap: 2, padding: 2,
     borderRadius: radii.pill, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card,
   },
-  viewToggleBtn: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: radii.pill },
-  viewToggleBtnActive: { backgroundColor: colors.accent },
-  viewToggleText: { fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary },
-  viewToggleTextActive: { color: '#fff' },
+  viewToggleBtnCompact: { alignItems: 'center', paddingVertical: 5, paddingHorizontal: 10, borderRadius: radii.pill },
+  viewToggleBtnCompactActive: { backgroundColor: colors.accent },
+  viewToggleTextCompact: { fontFamily: fonts.bold, fontSize: 11.5, color: colors.textSecondary },
+  viewToggleTextCompactActive: { color: '#fff' },
 
   radiusExpandedBanner: {
     backgroundColor: colors.accentTintLight, borderRadius: radii.md, paddingVertical: 9, paddingHorizontal: 14, marginBottom: 12,

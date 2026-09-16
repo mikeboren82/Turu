@@ -29,6 +29,10 @@ const normalizeDrivingMinutes = (minutes) => (DRIVING_TIME_OPTIONS.includes(minu
 
 export function locationSummary(location) {
   if (!location) return 'באזור שלי';
+  // 'nationwide' - בלי הגבלה גאוגרפית (ראו matchesLocation ב-lib/filterActivities.js). שם-עצם
+  // ("כל הארץ", לא "בכל הארץ") כי הקוראים מוסיפים בעצמם מילת-יחס/אייקון: כותרת התוצאות
+  // "פעילויות ב{summary}", צ'יפ "📍 {summary}" (app/activities.js).
+  if (location.mode === 'nationwide') return 'כל הארץ';
   if (location.travelMode === 'walking') {
     if (location.mode === 'current') return 'במרחק הליכה ממני';
     if (location.mode === 'address') return `במרחק הליכה מ${location.addressLabel || location.city || ''}`.trim();
@@ -60,7 +64,8 @@ export function locationSummary(location) {
 // ידע להציג אותו מזמן, רק אף UI כאן לא איפשר לבחור אותו.
 function isValidLocation(loc) {
   return loc.mode === 'current' || (loc.mode === 'city' && !!(loc.city || '').trim())
-    || (loc.mode === 'address' && !!loc.coords) || (loc.mode === 'region' && !!(loc.region || []).length);
+    || (loc.mode === 'address' && !!loc.coords) || (loc.mode === 'region' && !!(loc.region || []).length)
+    || loc.mode === 'nationwide';
 }
 
 // "precise" (למטרת 🚶 הליכה בלבד) - חמור יותר מ-isValidLocation: city-mode תקין-לחיפוש-רגיל
@@ -110,6 +115,10 @@ export default function LocationQuickPicker({ visible, value, onChange, onCoords
   const commitLocation = (next) => {
     animate();
     let out = next;
+    // 'nationwide' - אין מרחק להגדיר בכלל (אין נקודת-מוצא), אז לא נוגעים ב-travelMode: לא מגדירים
+    // ברירת-מחדל של נסיעה, ולא "מתקנים" הליכה. travelMode נשאר undefined כדי שמעבר עתידי לעיר/GPS
+    // יקבל שוב את ברירת-המחדל הרגילה (נסיעה 15) בדיוק כמו בפעם הראשונה.
+    if (out.mode === 'nationwide') { onChange(out); return; }
     if (isValidLocation(out)) {
       if (out.travelMode === 'walking' && !isPreciseLocation(out, deviceCoords)) {
         out = locationWithDrivingTime(out, normalizeDrivingMinutes(out.travelMinutes));
@@ -141,10 +150,29 @@ export default function LocationQuickPicker({ visible, value, onChange, onCoords
   // אזור מבטלת את הבחירה (toggle), כמו הצ'יפים המקבילים ב-FiltersSheet. עיר ואזור הם מקורות-חיפוש
   // חלופיים, לא משלימים - בחירת אזור מנקה עיר שהוקלדה קודם (ולהפך, בשדה העיר למטה), כדי שלא יהיו
   // שני מקורות "פעילים" בו-זמנית שסותרים זה את זה.
+  // מודל הנתונים: location.region הוא *מערך* (matchesLocation ב-lib/filterActivities.js מסנן לפי
+  // region.includes(activity.region)), והוא נשאר מערך בכוונה - ה-UI כאן בוחר אזור יחיד (עקביות עם
+  // עמוד הבית), אבל הייצוג תומך כבר היום ב-OR גאוגרפי (למשל "חיפה או אילת") לקראת Unified Search
+  // Intent עתידי: מצב שמור עם כמה אזורים (למשל default_home_filters ישן) מוצג כאן נאמנה (כל הצ'יפים
+  // מודגשים, התווית מציגה את כולם) ולא נחתך - רק לחיצה מפורשת של המשתמש מחליפה אותו באזור יחיד.
+  // כדי לאפשר בעתיד בחירה מרובה ב-UI מספיק לשנות את השורה שבונה `region` למטה ל-toggle-במערך
+  // (כמו ChipsGrid ב-FiltersSheet) - בלי שינוי בסכמה, ב-matchesLocation או ב-locationSummary.
   const selectRegion = (id) => {
     animate();
-    const isSame = value.mode === 'region' && value.region?.[0] === id;
+    const isSame = value.mode === 'region' && (value.region || []).length === 1 && value.region[0] === id;
     commitLocation({ ...value, mode: isSame ? null : 'region', region: isSame ? [] : [id], city: '' });
+    setRegionOpen(false);
+  };
+
+  // "בכל הארץ" (2026-09-16) - בחירה מפורשת בלי שום הגבלה גאוגרפית (mode:'nationwide', ראו
+  // matchesLocation/locationSummary). מנקה עיר/אזור/קואורדינטות/רדיוס ומשמיט travelMode (לא null -
+  // ראו commitLocation), כדי שהמצב יהיה חד-משמעי: לא "לא נבחר" (mode:null) ולא "מיקום נכשל".
+  // לחיצה חוזרת מבטלת (toggle) בחזרה ל"לא נבחר", כמו צ'יפ-אזור.
+  const selectNationwide = () => {
+    animate();
+    if (value.mode === 'nationwide') { onChange({ ...value, mode: null }); return; }
+    const { travelMode: _travelMode, ...rest } = value;
+    commitLocation({ ...rest, mode: 'nationwide', city: '', region: [], coords: null, addressLabel: null, radiusKm: null });
     setRegionOpen(false);
   };
 
@@ -153,7 +181,11 @@ export default function LocationQuickPicker({ visible, value, onChange, onCoords
   // "השתמשו במיקום שלי" שהניבה קואורדינטות אמיתיות, לא במצב 'address' שמגיע מ"חיפוש חכם".
   const locationConfirmed = value.mode === 'current' && !!deviceCoords;
   const travelMode = value.travelMode;
-  const selectedRegionLabel = value.mode === 'region' ? REGION_OPTIONS.find((r) => r.id === value.region?.[0])?.label : null;
+  // כל האזורים שנבחרו (בדרך כלל אחד; מצב שמור מרובה-אזורים מוצג במלואו, ראו selectRegion)
+  const selectedRegionLabel = value.mode === 'region' && (value.region || []).length
+    ? value.region.map((id) => REGION_OPTIONS.find((r) => r.id === id)?.label || id).join(', ')
+    : null;
+  const nationwideSelected = value.mode === 'nationwide';
 
   const selectWalking = () => {
     if (!precise) return;
@@ -170,8 +202,17 @@ export default function LocationQuickPicker({ visible, value, onChange, onCoords
     onChange(locationWithDrivingTime(value, normalizeDrivingMinutes(value.travelMinutes)));
   };
 
+  // לחיצה על צ'יפ-דקות שכבר נבחר מבטלת רק אותו (בקשת המשתמש: "הכל צריך להישאר אותו דבר, רק
+  // לחיצה על כפתור שנבחר מבטלת את הבחירה של אותו הכפתור בלבד") - travelMode נשאר 'driving' (השורה
+  // "בנסיעה" נשארת פתוחה/מסומנת בדיוק כמו שהייתה, לא קורסת ל"לא משנה לי המרחק"), רק travelMinutes
+  // מתאפס ל-null כדי שאף צ'יפ לא יישאר מסומן. לא משפיע על החיפוש בפועל - travelMinutes הוא
+  // display-only (ראו ההערה למעלה ליד DEFAULT_PRECISE_RADIUS_KM), radiusKm לא תלוי בו.
   const selectDrivingMinutes = (minutes) => {
     animate();
+    if (travelMode === 'driving' && value.travelMinutes === minutes) {
+      onChange({ ...value, travelMinutes: null });
+      return;
+    }
     onChange(locationWithDrivingTime(value, minutes));
   };
 
@@ -190,9 +231,15 @@ export default function LocationQuickPicker({ visible, value, onChange, onCoords
           <Text style={styles.title}>איפה נוח לכם? 📍</Text>
           <Text style={styles.subtitle}>נמצא פעילויות באזור שמתאים לכם</Text>
 
-          <Pressable style={[styles.modeBtn, locationConfirmed && styles.modeBtnActive]} onPress={useCurrentLocation} disabled={busy}>
-            <LocationPinIcon size={14} color={locationConfirmed ? colors.accent : colors.textSecondary} />
-            <Text style={[styles.modeBtnText, locationConfirmed && styles.modeBtnTextActive]}>
+          {/* "השתמשו במיקום שלי" - בולט מעט יותר משאר הכפתורים בחלון הזה כברירת מחדל (2026-09-16,
+              בקשת המשתמש: "צריך להישאר כמו שהוא רק להיות קצת יותר בולט") - modeBtnPrimary מוסיף
+              רק border מודגש (accent, עבה יותר) מעל modeBtn הרגיל, בלי לגעת ב-padding/layout/
+              טקסט. לא נוגע ב-modeBtnActive (מצב "נבחר בפועל") שנשאר ברור/שונה - accent+borderWidth
+              בלבד כאן, לא accentTintLight - כדי ששני המצבים (בולט-כברירת-מחדל / נבחר-בפועל)
+              יישארו מובחנים אחד מהשני. */}
+          <Pressable style={[styles.modeBtn, styles.modeBtnPrimary, locationConfirmed && styles.modeBtnActive]} onPress={useCurrentLocation} disabled={busy}>
+            <LocationPinIcon size={14} color={colors.accent} />
+            <Text style={[styles.modeBtnText, styles.modeBtnTextPrimary, locationConfirmed && styles.modeBtnTextActive]}>
               {busy ? 'מאתר...' : locationConfirmed ? 'המיקום שלכם נבחר ✓' : 'השתמשו במיקום שלי'}
             </Text>
           </Pressable>
@@ -219,7 +266,7 @@ export default function LocationQuickPicker({ visible, value, onChange, onCoords
           {regionOpen && (
             <View style={styles.regionChipsWrap}>
               {REGION_OPTIONS.map((r) => {
-                const selected = value.mode === 'region' && value.region?.[0] === r.id;
+                const selected = value.mode === 'region' && (value.region || []).includes(r.id);
                 return (
                   <Pressable key={r.id} onPress={() => selectRegion(r.id)} style={[styles.regionChip, selected && styles.regionChipSelected]}>
                     <Text style={[styles.regionChipText, selected && styles.regionChipTextSelected]}>{r.label}</Text>
@@ -229,7 +276,24 @@ export default function LocationQuickPicker({ visible, value, onChange, onCoords
             </View>
           )}
 
-          {locationValid ? (
+          {/* "בכל הארץ" - אפשרות רביעית לצד מיקום-נוכחי/עיר/אזור: בלי הגבלה גאוגרפית בכלל (ראו
+              selectNationwide). אותה שפה חזותית כמו "השתמשו במיקום שלי" (modeBtn), לא כפתור-CTA. */}
+          <View style={styles.nationwideWrap}>
+            <Pressable
+              style={[styles.modeBtn, nationwideSelected && styles.modeBtnActive]}
+              onPress={selectNationwide}
+              accessibilityRole="button"
+              accessibilityState={{ selected: nationwideSelected }}
+              accessibilityLabel="בכל הארץ - כל הפעילויות בלי סינון לפי מיקום"
+            >
+              <Text style={[styles.modeBtnText, nationwideSelected && styles.modeBtnTextActive]}>
+                {nationwideSelected ? 'בכל הארץ ✓' : 'בכל הארץ'}
+              </Text>
+            </Pressable>
+          </View>
+
+          {/* סעיף המרחק לא רלוונטי ל'nationwide' - אין נקודת-מוצא למדוד ממנה. */}
+          {locationValid && !nationwideSelected ? (
             <View style={styles.travelSection}>
               <Text style={styles.travelTitle}>כמה רחוק מתאים לכם?</Text>
 
@@ -289,7 +353,14 @@ const styles = StyleSheet.create({
     borderWidth: 1.5, borderColor: colors.border, borderRadius: radii.pill, paddingVertical: 12,
   },
   modeBtnActive: { borderColor: colors.accent, backgroundColor: colors.accentTintLight },
+  // מעט יותר בולט מברירת-המחדל של שאר כפתורי modeBtn בחלון (border עבה+צבוע), בלי רקע-tint -
+  // ה-tint נשאר שמור למצב "נבחר בפועל" (modeBtnActive) כדי ששני המצבים יישארו מובחנים.
+  // 'rgba' עם alpha נמוך (לא colors.accentTintLight - זה שמור למצב "נבחר בפועל" ב-modeBtnActive)
+  // כדי שיישאר "קצת צבע, לא הרבה" (בקשת המשתמש) בברירת המחדל, ועדיין תישאר הדרגה ברורה כשעוברים
+  // בפועל למצב-נבחר (accentTintLight רווי יותר מה-wash העדין הזה).
+  modeBtnPrimary: { borderColor: colors.accent, borderWidth: 2, backgroundColor: 'rgba(0, 117, 152, 0.06)' },
   modeBtnText: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.textSecondary },
+  modeBtnTextPrimary: { color: colors.accent },
   modeBtnTextActive: { color: colors.accent },
   orText: { fontFamily: fonts.semiBold, fontSize: 12, color: colors.textMuted, textAlign: 'center', marginVertical: 8 },
   cityLabel: { fontFamily: fonts.bold, fontSize: 12, color: colors.textSecondary, textAlign: 'right', marginBottom: 6 },
@@ -344,6 +415,8 @@ const styles = StyleSheet.create({
   anyRowSelected: { borderColor: colors.accent, backgroundColor: colors.accentTintLight },
   anyRowText: { fontFamily: fonts.semiBold, fontSize: 12.5, color: colors.textSecondary },
   anyRowTextSelected: { color: colors.accent, fontFamily: fonts.bold },
+
+  nationwideWrap: { marginTop: 10 },
 
   doneBtn: { marginTop: 16, backgroundColor: colors.accent, borderRadius: radii.pill, paddingVertical: 13, alignItems: 'center' },
   doneBtnDisabled: { opacity: 0.4 },

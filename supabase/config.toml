@@ -1,0 +1,10 @@
+project_id = "kkvgzubwsjsbqxzjejcs"
+
+[functions.scan-source]
+verify_jwt = true
+
+[functions.smart-search]
+verify_jwt = true
+
+[functions.extract-activity]
+verify_jwt = true

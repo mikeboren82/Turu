@@ -294,7 +294,11 @@ export function assessChildRelevance(candidate: { audience?: unknown; name?: unk
   const text = `${candidate.name ?? ''} ${candidate.description ?? ''}`.toLowerCase();
   const explicitChildAge = hasExplicitChildAge(text) || (typeof candidate.max_age === 'number' && candidate.max_age <= 12);
   const hasChild = CHILD_MARKERS.some((m) => text.includes(m.toLowerCase())) || (typeof candidate.max_age === 'number' && candidate.max_age <= 18) || (typeof candidate.min_age === 'number' && candidate.min_age <= 12) || explicitChildAge;
-  const hasAdult = ADULT_MARKERS.some((m) => text.includes(m.toLowerCase()));
+  // an explicit min_age>=18 is adult evidence on its own, independent of marker text - closes a gap
+  // exposed by escape rooms (many operators run an explicit 18+ room alongside kid-friendly ones with
+  // no adult-marker phrase in the title/description, and the model's own `audience` label can still say
+  // "family"/"children" for the venue page as a whole). Generic, not escape-room-specific.
+  const hasAdult = ADULT_MARKERS.some((m) => text.includes(m.toLowerCase())) || (typeof candidate.min_age === 'number' && candidate.min_age >= 18);
   // an "adults" label contradicted by an explicit child age is reviewable, never silently dropped
   if (candidate.audience === 'adults') return explicitChildAge ? 'review' : 'reject';
   if (hasAdult && !hasChild) return 'reject';

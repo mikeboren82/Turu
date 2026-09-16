@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, ActivityIndic
 import { useRouter } from 'expo-router';
 import * as Location from 'expo-location';
 import Header from '../components/Header';
+import SkyBackground from '../components/SkyBackground';
 import LoginRequiredModal from '../components/LoginRequiredModal';
 import QuickPicker from '../components/QuickPicker';
 import { colors, fonts, radii, spacing } from '../constants/theme';
@@ -181,6 +182,7 @@ export default function AddActivityScreen() {
   if (submitResult) {
     return (
       <View style={styles.screen}>
+        <SkyBackground />
         <View style={styles.content}>
           <Header showBack onMenuPress={() => {}} />
           <View style={styles.doneWrap}>
@@ -207,6 +209,7 @@ export default function AddActivityScreen() {
 
   return (
     <View style={styles.screen}>
+      <SkyBackground />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Header showBack onMenuPress={() => {}} />
         <Text style={styles.pageTitle}>הוספת פעילות</Text>

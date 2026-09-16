@@ -17,6 +17,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 import Anthropic from 'npm:@anthropic-ai/sdk@0.32';
 import { CATEGORY_VALUES, ARCHIVE_CATEGORIES, REGION_VALUES } from '../_shared/extraction.ts';
 import { geocodeAddress } from '../_shared/geocoding.ts';
+import { matchRegionAlias } from '../_shared/regionAliases.ts';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -62,6 +63,7 @@ function buildSystemPrompt(todayISO: string, todayHebrewDay: string): string {
   - city: שם עיר/יישוב מפורש שהוזכר (למשל "תל אביב"), אחרת null
   - street: שם רחוב אם הוזכר (בלי "רחוב"/"ברחוב", רק השם עצמו, למשל "הרצל"), אחרת null
   - region: אם הוזכר אזור רחב (לא עיר ספציפית) שמתאים בדיוק לאחד מהערכים הבאים, אחרת null: ${JSON.stringify(REGION_VALUES)}
+    חשוב: המשתמש כותב אזורים בקיצור/בדיבור - החזר תמיד את הערך הקנוני המדויק מהרשימה, לא את מה שנכתב. למשל: "בשרון"/"אזור השרון" → "השרון"; "גוש דן"/"במרכז"/"מרכז הארץ" → "גוש דן והמרכז"; "בצפון"/"בגליל"/"בגולן" → "הצפון והגליל"; "בדרום"/"בנגב"/"בערבה" → "הדרום והנגב"; "בשפלה" → "השפלה"; "בעמקים"/"עמק יזרעאל" → "עמק יזרעאל והעמקים"; "בקריות"/"אזור חיפה" → "חיפה והקריות"; "אזור ירושלים" → "ירושלים והסביבה"; "ביו״ש"/"בשומרון"/"בבנימין" → "יו\\"ש והבנימין". שם עיר לבדה (חיפה, ירושלים, נתניה) הוא city, לא region.
   - relation: "exact" אם המשתמש התכוון לרחוב עצמו (למשל "ברחוב הרצל"), "nearby" אם התכוון לאזור מסביב (למשל "ליד רחוב הרצל", "באזור הרצל"), אחרת null. רלוונטי רק כש-street לא null.
 - date_label: בדיוק אחד מהערכים הבאים לפי מה שהמשתמש התכוון, אחרת null:
   "today" (היום/עכשיו) | "tomorrow" (מחר) | "day_after_tomorrow" (מחרתיים/בעוד יומיים) | "this_sunday"/"this_monday"/"this_tuesday"/"this_wednesday"/"this_thursday"/"this_friday"/"this_saturday" (המשתמש ציין יום בשבוע מפורש - "ביום שלישי", "שישי", "השבת הקרובה" - תמיד היום הקרוב הבא מהיום) | "weekend" (סוף השבוע, בלי יום ספציפי) | "this_week" (השבוע) | "in_days" (ביטוי כמו "בעוד 3 ימים" - גם למלא days_offset) | "specific_date" (המשתמש נתן תאריך מפורש כמו "ב-15 לחודש" - גם למלא explicit_date)
@@ -237,6 +239,15 @@ Deno.serve(async (req: Request) => {
       });
       const raw = message.content.map((b) => (b.type === 'text' ? b.text : '')).join('');
       parsed = sanitizeIntent(parseJsonObject(raw));
+      // רשת-ביטחון דטרמיניסטית (ראו _shared/regionAliases.ts): המודל התבקש להחזיר ערך קנוני מדויק
+      // מ-REGION_VALUES, ו-sanitizeIntent מוחק בשקט כל דבר אחר - כך "פינות חי בשרון" יכול היה לצאת
+      // בלי שום מיקום. רק כשאין גם עיר וגם אזור מנסים למפות כינוי מוכר ("בשרון", "גוש דן", "ביו״ש")
+      // מהטקסט הגולמי לערך הקנוני. מוגבל בכוונה (התאמת-מילה-שלמה, לא substring; מונחי-כיוון קצרים
+      // רק בסוף השאילתה; שני אזורים שונים → null) - אזור שגוי גרוע יותר מהיעדר אזור.
+      if (!parsed.location.city && !parsed.location.region) {
+        const alias = matchRegionAlias(query);
+        if (alias) parsed = { ...parsed, location: { ...parsed.location, region: alias, regionSource: 'alias' } };
+      }
     }
 
     const { whenOption, resolvedDate } = resolveDateLabel(parsed.dateLabel, parsed.daysOffset, parsed.explicitDate, todayISO);
@@ -267,6 +278,9 @@ Deno.serve(async (req: Request) => {
         city: parsed.location.city, region: parsed.location.region,
         street: parsed.location.street, relation: parsed.location.relation,
         coords, geocodeFailed: geocodeAttempted && !coords,
+        // 'alias' כשהאזור הגיע מה-fallback הדטרמיניסטי ולא מהמודל (נשמר ב-smart_search_logs.parsed_intent
+        // למדידה של כמה שאילתות המודל פספס) - הקליינט (lib/smartSearch.js) מתעלם מהשדה.
+        regionSource: parsed.location.regionSource ?? null,
       },
       when: { option: whenOption, date: resolvedDate },
       timeRange: parsed.timeRange,

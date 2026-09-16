@@ -26,6 +26,7 @@ const DIRECT_MAP: Record<string, PlaceholderGroup> = {
   'פעילות קהילתית': 'CULTURE_CREATIVITY',
 
   'ספורט': 'SPORTS_ADVENTURE', 'בריכה': 'SPORTS_ADVENTURE', 'פעילות מים': 'SPORTS_ADVENTURE',
+  'חדרי בריחה': 'SPORTS_ADVENTURE',
 };
 
 // קטגוריות כלליות-מדי לסיווג ישיר - נדרש ניתוח name+description (ראו שכבה 2).
