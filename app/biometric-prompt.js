@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ActivityIndicator, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as LocalAuthentication from 'expo-local-authentication';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Header from '../components/Header';
+import SkyBackground from '../components/SkyBackground';
 import { FingerprintIcon, PinIcon } from '../components/icons';
 import { colors, fonts, radii, spacing } from '../constants/theme';
 
@@ -51,6 +52,7 @@ export default function BiometricPromptScreen() {
 
   return (
     <View style={styles.screen}>
+      <SkyBackground />
       <View style={styles.content}>
         <Header onMenuPress={() => {}} />
 
@@ -82,7 +84,12 @@ export default function BiometricPromptScreen() {
                 </Pressable>
               )}
               {!biometricAvailable && (
-                <Text style={styles.noHardwareText}>המכשיר הזה לא תומך בזיהוי ביומטרי, אבל אפשר להגדיר קוד PIN</Text>
+                <Text style={styles.noHardwareText}>
+                  {/* expo-local-authentication לא נתמך בדפדפן - hasHardwareAsync תמיד false שם, גם בטלפון עם טביעת אצבע */}
+                  {Platform.OS === 'web'
+                    ? 'טביעת אצבע וזיהוי פנים זמינים באפליקציה המותקנת. בדפדפן אפשר להגדיר קוד PIN'
+                    : 'המכשיר הזה לא תומך בזיהוי ביומטרי, אבל אפשר להגדיר קוד PIN'}
+                </Text>
               )}
               <Pressable style={styles.pinBtn} onPress={handleUsePinInstead}>
                 <PinIcon size={17} />

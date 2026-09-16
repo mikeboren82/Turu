@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TextInput, Pressable, ActivityIndicator } from 
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Header from '../components/Header';
+import SkyBackground from '../components/SkyBackground';
 import { colors, fonts, radii, spacing } from '../constants/theme';
 import { supabase } from '../lib/supabase';
 import { enforceNotBanned } from '../lib/checkBanned';
@@ -47,6 +48,7 @@ export default function AdminLoginScreen() {
 
   return (
     <View style={styles.screen}>
+      <SkyBackground />
       <View style={styles.content}>
         <Header showBack onMenuPress={() => {}} />
 

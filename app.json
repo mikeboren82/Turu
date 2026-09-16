@@ -23,7 +23,7 @@
       "package": "com.turu.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#c2ecfe"
       },
       "edgeToEdgeEnabled": true,
       "permissions": [

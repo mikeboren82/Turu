@@ -877,6 +877,21 @@ export default function HomeScreen() {
     });
   };
 
+  // "⚡ עכשיו" (בקשת המשתמש 2026-09-16): הטריגר עבר לכאן ממסך התוצאות, למשתמשים מחוברים
+  // בלבד (ראו הקישור המותנה ב-userId למטה) - הלוגיקה עצמה (GPS/הרשאה/דירוג) לא זזה בכלל,
+  // עדיין גרה במלואה ב-app/activities.js (toggleSpontaneous) ומופעלת שם דרך route param
+  // spontaneous=true, אותו דפוס param בדיוק כמו openFilters/view למעלה.
+  const handleSpontaneous = () => {
+    router.push({
+      pathname: '/activities',
+      params: {
+        homeFilters: JSON.stringify(filters),
+        homeCoords: deviceCoords ? JSON.stringify(deviceCoords) : '',
+        spontaneous: 'true',
+      },
+    });
+  };
+
   // "מה עוד מעניין אתכם?" (discovery shortcuts) - SEE→TAP→RESULTS: אותו מנגנון ניווט/מסך-תוצאות
   // בדיוק כמו handleAdvancedFilters/handleGo למעלה (homeFilters+homeCoords ל-/activities), לא
   // search engine נפרד. location (אם ידוע) עובר יחד עם הקטגוריה - Smart Radius Expansion הקיים
@@ -1285,13 +1300,22 @@ export default function HomeScreen() {
             </Text>
           </Pressable>
         ) : null}
+        {/* "⚡ עכשיו" (בקשת המשתמש 2026-09-16) - חזר לעמוד הבית, למשתמשים מחוברים בלבד, כקישור
+            שקט באותה משפחה חזותית בדיוק כמו "⭐ שמור ברירת מחדל" מעלינו - לא כפתור נפרד/כבד
+            יותר. handleSpontaneous בלבד; ה-GPS/הרשאה/דירוג עצמם עדיין ב-app/activities.js. */}
+        {userId ? (
+          <Pressable style={styles.saveDefaultLink} onPress={handleSpontaneous} hitSlop={8}>
+            <Text style={styles.saveDefaultText}>⚡ מה פתוח עכשיו לידי?</Text>
+          </Pressable>
+        ) : null}
         {defaultNotice ? <Text style={styles.defaultNoticeText}>{defaultNotice}</Text> : null}
 
         {/* "🎯 סינון מתקדם" הוסר מעמוד הבית (בקשת המשתמש - simplification: עמוד הבית = מתחילים
             חיפוש, עמוד התוצאות = מדייקים). handleAdvancedFilters עצמו נשאר בקוד בלי שינוי -
             עדיין משמש את הקישורים ב-visibleHomeFilters למעלה (פילטרים שהמשתמש עצמו בחר להציג
-            בעמוד הבית, פיצ'ר נפרד). "🪄 ספונטני" עבר בפועל לעמוד התוצאות (app/activities.js) -
-            לא רק "מוכן לעתיד" יותר, אלא כבר שם. הציטוט התדמיתי עבר ל"עלינו" (app/about.js) -
+            בעמוד הבית, פיצ'ר נפרד). "🪄 ספונטני" חזר לעמוד הבית (2026-09-16, למשתמשים מחוברים
+            בלבד - ראו handleSpontaneous/הקישור מעלינו) אחרי שקודם לכן עבר לעמוד התוצאות; הלוגיקה
+            עצמה נשארה שם, רק הכניסה אליה זזה. הציטוט התדמיתי עבר ל"עלינו" (app/about.js) -
             עמוד הבית ממוקד בפעולה, לא בסיפור המותג. */}
 
         {/* ✨ המלצות מותאמות - קרוסלה אופקית: כרטיס גדול + "הצצה" לכרטיס הבא, לא גריד. section
@@ -1422,7 +1446,9 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
-  content: { padding: spacing.xl, paddingBottom: 40 },
+  // paddingBottom:0 - איור הדשא (GrassFooter) הוא האלמנט האחרון והוא צריך להיגמר בדיוק מעל
+  // סרגל-הניווט התחתון, בלי רצועה ריקה מתחתיו.
+  content: { padding: spacing.xl, paddingBottom: 0 },
   sunMascot: {
     // 'fixed' בווב: הדף עצמו גולל (לא ה-ScrollView הפנימי בלבד), אז 'absolute' רגיל היה נגרר
     // עם התוכן במקום להישאר צמוד לפינת המסך. ב-native ה-ScrollView כן קוצץ את עצמו כראוי,
@@ -1448,7 +1474,10 @@ const styles = StyleSheet.create({
   // sectionTitle משתמשים ב-bold+גודל גדול יותר בכוונה, כדי שההבדל יהיה ברור). הטקסט עצמו "או"
   // בלבד (לא "או בחרו") - כותרת-המשנה מעל "לאן קופצים היום?" כבר אומרת "...או בחרו מה מתאים
   // לכם", אין טעם לחזור על "בחרו" פעמיים.
-  searchOrDivider: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 14, marginBottom: 12 },
+  // marginTop/marginBottom שווים בכוונה (בקשת המשתמש 2026-09-16): לפני התיקון marginTop:14 +
+  // smartSearchInputWrap.marginBottom:16 מלמעלה (30) מול marginBottom:12 בלבד מלמטה - המפריד ישב
+  // קרוב משמעותית לשורות WHAT/WHERE מאשר לשדה החיפוש. 4+16=20 מלמעלה, 20 מלמטה - מרכוז אמיתי.
+  searchOrDivider: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 4, marginBottom: 20 },
   searchOrDividerLine: { flex: 1, height: 1, backgroundColor: colors.borderLight },
   searchOrDividerText: { fontFamily: fonts.regular, fontSize: 11.5, color: colors.textMuted },
   // "כפתור-בחירה" (selection pill), לא שדה-טופס: radii.pill (היה radii.lg - מלבן מעוגל) +

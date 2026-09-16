@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import { View, Text, StyleSheet, TextInput, Pressable, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import Header from '../components/Header';
+import SkyBackground from '../components/SkyBackground';
 import { colors, fonts, radii, spacing } from '../constants/theme';
 import { savePin } from '../lib/pin';
 
@@ -92,6 +93,7 @@ export default function CreatePinScreen() {
 
   return (
     <View style={styles.screen}>
+      <SkyBackground />
       <View style={styles.content}>
         <Header showBack onMenuPress={() => {}} />
 

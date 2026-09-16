@@ -1,5 +1,6 @@
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import Header from '../components/Header';
+import SkyBackground from '../components/SkyBackground';
 import { colors, fonts, spacing } from '../constants/theme';
 import { LEGAL_LAST_UPDATED, LEGAL_CONTACT_EMAIL, LEGAL_ENTITY_NAME } from '../constants/legal';
 
@@ -112,6 +113,7 @@ const SECTIONS = [
 export default function TermsScreen() {
   return (
     <View style={styles.screen}>
+      <SkyBackground />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Header showBack onMenuPress={() => {}} />
 

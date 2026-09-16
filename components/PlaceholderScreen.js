@@ -1,10 +1,12 @@
 import { View, Text, StyleSheet } from 'react-native';
 import Header from './Header';
+import SkyBackground from './SkyBackground';
 import { colors, fonts, spacing } from '../constants/theme';
 
 export default function PlaceholderScreen({ title }) {
   return (
     <View style={styles.screen}>
+      <SkyBackground />
       <View style={styles.content}>
         <Header showBack onMenuPress={() => {}} />
         <View style={styles.center}>

@@ -41,7 +41,9 @@ export default function ActivityCard({
   const cardBorder = favorite ? colors.accentTint : visited ? '#a9e3b6' : colors.border;
 
   const stop = (fn) => (e) => { e.stopPropagation?.(); fn?.(); };
-  const showCityLine = !!city && /ק"מ/.test(String(distance ?? ''));
+  // העיר תמיד מוצגת, אלא אם כבר כתובה בשורת המיקום עצמה. בלי מקור-מרחק, formatDistance מציג
+  // קודם את הכתובת (למשל "פבזנר") ורק אחריה את העיר - כתובת לבד לא אומרת באיזו עיר מדובר.
+  const showCityLine = !!city && !String(distance ?? '').includes(city);
 
   const imageOverlay = (
     <>
@@ -90,10 +92,7 @@ export default function ActivityCard({
             <Text style={styles.typeBadgeText}>{type}</Text>
           </View>
         </View>
-        {/* שם היישוב מתחת לשורת המרחק (2026-09-16, בקשת המשתמש) - רק כשהמרחק הוא מספר ק"מ אמיתי
-            ("1.8 ק"מ מאזור החיפוש"/"ממך"). כשאין מקור-מרחק, formatDistance (lib/activities.js) כבר
-            מציג במקום המרחק את הכתובת/העיר עצמה - שורת-עיר נוספת מתחת הייתה חוזרת על אותו מידע.
-            תצוגה בלבד: city כבר מגיע ב-{...a} מ-mapActivityRow, בלי שינוי בשאילתה. */}
+        {/* שם היישוב מתחת לשורת המיקום - ראו showCityLine. city מגיע ב-{...a} מ-mapActivityRow. */}
         <View style={[styles.metaRow, showCityLine && styles.metaRowWithCity]}>
           <LocationPinIcon />
           <Text style={styles.metaText}>{distance}</Text>

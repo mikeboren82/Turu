@@ -1,11 +1,11 @@
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import Header from '../components/Header';
+import SkyBackground from '../components/SkyBackground';
 import { colors, fonts, radii, spacing } from '../constants/theme';
 
 const PARAGRAPHS = [
   'שלום!',
-  'אנחנו אבישי ונאיה, שמחים שבחרתם להשתמש באפליקציה שלנו!',
   'את הרעיון לאפליקציה יצרנו מתוך צורך אמיתי שלנו. בכל פעם שרצינו למצוא פעילות, גילינו כמה זה יכול להיות מסורבל — צריך לעבור בין המון אתרים, קבוצות, עמודים וחיפושים שונים, ולא פעם פשוט לוותר כי אין זמן לחפש.',
   'חשבנו לעצמנו: למה שלא יהיה מקום אחד שבו אפשר למצוא את כל הפעילויות לילדים באזור שלנו, במהירות ובקלות?',
   'וכך נולדה האפליקציה שלנו.',
@@ -21,6 +21,7 @@ export default function AboutScreen() {
   const router = useRouter();
   return (
     <View style={styles.screen}>
+      <SkyBackground />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Header showBack onMenuPress={() => {}} />
 
@@ -37,8 +38,6 @@ export default function AboutScreen() {
             <Text style={styles.verseMark}>״</Text>
           </Text>
         </View>
-
-        <Text style={styles.signature}>אבישי ונאיה</Text>
 
         <Pressable style={styles.contactBtn} onPress={() => router.push('/contact')}>
           <Text style={styles.contactBtnText}>צרו קשר</Text>
@@ -72,7 +71,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.2, lineHeight: 21,
   },
   verseMark: { fontFamily: fonts.verseBold, fontSize: 14, color: colors.accent },
-  signature: { fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary, textAlign: 'right', marginTop: 6, marginBottom: 22 },
   contactBtn: {
     backgroundColor: colors.accent, borderRadius: radii.pill, paddingVertical: 14, alignItems: 'center',
   },

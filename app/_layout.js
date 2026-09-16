@@ -51,8 +51,8 @@ export default function RootLayout() {
         const alreadySetUp = pin === 'true' || bio === 'true';
         router.replace(asked === 'true' || alreadySetUp ? '/' : '/biometric-prompt');
       } catch (err) {
-        // המשתמש פשוט ממשיך לעמוד שאליו נחת (ה-hash כבר נוקה בכל מקרה) - רק מתועד לקונסול לדיבוג.
         console.warn('completeOAuthRedirect failed:', err?.message || err);
+        if (!cancelled) router.replace({ pathname: '/login', params: { authError: '1' } });
       }
     })();
     return () => { cancelled = true; };

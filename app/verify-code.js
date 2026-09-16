@@ -3,10 +3,12 @@ import { View, Text, StyleSheet, TextInput, Pressable, ActivityIndicator } from 
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Header from '../components/Header';
+import SkyBackground from '../components/SkyBackground';
 import { colors, fonts, radii, spacing } from '../constants/theme';
 import { supabase } from '../lib/supabase';
 import { enforceNotBanned } from '../lib/checkBanned';
 import { recordLegalConsentIfNeeded } from '../lib/legal';
+import { friendlyAuthError } from '../lib/authErrors';
 
 const RESEND_SECONDS = 60;
 
@@ -44,7 +46,17 @@ export default function VerifyCodeScreen() {
   const code = digits.join('');
 
   const handleDigitChange = (index, value) => {
-    const clean = value.replace(/[^0-9]/g, '').slice(-1);
+    const allDigits = value.replace(/[^0-9]/g, '');
+    // הדבקה/השלמה-אוטומטית של הקוד המלא לתוך תיבה אחת - מפזרים על כל התיבות
+    if (allDigits.length > 1) {
+      const next = [...digits];
+      allDigits.slice(0, digitCount - index).split('').forEach((ch, k) => { next[index + k] = ch; });
+      setDigits(next);
+      setError('');
+      inputs.current[Math.min(index + allDigits.length, digitCount - 1)]?.focus();
+      return;
+    }
+    const clean = allDigits.slice(-1);
     const next = [...digits];
     next[index] = clean;
     setDigits(next);
@@ -70,11 +82,7 @@ export default function VerifyCodeScreen() {
     setSubmitting(false);
 
     if (verifyError) {
-      setError(
-        verifyError.message?.includes('expired') || verifyError.message?.includes('invalid')
-          ? 'הקוד שגוי או שפג תוקפו - נסו שוב או שלחו קוד חדש'
-          : `שגיאה באימות: ${verifyError.message}`
-      );
+      setError(friendlyAuthError(verifyError, 'verify'));
       setDigits(Array(digitCount).fill(''));
       inputs.current[0]?.focus();
       return;
@@ -119,7 +127,7 @@ export default function VerifyCodeScreen() {
     );
     setResending(false);
     if (resendError) {
-      setError(`שגיאה בשליחת קוד חדש: ${resendError.message}`);
+      setError(friendlyAuthError(resendError, isEmailChannel ? 'emailSend' : 'phoneSend'));
       return;
     }
     setSecondsLeft(RESEND_SECONDS);
@@ -129,6 +137,7 @@ export default function VerifyCodeScreen() {
 
   return (
     <View style={styles.screen}>
+      <SkyBackground />
       <View style={styles.content}>
         <Header showBack onMenuPress={() => {}} />
 
@@ -149,8 +158,11 @@ export default function VerifyCodeScreen() {
               onChangeText={(v) => handleDigitChange(i, v)}
               onKeyPress={(e) => handleKeyPress(i, e)}
               keyboardType="number-pad"
-              maxLength={1}
+              maxLength={i === 0 ? digitCount : 1}
               textAlign="center"
+              textContentType={i === 0 ? 'oneTimeCode' : 'none'}
+              autoComplete={i === 0 ? 'one-time-code' : 'off'}
+              accessibilityLabel={`ספרה ${i + 1} מתוך ${digitCount}`}
             />
           ))}
         </View>
@@ -172,9 +184,11 @@ export default function VerifyCodeScreen() {
         )}
 
         <Pressable
-          style={[styles.submitBtn, code.length !== 4 && styles.submitBtnDisabled]}
+          style={[styles.submitBtn, code.length !== digitCount && styles.submitBtnDisabled]}
           onPress={handleVerify}
-          disabled={code.length !== 4 || submitting}
+          disabled={code.length !== digitCount || submitting}
+          accessibilityRole="button"
+          accessibilityState={{ busy: submitting, disabled: code.length !== digitCount || submitting }}
         >
           {submitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitBtnText}>אישור</Text>}
         </Pressable>

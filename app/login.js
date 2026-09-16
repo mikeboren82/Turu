@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Pressable, ActivityIndicator, TextInput, ScrollView } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as LocalAuthentication from 'expo-local-authentication';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Header from '../components/Header';
+import SkyBackground from '../components/SkyBackground';
 import {
   FingerprintIcon, PinIcon, GoogleIcon, AppleIcon, MailIcon,
 } from '../components/icons';
@@ -12,6 +13,43 @@ import { supabase } from '../lib/supabase';
 import { enforceNotBanned } from '../lib/checkBanned';
 import { signInWithGoogle, signInWithApple } from '../lib/oauth';
 import { recordLegalConsentIfNeeded } from '../lib/legal';
+import { friendlyAuthError } from '../lib/authErrors';
+
+// כל הטקסטים של מסך ההרשמה/ההתחברות במקום אחד - כדי שיהיה קל להעביר אותם למערכת התרגום
+// (עברית/אנגלית) כשתיבנה, בלי לחפש מחרוזות בתוך ה-JSX.
+const COPY = {
+  // רווח לא-שביר לפני האימוג'י - שלא יישאר לבד בשורה כשהכותרת נשברת במסכים צרים
+  registerTitle: 'נרשמים, ותורו מתחילה להכיר אתכם 💛',
+  loginTitle: 'התחברות לתורו 👋',
+  loginSubtitle: 'בחרו את הדרך שבה נרשמתם',
+  benefits: [
+    { emoji: '👶', title: 'פעילויות שבאמת מתאימות לילדים שלכם', desc: 'לפי הגילאים וההעדפות שלכם' },
+    { emoji: '📍', title: 'זוכרים מה מתאים לכם', desc: 'המיקום וההעדפות נשמרים לפעם הבאה' },
+    { emoji: '❤️', title: 'שומרים פעילויות שאהבתם', desc: 'וחוזרים אליהן מתי שרוצים' },
+  ],
+  tagline: 'ההרשמה חינם ולוקחת רגע',
+  google: 'המשך עם Google',
+  apple: 'המשך עם Apple',
+  or: 'או',
+  email: 'המשך עם אימייל',
+  emailPlaceholder: 'your@email.com',
+  emailSend: 'שליחת קוד',
+  emailHint: 'נשלח אליכם קוד בן 6 ספרות - בלי סיסמה',
+  phoneRegister: 'הרשמה עם מספר טלפון',
+  phoneLogin: 'התחברות עם מספר טלפון',
+  nicknamePlaceholder: 'איך נקרא לכם?',
+  phoneSubmitRegister: 'יאללה, מצטרפים! 🦘',
+  phoneSubmitLogin: 'שליחת קוד בסמס',
+  haveAccount: 'כבר יש לכם חשבון?',
+  haveAccountAction: 'התחברו',
+  noAccount: 'עוד אין לכם חשבון?',
+  noAccountAction: 'הרשמה',
+  consentRegister: 'בהרשמה לתורו אתם מאשרים את',
+  consentLogin: 'בהתחברות לתורו אתם מאשרים את',
+  terms: 'תנאי השימוש',
+  and: 'ואת',
+  privacy: 'מדיניות הפרטיות',
+};
 
 function isValidEmail(v) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
@@ -39,7 +77,12 @@ export default function LoginScreen() {
   const [biometricEnabled, setBiometricEnabled] = useState(false);
   const [sendingCode, setSendingCode] = useState(false);
   const [authenticatingBio, setAuthenticatingBio] = useState(false);
-  const [error, setError] = useState('');
+  // authError - מגיע מ-_layout.js כשחזרה מ-Google/Apple נכשלה בצד השרת
+  const { authError } = useLocalSearchParams();
+  const [error, setError] = useState(authError ? friendlyAuthError('', 'oauth') : '');
+  // 'register' | 'login' - אותן שיטות התחברות בשני המצבים (כולן מטפלות גם במשתמש חדש וגם בקיים);
+  // המצב משנה רק נוסח, הסתרת ההסבר "למה להירשם", ושדה הכינוי בזרימת הטלפון.
+  const [mode, setMode] = useState('register');
   const [googleLoading, setGoogleLoading] = useState(false);
   const [appleLoading, setAppleLoading] = useState(false);
   const [showEmailField, setShowEmailField] = useState(false);
@@ -89,11 +132,7 @@ export default function LoginScreen() {
     const { error: sendError } = await supabase.auth.signInWithOtp({ phone: session.user.phone });
     setSendingCode(false);
     if (sendError) {
-      setError(
-        sendError.message?.includes('provider')
-          ? 'שליחת סמס עדיין לא מוגדרת בצד השרת - יש לחבר ספק SMS ב-Supabase'
-          : `שגיאה בשליחת קוד: ${sendError.message}`
-      );
+      setError(friendlyAuthError(sendError, 'phoneSend'));
       return;
     }
     router.push({ pathname: '/verify-code', params: { phone: session.user.phone, nickname } });
@@ -136,40 +175,44 @@ export default function LoginScreen() {
     router.replace(asked === 'true' || alreadySetUp ? '/' : '/biometric-prompt');
   };
 
+  const authBusy = googleLoading || appleLoading || sendingEmailCode || submittingPhone;
+
   const handleGoogleLogin = async () => {
+    if (authBusy) return;
     setError('');
     setGoogleLoading(true);
     try {
       const result = await signInWithGoogle();
       if (!result.cancelled) await finishOAuthLogin(result.session?.user?.id);
     } catch (err) {
-      setError(`שגיאה בהתחברות עם Google: ${err.message}`);
+      setError(friendlyAuthError(err, 'oauth'));
     } finally {
       setGoogleLoading(false);
     }
   };
 
   const handleAppleLogin = async () => {
+    if (authBusy) return;
     setError('');
     setAppleLoading(true);
     try {
       const result = await signInWithApple();
       if (!result.cancelled) await finishOAuthLogin(result.session?.user?.id);
     } catch (err) {
-      setError(`שגיאה בהתחברות עם Apple: ${err.message}`);
+      setError(friendlyAuthError(err, 'oauth'));
     } finally {
       setAppleLoading(false);
     }
   };
 
   const handleSendEmailCode = async () => {
-    if (!isValidEmail(email)) return;
+    if (!isValidEmail(email) || sendingEmailCode) return;
     setError('');
     setSendingEmailCode(true);
     const { error: sendError } = await supabase.auth.signInWithOtp({ email: email.trim() });
     setSendingEmailCode(false);
     if (sendError) {
-      setError(`שגיאה בשליחת קוד: ${sendError.message}`);
+      setError(friendlyAuthError(sendError, 'emailSend'));
       return;
     }
     router.push({ pathname: '/verify-code', params: { channel: 'email', email: email.trim() } });
@@ -179,8 +222,11 @@ export default function LoginScreen() {
   // signInWithOtp({phone}) ואז מסך אימות הקוד. בלי שדה אימייל נוסף כאן - מי שרוצה אימייל כבר
   // יכול להשתמש ב"התחברות עם אימייל" למעלה, לא צריך לבקש פעמיים באותו מסך.
   const handlePhoneSubmit = async () => {
+    if (submittingPhone) return;
     const nextErrors = {};
-    if (!regNickname.trim()) nextErrors.nickname = 'נא להזין כינוי';
+    // כינוי נדרש רק בהרשמה: profiles.nickname הוא NOT NULL, ולמשתמש טלפון אין אימייל שממנו
+    // handle_new_user() יכול לגזור כינוי. בהתחברות (משתמש קיים) הטריגר לא רץ בכלל.
+    if (mode === 'register' && !regNickname.trim()) nextErrors.nickname = 'נא להזין כינוי';
     if (!regPhone.trim()) nextErrors.phone = 'נא להזין מספר טלפון';
     else if (!isValidIsraeliPhone(regPhone)) nextErrors.phone = 'מספר טלפון לא תקין';
     setRegErrors(nextErrors);
@@ -189,18 +235,15 @@ export default function LoginScreen() {
 
     const e164Phone = normalizeIsraeliPhone(regPhone);
     setSubmittingPhone(true);
-    const { error: sendError } = await supabase.auth.signInWithOtp({
-      phone: e164Phone,
-      options: { data: { nickname: regNickname.trim() } },
-    });
+    const { error: sendError } = await supabase.auth.signInWithOtp(
+      mode === 'register'
+        ? { phone: e164Phone, options: { data: { nickname: regNickname.trim() } } }
+        : { phone: e164Phone }
+    );
     setSubmittingPhone(false);
 
     if (sendError) {
-      setError(
-        sendError.message?.includes('provider')
-          ? 'שליחת סמס עדיין לא מוגדרת בצד השרת - יש לחבר ספק SMS ב-Supabase'
-          : `שגיאה בשליחת קוד: ${sendError.message}`
-      );
+      setError(friendlyAuthError(sendError, mode === 'register' ? 'phoneSend' : 'phoneLogin'));
       return;
     }
     router.push({ pathname: '/verify-code', params: { phone: e164Phone, nickname: regNickname.trim() } });
@@ -209,6 +252,7 @@ export default function LoginScreen() {
   if (loading) {
     return (
       <View style={styles.screen}>
+        <SkyBackground />
         <View style={styles.content}>
           <Header showBack onMenuPress={() => {}} />
           <View style={styles.center}>
@@ -220,52 +264,92 @@ export default function LoginScreen() {
   }
 
   if (!session) {
+    const isRegister = mode === 'register';
+    const switchMode = () => {
+      setMode(isRegister ? 'login' : 'register');
+      setError('');
+      setRegErrors({});
+    };
     return (
       <View style={styles.screen}>
-        <ScrollView contentContainerStyle={styles.registerScrollContent} showsVerticalScrollIndicator={false}>
+        <SkyBackground />
+        <ScrollView
+          contentContainerStyle={styles.registerScrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
           <Header showBack onMenuPress={() => {}} />
           <View style={styles.registerCenter}>
-            <Text style={[styles.welcome, { marginBottom: 18 }]}>נרשמים, ותורו מתחילה להכיר אתכם 💛</Text>
+            <Text style={styles.registerTitle} accessibilityRole="header">
+              {isRegister ? COPY.registerTitle : COPY.loginTitle}
+            </Text>
 
-            <View style={styles.benefitsList}>
-              <View style={styles.benefitRow}>
-                <Text style={styles.benefitTitle}>👶 פעילויות שבאמת מתאימות לילדים שלכם</Text>
-                <Text style={styles.benefitDesc}>שומרים את גילאי הילדים וההעדפות שלכם, כדי שתורו תוכל להציג לכם רעיונות רלוונטיים יותר בלי להתחיל מחדש בכל פעם.</Text>
+            {isRegister ? (
+              <View style={styles.benefitsList}>
+                {COPY.benefits.map((b) => (
+                  <View key={b.title} style={styles.benefitRow}>
+                    <Text style={styles.benefitEmoji} importantForAccessibility="no" accessibilityElementsHidden>{b.emoji}</Text>
+                    <View style={styles.benefitTextWrap}>
+                      <Text style={styles.benefitTitle}>{b.title}</Text>
+                      <Text style={styles.benefitDesc}>{b.desc}</Text>
+                    </View>
+                  </View>
+                ))}
               </View>
-              <View style={styles.benefitRow}>
-                <Text style={styles.benefitTitle}>📍 תורו זוכרת מה מתאים לכם</Text>
-                <Text style={styles.benefitDesc}>האזור, המרחק וההעדפות שלכם נשמרים, כדי שבפעם הבאה יהיה הרבה יותר קל למצוא משהו שמתאים לכם.</Text>
-              </View>
-              <View style={styles.benefitRow}>
-                <Text style={styles.benefitTitle}>❤️ שומרים את מה שאהבתם</Text>
-                <Text style={styles.benefitDesc}>שמרו פעילויות ומקומות שמעניינים אתכם וחזרו אליהם בקלות כשתרצו.</Text>
-              </View>
-            </View>
+            ) : (
+              <Text style={styles.loginSubtitle}>{COPY.loginSubtitle}</Text>
+            )}
 
-            <Text style={styles.registerTagline}>ההרשמה חינם ולוקחת רגע.</Text>
+            {isRegister ? <Text style={styles.registerTagline}>{COPY.tagline}</Text> : null}
 
-            <Pressable style={styles.googleBtn} onPress={handleGoogleLogin} disabled={googleLoading}>
+            <Pressable
+              style={({ pressed }) => [styles.authBtn, pressed && styles.authBtnPressed, authBusy && !googleLoading && styles.authBtnDimmed]}
+              onPress={handleGoogleLogin}
+              disabled={authBusy}
+              accessibilityRole="button"
+              accessibilityLabel={COPY.google}
+              accessibilityState={{ busy: googleLoading, disabled: authBusy }}
+            >
               {googleLoading ? <ActivityIndicator color={colors.textPrimary} /> : (
                 <>
                   <GoogleIcon />
-                  <Text style={styles.googleBtnText}>המשך עם Google</Text>
+                  <Text style={styles.authBtnText}>{COPY.google}</Text>
                 </>
               )}
             </Pressable>
 
-            <Pressable style={styles.appleBtn} onPress={handleAppleLogin} disabled={appleLoading}>
+            <Pressable
+              style={({ pressed }) => [styles.authBtn, pressed && styles.authBtnPressed, authBusy && !appleLoading && styles.authBtnDimmed]}
+              onPress={handleAppleLogin}
+              disabled={authBusy}
+              accessibilityRole="button"
+              accessibilityLabel={COPY.apple}
+              accessibilityState={{ busy: appleLoading, disabled: authBusy }}
+            >
               {appleLoading ? <ActivityIndicator color={colors.textPrimary} /> : (
                 <>
                   <AppleIcon color={colors.textPrimary} />
-                  <Text style={styles.appleBtnText}>המשך עם Apple</Text>
+                  <Text style={styles.authBtnText}>{COPY.apple}</Text>
                 </>
               )}
             </Pressable>
 
+            <View style={styles.dividerRow} importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>{COPY.or}</Text>
+              <View style={styles.dividerLine} />
+            </View>
+
             {!showEmailField ? (
-              <Pressable style={styles.emailToggleBtn} onPress={() => setShowEmailField(true)}>
-                <MailIcon />
-                <Text style={styles.emailToggleBtnText}>התחברות עם אימייל</Text>
+              <Pressable
+                style={({ pressed }) => [styles.authBtn, pressed && styles.authBtnPressed, authBusy && styles.authBtnDimmed]}
+                onPress={() => setShowEmailField(true)}
+                disabled={authBusy}
+                accessibilityRole="button"
+                accessibilityLabel={COPY.email}
+              >
+                <MailIcon size={18} color={colors.textPrimary} />
+                <Text style={styles.authBtnText}>{COPY.email}</Text>
               </Pressable>
             ) : (
               <View style={styles.emailFieldWrap}>
@@ -273,67 +357,98 @@ export default function LoginScreen() {
                   style={styles.emailInput}
                   value={email}
                   onChangeText={setEmail}
-                  placeholder="הכתובת שלכם"
+                  placeholder={COPY.emailPlaceholder}
                   placeholderTextColor={colors.textMuted}
                   autoCapitalize="none"
+                  autoCorrect={false}
+                  autoComplete="email"
                   keyboardType="email-address"
                   textContentType="emailAddress"
+                  returnKeyType="send"
+                  onSubmitEditing={handleSendEmailCode}
+                  accessibilityLabel="אימייל"
                   autoFocus
                 />
                 <Pressable
-                  style={[styles.pinBtn, !isValidEmail(email) && styles.submitBtnDisabled]}
+                  style={[styles.submitBtn, (!isValidEmail(email) || sendingEmailCode) && styles.submitBtnDisabled]}
                   onPress={handleSendEmailCode}
-                  disabled={!isValidEmail(email) || sendingEmailCode}
+                  disabled={!isValidEmail(email) || authBusy}
+                  accessibilityRole="button"
+                  accessibilityLabel={COPY.emailSend}
+                  accessibilityState={{ busy: sendingEmailCode, disabled: !isValidEmail(email) || authBusy }}
                 >
-                  {sendingEmailCode ? <ActivityIndicator color={colors.accent} /> : <Text style={styles.pinBtnText}>שליחת קוד</Text>}
+                  {sendingEmailCode ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitBtnText}>{COPY.emailSend}</Text>}
                 </Pressable>
+                <Text style={styles.fieldHint}>{COPY.emailHint}</Text>
               </View>
             )}
 
-            <View style={styles.dividerRow}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>או</Text>
-              <View style={styles.dividerLine} />
-            </View>
-
             {!showPhoneFields ? (
-              <Pressable style={styles.pinBtn} onPress={() => setShowPhoneFields(true)}>
-                <Text style={styles.pinBtnText}>הרשמה עם מספר טלפון</Text>
+              <Pressable
+                onPress={() => setShowPhoneFields(true)}
+                disabled={authBusy}
+                hitSlop={10}
+                style={styles.phoneLink}
+                accessibilityRole="button"
+              >
+                <Text style={styles.secondaryLinkText}>{isRegister ? COPY.phoneRegister : COPY.phoneLogin}</Text>
               </Pressable>
             ) : (
               <View style={styles.phoneFieldsWrap}>
+                {isRegister ? (
+                  <>
+                    <TextInput
+                      style={[styles.emailInput, styles.rtlInput, regErrors.nickname && styles.inputError]}
+                      value={regNickname}
+                      onChangeText={setRegNickname}
+                      placeholder={COPY.nicknamePlaceholder}
+                      placeholderTextColor={colors.textMuted}
+                      accessibilityLabel={COPY.nicknamePlaceholder}
+                    />
+                    {regErrors.nickname ? <Text style={styles.errorText}>{regErrors.nickname}</Text> : null}
+                  </>
+                ) : null}
                 <TextInput
-                  style={[styles.emailInput, { textAlign: 'right', writingDirection: 'rtl' }, regErrors.nickname && styles.inputError]}
-                  value={regNickname}
-                  onChangeText={setRegNickname}
-                  placeholder="איך נקרא לכם?"
-                  placeholderTextColor={colors.textMuted}
-                />
-                {regErrors.nickname ? <Text style={styles.errorText}>{regErrors.nickname}</Text> : null}
-                <TextInput
-                  style={[styles.emailInput, { textAlign: 'left', writingDirection: 'ltr' }, regErrors.phone && styles.inputError]}
+                  style={[styles.emailInput, regErrors.phone && styles.inputError]}
                   value={regPhone}
                   onChangeText={setRegPhone}
                   placeholder="050-1234567"
                   placeholderTextColor={colors.textMuted}
                   keyboardType="phone-pad"
+                  autoComplete="tel"
+                  textContentType="telephoneNumber"
+                  accessibilityLabel="מספר טלפון"
                 />
                 {regErrors.phone ? <Text style={styles.errorText}>{regErrors.phone}</Text> : null}
-                <Pressable style={styles.pinBtn} onPress={handlePhoneSubmit} disabled={submittingPhone}>
-                  {submittingPhone ? <ActivityIndicator color={colors.accent} /> : <Text style={styles.pinBtnText}>יאללה, מצטרפים! 🦘</Text>}
+                <Pressable
+                  style={[styles.submitBtn, submittingPhone && styles.submitBtnDisabled]}
+                  onPress={handlePhoneSubmit}
+                  disabled={authBusy}
+                  accessibilityRole="button"
+                  accessibilityState={{ busy: submittingPhone, disabled: authBusy }}
+                >
+                  {submittingPhone ? <ActivityIndicator color="#fff" /> : (
+                    <Text style={styles.submitBtnText}>{isRegister ? COPY.phoneSubmitRegister : COPY.phoneSubmitLogin}</Text>
+                  )}
                 </Pressable>
               </View>
             )}
 
-            {error ? <Text style={styles.errorText}>{error}</Text> : null}
+            {error ? <Text style={styles.errorText} accessibilityLiveRegion="polite">{error}</Text> : null}
+
+            <View style={styles.switchModeRow}>
+              <Text style={styles.switchModeText}>{isRegister ? COPY.haveAccount : COPY.noAccount}</Text>
+              <Pressable onPress={switchMode} hitSlop={10} accessibilityRole="button">
+                <Text style={styles.switchModeAction}>{isRegister ? COPY.haveAccountAction : COPY.noAccountAction}</Text>
+              </Pressable>
+            </View>
 
             <Text style={styles.consentText}>
-              בהרשמה לתורו אתם מאשרים את{' '}
-              <Text style={styles.consentLink} onPress={() => router.push('/terms')}>תנאי השימוש</Text>
-              {' '}ואת{' '}
-              <Text style={styles.consentLink} onPress={() => router.push('/privacy')}>מדיניות הפרטיות</Text>.
+              {isRegister ? COPY.consentRegister : COPY.consentLogin}{' '}
+              <Text style={styles.consentLink} onPress={() => router.push('/terms')} accessibilityRole="link">{COPY.terms}</Text>
+              {' '}{COPY.and}{' '}
+              <Text style={styles.consentLink} onPress={() => router.push('/privacy')} accessibilityRole="link">{COPY.privacy}</Text>.
             </Text>
-
           </View>
         </ScrollView>
       </View>
@@ -344,6 +459,7 @@ export default function LoginScreen() {
 
   return (
     <View style={styles.screen}>
+      <SkyBackground />
       <View style={styles.content}>
         <Header showBack onMenuPress={() => {}} />
         <View style={styles.center}>
@@ -405,11 +521,37 @@ const styles = StyleSheet.create({
   welcomeSub: { fontFamily: fonts.regular, fontSize: 14, color: colors.textSecondary, textAlign: 'center', marginBottom: 36 },
   welcomeName: { fontFamily: fonts.bold, color: colors.textPrimary },
 
-  benefitsList: { width: '100%', marginBottom: 18, gap: 14 },
-  benefitRow: { width: '100%' },
-  benefitTitle: { fontFamily: fonts.bold, fontSize: 14.5, color: colors.textPrimary, textAlign: 'right', marginBottom: 3, lineHeight: 20 },
-  benefitDesc: { fontFamily: fonts.regular, fontSize: 12.5, color: colors.textSecondary, textAlign: 'right', lineHeight: 18 },
-  registerTagline: { fontFamily: fonts.semiBold, fontSize: 13, color: colors.textSecondary, textAlign: 'center', marginBottom: 22 },
+  registerTitle: { fontFamily: fonts.extraBold, fontSize: 18, color: colors.textPrimary, textAlign: 'center', marginTop: 4, marginBottom: 14 },
+  loginSubtitle: { fontFamily: fonts.regular, fontSize: 14, color: colors.textSecondary, textAlign: 'center', marginBottom: 22 },
+  benefitsList: { width: '100%', marginBottom: 14, gap: 10 },
+  benefitRow: { width: '100%', flexDirection: 'row-reverse', alignItems: 'flex-start', gap: 10 },
+  benefitEmoji: { fontSize: 17, lineHeight: 22, width: 22, textAlign: 'center' },
+  benefitTextWrap: { flex: 1 },
+  benefitTitle: { fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary, textAlign: 'right', lineHeight: 20 },
+  benefitDesc: { fontFamily: fonts.regular, fontSize: 12.5, color: colors.textSecondary, textAlign: 'right', lineHeight: 17 },
+  registerTagline: { fontFamily: fonts.semiBold, fontSize: 13, color: colors.textSecondary, textAlign: 'center', marginBottom: 14 },
+
+  // כפתורי ההתחברות (Google/Apple/אימייל) - אותה גאומטריה בדיוק לשלושתם, גובה מגע של לפחות 48
+  authBtn: {
+    width: '100%', minHeight: 48, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.card,
+    borderRadius: radii.pill, paddingVertical: 12, marginBottom: 10,
+    flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'center', gap: 10,
+  },
+  authBtnPressed: { opacity: 0.75 },
+  authBtnDimmed: { opacity: 0.5 },
+  authBtnText: { fontFamily: fonts.bold, fontSize: 14.5, color: colors.textPrimary },
+  submitBtn: {
+    width: '100%', minHeight: 48, backgroundColor: colors.accent, borderRadius: radii.pill, paddingVertical: 12,
+    alignItems: 'center', justifyContent: 'center', marginBottom: 6,
+  },
+  submitBtnText: { fontFamily: fonts.bold, fontSize: 14.5, color: '#fff' },
+  fieldHint: { fontFamily: fonts.regular, fontSize: 11.5, color: colors.textMuted, textAlign: 'center', marginBottom: 4 },
+  rtlInput: { textAlign: 'right', writingDirection: 'rtl' },
+  phoneLink: { paddingVertical: 8, marginTop: 4, marginBottom: 6 },
+  secondaryLinkText: { fontFamily: fonts.semiBold, fontSize: 13, color: colors.textSecondary, textDecorationLine: 'underline' },
+  switchModeRow: { flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'center', gap: 5, marginTop: 10, marginBottom: 14 },
+  switchModeText: { fontFamily: fonts.regular, fontSize: 13.5, color: colors.textSecondary },
+  switchModeAction: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.accent, textDecorationLine: 'underline' },
 
   bioBtn: {
     width: 96, height: 96, borderRadius: 48, backgroundColor: colors.accentTintLight,
@@ -418,7 +560,7 @@ const styles = StyleSheet.create({
   },
   bioLabel: { fontFamily: fonts.bold, fontSize: 14.5, color: colors.accent, marginBottom: 24 },
 
-  dividerRow: { flexDirection: 'row', alignItems: 'center', gap: 10, width: '100%', marginBottom: 18 },
+  dividerRow: { flexDirection: 'row', alignItems: 'center', gap: 10, width: '100%', marginTop: 4, marginBottom: 14 },
   dividerLine: { flex: 1, height: 1, backgroundColor: colors.border },
   dividerText: { fontFamily: fonts.semiBold, fontSize: 12, color: colors.textMuted },
 
@@ -430,29 +572,11 @@ const styles = StyleSheet.create({
   pinBtnText: { fontFamily: fonts.bold, fontSize: 14.5, color: colors.accent },
   submitBtnDisabled: { opacity: 0.5 },
 
-  googleBtn: {
-    width: '100%', borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.card,
-    borderRadius: radii.pill, paddingVertical: 13, marginBottom: 12,
-    flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'center', gap: 10,
-  },
-  googleBtnText: { fontFamily: fonts.bold, fontSize: 14.5, color: colors.textPrimary },
-  appleBtn: {
-    width: '100%', borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.card,
-    borderRadius: radii.pill, paddingVertical: 13, marginBottom: 12,
-    flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'center', gap: 10,
-  },
-  appleBtnText: { fontFamily: fonts.bold, fontSize: 14.5, color: colors.textPrimary },
-  emailToggleBtn: {
-    width: '100%', borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.card,
-    borderRadius: radii.pill, paddingVertical: 13, marginBottom: 8,
-    flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'center', gap: 8,
-  },
-  emailToggleBtnText: { fontFamily: fonts.bold, fontSize: 14, color: colors.textSecondary },
-  emailFieldWrap: { width: '100%', marginBottom: 8 },
+  emailFieldWrap: { width: '100%', marginBottom: 4 },
   emailInput: {
-    width: '100%', borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.card,
+    width: '100%', minHeight: 48, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.card,
     borderRadius: radii.lg, paddingHorizontal: 14, paddingVertical: 12, marginBottom: 10,
-    fontFamily: fonts.regular, fontSize: 14.5, color: colors.textPrimary, textAlign: 'left',
+    fontFamily: fonts.regular, fontSize: 14.5, color: colors.textPrimary, textAlign: 'left', writingDirection: 'ltr',
   },
 
   errorText: { fontFamily: fonts.semiBold, fontSize: 12.5, color: colors.danger, textAlign: 'center', marginBottom: 16 },

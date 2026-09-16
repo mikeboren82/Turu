@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, StyleSheet, Pressable, Platform, LayoutAnimation, UIManager, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Platform, LayoutAnimation, UIManager } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import {
   FILTER_SCHEMA, WHEN_OPTIONS, HOUR_OPTIONS, DEFAULT_FILTERS,
@@ -158,7 +158,6 @@ function WhenSection({ value, hourValue, onChangeWhen, onChangeHour }) {
 export default function FiltersSheet({
   filters, onChange, onClearAll, onCoordsResolved, deviceCoords = null, only,
   hiddenCategoryCount = 0, hiddenAreaCount = 0, onOpenExcludeCategories, onOpenExcludeAreas,
-  spontaneousActive = false, spontaneousLoading = false, spontaneousError = '', onToggleSpontaneous,
 }) {
   const sections = only ? FILTER_SCHEMA.filter((s) => only.includes(s.key)) : FILTER_SCHEMA;
   // "מיקום" לא נפתח כ-accordion אלא כ-LocationQuickPicker (ראו LocationRowValue למעלה)
@@ -196,29 +195,6 @@ export default function FiltersSheet({
         <Pressable onPress={onClearAll}><Text style={styles.clearAllText}>נקה הכל</Text></Pressable>
         <Text style={styles.panelTitle}>סינון מתקדם</Text>
       </View>
-
-      {/* "⚡ עכשיו" - עבר לכאן מהראש של עמוד התוצאות (בקשת המשתמש, סעיף 2: "if 'עכשיו' is an
-          actual filter option, it should belong inside the existing Filter experience rather
-          than being a permanent top-level Results action"). אותו onToggleSpontaneous/
-          spontaneousActive/spontaneousLoading/spontaneousError בדיוק מ-app/activities.js
-          (toggleSpontaneous) - כאן רק ה-UI-trigger, בלי לוגיקת-מיקום/הרשאה כפולה. Chip הקיים
-          כבר בשימוש בכל שאר סקשני הקובץ הזה - לא רכיב חדש. */}
-      {onToggleSpontaneous && (
-        <View style={styles.section}>
-          <View style={styles.excludeSectionTitleRow}>
-            <Text style={styles.sectionIcon}>⚡</Text>
-            <Text style={styles.sectionTitle}>עכשיו</Text>
-          </View>
-          <View style={styles.sectionBody}>
-            {spontaneousLoading ? (
-              <View style={styles.spontaneousLoadingRow}><ActivityIndicator size="small" color={colors.accent} /></View>
-            ) : (
-              <Chip label="פעילויות פתוחות עכשיו לידי" selected={spontaneousActive} onPress={onToggleSpontaneous} />
-            )}
-            {spontaneousError ? <Text style={styles.spontaneousErrorText}>{spontaneousError}</Text> : null}
-          </View>
-        </View>
-      )}
 
       {sections.map((section) => {
         const isOpen = openKeys.has(section.key);
@@ -343,8 +319,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 13, paddingVertical: 11,
   },
   excludeRowText: { fontFamily: fonts.semiBold, fontSize: 13, color: colors.textPrimary, textAlign: 'right' },
-  spontaneousLoadingRow: { alignItems: 'flex-end', paddingVertical: 4 },
-  spontaneousErrorText: { fontFamily: fonts.semiBold, fontSize: 11.5, color: colors.danger, textAlign: 'right', marginTop: 8 },
   // הערך הנוכחי של "מיקום" מוצג מתחת לכותרת-השורה (אין לו accordion להיפתח אליו - הלחיצה פותחת
   // את LocationQuickPicker), באותם טוקנים כמו chipText כדי שייקרא כחלק מהשורה ולא כטקסט זר.
   locationValueText: { fontFamily: fonts.semiBold, fontSize: 12.5, color: colors.accent, textAlign: 'right', paddingHorizontal: 13, paddingBottom: 12, marginTop: -6 },
