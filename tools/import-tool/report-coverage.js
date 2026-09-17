@@ -100,6 +100,31 @@ const tally = (arr, fn) => { const m = {}; arr.forEach((x) => { const k = fn(x) 
     byFamilyAll: tally(sources, familyOf),
     byCategory: tally(nonPlayground, (a) => a.category),
     socialOnlyVenues: venues.filter((v) => v.is_active && (v.facebook_url || v.instagram_url) && !v.events_url && !sources.some((s) => s.venue_id === v.id && s.is_active)).map((v) => ({ name: v.name_he, city: v.city, region: v.region, type: v.venue_type })),
+    // SOCIAL COVERAGE (2026-09-17). The four states are NEVER collapsed: an account that was found is not an
+    // account Turu can read, and an account Turu can read is not one that yields activities.
+    social: (() => {
+      const av = venues.filter((v) => v.is_active);
+      const soc = sources.filter((s) => ['facebook', 'instagram'].includes(s.source_kind));
+      const st = (s) => s.adapter_config?.social || {};
+      const productiveWeb = (v) => sources.some((s) => s.venue_id === v.id && s.is_active && !['facebook', 'instagram'].includes(s.source_kind) && (s.activities_found_total || 0) > 0);
+      const socialOnly = av.filter((v) => (v.facebook_url || v.instagram_url) && !productiveWeb(v));
+      return {
+        knownVenues: av.length,
+        HAS_WEBSITE: av.filter((v) => v.website_url).length, HAS_FACEBOOK: av.filter((v) => v.facebook_url).length, HAS_INSTAGRAM: av.filter((v) => v.instagram_url).length,
+        SOCIAL_UNKNOWN: av.filter((v) => !v.facebook_url && !v.instagram_url).length,
+        SOCIAL_ONLY_RELEVANT_PUBLISHERS: socialOnly.length, // a social presence and NO productive website / feed source
+        socialOnlyByRegion: tally(socialOnly, (v) => v.region || '(unknown)'), socialOnlyByType: tally(socialOnly, (v) => v.venue_type || '(unknown)'),
+        registeredAccounts: soc.length, byPlatform: tally(soc, (s) => s.source_kind),
+        SOCIAL_ACCOUNT_DISCOVERED: soc.filter((s) => st(s).state === 'DISCOVERED').length,
+        SOCIAL_ACCOUNT_VERIFIED: soc.filter((s) => st(s).state === 'VERIFIED').length,
+        SOCIAL_CONTENT_ACCESSIBLE: soc.filter((s) => st(s).access?.status === 'ACCESSIBLE').length,
+        SOCIAL_CONSENTED: soc.filter((s) => st(s).consent?.status === 'GRANTED').length,
+        SOCIAL_BLOCKED: soc.filter((s) => st(s).access?.status === 'BLOCKED').length,
+        SOCIAL_NOT_CONFIGURED: soc.filter((s) => st(s).access?.status === 'NOT_CONFIGURED').length,
+        SOCIAL_CONTENT_PRODUCTIVE: soc.filter((s) => (s.activities_found_total || 0) > 0).length,
+        accessFailureClasses: tally(soc.filter((s) => st(s).access?.failure_class), (s) => st(s).access.failure_class),
+      };
+    })(),
     unresolvedVenueLabels: Object.entries(unresolvedVenueLabels).sort((a, b) => b[1] - a[1]).slice(0, 25).map(([label, n]) => ({ label, detections: n })),
     reviewQueue: { pending: incoming.filter((i) => ['new', 'needs_review'].includes(i.status)).length, autoApproved30d: incoming.filter((i) => i.status === 'approved').length, duplicates30d: incoming.filter((i) => i.match_type === 'duplicate').length },
     sourceHealth: tally(sources, (s) => s.health_status),
@@ -144,6 +169,7 @@ const tally = (arr, fn) => { const m = {}; arr.forEach((x) => { const k = fn(x) 
     console.log('\n=== BY FAMILY (active) ===', report.byFamily);
     console.log('=== BY CATEGORY (non-playground live) ===', report.byCategory);
     console.log('=== SOURCE HEALTH ===', report.sourceHealth, '| failure kinds:', report.failureKinds);
+    console.log('=== SOCIAL COVERAGE (discovered != verified != accessible != productive) ===', JSON.stringify(report.social, null, 1));
     console.log('=== SOCIAL-ONLY VENUES ===', report.socialOnlyVenues.length, report.socialOnlyVenues.slice(0, 10).map((v) => v.name).join(', '));
     console.log('=== LOW YIELD ===', report.lowYieldSources.map((s) => s.name).join(', ') || '-');
     console.log('=== PRODUCTIVITY (all sources) ===', report.productivity);

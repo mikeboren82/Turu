@@ -28,6 +28,8 @@ import { discoverListingLinks } from '../_shared/discovery.ts';
 import { extractJsonLdEvents, applyJsonLdToCandidate, type JsonLdEvent } from '../_shared/jsonld.ts';
 import { findEventDetailLinks, findEventDetailLinksCheap, detailLinkFor, sharedLinkUrls, type DetailLink, type DetailMatch, type DetailTraversalConfig } from '../_shared/detailLinks.ts';
 import { extractDetailEvidence, applyDetailEvidence, detailPageNamesCandidate } from '../_shared/detailEvidence.ts';
+import { parseSitemapUrls, orderForIncrementalScan, isSitemapIndex, type SitemapConfig } from '../_shared/sitemap.ts';
+import { enumerateListingCards, cardAccounting, cardWindows, cardsLookLikeEvents, type ListingCard } from '../_shared/listingCards.ts';
 // EVENT identity (stable across occurrences) - see eventIdentity.ts. event_fingerprint below stays the
 // LEGACY first-occurrence fingerprint used only for the exact pre-checks.
 import { computeEventKey, findEventMatch, type EventKeyKind } from '../_shared/eventIdentity.ts';
@@ -227,6 +229,12 @@ async function autoApproveNewActivity(
 type UrlRole = 'listing' | 'detail' | 'booking' | 'other';
 async function recordProvenance(client: Client, params: { activityId: string; sourceId: string; pageUrl: string; incomingId: string | null; relation: 'created' | 'seen' | 'updated'; urlRole?: UrlRole }) {
   const now = new Date().toISOString();
+  // URL ROLES reach the product (0097): provenance is admin-only, so the VERIFIED event-detail page is also
+  // kept on the canonical record, fill-null. It is what the app opens when no explicit booking action is
+  // known (official_url > detail_url > source_url) - never the listing, and never written into official_url.
+  if (params.urlRole === 'detail' && /^https?:\/\//i.test(params.pageUrl)) {
+    await client.from('activities').update({ detail_url: params.pageUrl }).eq('id', params.activityId).is('detail_url', null);
+  }
   const { data: existing } = await client.from('activity_sources').select('id, relation, url_role')
     .eq('activity_id', params.activityId).eq('page_url', params.pageUrl).maybeSingle();
   if (existing) {
@@ -440,7 +448,7 @@ Deno.serve(async (req: Request) => {
   // a heavy listing's AI extraction alone can use the 60 s page budget; detail fetches (8 s each, no AI)
   // get their own ceiling that still stays well under the ~150 s edge kill
   const DETAIL_TIME_BUDGET_MS = 105_000;
-  const detail = { links: 0, attempted: 0, fetched: 0, failed: 0, unchanged: 0, relay_primed: 0, shared_links: 0, rejected_title_mismatch: 0, filled: {} as Record<string, number>, ms: 0, unmatched: [] as { name: string; links: string[] }[] };
+  const detail = { links: 0, attempted: 0, fetched: 0, failed: 0, unchanged: 0, relay_primed: 0, shared_links: 0, rejected_title_mismatch: 0, filled: {} as Record<string, number>, ms: 0, failed_by: {} as Record<string, number>, ms_ok_max: 0, ms_fail_max: 0, failed_sample: [] as { url: string; kind: string; ms: number }[], unmatched: [] as { name: string; links: string[] }[] };
   // detail evidence per URL for this scan (null = fetched and failed / rejected: never retried in-scan);
   // relayed detail pages are primed lazily from their raw html (the candidate's city anchors the address parse)
   const detailCache = new Map<string, ReturnType<typeof extractDetailEvidence> | null>();
@@ -462,6 +470,24 @@ Deno.serve(async (req: Request) => {
   // 60s + one in-flight call stays under that; whatever is deferred runs on the next scan.
   const SCAN_TIME_BUDGET_MS = 60_000;
 
+  // DENSE-LISTING RECALL FUNNEL (wave 2): DOM cards detected -> extractor output -> past filter ->
+  // accounted cards -> bounded recovery -> rejections / folding / cap. Stored per scan in
+  // source_scan_logs.listing_metrics (0095) so recall is a number, not an impression.
+  const listing = { pages_with_cards: 0, cards_detected: 0, ai_returned: 0, past_filtered: 0, cards_matched: 0, cards_unaccounted: 0, recovery_calls: 0, recovered: 0, rejected_no_name: 0, rejected_commitment: 0, rejected_adult: 0, twins_folded: 0, capped: 0, skipped_in_scan_duplicate: 0, skipped_pending_in_queue: 0, identity_backfilled: 0, updates_superseded: 0, recovery_error: null as string | null, recovery_skipped: null as string | null, sitemap: null as null | { entities: number; never_scanned: number; picked: number; error?: string }, sample_unaccounted: [] as string[] };
+  const RECOVERY_MAX_CARDS = 12;
+  const RECOVERY_TIME_LIMIT_MS = 100_000;
+
+  // WHY a detail fetch failed, and how long fetches take (wave 2): "6 timeouts" told nothing - the same
+  // pages answer a local IP in < 1.5 s, so an edge-side timeout / 403 is an ACCESS class (geo / WAF), which
+  // is fixed by relaying that source's detail pages, never by a longer global timeout.
+  const noteDetailFetch = (dr: { ok?: boolean; html?: string | null; failureKind?: string | null; fetchError?: string | null } | null, ms: number, url = '') => {
+    if (dr && dr.ok && dr.html) { detail.ms_ok_max = Math.max(detail.ms_ok_max, ms); return; }
+    detail.ms_fail_max = Math.max(detail.ms_fail_max, ms);
+    const kind = dr?.failureKind || (/abort|timeout/i.test(dr?.fetchError || '') ? 'timeout_network' : 'unknown');
+    detail.failed_by[kind] = (detail.failed_by[kind] || 0) + 1;
+    if (detail.failed_sample.length < 6) detail.failed_sample.push({ url: url.slice(0, 160), kind, ms });
+  };
+
   async function persistProgress() {
     await client.from('source_scan_logs').update({
       pages_checked: counters.pagesChecked, pages_changed: counters.pagesChanged,
@@ -470,6 +496,7 @@ Deno.serve(async (req: Request) => {
       updated_count: counters.updatedCount, duplicate_count: counters.duplicateCount,
       rejected_count: counters.rejectedCount, auto_approved_count: counters.autoApprovedCount,
       detail_metrics: detailCfg ? detail : null,
+      listing_metrics: (listing.pages_with_cards || listing.sitemap) ? listing : null,
     }).eq('id', scanLogId);
   }
 
@@ -532,6 +559,22 @@ Deno.serve(async (req: Request) => {
         : discoverListingLinks(cheerio.load(seedRes.html), source.seed_url, maxPages - 1);
       pageUrls = [source.seed_url, ...extra];
     }
+    // SITEMAP DISCOVERY (wave 2): the publisher's own index replaces what a script-loaded listing hides
+    // (cochav-hanofesh.com/parks: 9 of 54 parks in the HTML). Bounded + incremental - see _shared/sitemap.ts.
+    const sitemapCfg = ((source.adapter_config || {}) as { sitemap?: SitemapConfig }).sitemap;
+    if (!relayPages && !isJsonApi && sitemapCfg?.url) {
+      const sm = await fetchHtml(sitemapCfg.url, { timeoutMs: fetchTimeoutMs, retries: retryCount });
+      if (sm.ok && sm.html && !isSitemapIndex(sm.html)) {
+        const entityUrls = parseSitemapUrls(sm.html, sitemapCfg.section);
+        const { data: snaps } = await client.from('source_page_snapshots').select('url, last_fetched_at').eq('source_id', source.id);
+        const fetchedAt = new Map<string, string | null>((snaps || []).map((r) => [(r as { url: string }).url, (r as { last_fetched_at: string | null }).last_fetched_at]));
+        const { picked, neverScanned } = orderForIncrementalScan(entityUrls, fetchedAt, Math.min(12, Number(sitemapCfg.max_per_scan ?? maxPages)));
+        listing.sitemap = { entities: entityUrls.length, never_scanned: neverScanned, picked: picked.length };
+        if (picked.length) pageUrls = picked;
+      } else {
+        listing.sitemap = { entities: 0, never_scanned: 0, picked: 0, error: sm.fetchError || (sm.html && isSitemapIndex(sm.html) ? 'sitemap index (point adapter_config.sitemap.url at the section sitemap)' : 'unreadable sitemap') };
+      }
+    }
 
     for (const pageUrl of pageUrls) {
       if (counters.found >= maxActivitiesPerScan) break;
@@ -548,6 +591,7 @@ Deno.serve(async (req: Request) => {
         let hash: string;
         let pageJsonLd: JsonLdEvent[] = []; // structured events on this page (non-relay, non-heavy pages)
         let pageDetailLinks: DetailLink[] = []; // detail links of this listing page (adapter-controlled)
+        let pageCards: ListingCard[] = []; // deterministic DOM cards of this listing page (recall funnel)
         // detail pages fetched CONCURRENTLY WITH the AI extraction (the extraction alone can use most of
         // the detail time budget on a dense listing - observed 2026-09-14: 5 of 27 links reached);
         // null = fetched and failed. Links never recorded as detail provenance go first, so rescans
@@ -585,6 +629,8 @@ Deno.serve(async (req: Request) => {
             candidateImages = extractCandidateImages($, pageUrl);
             pageJsonLd = extractJsonLdEvents($);
             if (detailMaxPerPage > 0) { pageDetailLinks = findEventDetailLinks($, pageUrl, { max: 40, allowHosts: detailCfg?.allow_hosts || [], linkSelector: detailCfg?.link_selector, urlPattern: detailCfg?.url_pattern, listingUrls: pageUrls }); detail.links += pageDetailLinks.length; }
+            // before pageTextForExtraction: it strips nodes from the same DOM
+            try { pageCards = enumerateListingCards($, pageUrl); } catch { pageCards = []; }
             text = pageTextForExtraction($, textBudget);
           }
           hash = await computeContentHash(text);
@@ -635,7 +681,8 @@ Deno.serve(async (req: Request) => {
                   const dr = await fetchHtml(l.url, { timeoutMs: Math.min(fetchTimeoutMs, 8000), retries: 0 });
                   if (dr.ok && dr.html) { detail.fetched++; prefetched.set(l.url, dr.html.length > MAX_HTML_BYTES ? dr.html.slice(0, MAX_HTML_BYTES) : dr.html); }
                   else { detail.failed++; prefetched.set(l.url, null); }
-                } catch { detail.failed++; prefetched.set(l.url, null); }
+                  noteDetailFetch(dr, Date.now() - t0, l.url);
+                } catch { detail.failed++; prefetched.set(l.url, null); noteDetailFetch(null, Date.now() - t0, l.url); }
                 detail.ms += Date.now() - t0;
               }
             };
@@ -651,6 +698,7 @@ Deno.serve(async (req: Request) => {
           // (bounded) AI call. Windows after the first stop early when the AI budget is exhausted.
           const windows = splitTextForExtraction(text);
           extracted = [];
+          const returnedNames: string[] = [];
           for (let w = 0; w < windows.length; w++) {
             if (w > 0 && (counters.aiCalls >= maxAiRequests || Date.now() - scanStartedAt > SCAN_TIME_BUDGET_MS)) {
               // partial page: the snapshot is NOT saved below, so the next scan re-extracts it
@@ -674,7 +722,36 @@ Deno.serve(async (req: Request) => {
             const raw = message.content.map((b) => (b.type === 'text' ? b.text : '')).join('');
             const parsed = parseExtractionResponse(raw);
             if (parsed.repaired) counters.repairedResponses++;
-            extracted = extracted.concat(filterPastOneTimeActivities(parsed.activities as never[], todayStr));
+            const keptNow = filterPastOneTimeActivities(parsed.activities as never[], todayStr);
+            listing.ai_returned += parsed.activities.length; listing.past_filtered += parsed.activities.length - keptNow.length;
+            // deno-lint-ignore no-explicit-any
+            for (const a of parsed.activities as any[]) if (a && typeof a.name === 'string') returnedNames.push(a.name);
+            extracted = extracted.concat(keptNow);
+          }
+          // recall accounting + ONE bounded recovery call: cards the extractor never mentioned are sent
+          // again as whole, numbered cards (never the giant page, never a raised cap). A page where many
+          // cards are unaccounted (adult-heavy venue programmes) is only measured, not re-extracted.
+          if (pageCards.length >= 5 && !pageTruncated) {
+            listing.pages_with_cards++; listing.cards_detected += pageCards.length;
+            let acc = cardAccounting(pageCards, returnedNames);
+            if (acc.unaccountedCards.length > 0 && acc.unaccountedCards.length <= RECOVERY_MAX_CARDS && cardsLookLikeEvents(pageCards) && counters.aiCalls < maxAiRequests && Date.now() - scanStartedAt < RECOVERY_TIME_LIMIT_MS) {
+              const recoveryWindow = cardWindows(acc.unaccountedCards, PAGE_TEXT_CHAR_LIMIT, RECOVERY_MAX_CARDS)[0];
+              try {
+                const message = await anthropic.messages.create({ model: EXTRACTION_MODEL, max_tokens: EXTRACTION_MAX_TOKENS, temperature: 0, system: buildExtractionSystemPrompt(), messages: [{ role: 'user', content: `כתובת המקור: ${pageUrl}\n\nתוכן הדף (כרטיסים שלא חולצו בסבב הראשון):\n${recoveryWindow}\n\nרשימת תמונות מהעמוד:\n[]` }] });
+                counters.aiCalls++; listing.recovery_calls++;
+                const parsed = parseExtractionResponse(message.content.map((b) => (b.type === 'text' ? b.text : '')).join(''));
+                // deno-lint-ignore no-explicit-any
+                const fresh = (parsed.activities as any[]).filter((a) => a && typeof a.name === 'string' && !returnedNames.some((n) => n === a.name));
+                const keptNow = filterPastOneTimeActivities(fresh as never[], todayStr);
+                listing.recovered += fresh.length; listing.ai_returned += fresh.length; listing.past_filtered += fresh.length - keptNow.length;
+                for (const a of fresh) returnedNames.push(a.name);
+                extracted = extracted.concat(keptNow);
+                acc = cardAccounting(pageCards, returnedNames);
+              } catch (recErr) { listing.recovery_error = (recErr instanceof Error ? recErr.message : String(recErr)).slice(0, 160); /* best effort - the first pass already stands */ }
+            }
+            if (acc.unaccounted.length && !listing.recovery_calls && !listing.recovery_error) listing.recovery_skipped = acc.unaccountedCards.length > RECOVERY_MAX_CARDS ? 'too_many_unaccounted' : !cardsLookLikeEvents(pageCards) ? 'cards_not_event_like' : counters.aiCalls >= maxAiRequests ? 'ai_budget' : Date.now() - scanStartedAt >= RECOVERY_TIME_LIMIT_MS ? 'time_budget' : 'unknown';
+            listing.cards_matched += acc.matched; listing.cards_unaccounted += acc.unaccounted.length;
+            for (const t of acc.unaccounted) if (listing.sample_unaccounted.length < 12) listing.sample_unaccounted.push(t);
           }
         } catch (aiErr) {
           counters.errorCount++;
@@ -732,7 +809,7 @@ Deno.serve(async (req: Request) => {
             else {
               const t0 = Date.now(); detail.attempted++;
               const dr = await fetchHtml(link.url, { timeoutMs: Math.min(fetchTimeoutMs, 8000), retries: 0 });
-              detail.ms += Date.now() - t0;
+              detail.ms += Date.now() - t0; noteDetailFetch(dr, Date.now() - t0, link.url);
               if (dr.ok && dr.html) { detail.fetched++; ev = extractDetailEvidence(dr.html.length > MAX_HTML_BYTES ? dr.html.slice(0, MAX_HTML_BYTES) : dr.html, todayStr, { baseUrl: link.url, city: candidate.city as string | null }); }
               else { detail.failed++; ev = null; } // detail failure never discards the listing candidate
             }
@@ -768,22 +845,22 @@ Deno.serve(async (req: Request) => {
             for (const o of mine) { const k = `${o.date}|${o.start_time || ''}`; if (!seen.has(k)) { seen.add(k); own.push(o); } }
             own.sort((a, b) => (a.date + (a.start_time || '')).localeCompare(b.date + (b.start_time || '')));
             first.occurrences = own; first.one_time_date = own[0].date; if (!first.start_time && own[0].start_time) first.start_time = own[0].start_time;
-            first.merged_listing_twins = (first.merged_listing_twins || 0) + 1;
+            first.merged_listing_twins = (first.merged_listing_twins || 0) + 1; listing.twins_folded++;
           }
           prepared.length = 0; prepared.push(...kept);
         }
 
         // ---- pass 2: identity, dedup, routing, persistence ----
         for (const p of prepared) {
-          if (counters.found >= maxActivitiesPerScan) break;
+          if (counters.found >= maxActivitiesPerScan) { listing.capped += prepared.length - prepared.indexOf(p); break; }
           const candidate = p.candidate; const issues = p.issues;
 
-          if (issues.length > 0 && !candidate.name) { counters.rejectedCount++; continue; }
-          if (isCommitmentActivity(candidate)) { counters.rejectedCount++; continue; }
+          if (issues.length > 0 && !candidate.name) { counters.rejectedCount++; listing.rejected_no_name++; continue; }
+          if (isCommitmentActivity(candidate)) { counters.rejectedCount++; listing.rejected_commitment++; continue; }
           // child-relevance gate: adult content from mixed municipal calendars never reaches the queue;
           // unclear audience is reviewable but never auto-published.
           const relevance = assessChildRelevance(candidate);
-          if (relevance === 'reject') { counters.rejectedCount++; continue; }
+          if (relevance === 'reject') { counters.rejectedCount++; listing.rejected_adult++; continue; }
           if (relevance === 'review') issues.push('קהל יעד לא ברור');
           if (looksLikeStaleRepost(candidate, todayStr)) issues.push('תאריך פרסום ישן');
 
@@ -816,7 +893,7 @@ Deno.serve(async (req: Request) => {
           let fingerprintMatchId: string | null = null;
           if (candidate.event_fingerprint) {
             // (a) same event twice within this scan => count as duplicate, no second queue row
-            if (seenFingerprints.has(candidate.event_fingerprint)) { counters.duplicateCount++; continue; }
+            if (seenFingerprints.has(candidate.event_fingerprint)) { counters.duplicateCount++; listing.skipped_in_scan_duplicate++; continue; }
             seenFingerprints.add(candidate.event_fingerprint);
             const { data: fpRow } = await client.from('activities').select('id').eq('event_fingerprint', candidate.event_fingerprint).eq('status', 'approved').limit(1).maybeSingle();
             fingerprintMatchId = (fpRow as { id: string } | null)?.id ?? null;
@@ -827,7 +904,7 @@ Deno.serve(async (req: Request) => {
               const { data: pendingRow } = await client.from('incoming_activities').select('id')
                 .eq('extracted_data->>event_fingerprint', candidate.event_fingerprint)
                 .in('status', ['new', 'needs_review']).limit(1).maybeSingle();
-              if (pendingRow) { counters.duplicateCount++; continue; }
+              if (pendingRow) { counters.duplicateCount++; listing.skipped_pending_in_queue++; continue; }
             }
           }
           // EVENT match (same event, possibly other performances): by event_key across the live catalogue,
@@ -835,13 +912,13 @@ Deno.serve(async (req: Request) => {
           let eventMatch: ReturnType<typeof findEventMatch> = null;
           if (!fingerprintMatchId) {
             if (candidate.event_key) {
-              if (seenEventKeys.has(candidate.event_key)) { counters.duplicateCount++; continue; }
+              if (seenEventKeys.has(candidate.event_key)) { counters.duplicateCount++; listing.skipped_in_scan_duplicate++; continue; }
               const { data: keyRows } = await client.from('activities').select(EXISTING_ACTIVITY_SELECT).eq('event_key', candidate.event_key).eq('status', 'approved').limit(3);
               eventMatch = findEventMatch(candidate, (keyRows || []).map((r) => mapExistingRow(r, todayStr)), source.id, todayStr);
               if (!eventMatch) {
                 const { data: pendingKey } = await client.from('incoming_activities').select('id')
                   .eq('extracted_data->>event_key', candidate.event_key).in('status', ['new', 'needs_review']).limit(1).maybeSingle();
-                if (pendingKey) { counters.duplicateCount++; continue; }
+                if (pendingKey) { counters.duplicateCount++; listing.skipped_pending_in_queue++; continue; }
               }
             }
             if (!eventMatch && candidate.city) eventMatch = findEventMatch(candidate, await findSimilarActivities(client, candidate, cityCache), source.id, todayStr);
@@ -854,6 +931,20 @@ Deno.serve(async (req: Request) => {
             const confidence = computeConfidence(candidate, existing, thresholds);
             if (!bestMatch || confidence.score > bestMatch.confidence.score) bestMatch = { activity: existing, confidence };
           }
+
+          // An "update" whose ONLY content is the event identity of a row that has none (rows created before
+          // wave 1) is not a change a person can judge - it is bookkeeping. It is written fill-null on the
+          // confirmed match (exact fingerprint / event match) and the candidate counts as a duplicate, instead
+          // of adding one review item per legacy row per scan (2026-09-17: 4 of 13 Ra'anana "updates").
+          const backfillIdentityOnly = async (activityId: string, d: Record<string, unknown>): Promise<boolean> => {
+            const keys = Object.keys(d);
+            if (keys.length !== 1 || keys[0] !== 'event_key' || !candidate.event_key) return false;
+            const entry = d.event_key as { before?: unknown };
+            if (entry && entry.before != null) return false; // a DIFFERENT existing key is a real identity question
+            const { data: w } = await client.from('activities').update({ event_key: candidate.event_key, event_key_kind: candidate.event_key_kind ?? null }).eq('id', activityId).is('event_key', null).select('id');
+            if (w && w.length) listing.identity_backfilled++;
+            return true;
+          };
 
           let matchType: 'new' | 'update' | 'duplicate' = 'new';
           let status = 'new';
@@ -874,7 +965,7 @@ Deno.serve(async (req: Request) => {
               const { data: exRow } = await client.from('activities').select(EXISTING_ACTIVITY_SELECT).eq('id', fingerprintMatchId).maybeSingle();
               if (exRow) enrichment = computeFieldDiff(candidate, mapExistingRow(exRow, todayStr), { enrichmentOnly: true });
             }
-            if (Object.keys(enrichment).length) { matchType = 'update'; status = 'needs_review'; diff = enrichment; counters.updatedCount++; }
+            if (Object.keys(enrichment).length && !(await backfillIdentityOnly(fingerprintMatchId, enrichment))) { matchType = 'update'; status = 'needs_review'; diff = enrichment; counters.updatedCount++; }
             else { matchType = 'duplicate'; status = 'duplicate'; counters.duplicateCount++; }
           } else if (eventMatch) {
             // same EVENT: new occurrences / stronger evidence become an UPDATE for review, else a duplicate.
@@ -882,7 +973,7 @@ Deno.serve(async (req: Request) => {
             const fieldDiff = computeFieldDiff(candidate, eventMatch.activity, { enrichmentOnly: true });
             existingActivityId = eventMatch.activity.id;
             confidenceScore = eventMatch.reason === 'event_key' ? 0.96 : 0.93; confidenceBreakdown = { ...eventMatch.breakdown, [eventMatch.reason]: 1 };
-            if (Object.keys(fieldDiff).length === 0) { matchType = 'duplicate'; status = 'duplicate'; counters.duplicateCount++; }
+            if (Object.keys(fieldDiff).length === 0 || (await backfillIdentityOnly(eventMatch.activity.id, fieldDiff))) { matchType = 'duplicate'; status = 'duplicate'; counters.duplicateCount++; }
             else { matchType = 'update'; status = 'needs_review'; diff = fieldDiff; counters.updatedCount++; }
           } else if (bestMatch && bestMatch.confidence.score >= thresholds.duplicate) {
             const fieldDiff = computeFieldDiff(candidate, bestMatch.activity);
@@ -935,7 +1026,7 @@ Deno.serve(async (req: Request) => {
           }
 
           const { venue: _venueObj, ...storedCandidate } = candidate;
-          const { data: incomingRow } = await client.from('incoming_activities').insert({
+          const incomingPayload = {
             source_id: source.id, scan_log_id: scanLogId, page_url: pageUrl,
             match_type: matchType, existing_activity_id: existingActivityId,
             confidence_score: confidenceScore, confidence_breakdown: confidenceBreakdown,
@@ -943,8 +1034,25 @@ Deno.serve(async (req: Request) => {
             extracted_data: storedCandidate, diff, validation_issues: issues,
             raw_source_snapshot: text.slice(0, 4000), status,
             created_activity_id: autoApprovedActivityId,
-          }).select('id').maybeSingle();
-          const incomingId = (incomingRow as { id: string } | null)?.id ?? null;
+          };
+          // ONE pending update per (activity, source): a rescan SUPERSEDES the update still waiting for review
+          // instead of stacking another row (2026-09-17: 109 activities had stacked rows, up to 30 for one).
+          // The newest evidence wins; a row a person already decided is never touched (status guard).
+          let incomingId: string | null = null;
+          if (matchType === 'update' && existingActivityId) {
+            const { data: pendingUpd } = await client.from('incoming_activities').select('id')
+              .eq('existing_activity_id', existingActivityId).eq('source_id', source.id).eq('match_type', 'update').eq('status', 'needs_review')
+              .order('found_at', { ascending: false }).limit(1).maybeSingle();
+            if (pendingUpd) {
+              const { data: upd } = await client.from('incoming_activities').update({ ...incomingPayload, found_at: new Date().toISOString() })
+                .eq('id', (pendingUpd as { id: string }).id).eq('status', 'needs_review').select('id').maybeSingle();
+              if (upd) { incomingId = (upd as { id: string }).id; listing.updates_superseded++; }
+            }
+          }
+          if (!incomingId) {
+            const { data: incomingRow } = await client.from('incoming_activities').insert(incomingPayload).select('id').maybeSingle();
+            incomingId = (incomingRow as { id: string } | null)?.id ?? null;
+          }
 
           if (autoApprovedActivityId) {
             counters.autoApprovedCount++;
@@ -992,6 +1100,7 @@ Deno.serve(async (req: Request) => {
       new_count: counters.newCount, updated_count: counters.updatedCount, duplicate_count: counters.duplicateCount,
       rejected_count: counters.rejectedCount, missing_count: counters.missingCount, auto_approved_count: counters.autoApprovedCount,
       error_count: counters.errorCount, error_type: errorType, error_message: errorMessage, failure_kind: failureKind,
+      listing_metrics: (listing.pages_with_cards || listing.sitemap) ? listing : null,
     }).eq('id', scanLogId);
 
     await finalizeSource(finalStatus, failureKind, {

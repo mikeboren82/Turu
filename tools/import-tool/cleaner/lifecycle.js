@@ -17,11 +17,11 @@ const ARCHIVE_REASON_BY_ISSUE = {
   missing_coordinates: 'missing_address_unresolved', incomplete_address: 'address_unresolved_nonblocking', missing_venue: 'venue_not_found',
   missing_image: 'image_unavailable_only', broken_image: 'image_unavailable_only', missing_schedule: 'insufficient_required_data',
   missing_region: 'other', missing_required_metadata: 'insufficient_required_data', low_quality_description: 'other',
-  settlement_review: 'insufficient_required_data',
+  settlement_review: 'insufficient_required_data', missing_city: 'city_unresolved', misclassified: 'requires_human_judgment',
 };
 // issues whose archive also archives/rejects the SUBJECT (blocking); the rest archive only the case
 const BLOCKING_FOR_INCOMING = new Set(['missing_location', 'rejected_missing_address', 'unverified_location', 'missing_required_metadata', 'missing_coordinates']);
-const REOPENABLE_REASONS = new Set(['missing_address_unresolved', 'ambiguous_location', 'venue_not_found', 'source_unreachable', 'insufficient_required_data', 'ambiguous_audience', 'address_unresolved_nonblocking']);
+const REOPENABLE_REASONS = new Set(['missing_address_unresolved', 'ambiguous_location', 'venue_not_found', 'source_unreachable', 'insufficient_required_data', 'ambiguous_audience', 'address_unresolved_nonblocking', 'city_unresolved']);
 const LOCATION_ISSUES = new Set(['missing_location', 'rejected_missing_address', 'unverified_location', 'missing_coordinates', 'incomplete_address', 'missing_venue']);
 
 // what each issue is missing, and which evidence would justify reopening its archive
@@ -31,6 +31,8 @@ const MISSING_BY_ISSUE = {
   missing_image: 'usable image', broken_image: 'usable image (current one broken)', missing_schedule: 'schedule rows', missing_region: 'region',
   missing_required_metadata: 'required metadata (category/date/entity type/audience)', low_quality_description: 'description',
   settlement_review: 'identity decision for a legacy settlement candidate (duplicate / new / invalid)',
+  missing_city: 'canonical city (coordinates known)',
+  misclassified: 'correct venue type (filed as a public playground)',
 };
 const REOPEN_WHEN_BY_ISSUE = {
   missing_location: ['a venue/alias resolves the location label or organizer', 'the source page or its detail page changes', 'the same event fingerprint reappears with location data', 'a single-venue detail page for the event appears (touring shows)'],
@@ -39,6 +41,8 @@ const REOPEN_WHEN_BY_ISSUE = {
   missing_image: ['the source page or detail page gains an image', 'the venue gains a site image'], broken_image: ['the source page gains an image'],
   missing_schedule: ['the source page exposes a schedule (JSON-LD/text)'], missing_region: ['the city gains a region mapping'],
   missing_required_metadata: ['the source page exposes the missing field (JSON-LD)'], low_quality_description: ['the source page changes'],
+  misclassified: ['an admin confirms the venue type', 'the official site / a canonical venue states the venue type'],
+  missing_city: ['a canonical venue is linked to the activity', 'a settlement alias is added for the geocoder locality (public.settlement_aliases)', 'the coordinates are corrected'],
   settlement_review: ['Google Place details become available (types/photos)', 'a canonical record appears with the same place id or street', 'an admin adds venue/category evidence'],
 };
 

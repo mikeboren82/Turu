@@ -1,0 +1,2366 @@
+{
+  "generatedAt": "2026-09-17T19:25:27.108Z",
+  "since": "2026-09-13T17:51:32.020Z",
+  "backlog": {
+    "open": 1649,
+    "due": 1621,
+    "awaitingRetry": 28,
+    "stuckBeyondWindow": 0,
+    "byIssue": {
+      "missing_location": {
+        "open": 83,
+        "resolved": 164,
+        "archived": 204
+      },
+      "missing_required_metadata": {
+        "open": 185,
+        "resolved": 118,
+        "archived": 91
+      },
+      "missing_schedule": {
+        "open": 10,
+        "resolved": 1,
+        "archived": 68
+      },
+      "missing_image": {
+        "open": 432,
+        "resolved": 87,
+        "archived": 27
+      },
+      "incomplete_address": {
+        "open": 348,
+        "resolved": 775,
+        "archived": 0
+      },
+      "missing_venue": {
+        "open": 266,
+        "resolved": 161,
+        "archived": 60
+      },
+      "missing_region": {
+        "open": 175,
+        "resolved": 271,
+        "archived": 12
+      },
+      "settlement_review": {
+        "open": 0,
+        "resolved": 263,
+        "archived": 19
+      },
+      "unverified_location": {
+        "open": 150,
+        "resolved": 41,
+        "archived": 59
+      },
+      "missing_city": {
+        "open": 0,
+        "resolved": 124,
+        "archived": 85
+      },
+      "misclassified": {
+        "open": 0,
+        "resolved": 9,
+        "archived": 4
+      }
+    },
+    "byPriorityBucket": {
+      "important": 280,
+      "enrichment": 1136,
+      "blocking": 233
+    },
+    "leased": 0
+  },
+  "awaitingRetryByNextStrategy": {
+    "missing_region:existing (await new canonical evidence)": 1,
+    "unverified_location:existing (await new canonical evidence)": 26,
+    "missing_image:existing (await new canonical evidence)": 1
+  },
+  "resolved": {
+    "total": 2014,
+    "withGain": 1128,
+    "noGain": 886,
+    "outcomes": {
+      "published": 69,
+      "awaiting_policy": 113,
+      "resolved_externally": 825,
+      "duplicate_merged": 37,
+      "address_filled": 329,
+      "venue_linked": 13,
+      "image_attached": 63,
+      "field_filled": 56,
+      "settlement_duplicate": 263,
+      "already_filled": 61,
+      "possible_update": 5,
+      "city_filled": 123,
+      "coordinates_verified": 20,
+      "error": 4,
+      "subject_merged_into": 24,
+      "reclassified": 7,
+      "archived_not_a_place": 2
+    },
+    "byMethod": {
+      "existing_venue": 76,
+      "detail_page": 41,
+      "source_page": 43,
+      "reverse_geocode": 360,
+      "existing_source_venue": 24,
+      "prior_activity": 19,
+      "OSM street agreement \"שדרות הנשיא ויצמן\" + 23 m + same type": 1,
+      "address+reverse": 56,
+      "google_place_id": 213,
+      "place_lookup_inferred": 5,
+      "existing_location": 17,
+      "reverse": 28,
+      "name overlap 1.00 + 74 m": 1,
+      "same street \"הרב משה בלוי\" + 12 m": 1,
+      "OSM playground feature identity + 9 m": 1,
+      "same street \"מוטה גור\" + 27 m": 2,
+      "same street \"הרב קירשטיין\" + 20 m": 1,
+      "same street \"המסילה\" + 41 m": 1,
+      "same street \"יצחק רבין\" + 47 m": 1,
+      "OSM playground feature identity + 10 m": 1,
+      "nearest_settlement+council": 34,
+      "OSM street agreement \"ברנט\" + 9 m + same type": 1,
+      "same street \"מאיר דנקנר\" + 19 m": 1,
+      "same street \"כפר עציון\" + 32 m": 1,
+      "same street \"הרב הרצוג\" + 10 m": 1,
+      "OSM street agreement \"גד מכנס\" + 50 m + same type": 1,
+      "same street \"אליעזר בן יהודה\" + 49 m": 1,
+      "same street \"חיים ארלוזורוב\" + 15 m": 1,
+      "OSM street agreement \"אבני חושן\" + 118 m + same type": 1,
+      "same street \"אשר\" + 40 m": 1,
+      "same street \"ירח אב\" + 36 m": 1,
+      "OSM playground feature identity + 43 m": 1,
+      "same street \"עמק איילון\" + 17 m": 1,
+      "same street \"מיכאל\" + 14 m": 1,
+      "same street \"רפאל איתן\" + 53 m": 1,
+      "same street \"הארץ\" + 25 m": 1,
+      "OSM playground feature identity + 13 m": 1,
+      "same street \"הרימון\" + 29 m": 1,
+      "OSM playground feature identity + 7 m": 1,
+      "name overlap 1.00 + 95 m": 1,
+      "OSM playground feature identity + 35 m": 1,
+      "OSM playground feature identity + 18 m": 1,
+      "OSM street agreement \"בזל\" + 118 m + same type": 1,
+      "same street \"בקעת רימון\" + 19 m": 1,
+      "same street \"אבני החושן\" + 39 m": 1,
+      "same street \"דפנה\" + 48 m": 1,
+      "same street \"כובשי קטמון\" + 15 m": 1,
+      "same street \"זהבית\" + 14 m": 1,
+      "OSM street agreement \"שדרות דוד בן גוריון\" + 61 m + same type": 1,
+      "same street \"דב פרומר\" + 58 m": 1,
+      "same name (1.00) + 168 m": 1,
+      "OSM playground feature identity + 11 m": 2,
+      "same street \"בר אילן\" + 41 m": 1,
+      "name overlap 1.00 + 32 m": 1,
+      "same street \"גפן\" + 5 m": 1,
+      "same street \"הרב ירמה\" + 27 m": 1,
+      "same street \"החריש\" + 8 m": 1,
+      "OSM street agreement \"אברהם ליכטנשטיין\" + 49 m + same type": 1,
+      "same street \"הרצל\" + 12 m": 1,
+      "same street \"התומר\" + 45 m": 1,
+      "address": 5,
+      "name_rule": 9
+    },
+    "avgAttempts": 0.67,
+    "successRateByIssue": {
+      "missing_location": 45,
+      "missing_required_metadata": 56,
+      "missing_schedule": 1,
+      "missing_image": 76,
+      "incomplete_address": 100,
+      "missing_venue": 73,
+      "missing_region": 96,
+      "settlement_review": 93,
+      "unverified_location": 41,
+      "missing_city": 59,
+      "misclassified": 69
+    }
+  },
+  "archived": {
+    "total": 629,
+    "byReason": {
+      "insufficient_required_data": 144,
+      "missing_address_unresolved": 257,
+      "venue_not_found": 58,
+      "image_unavailable_only": 25,
+      "city_unresolved": 58,
+      "activity_expired_before_resolution": 24,
+      "outside_service_area": 24,
+      "requires_human_judgment": 19,
+      "other": 12,
+      "ambiguous_location": 1,
+      "invalid_event": 3,
+      "duplicate_of_existing_activity": 4
+    },
+    "unexplained": 4
+  },
+  "informationGain": {
+    "addressesAdded": 207,
+    "streetAddressesAdded": 31,
+    "coordsAdded": 112,
+    "coordsImproved": 13,
+    "venuesLinked": 65,
+    "venueRowsEnriched": 9,
+    "venuesCreated": 5,
+    "imagesAdded": 52,
+    "brokenImagesReplaced": 0,
+    "schedulesAdded": 0,
+    "regionsAdded": 142,
+    "metadataFieldsAdded": 100,
+    "incomingPromoted": 68,
+    "existingEnriched": 0,
+    "duplicatesMerged": 11
+  },
+  "venueEffects": {
+    "clustersResolved": 116,
+    "casesResolvedViaCluster": 14,
+    "casesResolvedViaCanonicalVenue": 73,
+    "externalLookupsAvoided": 72,
+    "venueRowsEnriched": 9,
+    "venuesCreated": 5
+  },
+  "byFamily": {
+    "ticketing": {
+      "cases": 321,
+      "resolved": 203,
+      "archived": 32,
+      "open": 86,
+      "missing_address": 215
+    },
+    "municipality": {
+      "cases": 1319,
+      "resolved": 594,
+      "archived": 216,
+      "open": 509,
+      "missing_address": 606
+    },
+    "venue": {
+      "cases": 608,
+      "resolved": 325,
+      "archived": 77,
+      "open": 206,
+      "missing_address": 253
+    },
+    "aggregator": {
+      "cases": 130,
+      "resolved": 23,
+      "archived": 74,
+      "open": 33,
+      "missing_address": 93
+    },
+    "organizer": {
+      "cases": 104,
+      "resolved": 41,
+      "archived": 47,
+      "open": 16,
+      "missing_address": 68
+    },
+    "(no source)": {
+      "cases": 1423,
+      "resolved": 683,
+      "archived": 124,
+      "open": 616,
+      "missing_address": 424
+    },
+    "mall": {
+      "cases": 103,
+      "resolved": 39,
+      "archived": 19,
+      "open": 45,
+      "missing_address": 47
+    },
+    "community_center": {
+      "cases": 284,
+      "resolved": 106,
+      "archived": 40,
+      "open": 138,
+      "missing_address": 118
+    }
+  },
+  "sourceDebt": [
+    {
+      "source": "עיריית רמת השרון - תרבות ואירועים",
+      "family": "municipality",
+      "path": "generic_html",
+      "activities": 39,
+      "candidates": 45,
+      "cases": 157,
+      "subjectsWithCases": 101,
+      "open": 67,
+      "dominantIssue": "missing_location (54)",
+      "debtRatio": 100,
+      "likelyRootCause": "extraction_weakness",
+      "flags": [
+        "missing_address_rate>=50%"
+      ]
+    },
+    {
+      "source": "תיירות אשדוד - אירועים",
+      "family": "municipality",
+      "path": "generic_html",
+      "activities": 39,
+      "candidates": 26,
+      "cases": 157,
+      "subjectsWithCases": 61,
+      "open": 81,
+      "dominantIssue": "missing_venue (42)",
+      "debtRatio": 94,
+      "likelyRootCause": "extraction_weakness",
+      "flags": [
+        "missing_address_rate>=50%"
+      ]
+    },
+    {
+      "source": "עיריית גבעתיים - אירועים",
+      "family": "municipality",
+      "path": "generic_html",
+      "activities": 37,
+      "candidates": 31,
+      "cases": 156,
+      "subjectsWithCases": 61,
+      "open": 59,
+      "dominantIssue": "missing_image (51)",
+      "debtRatio": 90,
+      "likelyRootCause": "missing_detail_traversal",
+      "flags": []
+    },
+    {
+      "source": "רשת המתנ\"סים קריית גת - אירועים",
+      "family": "community_center",
+      "path": "local_relay",
+      "activities": 43,
+      "candidates": 67,
+      "cases": 121,
+      "subjectsWithCases": 45,
+      "open": 69,
+      "dominantIssue": "missing_image (44)",
+      "debtRatio": 41,
+      "likelyRootCause": "extraction_weakness",
+      "flags": []
+    },
+    {
+      "source": "עיריית תל אביב-יפו - אירועים ומופעים",
+      "family": "municipality",
+      "path": "local_relay",
+      "activities": 31,
+      "candidates": 38,
+      "cases": 120,
+      "subjectsWithCases": 50,
+      "open": 54,
+      "dominantIssue": "incomplete_address (36)",
+      "debtRatio": 72,
+      "likelyRootCause": "extraction_weakness",
+      "flags": [
+        "missing_address_rate>=50%"
+      ]
+    },
+    {
+      "source": "עיריית הרצליה - לוח אירועים",
+      "family": "municipality",
+      "path": "generic_html",
+      "activities": 23,
+      "candidates": 24,
+      "cases": 102,
+      "subjectsWithCases": 30,
+      "open": 42,
+      "dominantIssue": "missing_venue (29)",
+      "debtRatio": 64,
+      "likelyRootCause": "missing_detail_traversal",
+      "flags": [
+        "missing_address_rate>=50%"
+      ]
+    },
+    {
+      "source": "עיריית חולון - לוח אירועים",
+      "family": "municipality",
+      "path": "local_relay",
+      "activities": 34,
+      "candidates": 27,
+      "cases": 101,
+      "subjectsWithCases": 49,
+      "open": 40,
+      "dominantIssue": "missing_image (41)",
+      "debtRatio": 80,
+      "likelyRootCause": "extraction_weakness",
+      "flags": []
+    },
+    {
+      "source": "רשת ספריות חוויות רחובות",
+      "family": "venue",
+      "path": "generic_html",
+      "activities": 8,
+      "candidates": 32,
+      "cases": 95,
+      "subjectsWithCases": 38,
+      "open": 16,
+      "dominantIssue": "missing_location (23)",
+      "debtRatio": 95,
+      "likelyRootCause": "missing_detail_traversal",
+      "flags": [
+        "missing_address_rate>=50%"
+      ]
+    },
+    {
+      "source": "עיריית יבנה",
+      "family": "municipality",
+      "path": "generic_html",
+      "activities": 25,
+      "candidates": 27,
+      "cases": 85,
+      "subjectsWithCases": 31,
+      "open": 43,
+      "dominantIssue": "missing_image (28)",
+      "debtRatio": 60,
+      "likelyRootCause": "missing_detail_traversal",
+      "flags": []
+    },
+    {
+      "source": "מוזיאון ארץ ישראל - פעילויות לקהל הרחב",
+      "family": "venue",
+      "path": "generic_html",
+      "activities": 17,
+      "candidates": 30,
+      "cases": 75,
+      "subjectsWithCases": 33,
+      "open": 34,
+      "dominantIssue": "incomplete_address (20)",
+      "debtRatio": 70,
+      "likelyRootCause": "venue_resolution_weakness",
+      "flags": [
+        "missing_address_rate>=50%"
+      ]
+    },
+    {
+      "source": "עיריית רעננה - אירועי ילדים ומשפחה (כרטיסים)",
+      "family": "ticketing",
+      "path": "generic_html",
+      "activities": 28,
+      "candidates": 36,
+      "cases": 74,
+      "subjectsWithCases": 38,
+      "open": 26,
+      "dominantIssue": "incomplete_address (26)",
+      "debtRatio": 59,
+      "likelyRootCause": "extraction_weakness",
+      "flags": [
+        "missing_address_rate>=50%"
+      ]
+    },
+    {
+      "source": "תיאטרון הקרון ירושלים (כרטיסים)",
+      "family": "ticketing",
+      "path": "generic_html",
+      "activities": 35,
+      "candidates": 0,
+      "cases": 68,
+      "subjectsWithCases": 68,
+      "open": 0,
+      "dominantIssue": "missing_location (36)",
+      "debtRatio": 100,
+      "likelyRootCause": "venue_resolution_weakness",
+      "flags": [
+        "missing_address_rate>=50%"
+      ]
+    },
+    {
+      "source": "קניון רמות ירושלים - אירועים",
+      "family": "venue",
+      "path": "generic_html",
+      "activities": 18,
+      "candidates": 24,
+      "cases": 61,
+      "subjectsWithCases": 23,
+      "open": 19,
+      "dominantIssue": "missing_image (22)",
+      "debtRatio": 55,
+      "likelyRootCause": "extraction_weakness",
+      "flags": []
+    },
+    {
+      "source": "תיאטרון הקרון ירושלים - רפרטואר",
+      "family": "venue",
+      "path": "generic_html",
+      "activities": 13,
+      "candidates": 1,
+      "cases": 59,
+      "subjectsWithCases": 43,
+      "open": 14,
+      "dominantIssue": "missing_location (17)",
+      "debtRatio": 100,
+      "likelyRootCause": "venue_resolution_weakness",
+      "flags": [
+        "missing_address_rate>=50%"
+      ]
+    },
+    {
+      "source": "החברה להגנת הטבע - הולכים על פתוח (סיורים)",
+      "family": "organizer",
+      "path": "generic_html",
+      "activities": 12,
+      "candidates": 0,
+      "cases": 58,
+      "subjectsWithCases": 37,
+      "open": 15,
+      "dominantIssue": "missing_location (25)",
+      "debtRatio": 100,
+      "likelyRootCause": "extraction_weakness",
+      "flags": [
+        "missing_address_rate>=50%"
+      ]
+    },
+    {
+      "source": "מתנ\"ס בית שמש - כרטיסים (smarticket)",
+      "family": "ticketing",
+      "path": "generic_html",
+      "activities": 9,
+      "candidates": 10,
+      "cases": 47,
+      "subjectsWithCases": 22,
+      "open": 15,
+      "dominantIssue": "missing_location (10)",
+      "debtRatio": 100,
+      "likelyRootCause": "missing_detail_traversal",
+      "flags": [
+        "missing_address_rate>=50%"
+      ]
+    },
+    {
+      "source": "רשת המתנ\"סים בית שמש - לוח אירועים",
+      "family": "community_center",
+      "path": "generic_html",
+      "activities": 8,
+      "candidates": 9,
+      "cases": 45,
+      "subjectsWithCases": 13,
+      "open": 17,
+      "dominantIssue": "missing_venue (12)",
+      "debtRatio": 76,
+      "likelyRootCause": "extraction_weakness",
+      "flags": [
+        "missing_address_rate>=50%"
+      ]
+    },
+    {
+      "source": "היכל התרבות אשקלון",
+      "family": "venue",
+      "path": "generic_html",
+      "activities": 15,
+      "candidates": 38,
+      "cases": 45,
+      "subjectsWithCases": 34,
+      "open": 26,
+      "dominantIssue": "missing_required_metadata (18)",
+      "debtRatio": 64,
+      "likelyRootCause": "extraction_weakness",
+      "flags": []
+    },
+    {
+      "source": "עיריית גני תקווה - אירועים",
+      "family": "municipality",
+      "path": "generic_html",
+      "activities": 8,
+      "candidates": 21,
+      "cases": 45,
+      "subjectsWithCases": 24,
+      "open": 5,
+      "dominantIssue": "incomplete_address (17)",
+      "debtRatio": 83,
+      "likelyRootCause": "extraction_weakness",
+      "flags": [
+        "missing_address_rate>=50%"
+      ]
+    },
+    {
+      "source": "היכל התרבות כרמיאל",
+      "family": "venue",
+      "path": "generic_html",
+      "activities": 31,
+      "candidates": 15,
+      "cases": 42,
+      "subjectsWithCases": 32,
+      "open": 16,
+      "dominantIssue": "incomplete_address (25)",
+      "debtRatio": 70,
+      "likelyRootCause": "extraction_weakness",
+      "flags": [
+        "missing_address_rate>=50%"
+      ]
+    },
+    {
+      "source": "קניון כפר סבא הירוקה - לוח אירועים",
+      "family": "venue",
+      "path": "generic_html",
+      "activities": 24,
+      "candidates": 19,
+      "cases": 42,
+      "subjectsWithCases": 26,
+      "open": 20,
+      "dominantIssue": "missing_image (22)",
+      "debtRatio": 60,
+      "likelyRootCause": "extraction_weakness",
+      "flags": []
+    },
+    {
+      "source": "עיריית אריאל - אירועים",
+      "family": "municipality",
+      "path": "generic_html",
+      "activities": 5,
+      "candidates": 3,
+      "cases": 41,
+      "subjectsWithCases": 26,
+      "open": 21,
+      "dominantIssue": "missing_required_metadata (19)",
+      "debtRatio": 100,
+      "likelyRootCause": "extraction_weakness",
+      "flags": []
+    },
+    {
+      "source": "נוף הגליל - רשת המרכזים הקהילתיים פסיפס",
+      "family": "community_center",
+      "path": "generic_html",
+      "activities": 9,
+      "candidates": 11,
+      "cases": 40,
+      "subjectsWithCases": 12,
+      "open": 20,
+      "dominantIssue": "incomplete_address (9)",
+      "debtRatio": 60,
+      "likelyRootCause": "venue_resolution_weakness",
+      "flags": [
+        "missing_address_rate>=50%"
+      ]
+    },
+    {
+      "source": "בית אריאלה וספריות תל אביב-יפו - לוח אירועים",
+      "family": "venue",
+      "path": "generic_html",
+      "activities": 23,
+      "candidates": 28,
+      "cases": 40,
+      "subjectsWithCases": 29,
+      "open": 9,
+      "dominantIssue": "incomplete_address (24)",
+      "debtRatio": 57,
+      "likelyRootCause": "extraction_weakness",
+      "flags": [
+        "missing_address_rate>=50%"
+      ]
+    },
+    {
+      "source": "עיריית כפר סבא",
+      "family": "municipality",
+      "path": "generic_html",
+      "activities": 0,
+      "candidates": 12,
+      "cases": 39,
+      "subjectsWithCases": 21,
+      "open": 0,
+      "dominantIssue": "missing_required_metadata (10)",
+      "debtRatio": 100,
+      "likelyRootCause": "extraction_weakness",
+      "flags": []
+    },
+    {
+      "source": "קצת תרבות - הצגות ילדים (אגרגטור כרטיסים)",
+      "family": "aggregator",
+      "path": "generic_html",
+      "activities": 0,
+      "candidates": 20,
+      "cases": 38,
+      "subjectsWithCases": 35,
+      "open": 0,
+      "dominantIssue": "missing_location (35)",
+      "debtRatio": 100,
+      "likelyRootCause": "source_limitation",
+      "flags": [
+        "missing_address_rate>=50%"
+      ]
+    },
+    {
+      "source": "מה קורה - לוח אירועים (אגרגטור)",
+      "family": "aggregator",
+      "path": "generic_html",
+      "activities": 0,
+      "candidates": 39,
+      "cases": 38,
+      "subjectsWithCases": 33,
+      "open": 17,
+      "dominantIssue": "missing_required_metadata (28)",
+      "debtRatio": 85,
+      "likelyRootCause": "missing_detail_traversal",
+      "flags": []
+    },
+    {
+      "source": "החברה להגנת הטבע - לוח אירועים ופעילויות",
+      "family": "organizer",
+      "path": "generic_html",
+      "activities": 2,
+      "candidates": 0,
+      "cases": 38,
+      "subjectsWithCases": 26,
+      "open": 1,
+      "dominantIssue": "missing_location (24)",
+      "debtRatio": 100,
+      "likelyRootCause": "unknown",
+      "flags": [
+        "missing_address_rate>=50%"
+      ]
+    },
+    {
+      "source": "קניוני עזריאלי - מרכז פעילויות (עונתי)",
+      "family": "mall",
+      "path": "generic_html",
+      "activities": 11,
+      "candidates": 10,
+      "cases": 33,
+      "subjectsWithCases": 11,
+      "open": 18,
+      "dominantIssue": "incomplete_address (11)",
+      "debtRatio": 52,
+      "likelyRootCause": "extraction_weakness",
+      "flags": [
+        "missing_address_rate>=50%"
+      ]
+    },
+    {
+      "source": "Ticketsi - הצגות ילדים (אגרגטור כרטיסים)",
+      "family": "aggregator",
+      "path": "generic_html",
+      "activities": 0,
+      "candidates": 15,
+      "cases": 32,
+      "subjectsWithCases": 32,
+      "open": 0,
+      "dominantIssue": "missing_location (32)",
+      "debtRatio": 100,
+      "likelyRootCause": "venue_resolution_weakness",
+      "flags": [
+        "missing_address_rate>=50%"
+      ]
+    },
+    {
+      "source": "מקפ״ת - מרכזים קהילתיים פתח תקווה (כרטיסים)",
+      "family": "ticketing",
+      "path": "generic_html",
+      "activities": 0,
+      "candidates": 0,
+      "cases": 32,
+      "subjectsWithCases": 31,
+      "open": 12,
+      "dominantIssue": "missing_location (30)",
+      "debtRatio": 100,
+      "likelyRootCause": "missing_detail_traversal",
+      "flags": [
+        "missing_address_rate>=50%"
+      ]
+    },
+    {
+      "source": "קופת בראבו - היכל התרבות אשקלון (כרטיסים)",
+      "family": "ticketing",
+      "path": "generic_html",
+      "activities": 0,
+      "candidates": 12,
+      "cases": 30,
+      "subjectsWithCases": 28,
+      "open": 1,
+      "dominantIssue": "missing_location (25)",
+      "debtRatio": 100,
+      "likelyRootCause": "venue_resolution_weakness",
+      "flags": [
+        "missing_address_rate>=50%"
+      ]
+    },
+    {
+      "source": "מועצה אזורית גזר - אירועי ילדים",
+      "family": "municipality",
+      "path": "generic_html",
+      "activities": 6,
+      "candidates": 12,
+      "cases": 30,
+      "subjectsWithCases": 14,
+      "open": 9,
+      "dominantIssue": "incomplete_address (7)",
+      "debtRatio": 78,
+      "likelyRootCause": "extraction_weakness",
+      "flags": [
+        "missing_address_rate>=50%"
+      ]
+    },
+    {
+      "source": "גן החיות התנ\"כי ירושלים",
+      "family": "venue",
+      "path": "generic_html",
+      "activities": 8,
+      "candidates": 8,
+      "cases": 29,
+      "subjectsWithCases": 11,
+      "open": 12,
+      "dominantIssue": "incomplete_address (8)",
+      "debtRatio": 69,
+      "likelyRootCause": "extraction_weakness",
+      "flags": [
+        "missing_address_rate>=50%"
+      ]
+    },
+    {
+      "source": "מדעטק חיפה",
+      "family": "venue",
+      "path": "generic_html",
+      "activities": 9,
+      "candidates": 6,
+      "cases": 28,
+      "subjectsWithCases": 14,
+      "open": 13,
+      "dominantIssue": "incomplete_address (10)",
+      "debtRatio": 93,
+      "likelyRootCause": "venue_resolution_weakness",
+      "flags": [
+        "missing_address_rate>=50%"
+      ]
+    },
+    {
+      "source": "החברה העירונית אשדוד - לוח אירועים",
+      "family": "municipality",
+      "path": "generic_html",
+      "activities": 0,
+      "candidates": 0,
+      "cases": 25,
+      "subjectsWithCases": 16,
+      "open": 23,
+      "dominantIssue": "missing_location (16)",
+      "debtRatio": 100,
+      "likelyRootCause": "unknown",
+      "flags": [
+        "missing_address_rate>=50%"
+      ]
+    },
+    {
+      "source": "תיאטרון ירושלים - ילדים ומשפחה",
+      "family": "venue",
+      "path": "generic_html",
+      "activities": 12,
+      "candidates": 1,
+      "cases": 25,
+      "subjectsWithCases": 13,
+      "open": 0,
+      "dominantIssue": "incomplete_address (12)",
+      "debtRatio": 100,
+      "likelyRootCause": "extraction_weakness",
+      "flags": [
+        "missing_address_rate>=50%"
+      ]
+    },
+    {
+      "source": "מועצה אזורית חבל מודיעין - אירועים",
+      "family": "municipality",
+      "path": "generic_html",
+      "activities": 5,
+      "candidates": 5,
+      "cases": 24,
+      "subjectsWithCases": 11,
+      "open": 10,
+      "dominantIssue": "missing_venue (6)",
+      "debtRatio": 100,
+      "likelyRootCause": "extraction_weakness",
+      "flags": [
+        "missing_address_rate>=50%"
+      ]
+    },
+    {
+      "source": "עיריית מודיעין מכבים רעות - לוח אירועים",
+      "family": "municipality",
+      "path": "generic_html",
+      "activities": 6,
+      "candidates": 8,
+      "cases": 24,
+      "subjectsWithCases": 14,
+      "open": 0,
+      "dominantIssue": "missing_venue (14)",
+      "debtRatio": 100,
+      "likelyRootCause": "venue_resolution_weakness",
+      "flags": [
+        "missing_address_rate>=50%"
+      ]
+    },
+    {
+      "source": "עיריית רעננה - קטנטנים (גיל הרך)",
+      "family": "municipality",
+      "path": "generic_html",
+      "activities": 6,
+      "candidates": 3,
+      "cases": 22,
+      "subjectsWithCases": 7,
+      "open": 7,
+      "dominantIssue": "missing_venue (7)",
+      "debtRatio": 78,
+      "likelyRootCause": "extraction_weakness",
+      "flags": [
+        "missing_address_rate>=50%"
+      ]
+    }
+  ],
+  "topSources": [
+    [
+      "עיריית רמת השרון - תרבות ואירועים",
+      157
+    ],
+    [
+      "תיירות אשדוד - אירועים",
+      157
+    ],
+    [
+      "עיריית גבעתיים - אירועים",
+      156
+    ],
+    [
+      "רשת המתנ\"סים קריית גת - אירועים",
+      121
+    ],
+    [
+      "עיריית תל אביב-יפו - אירועים ומופעים",
+      120
+    ],
+    [
+      "עיריית הרצליה - לוח אירועים",
+      102
+    ],
+    [
+      "עיריית חולון - לוח אירועים",
+      101
+    ],
+    [
+      "רשת ספריות חוויות רחובות",
+      95
+    ],
+    [
+      "עיריית יבנה",
+      85
+    ],
+    [
+      "מוזיאון ארץ ישראל - פעילויות לקהל הרחב",
+      75
+    ],
+    [
+      "עיריית רעננה - אירועי ילדים ומשפחה (כרטיסים)",
+      74
+    ],
+    [
+      "תיאטרון הקרון ירושלים (כרטיסים)",
+      68
+    ],
+    [
+      "קניון רמות ירושלים - אירועים",
+      61
+    ],
+    [
+      "תיאטרון הקרון ירושלים - רפרטואר",
+      59
+    ],
+    [
+      "החברה להגנת הטבע - הולכים על פתוח (סיורים)",
+      58
+    ]
+  ],
+  "historicalDebt": {
+    "total": 3637,
+    "open": 1291,
+    "byIssue": {
+      "missing_location": 312,
+      "missing_required_metadata": 276,
+      "missing_image": 447,
+      "incomplete_address": 1051,
+      "missing_venue": 397,
+      "settlement_review": 282,
+      "missing_region": 402,
+      "unverified_location": 198,
+      "missing_city": 209,
+      "missing_schedule": 50,
+      "misclassified": 13
+    },
+    "bySource": [
+      [
+        "(no source)",
+        1419
+      ],
+      [
+        "רשת המתנ\"סים קריית גת - אירועים",
+        116
+      ],
+      [
+        "עיריית תל אביב-יפו - אירועים ומופעים",
+        110
+      ],
+      [
+        "עיריית גבעתיים - אירועים",
+        108
+      ],
+      [
+        "רשת ספריות חוויות רחובות",
+        95
+      ],
+      [
+        "עיריית רמת השרון - תרבות ואירועים",
+        91
+      ],
+      [
+        "עיריית חולון - לוח אירועים",
+        87
+      ],
+      [
+        "תיירות אשדוד - אירועים",
+        87
+      ],
+      [
+        "עיריית יבנה",
+        83
+      ],
+      [
+        "עיריית הרצליה - לוח אירועים",
+        82
+      ],
+      [
+        "מוזיאון ארץ ישראל - פעילויות לקהל הרחב",
+        73
+      ],
+      [
+        "עיריית רעננה - אירועי ילדים ומשפחה (כרטיסים)",
+        67
+      ]
+    ],
+    "byFamily": {
+      "ticketing": 220,
+      "municipality": 990,
+      "venue": 511,
+      "aggregator": 90,
+      "organizer": 77,
+      "(no source)": 1419,
+      "mall": 92,
+      "community_center": 238
+    },
+    "byIngestionPath": {
+      "generic_html": 1888,
+      "(no source)": 1419,
+      "local_relay": 330
+    }
+  },
+  "newDebt": {
+    "since": "2026-09-13T17:51:32.020Z",
+    "subjectsEntered": {
+      "incoming": 1497,
+      "activities": 178
+    },
+    "cases": {
+      "total": 655,
+      "open": 358,
+      "byIssue": {
+        "missing_location": 139,
+        "missing_schedule": 29,
+        "missing_venue": 90,
+        "missing_image": 99,
+        "incomplete_address": 72,
+        "missing_region": 56,
+        "missing_required_metadata": 118,
+        "unverified_location": 52
+      },
+      "bySource": [
+        [
+          "תיירות אשדוד - אירועים",
+          70
+        ],
+        [
+          "עיריית רמת השרון - תרבות ואירועים",
+          66
+        ],
+        [
+          "עיריית גבעתיים - אירועים",
+          48
+        ],
+        [
+          "מקפ״ת - מרכזים קהילתיים פתח תקווה (כרטיסים)",
+          32
+        ],
+        [
+          "תיאטרון הקרון ירושלים (כרטיסים)",
+          32
+        ],
+        [
+          "תיאטרון הקרון ירושלים - רפרטואר",
+          27
+        ],
+        [
+          "החברה העירונית אשדוד - לוח אירועים",
+          25
+        ],
+        [
+          "החברה להגנת הטבע - הולכים על פתוח (סיורים)",
+          23
+        ],
+        [
+          "מה קורה - לוח אירועים (אגרגטור)",
+          21
+        ],
+        [
+          "עיריית אריאל - אירועים",
+          20
+        ],
+        [
+          "עיריית הרצליה - לוח אירועים",
+          20
+        ],
+        [
+          "היכל התרבות קריית מוצקין (כרטיסים)",
+          17
+        ]
+      ],
+      "byFamily": {
+        "ticketing": 101,
+        "venue": 97,
+        "municipality": 329,
+        "aggregator": 40,
+        "community_center": 46,
+        "mall": 11,
+        "organizer": 27,
+        "(no source)": 4
+      },
+      "byIngestionPath": {
+        "generic_html": 615,
+        "local_relay": 36,
+        "(no source)": 4
+      }
+    },
+    "casesPer100Subjects": 39.1
+  },
+  "missingCity": {
+    "published_missing_city": 59,
+    "missing_city_cases_opened": 209,
+    "missing_city_auto_fixed": 123,
+    "missing_city_already_fixed": 1,
+    "missing_city_conflict": 3,
+    "missing_city_unresolved": 58,
+    "missing_city_human_review": 3,
+    "missing_city_outside_service_area": 24,
+    "missing_city_open": 0,
+    "reverse_geocode_attempts": 209,
+    "reverse_geocode_success": 209,
+    "reverse_geocode_requests": 0,
+    "canonical_settlement_match": 127,
+    "normalization_failure": 58,
+    "byMethod": {
+      "address+reverse": 56,
+      "reverse": 28,
+      "nearest_settlement+council": 34,
+      "address": 5
+    }
+  },
+  "centroid": {
+    "suspectedLocations": 106,
+    "repairedCases": 41
+  },
+  "runs": [
+    {
+      "started_at": "2026-09-17T19:24:35.039466+00:00",
+      "finished_at": "2026-09-17T19:24:57.648+00:00",
+      "worker": "Mike:22164",
+      "notes": null,
+      "counters": {
+        "gain": {
+          "citiesAdded": 0,
+          "coordsAdded": 0,
+          "imagesAdded": 0,
+          "regionsAdded": 0,
+          "venuesLinked": 0,
+          "venuesCreated": 0,
+          "addressesAdded": 0,
+          "coordsImproved": 0,
+          "schedulesAdded": 0,
+          "duplicatesMerged": 0,
+          "existingEnriched": 0,
+          "incomingPromoted": 0,
+          "regionsCorrected": 0,
+          "venueRowsEnriched": 0,
+          "metadataFieldsAdded": 0,
+          "brokenImagesReplaced": 0,
+          "streetAddressesAdded": 0
+        },
+        "errors": 0,
+        "backlog": 1649,
+        "archived": 0,
+        "reopened": 0,
+        "resolved": 0,
+        "inspected": 0,
+        "published": 0,
+        "discovered": 7,
+        "durationMs": 23209,
+        "policyHold": 0,
+        "imagesFound": 0,
+        "fieldsFilled": 0,
+        "venuesLinked": 0,
+        "addressesFound": 0,
+        "archiveReasons": {},
+        "resolvedNoGain": 0,
+        "closedExternally": 20,
+        "duplicatesMerged": 0,
+        "newDebtProcessed": 0,
+        "resolvedViaVenue": 0,
+        "resolvedViaCluster": 0,
+        "venueClustersResolved": 0,
+        "externalLookupsAvoided": 0
+      }
+    },
+    {
+      "started_at": "2026-09-17T18:29:54.280124+00:00",
+      "finished_at": "2026-09-17T18:40:16.57+00:00",
+      "worker": "Mike:27756",
+      "notes": null,
+      "counters": {
+        "gain": {
+          "citiesAdded": 0,
+          "coordsAdded": 0,
+          "imagesAdded": 0,
+          "regionsAdded": 0,
+          "venuesLinked": 0,
+          "venuesCreated": 0,
+          "addressesAdded": 5,
+          "coordsImproved": 13,
+          "schedulesAdded": 0,
+          "duplicatesMerged": 0,
+          "existingEnriched": 0,
+          "incomingPromoted": 0,
+          "regionsCorrected": 0,
+          "venueRowsEnriched": 3,
+          "metadataFieldsAdded": 0,
+          "brokenImagesReplaced": 0,
+          "streetAddressesAdded": 4
+        },
+        "errors": 0,
+        "backlog": 1662,
+        "archived": 0,
+        "reopened": 0,
+        "resolved": 13,
+        "inspected": 40,
+        "published": 0,
+        "discovered": 514,
+        "durationMs": 622875,
+        "policyHold": 0,
+        "imagesFound": 0,
+        "fieldsFilled": 0,
+        "venuesLinked": 0,
+        "addressesFound": 9,
+        "archiveReasons": {},
+        "resolvedNoGain": 0,
+        "closedExternally": 0,
+        "duplicatesMerged": 0,
+        "newDebtProcessed": 0,
+        "resolvedViaVenue": 1,
+        "resolvedViaCluster": 0,
+        "venueClustersResolved": 0,
+        "externalLookupsAvoided": 0
+      }
+    },
+    {
+      "started_at": "2026-09-17T17:54:23.079126+00:00",
+      "finished_at": "2026-09-17T17:54:37.047+00:00",
+      "worker": "Mike:11244",
+      "notes": null,
+      "counters": {
+        "gain": {
+          "citiesAdded": 0,
+          "coordsAdded": 0,
+          "imagesAdded": 0,
+          "regionsAdded": 0,
+          "venuesLinked": 0,
+          "venuesCreated": 0,
+          "addressesAdded": 0,
+          "coordsImproved": 0,
+          "schedulesAdded": 0,
+          "duplicatesMerged": 0,
+          "existingEnriched": 0,
+          "incomingPromoted": 0,
+          "regionsCorrected": 0,
+          "venueRowsEnriched": 0,
+          "metadataFieldsAdded": 0,
+          "brokenImagesReplaced": 0,
+          "streetAddressesAdded": 0
+        },
+        "errors": 0,
+        "backlog": 1189,
+        "archived": 0,
+        "reopened": 0,
+        "resolved": 0,
+        "inspected": 0,
+        "published": 0,
+        "discovered": 18,
+        "durationMs": 14526,
+        "policyHold": 0,
+        "imagesFound": 0,
+        "fieldsFilled": 0,
+        "venuesLinked": 0,
+        "addressesFound": 0,
+        "archiveReasons": {},
+        "resolvedNoGain": 0,
+        "closedExternally": 1,
+        "duplicatesMerged": 0,
+        "newDebtProcessed": 0,
+        "resolvedViaVenue": 0,
+        "resolvedViaCluster": 0,
+        "venueClustersResolved": 0,
+        "externalLookupsAvoided": 0
+      }
+    },
+    {
+      "started_at": "2026-09-17T17:48:41.608899+00:00",
+      "finished_at": "2026-09-17T17:54:17.958+00:00",
+      "worker": "Mike:13388",
+      "notes": null,
+      "counters": {
+        "gain": {
+          "citiesAdded": 0,
+          "coordsAdded": 0,
+          "imagesAdded": 0,
+          "regionsAdded": 0,
+          "venuesLinked": 0,
+          "venuesCreated": 0,
+          "addressesAdded": 0,
+          "coordsImproved": 0,
+          "schedulesAdded": 0,
+          "duplicatesMerged": 0,
+          "existingEnriched": 0,
+          "incomingPromoted": 0,
+          "regionsCorrected": 0,
+          "venueRowsEnriched": 0,
+          "metadataFieldsAdded": 7,
+          "brokenImagesReplaced": 0,
+          "streetAddressesAdded": 0
+        },
+        "errors": 0,
+        "backlog": 1172,
+        "archived": 4,
+        "reopened": 0,
+        "resolved": 9,
+        "inspected": 13,
+        "published": 0,
+        "discovered": 0,
+        "durationMs": 336955,
+        "policyHold": 0,
+        "imagesFound": 0,
+        "fieldsFilled": 0,
+        "venuesLinked": 0,
+        "misclassified": {
+          "byKind": {
+            "indoor_play": 6,
+            "not_a_place": 2,
+            "amusement_park": 1,
+            "ambiguous_attraction": 4
+          },
+          "processed": 13,
+          "needsHuman": 4,
+          "alreadyFixed": 0,
+          "reclassified": 7,
+          "archivedNotAPlace": 2
+        },
+        "addressesFound": 0,
+        "archiveReasons": {
+          "requires_human_judgment": 4
+        },
+        "resolvedNoGain": 0,
+        "closedExternally": 0,
+        "duplicatesMerged": 0,
+        "newDebtProcessed": 0,
+        "resolvedViaVenue": 0,
+        "resolvedViaCluster": 0,
+        "venueClustersResolved": 0,
+        "externalLookupsAvoided": 0
+      }
+    },
+    {
+      "started_at": "2026-09-17T17:47:51.537707+00:00",
+      "finished_at": "2026-09-17T17:48:06.547+00:00",
+      "worker": "Mike:30948",
+      "notes": null,
+      "counters": {
+        "gain": {
+          "citiesAdded": 0,
+          "coordsAdded": 0,
+          "imagesAdded": 0,
+          "regionsAdded": 0,
+          "venuesLinked": 0,
+          "venuesCreated": 0,
+          "addressesAdded": 0,
+          "coordsImproved": 0,
+          "schedulesAdded": 0,
+          "duplicatesMerged": 0,
+          "existingEnriched": 0,
+          "incomingPromoted": 0,
+          "regionsCorrected": 0,
+          "venueRowsEnriched": 0,
+          "metadataFieldsAdded": 0,
+          "brokenImagesReplaced": 0,
+          "streetAddressesAdded": 0
+        },
+        "errors": 0,
+        "backlog": 1185,
+        "archived": 0,
+        "reopened": 0,
+        "resolved": 0,
+        "inspected": 0,
+        "published": 0,
+        "discovered": 13,
+        "durationMs": 15608,
+        "policyHold": 0,
+        "imagesFound": 0,
+        "fieldsFilled": 0,
+        "venuesLinked": 0,
+        "addressesFound": 0,
+        "archiveReasons": {},
+        "resolvedNoGain": 0,
+        "closedExternally": 0,
+        "duplicatesMerged": 0,
+        "newDebtProcessed": 0,
+        "resolvedViaVenue": 0,
+        "resolvedViaCluster": 0,
+        "venueClustersResolved": 0,
+        "externalLookupsAvoided": 0
+      }
+    },
+    {
+      "started_at": "2026-09-17T16:52:16.484284+00:00",
+      "finished_at": "2026-09-17T16:56:18.965+00:00",
+      "worker": "Mike:21104",
+      "notes": null,
+      "counters": {
+        "gain": {
+          "citiesAdded": 0,
+          "coordsAdded": 0,
+          "imagesAdded": 0,
+          "regionsAdded": 0,
+          "venuesLinked": 0,
+          "venuesCreated": 0,
+          "addressesAdded": 0,
+          "coordsImproved": 0,
+          "schedulesAdded": 0,
+          "duplicatesMerged": 0,
+          "existingEnriched": 0,
+          "incomingPromoted": 0,
+          "regionsCorrected": 0,
+          "venueRowsEnriched": 0,
+          "metadataFieldsAdded": 0,
+          "brokenImagesReplaced": 0,
+          "streetAddressesAdded": 0
+        },
+        "errors": 0,
+        "backlog": 1172,
+        "archived": 0,
+        "reopened": 0,
+        "resolved": 0,
+        "inspected": 5,
+        "published": 0,
+        "discovered": 0,
+        "durationMs": 243005,
+        "policyHold": 0,
+        "imagesFound": 0,
+        "fieldsFilled": 0,
+        "venuesLinked": 0,
+        "addressesFound": 0,
+        "archiveReasons": {},
+        "resolvedNoGain": 0,
+        "closedExternally": 0,
+        "duplicatesMerged": 0,
+        "newDebtProcessed": 0,
+        "resolvedViaVenue": 0,
+        "resolvedViaCluster": 0,
+        "venueClustersResolved": 0,
+        "externalLookupsAvoided": 0
+      }
+    },
+    {
+      "started_at": "2026-09-17T16:51:56.1957+00:00",
+      "finished_at": "2026-09-17T16:52:11.971+00:00",
+      "worker": "Mike:35868",
+      "notes": null,
+      "counters": {
+        "gain": {
+          "citiesAdded": 0,
+          "coordsAdded": 0,
+          "imagesAdded": 0,
+          "regionsAdded": 0,
+          "venuesLinked": 0,
+          "venuesCreated": 0,
+          "addressesAdded": 0,
+          "coordsImproved": 0,
+          "schedulesAdded": 0,
+          "duplicatesMerged": 0,
+          "existingEnriched": 0,
+          "incomingPromoted": 0,
+          "regionsCorrected": 0,
+          "venueRowsEnriched": 0,
+          "metadataFieldsAdded": 0,
+          "brokenImagesReplaced": 0,
+          "streetAddressesAdded": 0
+        },
+        "errors": 0,
+        "backlog": 1172,
+        "archived": 0,
+        "reopened": 0,
+        "resolved": 0,
+        "inspected": 0,
+        "published": 0,
+        "discovered": 57,
+        "durationMs": 15889,
+        "policyHold": 0,
+        "imagesFound": 0,
+        "fieldsFilled": 0,
+        "venuesLinked": 0,
+        "addressesFound": 0,
+        "archiveReasons": {},
+        "resolvedNoGain": 0,
+        "closedExternally": 0,
+        "duplicatesMerged": 0,
+        "newDebtProcessed": 0,
+        "resolvedViaVenue": 0,
+        "resolvedViaCluster": 0,
+        "venueClustersResolved": 0,
+        "externalLookupsAvoided": 0
+      }
+    },
+    {
+      "started_at": "2026-09-17T11:47:10.303921+00:00",
+      "finished_at": "2026-09-17T11:47:29.608+00:00",
+      "worker": "Mike:14992",
+      "notes": null,
+      "counters": {
+        "gain": {
+          "citiesAdded": 0,
+          "coordsAdded": 0,
+          "imagesAdded": 0,
+          "regionsAdded": 0,
+          "venuesLinked": 0,
+          "venuesCreated": 0,
+          "addressesAdded": 0,
+          "coordsImproved": 0,
+          "schedulesAdded": 0,
+          "duplicatesMerged": 0,
+          "existingEnriched": 0,
+          "incomingPromoted": 0,
+          "regionsCorrected": 0,
+          "venueRowsEnriched": 0,
+          "metadataFieldsAdded": 0,
+          "brokenImagesReplaced": 0,
+          "streetAddressesAdded": 0
+        },
+        "errors": 0,
+        "backlog": 1115,
+        "archived": 0,
+        "reopened": 0,
+        "resolved": 0,
+        "inspected": 0,
+        "published": 0,
+        "discovered": 0,
+        "durationMs": 19757,
+        "policyHold": 0,
+        "imagesFound": 0,
+        "fieldsFilled": 0,
+        "venuesLinked": 0,
+        "addressesFound": 0,
+        "archiveReasons": {},
+        "resolvedNoGain": 0,
+        "closedExternally": 0,
+        "duplicatesMerged": 0,
+        "newDebtProcessed": 0,
+        "resolvedViaVenue": 0,
+        "resolvedViaCluster": 0,
+        "venueClustersResolved": 0,
+        "externalLookupsAvoided": 0
+      }
+    },
+    {
+      "started_at": "2026-09-17T11:41:24.472177+00:00",
+      "finished_at": "2026-09-17T11:47:05.634+00:00",
+      "worker": "Mike:27000",
+      "notes": null,
+      "counters": {
+        "gain": {
+          "citiesAdded": 0,
+          "coordsAdded": 0,
+          "imagesAdded": 0,
+          "regionsAdded": 0,
+          "venuesLinked": 0,
+          "venuesCreated": 0,
+          "addressesAdded": 0,
+          "coordsImproved": 0,
+          "schedulesAdded": 0,
+          "duplicatesMerged": 0,
+          "existingEnriched": 0,
+          "incomingPromoted": 0,
+          "regionsCorrected": 0,
+          "venueRowsEnriched": 0,
+          "metadataFieldsAdded": 0,
+          "brokenImagesReplaced": 0,
+          "streetAddressesAdded": 0
+        },
+        "errors": 0,
+        "backlog": 1115,
+        "archived": 0,
+        "reopened": 0,
+        "resolved": 0,
+        "inspected": 0,
+        "published": 0,
+        "discovered": 0,
+        "durationMs": 341629,
+        "policyHold": 0,
+        "imagesFound": 0,
+        "fieldsFilled": 0,
+        "venuesLinked": 0,
+        "addressesFound": 0,
+        "archiveReasons": {},
+        "resolvedNoGain": 0,
+        "closedExternally": 98,
+        "duplicatesMerged": 0,
+        "newDebtProcessed": 0,
+        "resolvedViaVenue": 0,
+        "resolvedViaCluster": 0,
+        "venueClustersResolved": 0,
+        "externalLookupsAvoided": 0
+      }
+    },
+    {
+      "started_at": "2026-09-17T11:24:48.475824+00:00",
+      "finished_at": "2026-09-17T11:36:13.662+00:00",
+      "worker": "Mike:5524",
+      "notes": null,
+      "counters": {
+        "gain": {
+          "citiesAdded": 86,
+          "coordsAdded": 0,
+          "imagesAdded": 0,
+          "regionsAdded": 74,
+          "venuesLinked": 0,
+          "venuesCreated": 0,
+          "addressesAdded": 0,
+          "coordsImproved": 0,
+          "schedulesAdded": 0,
+          "duplicatesMerged": 0,
+          "existingEnriched": 0,
+          "incomingPromoted": 0,
+          "regionsCorrected": 5,
+          "venueRowsEnriched": 0,
+          "metadataFieldsAdded": 0,
+          "brokenImagesReplaced": 0,
+          "streetAddressesAdded": 0
+        },
+        "errors": 1,
+        "backlog": 1213,
+        "archived": 47,
+        "reopened": 0,
+        "resolved": 86,
+        "inspected": 134,
+        "published": 0,
+        "discovered": 0,
+        "durationMs": 685646,
+        "policyHold": 0,
+        "imagesFound": 0,
+        "missingCity": {
+          "retry": 0,
+          "conflict": 1,
+          "autoFixed": 86,
+          "processed": 134,
+          "unresolved": 23,
+          "alreadyFixed": 0,
+          "outsideIsrael": 23,
+          "reverseSuccess": 134,
+          "reverseAttempts": 134,
+          "reverseRequests": 0,
+          "settlementMatch": 88,
+          "reverseCacheHits": 134,
+          "invalidCoordinates": 0,
+          "needsCorroboration": 0,
+          "normalizationFailure": 23
+        },
+        "fieldsFilled": 0,
+        "venuesLinked": 0,
+        "addressesFound": 0,
+        "archiveReasons": {
+          "city_unresolved": 23,
+          "outside_service_area": 23,
+          "requires_human_judgment": 1
+        },
+        "resolvedNoGain": 0,
+        "closedExternally": 6,
+        "duplicatesMerged": 0,
+        "newDebtProcessed": 0,
+        "resolvedViaVenue": 0,
+        "resolvedViaCluster": 0,
+        "venueClustersResolved": 0,
+        "externalLookupsAvoided": 0
+      }
+    },
+    {
+      "started_at": "2026-09-17T11:17:57.645372+00:00",
+      "finished_at": "2026-09-17T11:24:10.581+00:00",
+      "worker": "Mike:31224",
+      "notes": null,
+      "counters": {
+        "gain": {
+          "citiesAdded": 22,
+          "coordsAdded": 0,
+          "imagesAdded": 0,
+          "regionsAdded": 6,
+          "venuesLinked": 0,
+          "venuesCreated": 0,
+          "addressesAdded": 0,
+          "coordsImproved": 0,
+          "schedulesAdded": 0,
+          "duplicatesMerged": 0,
+          "existingEnriched": 0,
+          "incomingPromoted": 0,
+          "regionsCorrected": 14,
+          "venueRowsEnriched": 0,
+          "metadataFieldsAdded": 0,
+          "brokenImagesReplaced": 0,
+          "streetAddressesAdded": 0
+        },
+        "errors": 0,
+        "backlog": 1352,
+        "archived": 38,
+        "reopened": 0,
+        "resolved": 22,
+        "inspected": 60,
+        "published": 0,
+        "discovered": 0,
+        "durationMs": 373339,
+        "policyHold": 0,
+        "imagesFound": 0,
+        "missingCity": {
+          "retry": 0,
+          "conflict": 2,
+          "autoFixed": 22,
+          "processed": 60,
+          "unresolved": 35,
+          "alreadyFixed": 0,
+          "outsideIsrael": 1,
+          "reverseSuccess": 60,
+          "reverseAttempts": 60,
+          "reverseRequests": 0,
+          "settlementMatch": 24,
+          "reverseCacheHits": 60,
+          "invalidCoordinates": 0,
+          "needsCorroboration": 0,
+          "normalizationFailure": 35
+        },
+        "fieldsFilled": 0,
+        "venuesLinked": 0,
+        "addressesFound": 0,
+        "archiveReasons": {
+          "city_unresolved": 35,
+          "outside_service_area": 1,
+          "requires_human_judgment": 2
+        },
+        "resolvedNoGain": 0,
+        "closedExternally": 7,
+        "duplicatesMerged": 0,
+        "newDebtProcessed": 0,
+        "resolvedViaVenue": 0,
+        "resolvedViaCluster": 0,
+        "venueClustersResolved": 0,
+        "externalLookupsAvoided": 0
+      }
+    },
+    {
+      "started_at": "2026-09-17T11:16:20.741133+00:00",
+      "finished_at": "2026-09-17T11:16:23.826+00:00",
+      "worker": "Mike:17668",
+      "notes": null,
+      "counters": {
+        "gain": {
+          "citiesAdded": 1,
+          "coordsAdded": 0,
+          "imagesAdded": 0,
+          "regionsAdded": 0,
+          "venuesLinked": 0,
+          "venuesCreated": 0,
+          "addressesAdded": 0,
+          "coordsImproved": 0,
+          "schedulesAdded": 0,
+          "duplicatesMerged": 0,
+          "existingEnriched": 0,
+          "incomingPromoted": 0,
+          "regionsCorrected": 1,
+          "venueRowsEnriched": 0,
+          "metadataFieldsAdded": 0,
+          "brokenImagesReplaced": 0,
+          "streetAddressesAdded": 0
+        },
+        "errors": 0,
+        "backlog": 1419,
+        "archived": 0,
+        "reopened": 0,
+        "resolved": 1,
+        "inspected": 1,
+        "published": 0,
+        "discovered": 0,
+        "durationMs": 3529,
+        "policyHold": 0,
+        "imagesFound": 0,
+        "missingCity": {
+          "retry": 0,
+          "conflict": 0,
+          "autoFixed": 1,
+          "processed": 1,
+          "unresolved": 0,
+          "alreadyFixed": 0,
+          "outsideIsrael": 0,
+          "reverseSuccess": 1,
+          "reverseAttempts": 1,
+          "reverseRequests": 0,
+          "settlementMatch": 1,
+          "reverseCacheHits": 1,
+          "invalidCoordinates": 0,
+          "needsCorroboration": 0,
+          "normalizationFailure": 0
+        },
+        "fieldsFilled": 0,
+        "venuesLinked": 0,
+        "addressesFound": 0,
+        "archiveReasons": {},
+        "resolvedNoGain": 0,
+        "duplicatesMerged": 0,
+        "newDebtProcessed": 0,
+        "resolvedViaVenue": 0,
+        "resolvedViaCluster": 0,
+        "venueClustersResolved": 0,
+        "externalLookupsAvoided": 0
+      }
+    },
+    {
+      "started_at": "2026-09-17T11:16:12.095683+00:00",
+      "finished_at": "2026-09-17T11:16:16.272+00:00",
+      "worker": "Mike:31432",
+      "notes": null,
+      "counters": {
+        "gain": {
+          "citiesAdded": 1,
+          "coordsAdded": 0,
+          "imagesAdded": 0,
+          "regionsAdded": 1,
+          "venuesLinked": 0,
+          "venuesCreated": 0,
+          "addressesAdded": 0,
+          "coordsImproved": 0,
+          "schedulesAdded": 0,
+          "duplicatesMerged": 0,
+          "existingEnriched": 0,
+          "incomingPromoted": 0,
+          "regionsCorrected": 0,
+          "venueRowsEnriched": 0,
+          "metadataFieldsAdded": 0,
+          "brokenImagesReplaced": 0,
+          "streetAddressesAdded": 0
+        },
+        "errors": 0,
+        "backlog": 1420,
+        "archived": 0,
+        "reopened": 0,
+        "resolved": 1,
+        "inspected": 1,
+        "published": 0,
+        "discovered": 0,
+        "durationMs": 4605,
+        "policyHold": 0,
+        "imagesFound": 0,
+        "missingCity": {
+          "retry": 0,
+          "conflict": 0,
+          "autoFixed": 1,
+          "processed": 1,
+          "unresolved": 0,
+          "alreadyFixed": 0,
+          "outsideIsrael": 0,
+          "reverseSuccess": 1,
+          "reverseAttempts": 1,
+          "reverseRequests": 0,
+          "settlementMatch": 1,
+          "reverseCacheHits": 1,
+          "invalidCoordinates": 0,
+          "needsCorroboration": 0,
+          "normalizationFailure": 0
+        },
+        "fieldsFilled": 0,
+        "venuesLinked": 0,
+        "addressesFound": 0,
+        "archiveReasons": {},
+        "resolvedNoGain": 0,
+        "duplicatesMerged": 0,
+        "newDebtProcessed": 0,
+        "resolvedViaVenue": 0,
+        "resolvedViaCluster": 0,
+        "venueClustersResolved": 0,
+        "externalLookupsAvoided": 0
+      }
+    },
+    {
+      "started_at": "2026-09-17T11:16:02.286989+00:00",
+      "finished_at": "2026-09-17T11:16:07.16+00:00",
+      "worker": "Mike:4244",
+      "notes": null,
+      "counters": {
+        "gain": {
+          "citiesAdded": 1,
+          "coordsAdded": 0,
+          "imagesAdded": 0,
+          "regionsAdded": 1,
+          "venuesLinked": 0,
+          "venuesCreated": 0,
+          "addressesAdded": 0,
+          "coordsImproved": 0,
+          "schedulesAdded": 0,
+          "duplicatesMerged": 0,
+          "existingEnriched": 0,
+          "incomingPromoted": 0,
+          "regionsCorrected": 0,
+          "venueRowsEnriched": 0,
+          "metadataFieldsAdded": 0,
+          "brokenImagesReplaced": 0,
+          "streetAddressesAdded": 0
+        },
+        "errors": 0,
+        "backlog": 1421,
+        "archived": 0,
+        "reopened": 0,
+        "resolved": 1,
+        "inspected": 1,
+        "published": 0,
+        "discovered": 0,
+        "durationMs": 5229,
+        "policyHold": 0,
+        "imagesFound": 0,
+        "missingCity": {
+          "retry": 0,
+          "conflict": 0,
+          "autoFixed": 1,
+          "processed": 1,
+          "unresolved": 0,
+          "alreadyFixed": 0,
+          "outsideIsrael": 0,
+          "reverseSuccess": 1,
+          "reverseAttempts": 1,
+          "reverseRequests": 0,
+          "settlementMatch": 1,
+          "reverseCacheHits": 1,
+          "invalidCoordinates": 0,
+          "needsCorroboration": 0,
+          "normalizationFailure": 0
+        },
+        "fieldsFilled": 0,
+        "venuesLinked": 0,
+        "addressesFound": 0,
+        "archiveReasons": {},
+        "resolvedNoGain": 0,
+        "duplicatesMerged": 0,
+        "newDebtProcessed": 0,
+        "resolvedViaVenue": 0,
+        "resolvedViaCluster": 0,
+        "venueClustersResolved": 0,
+        "externalLookupsAvoided": 0
+      }
+    },
+    {
+      "started_at": "2026-09-17T11:15:53.486236+00:00",
+      "finished_at": "2026-09-17T11:15:58.158+00:00",
+      "worker": "Mike:19556",
+      "notes": null,
+      "counters": {
+        "gain": {
+          "citiesAdded": 1,
+          "coordsAdded": 0,
+          "imagesAdded": 0,
+          "regionsAdded": 1,
+          "venuesLinked": 0,
+          "venuesCreated": 0,
+          "addressesAdded": 0,
+          "coordsImproved": 0,
+          "schedulesAdded": 0,
+          "duplicatesMerged": 0,
+          "existingEnriched": 0,
+          "incomingPromoted": 0,
+          "regionsCorrected": 0,
+          "venueRowsEnriched": 0,
+          "metadataFieldsAdded": 0,
+          "brokenImagesReplaced": 0,
+          "streetAddressesAdded": 0
+        },
+        "errors": 0,
+        "backlog": 1422,
+        "archived": 0,
+        "reopened": 0,
+        "resolved": 1,
+        "inspected": 1,
+        "published": 0,
+        "discovered": 0,
+        "durationMs": 5020,
+        "policyHold": 0,
+        "imagesFound": 0,
+        "missingCity": {
+          "retry": 0,
+          "conflict": 0,
+          "autoFixed": 1,
+          "processed": 1,
+          "unresolved": 0,
+          "alreadyFixed": 0,
+          "outsideIsrael": 0,
+          "reverseSuccess": 1,
+          "reverseAttempts": 1,
+          "reverseRequests": 0,
+          "settlementMatch": 1,
+          "reverseCacheHits": 1,
+          "invalidCoordinates": 0,
+          "needsCorroboration": 0,
+          "normalizationFailure": 0
+        },
+        "fieldsFilled": 0,
+        "venuesLinked": 0,
+        "addressesFound": 0,
+        "archiveReasons": {},
+        "resolvedNoGain": 0,
+        "duplicatesMerged": 0,
+        "newDebtProcessed": 0,
+        "resolvedViaVenue": 0,
+        "resolvedViaCluster": 0,
+        "venueClustersResolved": 0,
+        "externalLookupsAvoided": 0
+      }
+    },
+    {
+      "started_at": "2026-09-17T11:15:43.917938+00:00",
+      "finished_at": "2026-09-17T11:15:47.71+00:00",
+      "worker": "Mike:6016",
+      "notes": null,
+      "counters": {
+        "gain": {
+          "citiesAdded": 1,
+          "coordsAdded": 0,
+          "imagesAdded": 0,
+          "regionsAdded": 0,
+          "venuesLinked": 0,
+          "venuesCreated": 0,
+          "addressesAdded": 0,
+          "coordsImproved": 0,
+          "schedulesAdded": 0,
+          "duplicatesMerged": 0,
+          "existingEnriched": 0,
+          "incomingPromoted": 0,
+          "regionsCorrected": 0,
+          "venueRowsEnriched": 0,
+          "metadataFieldsAdded": 0,
+          "brokenImagesReplaced": 0,
+          "streetAddressesAdded": 0
+        },
+        "errors": 0,
+        "backlog": 1423,
+        "archived": 0,
+        "reopened": 0,
+        "resolved": 1,
+        "inspected": 1,
+        "published": 0,
+        "discovered": 0,
+        "durationMs": 4203,
+        "policyHold": 0,
+        "imagesFound": 0,
+        "missingCity": {
+          "retry": 0,
+          "conflict": 0,
+          "autoFixed": 1,
+          "processed": 1,
+          "unresolved": 0,
+          "alreadyFixed": 0,
+          "outsideIsrael": 0,
+          "reverseSuccess": 1,
+          "reverseAttempts": 1,
+          "reverseRequests": 0,
+          "settlementMatch": 1,
+          "reverseCacheHits": 1,
+          "invalidCoordinates": 0,
+          "needsCorroboration": 0,
+          "normalizationFailure": 0
+        },
+        "fieldsFilled": 0,
+        "venuesLinked": 0,
+        "addressesFound": 0,
+        "archiveReasons": {},
+        "resolvedNoGain": 0,
+        "duplicatesMerged": 0,
+        "newDebtProcessed": 0,
+        "resolvedViaVenue": 0,
+        "resolvedViaCluster": 0,
+        "venueClustersResolved": 0,
+        "externalLookupsAvoided": 0
+      }
+    },
+    {
+      "started_at": "2026-09-17T11:15:35.036105+00:00",
+      "finished_at": "2026-09-17T11:15:39.193+00:00",
+      "worker": "Mike:31312",
+      "notes": null,
+      "counters": {
+        "gain": {
+          "citiesAdded": 1,
+          "coordsAdded": 0,
+          "imagesAdded": 0,
+          "regionsAdded": 1,
+          "venuesLinked": 0,
+          "venuesCreated": 0,
+          "addressesAdded": 0,
+          "coordsImproved": 0,
+          "schedulesAdded": 0,
+          "duplicatesMerged": 0,
+          "existingEnriched": 0,
+          "incomingPromoted": 0,
+          "regionsCorrected": 0,
+          "venueRowsEnriched": 0,
+          "metadataFieldsAdded": 0,
+          "brokenImagesReplaced": 0,
+          "streetAddressesAdded": 0
+        },
+        "errors": 0,
+        "backlog": 1424,
+        "archived": 0,
+        "reopened": 0,
+        "resolved": 1,
+        "inspected": 1,
+        "published": 0,
+        "discovered": 0,
+        "durationMs": 4489,
+        "policyHold": 0,
+        "imagesFound": 0,
+        "missingCity": {
+          "retry": 0,
+          "conflict": 0,
+          "autoFixed": 1,
+          "processed": 1,
+          "unresolved": 0,
+          "alreadyFixed": 0,
+          "outsideIsrael": 0,
+          "reverseSuccess": 1,
+          "reverseAttempts": 1,
+          "reverseRequests": 0,
+          "settlementMatch": 1,
+          "reverseCacheHits": 1,
+          "invalidCoordinates": 0,
+          "needsCorroboration": 0,
+          "normalizationFailure": 0
+        },
+        "fieldsFilled": 0,
+        "venuesLinked": 0,
+        "addressesFound": 0,
+        "archiveReasons": {},
+        "resolvedNoGain": 0,
+        "duplicatesMerged": 0,
+        "newDebtProcessed": 0,
+        "resolvedViaVenue": 0,
+        "resolvedViaCluster": 0,
+        "venueClustersResolved": 0,
+        "externalLookupsAvoided": 0
+      }
+    },
+    {
+      "started_at": "2026-09-17T11:15:26.503519+00:00",
+      "finished_at": "2026-09-17T11:15:30.305+00:00",
+      "worker": "Mike:13412",
+      "notes": null,
+      "counters": {
+        "gain": {
+          "citiesAdded": 1,
+          "coordsAdded": 0,
+          "imagesAdded": 0,
+          "regionsAdded": 0,
+          "venuesLinked": 0,
+          "venuesCreated": 0,
+          "addressesAdded": 0,
+          "coordsImproved": 0,
+          "schedulesAdded": 0,
+          "duplicatesMerged": 0,
+          "existingEnriched": 0,
+          "incomingPromoted": 0,
+          "regionsCorrected": 1,
+          "venueRowsEnriched": 0,
+          "metadataFieldsAdded": 0,
+          "brokenImagesReplaced": 0,
+          "streetAddressesAdded": 0
+        },
+        "errors": 0,
+        "backlog": 1425,
+        "archived": 0,
+        "reopened": 0,
+        "resolved": 1,
+        "inspected": 1,
+        "published": 0,
+        "discovered": 0,
+        "durationMs": 4250,
+        "policyHold": 0,
+        "imagesFound": 0,
+        "missingCity": {
+          "retry": 0,
+          "conflict": 0,
+          "autoFixed": 1,
+          "processed": 1,
+          "unresolved": 0,
+          "alreadyFixed": 0,
+          "outsideIsrael": 0,
+          "reverseSuccess": 1,
+          "reverseAttempts": 1,
+          "reverseRequests": 0,
+          "settlementMatch": 1,
+          "reverseCacheHits": 1,
+          "invalidCoordinates": 0,
+          "needsCorroboration": 0,
+          "normalizationFailure": 0
+        },
+        "fieldsFilled": 0,
+        "venuesLinked": 0,
+        "addressesFound": 0,
+        "archiveReasons": {},
+        "resolvedNoGain": 0,
+        "duplicatesMerged": 0,
+        "newDebtProcessed": 0,
+        "resolvedViaVenue": 0,
+        "resolvedViaCluster": 0,
+        "venueClustersResolved": 0,
+        "externalLookupsAvoided": 0
+      }
+    },
+    {
+      "started_at": "2026-09-17T11:15:16.136791+00:00",
+      "finished_at": "2026-09-17T11:15:22.101+00:00",
+      "worker": "Mike:1436",
+      "notes": null,
+      "counters": {
+        "gain": {
+          "citiesAdded": 1,
+          "coordsAdded": 0,
+          "imagesAdded": 0,
+          "regionsAdded": 1,
+          "venuesLinked": 0,
+          "venuesCreated": 0,
+          "addressesAdded": 0,
+          "coordsImproved": 0,
+          "schedulesAdded": 0,
+          "duplicatesMerged": 0,
+          "existingEnriched": 0,
+          "incomingPromoted": 0,
+          "regionsCorrected": 0,
+          "venueRowsEnriched": 0,
+          "metadataFieldsAdded": 0,
+          "brokenImagesReplaced": 0,
+          "streetAddressesAdded": 0
+        },
+        "errors": 0,
+        "backlog": 1426,
+        "archived": 0,
+        "reopened": 0,
+        "resolved": 1,
+        "inspected": 1,
+        "published": 0,
+        "discovered": 0,
+        "durationMs": 6433,
+        "policyHold": 0,
+        "imagesFound": 0,
+        "missingCity": {
+          "retry": 0,
+          "conflict": 0,
+          "autoFixed": 1,
+          "processed": 1,
+          "unresolved": 0,
+          "alreadyFixed": 0,
+          "outsideIsrael": 0,
+          "reverseSuccess": 1,
+          "reverseAttempts": 1,
+          "reverseRequests": 0,
+          "settlementMatch": 1,
+          "reverseCacheHits": 1,
+          "invalidCoordinates": 0,
+          "needsCorroboration": 0,
+          "normalizationFailure": 0
+        },
+        "fieldsFilled": 0,
+        "venuesLinked": 0,
+        "addressesFound": 0,
+        "archiveReasons": {},
+        "resolvedNoGain": 0,
+        "duplicatesMerged": 0,
+        "newDebtProcessed": 0,
+        "resolvedViaVenue": 0,
+        "resolvedViaCluster": 0,
+        "venueClustersResolved": 0,
+        "externalLookupsAvoided": 0
+      }
+    },
+    {
+      "started_at": "2026-09-17T11:15:07.078769+00:00",
+      "finished_at": "2026-09-17T11:15:10.833+00:00",
+      "worker": "Mike:15168",
+      "notes": null,
+      "counters": {
+        "gain": {
+          "citiesAdded": 1,
+          "coordsAdded": 0,
+          "imagesAdded": 0,
+          "regionsAdded": 1,
+          "venuesLinked": 0,
+          "venuesCreated": 0,
+          "addressesAdded": 0,
+          "coordsImproved": 0,
+          "schedulesAdded": 0,
+          "duplicatesMerged": 0,
+          "existingEnriched": 0,
+          "incomingPromoted": 0,
+          "regionsCorrected": 0,
+          "venueRowsEnriched": 0,
+          "metadataFieldsAdded": 0,
+          "brokenImagesReplaced": 0,
+          "streetAddressesAdded": 0
+        },
+        "errors": 0,
+        "backlog": 1427,
+        "archived": 0,
+        "reopened": 0,
+        "resolved": 1,
+        "inspected": 1,
+        "published": 0,
+        "discovered": 0,
+        "durationMs": 4084,
+        "policyHold": 0,
+        "imagesFound": 0,
+        "missingCity": {
+          "retry": 0,
+          "conflict": 0,
+          "autoFixed": 1,
+          "processed": 1,
+          "unresolved": 0,
+          "alreadyFixed": 0,
+          "outsideIsrael": 0,
+          "reverseSuccess": 1,
+          "reverseAttempts": 1,
+          "reverseRequests": 0,
+          "settlementMatch": 1,
+          "reverseCacheHits": 1,
+          "invalidCoordinates": 0,
+          "needsCorroboration": 0,
+          "normalizationFailure": 0
+        },
+        "fieldsFilled": 0,
+        "venuesLinked": 0,
+        "addressesFound": 0,
+        "archiveReasons": {},
+        "resolvedNoGain": 0,
+        "duplicatesMerged": 0,
+        "newDebtProcessed": 0,
+        "resolvedViaVenue": 0,
+        "resolvedViaCluster": 0,
+        "venueClustersResolved": 0,
+        "externalLookupsAvoided": 0
+      }
+    }
+  ],
+  "stuckSample": [],
+  "unexplainedBacklog": 0,
+  "locationsWithoutAddress": 706
+}

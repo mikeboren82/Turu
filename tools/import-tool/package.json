@@ -5,9 +5,9 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node --test \"tests/*.test.js\" && deno test --allow-read ../../supabase/functions/_shared/",
+    "test": "node --test \"tests/*.test.js\" && deno test --no-config --node-modules-dir=none --allow-read --allow-env ../../supabase/functions/_shared/",
     "test:node": "node --test \"tests/*.test.js\"",
-    "test:deno": "deno test --allow-read ../../supabase/functions/_shared/"
+    "test:deno": "deno test --no-config --node-modules-dir=none --allow-read --allow-env ../../supabase/functions/_shared/"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.1",

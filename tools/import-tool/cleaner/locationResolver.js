@@ -43,6 +43,13 @@ const cityAgrees = (a, b) => { const x = normalizeCityName(a || null), y = norma
 // knowledge). Writes are fill-null only (a venue that already has coords is never touched).
 async function coordsForVenue(client, venue, cityHint, counters) {
   const bump = (k) => { if (counters) counters[k] = (counters[k] || 0) + 1; };
+  // lazy require: centroidAudit.js requires this module
+  const { isSharedMultiLabelPoint } = require('./centroidAudit');
+  if (venue.lat != null && venue.lng != null && await isSharedMultiLabelPoint(client, venue.lat, venue.lng)) {
+    // the venue itself carries a geocoder-fallback point (inherited from centroid-located activities): it is
+    // not evidence, and its reverse-geocoded street would be the city centre's street, not the venue's
+    venue = { ...venue, lat: null, lng: null };
+  }
   if (venue.lat != null && venue.lng != null) {
     if (!venue.address) {
       // coordinates known, street missing: one reverse geocode gives every linked activity its street
@@ -56,7 +63,15 @@ async function coordsForVenue(client, venue, cityHint, counters) {
     return { lat: venue.lat, lng: venue.lng, address: venue.address || null, confidence: 'HIGH', how: 'venue' };
   }
   const city = venue.city || cityHint;
-  const { data: linked } = await client.from('locations').select('lat, lng, address').eq('venue_id', venue.id).not('lat', 'is', null).limit(50);
+  const { data: linkedAll } = await client.from('locations').select('lat, lng, address, address_source, address_confidence').eq('venue_id', venue.id).not('lat', 'is', null).limit(50);
+  // only VERIFIED linked coordinates may teach the venue where it is: never a weak / centroid-stamped row,
+  // never an address that was itself reverse-geocoded, never a point shared with other labels
+  const linked = [];
+  for (const r of linkedAll || []) {
+    if (r.address_confidence === 'LOW' || /^geocode:/.test(r.address_source || '')) continue;
+    if (await isSharedMultiLabelPoint(client, r.lat, r.lng)) continue;
+    linked.push(r);
+  }
   if (linked && linked.length) {
     const lats = linked.map((l) => Number(l.lat)).sort((a, b) => a - b), lngs = linked.map((l) => Number(l.lng)).sort((a, b) => a - b);
     const lat = lats[Math.floor(lats.length / 2)], lng = lngs[Math.floor(lngs.length / 2)];

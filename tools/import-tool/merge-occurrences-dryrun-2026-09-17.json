@@ -1,0 +1,165 @@
+{
+  "generatedAt": "2026-09-17T18:14:27.452Z",
+  "counts": {
+    "total": 7,
+    "HIGH": 4,
+    "MEDIUM": 7,
+    "DISTINCT": 0,
+    "INSUFFICIENT": 0
+  },
+  "groups": [
+    {
+      "cls": "HIGH",
+      "why": "exact same occurrence: title + source + venue + date 2026-09-27 + hour",
+      "keeper": "9a20112f-46be-4963-8b39-2d45e175e057",
+      "name": "פסטיבל הקוסם מארץ עוץ",
+      "losers": [
+        "2ea6aa64-0395-461d-a54d-350c8c1c5939"
+      ],
+      "dates": [
+        "2026-09-27",
+        "2026-09-27"
+      ]
+    },
+    {
+      "cls": "HIGH",
+      "why": "exact same occurrence: title + source + venue + date 2026-12-08 + hour",
+      "keeper": "91b5276e-0ddc-48d9-91b4-53bb81bfcca1",
+      "name": "חוגגים חנוכה במכוורת לין - הצצה מרתקת לעולמן המופלא של הדבורים",
+      "losers": [
+        "0e4868de-6e44-4206-9c98-c082295369e5"
+      ],
+      "dates": [
+        "2026-12-08",
+        "2026-12-08"
+      ]
+    },
+    {
+      "cls": "HIGH",
+      "why": "exact same occurrence: title + source + venue + date 2026-09-22 + hour",
+      "keeper": "22095756-97fe-4f09-a58c-119230a504af",
+      "name": "שעת סיפור, הסוכה של שובב הכלבלב",
+      "losers": [
+        "d951bdba-14e8-4e95-b76b-5938093d849d"
+      ],
+      "dates": [
+        "2026-09-22",
+        "2026-09-22"
+      ]
+    },
+    {
+      "cls": "HIGH",
+      "why": "exact same occurrence: title + source + venue + date 2026-09-23 + hour",
+      "keeper": "12071226-c7cc-45c0-afbf-359ac8458c09",
+      "name": "חגיגת מורשת בגבעת התיתורה",
+      "losers": [
+        "5a6b22e7-23e0-4087-9a5c-5d623995e7a0"
+      ],
+      "dates": [
+        "2026-09-23",
+        "2026-09-23"
+      ]
+    },
+    {
+      "cls": "MEDIUM",
+      "why": "title + source + venue + time only",
+      "keeper": "39618c4c-b62c-4934-94c5-10552a9a3894",
+      "name": "גשר של חגיגה",
+      "losers": [
+        "e9ac3172-f38a-499e-8525-56bd6902d7c5",
+        "a5451bf0-997a-4360-ac1f-06fe6d3a153f"
+      ],
+      "dates": [
+        "2026-09-22",
+        "2026-09-23",
+        "2026-09-24"
+      ]
+    },
+    {
+      "cls": "MEDIUM",
+      "why": "title + source + venue + time only",
+      "keeper": "b0da4be6-1656-43ed-8bb2-783ba94c4491",
+      "name": "גשר של חגיגה",
+      "losers": [
+        "3794a77b-0bf5-47e5-a309-5434185a1f09",
+        "29de2029-6702-4aac-9161-ac25db91e107"
+      ],
+      "dates": [
+        "2026-09-22",
+        "2026-09-23",
+        "2026-09-24"
+      ]
+    },
+    {
+      "cls": "MEDIUM",
+      "why": "title + source + venue + time only",
+      "keeper": "350b6d39-d731-40f4-86b8-787c89df3975",
+      "name": "ג'ימבורי בית רחל",
+      "losers": [
+        "71c4c542-25fb-4255-bd85-9a14e373c3b4",
+        "7a8d6b6f-674d-4306-87e6-c1d0f6a40a14",
+        "701bb540-3129-4ccf-94b5-abe0eac65f1f",
+        "5fb97803-c3b8-4836-a2aa-d02d333ce05c"
+      ],
+      "dates": [
+        "2026-09-27",
+        "2026-09-28",
+        "2026-09-29",
+        "2026-09-30",
+        "2026-10-01"
+      ]
+    },
+    {
+      "cls": "MEDIUM",
+      "why": "title + source + venue + time only",
+      "keeper": "49325644-d6e9-43cc-9cd6-17138ad1b072",
+      "name": "פסטיבל קסמים ואשליות",
+      "losers": [
+        "7a627989-373a-483f-9ba9-4ae5fcc80f65"
+      ],
+      "dates": [
+        "2026-09-28",
+        "2026-09-29"
+      ]
+    },
+    {
+      "cls": "MEDIUM",
+      "why": "title + source + venue + time only",
+      "keeper": "032bea13-e1e7-4730-b9f9-d9f05814b658",
+      "name": "סדנת לימוד קסמים עם איילון גאון - קוסם ילדים",
+      "losers": [
+        "fe426753-1af0-4132-b6b7-414e3a369185"
+      ],
+      "dates": [
+        "2026-09-28",
+        "2026-09-29"
+      ]
+    },
+    {
+      "cls": "MEDIUM",
+      "why": "title + source + venue + time only",
+      "keeper": "d8c384d8-eb2e-4423-a34e-db99372f84ea",
+      "name": "המטבח של מסייה ללוש",
+      "losers": [
+        "4bf82a01-31d6-4d18-9d8c-ed55f39ab7fc"
+      ],
+      "dates": [
+        "2026-09-28",
+        "2026-09-29"
+      ]
+    },
+    {
+      "cls": "MEDIUM",
+      "why": "title + source + venue + time only",
+      "keeper": "934861aa-fe30-45fc-8c8b-615f59044a67",
+      "name": "קסם של קוסם",
+      "losers": [
+        "9bd31999-7787-4f4a-be8a-7b6c78b817bc"
+      ],
+      "dates": [
+        "2026-10-04",
+        "2026-10-05"
+      ]
+    }
+  ]
+}

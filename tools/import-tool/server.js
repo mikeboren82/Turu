@@ -18,6 +18,8 @@ const { renderCleanerPage } = require('./cleaner-page');
 const { getClient } = require('./supabase');
 const { generatePlaygroundDisplayName, isGenericPlaygroundName } = require('./playgroundNaming');
 const { normalizeCityName } = require('./cityNaming');
+const { canonicalCityFallback } = require('./lib/canonicalSettlement');
+const { findPlaceDuplicate } = require('./lib/placeIdentity');
 const { classifyPlaceholderGroup } = require('./placeholderGroup');
 const { normalizeIncomingCandidate } = require('./incomingShape');
 const { repairModelJson, resolveVenue, normalizeVenueAlias } = require('./venueNaming');
@@ -389,22 +391,28 @@ const NOMINATIM_USER_AGENT = 'TuRu-KidsApp/1.0 (contact: mborenmusic@gmail.com)'
 const GEOCODE_MIN_INTERVAL_MS = 1100;
 let lastGeocodeRequestAt = 0;
 
-async function queryNominatim(query) {
+async function queryNominatim(query, { placeOnly = false } = {}) {
   const wait = GEOCODE_MIN_INTERVAL_MS - (Date.now() - lastGeocodeRequestAt);
   if (wait > 0) await new Promise((r) => setTimeout(r, wait));
   lastGeocodeRequestAt = Date.now();
 
   const url = new URL('https://nominatim.openstreetmap.org/search');
   url.searchParams.set('format', 'json');
-  url.searchParams.set('limit', '1');
-  url.searchParams.set('countrycodes', 'il');
+  url.searchParams.set('limit', placeOnly ? '10' : '1');
+  url.searchParams.set('countrycodes', placeOnly ? 'il,ps' : 'il');
   url.searchParams.set('q', `${query}, ישראל`);
   const geoRes = await fetch(url.toString(), { headers: { 'User-Agent': NOMINATIM_USER_AGENT } });
   if (!geoRes.ok) return null;
   const results = await geoRes.json();
   if (!Array.isArray(results) || results.length === 0) return null;
-  const lat = parseFloat(results[0].lat);
-  const lng = parseFloat(results[0].lon);
+  // city-only fallback: "אריאל" / "יבנה" / "אפרת" are also STREETS in other cities, and the first hit of an
+  // unconstrained name search was such a street (2026-09-17: an Ariel community centre published on Ariel
+  // St., Jerusalem, 35 km away). A city fallback accepts a settlement-class result or nothing.
+  const PLACE = new Set(['city', 'town', 'village', 'hamlet', 'municipality', 'administrative']);
+  const hit = placeOnly ? results.find((r) => ['place', 'boundary'].includes(r.class) && PLACE.has(r.type)) : results[0];
+  if (!hit) return null;
+  const lat = parseFloat(hit.lat);
+  const lng = parseFloat(hit.lon);
   if (Number.isNaN(lat) || Number.isNaN(lng)) return null;
   return { lat, lng };
 }
@@ -427,7 +435,7 @@ async function geocodeLocation(location) {
 
   for (const { query, fallback } of attempts) {
     try {
-      const coords = await queryNominatim(query);
+      const coords = await queryNominatim(query, { placeOnly: fallback === 'city' });
       if (coords) return { ...coords, fallback };
     } catch (err) {
       console.error('geocoding נכשל עבור "' + query + '":', err);
@@ -932,6 +940,11 @@ async function requireVerifiedLocation(client, rawActivity) {
     if (existing.lat == null) {
       await client.from('locations').update({ lat: coords.lat, lng: coords.lng, ...centroidStamp(coords) }).eq('id', existing.id);
     }
+    // never leave a published location with coordinates and no city when canonical knowledge names it (0094)
+    if (!existing.city && !activity.city) {
+      const canon = await canonicalCityFallback(client, { venueId: activity.venue_id, address: bestAddress || existing.address, lat: coords.lat, lng: coords.lng });
+      if (canon) await client.from('locations').update({ city: canon.city }).eq('id', existing.id).is('city', null);
+    }
     return existing.id;
   }
 
@@ -943,10 +956,12 @@ async function requireVerifiedLocation(client, rawActivity) {
   if (!coords) {
     throw new Error('לא נמצאה כתובת מאומתת למקום "' + activity.location_name + '" - הפעילות לא נשמרה');
   }
+  // same prevention for a new row: canonical city from the venue / the address tail, never a geocoder guess
+  const canonCity = activity.city ? null : await canonicalCityFallback(client, { venueId: activity.venue_id, address: bestAddress, lat: coords.lat, lng: coords.lng });
   const { data: created, error: locErr } = await client
     .from('locations')
     .insert({
-      name: activity.location_name, city: activity.city || null, region: activity.region || null,
+      name: activity.location_name, city: activity.city || canonCity?.city || null, region: activity.region || canonCity?.region || null,
       address: bestAddress, ...addressProv, ...centroidStamp(coords),
       lat: coords.lat, lng: coords.lng, venue_id: activity.venue_id || null,
     })
@@ -972,6 +987,16 @@ async function saveNewActivity(client, userId, sourceUrl, activity, meta = {}) {
       }
     }
     const locationId = await requireVerifiedLocation(client, activity);
+    // FINAL PRE-INSERT PLACE DEDUP (wave 2, regression "חי פארק בכפר סבא"): an evergreen place already published
+    // on this spot under the same name (locality words dropped) is the same place - the exact guards
+    // (google_place_id, event_fingerprint) cannot see it because the fingerprint contains the name. Never
+    // applies to dated events or playgrounds (lib/placeIdentity.js). Both entry points reach this line:
+    // manual import (/api/save) and queue approval (/api/incoming/:id/approve).
+    {
+      const { data: locRow } = await client.from('locations').select('lat, lng, city').eq('id', locationId).maybeSingle();
+      const placeDupe = locRow ? await findPlaceDuplicate(client, { name: activity.name, category: activity.category, city: locRow.city, lat: locRow.lat, lng: locRow.lng, schedule_type: activity.schedule_type, activity_schedules: activity.schedule_type === 'recurring' ? (activity.recurring_days || []).map((d) => ({ schedule_type: 'recurring', day_of_week: d, start_time: activity.start_time || null })) : [] }) : null;
+      if (placeDupe) throw Object.assign(new Error('המקום כבר קיים במאגר (' + placeDupe.name + ') - אותו מיקום ואותו שם; לא נוצרה כפילות'), { code: 'DUPLICATE_PLACE', duplicateOf: placeDupe.id, duplicateName: placeDupe.name });
+    }
 
     // גן-שעשועים ללא שם רשמי מקבל שם מבוסס-כתובת במקום גנרי, באותה פונקציה מרכזית שגם
     // migrate-playground-names.js/import-playgrounds-osm.js קוראים לה (playgroundNaming.js -
@@ -1070,6 +1095,8 @@ async function saveNewActivity(client, userId, sourceUrl, activity, meta = {}) {
         incoming_activity_id: meta.incomingId || null, relation: 'seen', url_role: 'detail', last_seen_at: new Date().toISOString(),
       }, { onConflict: 'activity_id,page_url' });
       if (detErr) console.error('activity_sources detail insert failed (non-fatal):', detErr.message);
+      // URL roles reach the product (0097): the verified detail page on the canonical record, fill-null
+      if (/^https?:\/\//i.test(activity.detail_url)) await client.from('activities').update({ detail_url: activity.detail_url }).eq('id', savedActivity.id).is('detail_url', null);
     }
 
     const scheduleRows = [];
@@ -1186,6 +1213,7 @@ app.post('/api/save', async (req, res) => {
     const { activityId, archived } = await saveNewActivity(client, userId, sourceUrl, activity);
     res.json({ ok: true, activityId, archived });
   } catch (err) {
+    if (err && err.code === 'DUPLICATE_PLACE') return res.status(409).json({ error: err.message, duplicateOf: err.duplicateOf });
     console.error(err);
     res.status(500).json({ error: err.message || 'שגיאה בשמירה' });
   }
@@ -2760,7 +2788,15 @@ app.post('/api/incoming/:id/approve', async (req, res) => {
         await client.from('activity_sources').upsert({ activity_id: dupe.id, source_id: item.source_id, page_url: item.page_url, incoming_activity_id: item.id, relation: 'seen', last_seen_at: new Date().toISOString() }, { onConflict: 'activity_id,page_url' });
         return res.status(409).json({ error: 'הפעילות כבר קיימת במאגר (' + dupe.name + ') - סומנה ככפילות', duplicateOf: dupe.id });
       }
-      const { activityId, archived } = await saveNewActivity(client, userId, item.page_url, payload, { sourceId: item.source_id, incomingId: item.id });
+      let saved;
+      try { saved = await saveNewActivity(client, userId, item.page_url, payload, { sourceId: item.source_id, incomingId: item.id }); }
+      catch (e) {
+        if (!e || e.code !== 'DUPLICATE_PLACE') throw e;
+        await client.from('incoming_activities').update({ status: 'rejected', match_type: 'duplicate', archive_reason: 'duplicate_of_existing_activity', reject_reason: 'כפילות מאומתת - אותו מקום ואותו שם כמו פעילות קיימת (' + e.duplicateOf + ')', existing_activity_id: e.duplicateOf, reviewed_by: userId, reviewed_at: new Date().toISOString() }).eq('id', id);
+        await client.from('activity_sources').upsert({ activity_id: e.duplicateOf, source_id: item.source_id, page_url: item.page_url, incoming_activity_id: item.id, relation: 'seen', last_seen_at: new Date().toISOString() }, { onConflict: 'activity_id,page_url' });
+        return res.status(409).json({ error: e.message, duplicateOf: e.duplicateOf });
+      }
+      const { activityId, archived } = saved;
       const { error: updErr } = await client.from('incoming_activities').update({
         status: 'approved', created_activity_id: activityId, reviewed_by: userId, reviewed_at: new Date().toISOString(),
       }).eq('id', id);
@@ -2794,6 +2830,7 @@ app.post('/api/incoming/:id/approve', async (req, res) => {
           activity_id: item.existing_activity_id, source_id: item.source_id, page_url: detailUrl,
           incoming_activity_id: item.id, relation: 'seen', url_role: 'detail', last_seen_at: new Date().toISOString(),
         }, { onConflict: 'activity_id,page_url' });
+        if (/^https?:\/\//i.test(detailUrl)) await client.from('activities').update({ detail_url: detailUrl }).eq('id', item.existing_activity_id).is('detail_url', null);
       }
       return res.json({ ok: true, activityId: item.existing_activity_id });
     }

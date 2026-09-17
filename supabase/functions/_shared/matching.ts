@@ -40,6 +40,25 @@ export function wordOverlapScore(a: string | null | undefined, b: string | null 
   return common / Math.max(wa.size, wb.size);
 }
 
+// Genre / format words are shared by MANY different events of one listing ("X - תיאטרון סיפור",
+// "Y - הצגת ילדים"): an overlap made only of them is never evidence that two titles are the same event.
+const GENRE_WORDS = new Set(['תיאטרון', 'סיפור', 'סיפורים', 'הצגת', 'הצגה', 'הצגות', 'ילדים', 'לילדים', 'מופע', 'מופעי', 'סדנה', 'סדנת', 'סדנאות', 'שעת', 'מחזמר', 'לכל', 'המשפחה', 'משפחה', 'למשפחות', 'לגילאי', 'גילאי', 'לגיל', 'גיל', 'עד', 'עם', 'של', 'פעילות', 'חוג', 'בוקר', 'אחהצ', 'ערב', 'קונצרט', 'סרט', 'הקרנה', 'מפגש', 'חגיגה', 'פסטיבל', 'אירוע', 'חדש', 'חדשה', 'שנה', 'וחצי', 'חצי']);
+// shared title words that actually distinguish an event (not genre words, not bare numbers)
+export function distinctiveSharedWords(a: string | null | undefined, b: string | null | undefined): number {
+  const pick = (t: string | null | undefined) => new Set(normalizeForMatch(t).split(' ').filter((w) => w.length > 1 && !GENRE_WORDS.has(w) && !/^\d+$/.test(w)));
+  const wa = pick(a), wb = pick(b); let n = 0;
+  wa.forEach((w) => { if (wb.has(w)) n++; });
+  return n;
+}
+// both sides name a place and the labels disagree (neither contains the other)
+function placeLabelsDisagree(a: string | null | undefined, b: string | null | undefined): boolean {
+  // plene / defective spelling (ספריה = ספרייה, קרית = קריית) is the same word
+  const fold = (t: string | null | undefined) => normalizeForMatch(t).replace(/[׳״]/g, '').replace(/יי/g, 'י').replace(/וו/g, 'ו'); // + geresh / gershayim (מתנ״ס = מתנס)
+  const x = fold(a), y = fold(b);
+  if (!x || !y) return false;
+  return !(x === y || x.includes(y) || y.includes(x));
+}
+
 export function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 6371;
   const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -227,7 +246,15 @@ export function computeConfidence(candidate: any, existing: ExistingActivity, th
   // activities). It now decides only together with a name or schedule agreement.
   // 2026-09-14: a shared listing page + a coinciding date is NOT identity either (two different shows on
   // the same calendar day; with multi-date events a date coincidence is common) - the name must agree.
-  const urlIdentity = breakdown.exact_url_match >= 1 && breakdown.name_overlap >= 0.5;
+  // 2026-09-17 (wave 2, update association): on a listing of "<title> - תיאטרון סיפור" shows two DIFFERENT
+  // titles overlap 0.5 through genre words alone, and the later show was queued as an UPDATE that would
+  // have moved the earlier one to another venue, date and hour. URL identity now also needs a shared
+  // DISTINCTIVE title word, and never holds when the place AND the dates both contradict.
+  breakdown.distinctive_name = distinctiveSharedWords(candidate.name, existing.name);
+  const datesContradict = cDates.length > 0 && eDates.length > 0 && !cDates.some((d) => eDates.includes(d));
+  const placeContradicts = (candidate.venue_id && existing.venue_id) ? candidate.venue_id !== existing.venue_id : placeLabelsDisagree(candidate.location_name, existing.location_name);
+  breakdown.association_conflict = datesContradict && placeContradicts ? 1 : 0;
+  const urlIdentity = breakdown.exact_url_match >= 1 && breakdown.name_overlap >= 0.5 && breakdown.distinctive_name >= 1 && !breakdown.association_conflict;
   if (breakdown.fingerprint_match >= 1 || urlIdentity) {
     score = 0.95;
   } else if (breakdown.venue_match >= 1) {
@@ -276,6 +303,23 @@ export function computeFieldDiff(candidate: any, existing: ExistingActivity, opt
   return out;
 }
 
+// ---- what is NOT a change (wave 2, 2026-09-17: 611 pending update rows, most of them manufactured here) ----
+// "17:00:00" (database) vs "17:00" (extractor) is the same time: 172 of 223 queued start_time "changes".
+export const hhmm = (t: unknown): string | null => { const m = /^(\d{1,2}):(\d{2})/.exec(String(t ?? '').trim()); return m ? `${m[1].padStart(2, '0')}:${m[2]}` : null; };
+// The description is the extractor's own SUMMARY of the page: a rewording ("כולל" -> "כמו") is model
+// variance, not evidence. It is a change only when it fills a gap or says something materially different.
+export function descriptionMateriallyDiffers(before: string | null | undefined, after: string | null | undefined): boolean {
+  const a = (after || '').trim(); if (!a) return false;
+  const b = (before || '').trim(); if (!b) return true;
+  return wordOverlapScore(b, a) < 0.5;
+}
+// "ספריה" vs "ספרייה רמת השרון" / punctuation variants name the same place; a different label is a change.
+export function placeLabelChanged(before: string | null | undefined, after: string | null | undefined): boolean {
+  if (!(after || '').trim()) return false;
+  if (!(before || '').trim()) return true;
+  return placeLabelsDisagree(before, after);
+}
+
 // deno-lint-ignore no-explicit-any
 function computeFieldDiffAll(candidate: any, existing: ExistingActivity): Record<string, DiffEntry> {
   const diff: Record<string, DiffEntry> = {};
@@ -308,12 +352,12 @@ function computeFieldDiffAll(candidate: any, existing: ExistingActivity): Record
     }
   } else {
     compare('one_time_date', existing.one_time_date, candidate.one_time_date);
-    compare('start_time', existing.start_time, candidate.start_time);
-    compare('end_time', existing.end_time, candidate.end_time);
+    if (hhmm(candidate.start_time) !== hhmm(existing.start_time)) compare('start_time', existing.start_time, candidate.start_time);
+    if (hhmm(candidate.end_time) !== hhmm(existing.end_time)) compare('end_time', existing.end_time, candidate.end_time);
   }
   compare('price_amount', existing.price_amount, candidate.price_amount);
   compare('price_type', existing.price_type, candidate.price_type);
-  compare('location_name', existing.location_name, candidate.location_name);
+  if (placeLabelChanged(existing.location_name, candidate.location_name)) compare('location_name', existing.location_name, candidate.location_name);
   compare('city', existing.city, normalizeCityName(candidate.city || null));
   // a later scan that SEES a street address surfaces it as an update: when the record has none, or when
   // the record's address was only derived and the candidate's comes from the event's official page
@@ -322,7 +366,7 @@ function computeFieldDiffAll(candidate: any, existing: ExistingActivity): Record
   compare('min_age', existing.min_age, candidate.min_age);
   compare('max_age', existing.max_age, candidate.max_age);
   compare('booking_requirement', existing.booking_requirement, candidate.booking_requirement);
-  if ((candidate.description || '').trim() && candidate.description !== existing.description) {
+  if (descriptionMateriallyDiffers(existing.description, candidate.description)) {
     compare('description', existing.description, candidate.description);
   }
   const candidateHasImage = Array.isArray(candidate.image_urls) && candidate.image_urls.length > 0;

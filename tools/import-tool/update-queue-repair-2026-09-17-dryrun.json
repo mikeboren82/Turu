@@ -1,0 +1,4194 @@
+{
+  "generatedAt": "2026-09-17T13:06:16.618Z",
+  "applied": false,
+  "pendingBefore": 229,
+  "counts": {
+    "KEEP": 229,
+    "NO_GAIN": 0,
+    "SUPERSEDED": 0,
+    "MISASSOCIATED": 0,
+    "identityBackfill": 0
+  },
+  "rows": [
+    {
+      "id": "d0806120-7902-4bd5-ad77-82ffd31cee9f",
+      "activity": "8975d402-16cd-4793-b839-4ed9de5d2c72",
+      "klass": "KEEP",
+      "why": null,
+      "name": "מדבריום",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "has_image",
+        "description"
+      ],
+      "realKeys": [
+        "has_image",
+        "description"
+      ]
+    },
+    {
+      "id": "ded4d32e-b5a6-4a40-9a93-95617a5911cf",
+      "activity": "a42ae7b5-7e65-40fe-a9e0-5fa9346c98f6",
+      "klass": "KEEP",
+      "why": null,
+      "name": "מרחב ג'ימבורי התנסותי",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "description",
+        "location_name"
+      ],
+      "realKeys": [
+        "description",
+        "location_name"
+      ]
+    },
+    {
+      "id": "0ed312da-68ba-4e50-b047-ce98131d6baa",
+      "activity": "38ba9f4b-b6e3-44ff-95bc-5f489072165e",
+      "klass": "KEEP",
+      "why": null,
+      "name": "טכנודע",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "end_time",
+        "has_image",
+        "start_time",
+        "description"
+      ],
+      "realKeys": [
+        "has_image",
+        "description"
+      ]
+    },
+    {
+      "id": "97f3cf9e-4647-4a8f-8487-e6d6ed4869de",
+      "activity": "484a4726-f8a0-4d84-804d-f95badc84123",
+      "klass": "KEEP",
+      "why": null,
+      "name": "מופע אשליות וטלפתיה",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "description",
+        "one_time_date"
+      ],
+      "realKeys": [
+        "one_time_date"
+      ]
+    },
+    {
+      "id": "5d1049a3-0de8-4092-8f7d-7a07bece9722",
+      "activity": "0646c02d-23eb-4636-a03e-cf27564a0ff2",
+      "klass": "KEEP",
+      "why": null,
+      "name": "שעת סיפור",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "max_age",
+        "min_age",
+        "description",
+        "location_name",
+        "booking_requirement"
+      ],
+      "realKeys": [
+        "max_age",
+        "min_age",
+        "description",
+        "booking_requirement"
+      ]
+    },
+    {
+      "id": "8c0d7d38-baea-43eb-a02f-2cf143d81116",
+      "activity": "21638ea7-185d-49e3-9395-f4c7cfe889a7",
+      "klass": "KEEP",
+      "why": null,
+      "name": "דן דן הנגן",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "end_time",
+        "start_time",
+        "description"
+      ],
+      "realKeys": [
+        "description"
+      ]
+    },
+    {
+      "id": "59205576-f34a-48c9-a1a8-aecfa62980af",
+      "activity": "389351b3-b2fe-440a-832f-ea28db8dd482",
+      "klass": "KEEP",
+      "why": null,
+      "name": "החברים הראשונים שלי",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "max_age",
+        "end_time",
+        "start_time",
+        "description"
+      ],
+      "realKeys": [
+        "max_age",
+        "description"
+      ]
+    },
+    {
+      "id": "8a1acc16-4580-43d4-a587-ca9fcac0ccc1",
+      "activity": "2d6b4fa4-056d-4cf0-80a2-20c67f71ddb3",
+      "klass": "KEEP",
+      "why": null,
+      "name": "שעת סיפור, חג סוכות בארמון",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "max_age",
+        "min_age",
+        "price_type",
+        "description",
+        "price_amount",
+        "location_name"
+      ],
+      "realKeys": [
+        "max_age",
+        "min_age",
+        "price_type",
+        "description",
+        "price_amount",
+        "location_name"
+      ]
+    },
+    {
+      "id": "baab4afc-1704-4bdc-a33c-a899d74d5509",
+      "activity": "80a09767-feb6-479c-aaa2-6f5aae5d8a43",
+      "klass": "KEEP",
+      "why": null,
+      "name": "המסע של עכבר הכפר - תיאטרון קטנטון",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "description",
+        "one_time_date"
+      ],
+      "realKeys": [
+        "one_time_date"
+      ]
+    },
+    {
+      "id": "5a4fe0ca-3728-4062-b8b5-08621983049a",
+      "activity": "87397269-9eb1-4801-9327-8a07b5f13fac",
+      "klass": "KEEP",
+      "why": null,
+      "name": "שוק איכרים",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "start_time",
+        "description",
+        "one_time_date"
+      ],
+      "realKeys": [
+        "one_time_date"
+      ]
+    },
+    {
+      "id": "646950ed-2b89-4962-9d2e-ddbfa84d3755",
+      "activity": "15a437e5-8207-4c5e-94ea-63ea5bec33a5",
+      "klass": "KEEP",
+      "why": null,
+      "name": "הממלכה הצבעונית - מספרים עם שרי",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "one_time_date"
+      ],
+      "realKeys": [
+        "one_time_date"
+      ]
+    },
+    {
+      "id": "f3c81c07-1c6d-4d5a-9c6b-ee84f7f23c67",
+      "activity": "3539d046-f4e8-4266-adff-002b4fe28eb7",
+      "klass": "KEEP",
+      "why": null,
+      "name": "מי בא לשחק עם שרון?",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "event_key",
+        "location_name",
+        "one_time_date"
+      ],
+      "realKeys": [
+        "event_key",
+        "one_time_date"
+      ]
+    },
+    {
+      "id": "ddc21526-0cb9-4f42-b9ed-9df3881d1925",
+      "activity": "6ef1f3f4-4066-442f-baeb-0047c870368a",
+      "klass": "KEEP",
+      "why": null,
+      "name": "האריה שאהב תות - תיאטרון סיפור לגילאי 2-4",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "start_time",
+        "description",
+        "location_name"
+      ],
+      "realKeys": [
+        "description"
+      ]
+    },
+    {
+      "id": "04778f8f-46cd-43b1-a0ac-65f0a7bd143b",
+      "activity": "b04d89c7-f7a9-4c3e-b189-755551603974",
+      "klass": "KEEP",
+      "why": null,
+      "name": "קוראים ספר חדש: ״כשהכוכבים מדברים״ עם מאיה פז",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "start_time",
+        "description"
+      ],
+      "realKeys": [
+        "description"
+      ]
+    },
+    {
+      "id": "e46744ea-60de-41f1-9f44-b60bc6cb6f7a",
+      "activity": "3c4330be-3a3e-46a8-85cb-b13426b9bc3c",
+      "klass": "KEEP",
+      "why": null,
+      "name": "עוז וירטעוז",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "description",
+        "one_time_date"
+      ],
+      "realKeys": [
+        "description",
+        "one_time_date"
+      ]
+    },
+    {
+      "id": "6b1ba297-d71c-4d19-b053-dd934043d7e0",
+      "activity": "db1cc64e-b50f-4e81-8501-b6cfb2cecfe9",
+      "klass": "KEEP",
+      "why": null,
+      "name": "מרכז מאורות",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "booking_requirement"
+      ],
+      "realKeys": [
+        "booking_requirement"
+      ]
+    },
+    {
+      "id": "63f7de50-df71-4f68-9d94-f139af33e278",
+      "activity": "7bba9940-fcc9-4bea-9823-94a31f519ae2",
+      "klass": "KEEP",
+      "why": null,
+      "name": "מרכז מחמל״י",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "description"
+      ],
+      "realKeys": [
+        "description"
+      ]
+    },
+    {
+      "id": "e0f5c912-b8fe-4652-9259-32af365a08ef",
+      "activity": "5fde6ee7-91b3-431d-9634-9ab42d17bbaa",
+      "klass": "KEEP",
+      "why": null,
+      "name": "משחקייה לגיל הרך",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "end_time",
+        "start_time",
+        "description"
+      ],
+      "realKeys": [
+        "description"
+      ]
+    },
+    {
+      "id": "8b519634-1be0-47e9-b9d6-83e8b90a4f2a",
+      "activity": "28d48466-f5a2-4b97-bbe3-c125935f53be",
+      "klass": "KEEP",
+      "why": null,
+      "name": "פסטיבל הקוסם מארץ עוץ",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "end_time",
+        "start_time",
+        "description",
+        "location_name"
+      ],
+      "realKeys": [
+        "description",
+        "location_name"
+      ]
+    },
+    {
+      "id": "6c268a3a-ae00-4e84-8e4a-fb498447a2b8",
+      "activity": "54095201-bca2-4029-8508-2983ae431f8b",
+      "klass": "KEEP",
+      "why": null,
+      "name": "Rishonim Market",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "description"
+      ],
+      "realKeys": [
+        "description"
+      ]
+    },
+    {
+      "id": "1352cade-d9a0-4f93-ba3a-626cd8d0e0d8",
+      "activity": "4ab3d197-92d0-4550-8f95-1a220fe764dd",
+      "klass": "KEEP",
+      "why": null,
+      "name": "פסטיבל הקוסם מארץ עוץ",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "end_time",
+        "start_time",
+        "description",
+        "location_name"
+      ],
+      "realKeys": [
+        "description"
+      ]
+    },
+    {
+      "id": "92be834c-f32b-4b11-8dd2-08efb7b9fd6c",
+      "activity": "31e0b8b0-73d1-4067-abc6-6eae71b1b128",
+      "klass": "KEEP",
+      "why": null,
+      "name": "חוף מיעמי",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "description"
+      ],
+      "realKeys": [
+        "description"
+      ]
+    },
+    {
+      "id": "a59349b0-018d-4a5d-9de5-fade9781acfc",
+      "activity": "a7719531-a324-46ed-8f81-f4a55c0da363",
+      "klass": "KEEP",
+      "why": null,
+      "name": "יריד האוכל הכי טעים שיש!",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "description",
+        "location_name"
+      ],
+      "realKeys": [
+        "description"
+      ]
+    },
+    {
+      "id": "616df74b-d476-43e5-9e63-6dde7570080c",
+      "activity": "5683c025-901c-4e72-ac32-f7630f917e7f",
+      "klass": "KEEP",
+      "why": null,
+      "name": "מדבריום - פארק החיות",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "description"
+      ],
+      "realKeys": [
+        "description"
+      ]
+    },
+    {
+      "id": "0f1624ae-5e82-4689-98f9-b4591622812e",
+      "activity": "a7719531-a324-46ed-8f81-f4a55c0da363",
+      "klass": "KEEP",
+      "why": null,
+      "name": "יריד האוכל הכי טעים שיש!",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "description"
+      ],
+      "realKeys": [
+        "description"
+      ]
+    },
+    {
+      "id": "1969780f-ae44-4eb0-88ba-81755264ff1a",
+      "activity": "725f90de-ca99-4727-8ce3-c1e6dade0aa5",
+      "klass": "KEEP",
+      "why": null,
+      "name": "קישוט לסוכה",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "start_time",
+        "description",
+        "one_time_date"
+      ],
+      "realKeys": [
+        "description",
+        "one_time_date"
+      ]
+    },
+    {
+      "id": "46a213e6-e8c3-4dd1-8334-7f63525f840f",
+      "activity": "a7719531-a324-46ed-8f81-f4a55c0da363",
+      "klass": "KEEP",
+      "why": null,
+      "name": "יריד האוכל הכי טעים שיש!",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "description"
+      ],
+      "realKeys": [
+        "description"
+      ]
+    },
+    {
+      "id": "108acd8a-0f2d-4fe9-b188-570246abd735",
+      "activity": "d22e9612-8f3a-4b0a-bf31-2d4dbf00e301",
+      "klass": "KEEP",
+      "why": null,
+      "name": "יום חשיפה - תנועת נח",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "price_type",
+        "description"
+      ],
+      "realKeys": [
+        "price_type",
+        "description"
+      ]
+    },
+    {
+      "id": "0534d6e1-b6d6-4944-b55a-56af85fa835b",
+      "activity": "7b6c8006-99ef-4628-9c1f-5dda19a44258",
+      "klass": "KEEP",
+      "why": null,
+      "name": "היחידה לסימולציה רפואית",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "max_age",
+        "min_age",
+        "end_time",
+        "start_time"
+      ],
+      "realKeys": [
+        "max_age",
+        "min_age"
+      ]
+    },
+    {
+      "id": "a6bd7629-ab36-4d1c-ad5b-d79529f57a4e",
+      "activity": "f1a57e24-33e6-4bc1-b367-2b84ba8ebf17",
+      "klass": "KEEP",
+      "why": null,
+      "name": "פסטיבל עמים וטעמים",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "price_type",
+        "description",
+        "price_amount"
+      ],
+      "realKeys": [
+        "price_type",
+        "price_amount"
+      ]
+    },
+    {
+      "id": "ad4ade26-47bd-4451-9516-eafea745388c",
+      "activity": "04ecc2ca-dfe5-4e73-b5f2-4c9c63ff0918",
+      "klass": "KEEP",
+      "why": null,
+      "name": "סינדרלה",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "max_age",
+        "min_age",
+        "has_image",
+        "price_type",
+        "description",
+        "price_amount",
+        "booking_requirement"
+      ],
+      "realKeys": [
+        "max_age",
+        "min_age",
+        "has_image",
+        "price_type",
+        "description",
+        "price_amount",
+        "booking_requirement"
+      ]
+    },
+    {
+      "id": "aa9693df-dd4c-4ad1-9635-0b77649be2f6",
+      "activity": "67b69615-8f97-42da-bdb9-8040bb821071",
+      "klass": "KEEP",
+      "why": null,
+      "name": "צום גדליה",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "description"
+      ],
+      "realKeys": [
+        "description"
+      ]
+    },
+    {
+      "id": "105426fc-6e96-46f2-a26a-fccb7b9dfb11",
+      "activity": "111d7ebf-cfcd-4576-a9fa-f8e449223e43",
+      "klass": "KEEP",
+      "why": null,
+      "name": "Moola Yam",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "end_time",
+        "start_time",
+        "description",
+        "location_name"
+      ],
+      "realKeys": [
+        "description",
+        "location_name"
+      ]
+    },
+    {
+      "id": "85aac1a5-0209-4bbc-8473-40fcae4c2371",
+      "activity": "91a7b3aa-316d-43a7-bf44-e3a2f0ff001f",
+      "klass": "KEEP",
+      "why": null,
+      "name": "בנחל - עגלת קפה בוטיק",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "end_time",
+        "start_time",
+        "description",
+        "location_name"
+      ],
+      "realKeys": [
+        "location_name"
+      ]
+    },
+    {
+      "id": "3c2692f7-d17c-4826-ad27-ce57f9d090ec",
+      "activity": "bc823ee0-c0ef-4257-ad53-468136ce6a01",
+      "klass": "KEEP",
+      "why": null,
+      "name": "פארק ומוזיאון המדע",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "min_age",
+        "end_time",
+        "start_time",
+        "description",
+        "booking_requirement"
+      ],
+      "realKeys": [
+        "min_age",
+        "description",
+        "booking_requirement"
+      ]
+    },
+    {
+      "id": "f0327d4c-95b7-4432-84df-2424101e75bd",
+      "activity": "04ecc2ca-dfe5-4e73-b5f2-4c9c63ff0918",
+      "klass": "KEEP",
+      "why": null,
+      "name": "בת הים הקטנה",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "event_key",
+        "has_image"
+      ],
+      "realKeys": [
+        "event_key",
+        "has_image"
+      ]
+    },
+    {
+      "id": "9384bb82-9a2e-4c85-9434-a70ee08cebba",
+      "activity": "632df310-8382-48c4-9567-deaf13fe06a8",
+      "klass": "KEEP",
+      "why": null,
+      "name": "מתחמי המעבדות",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "max_age",
+        "min_age",
+        "end_time",
+        "start_time",
+        "description"
+      ],
+      "realKeys": [
+        "max_age",
+        "min_age"
+      ]
+    },
+    {
+      "id": "5e5da7bc-e1ab-49aa-9235-740a0d6d5677",
+      "activity": "cc171937-72d6-4aae-b1d4-652c68772b78",
+      "klass": "KEEP",
+      "why": null,
+      "name": "חוות הנדיב",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "end_time",
+        "has_image",
+        "start_time",
+        "description",
+        "booking_requirement"
+      ],
+      "realKeys": [
+        "end_time",
+        "has_image",
+        "start_time",
+        "booking_requirement"
+      ]
+    },
+    {
+      "id": "58fc21ee-6823-47f1-b7fc-404a05e960b5",
+      "activity": "436460b2-4c4a-466d-ac4d-3dd87c59b3ec",
+      "klass": "KEEP",
+      "why": null,
+      "name": "מתחם: הכול תנועה",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "description"
+      ],
+      "realKeys": [
+        "description"
+      ]
+    },
+    {
+      "id": "8d98f4f2-20ed-40e7-a3f1-1fe41eb7b3dc",
+      "activity": "879eda5f-a081-47f1-b4ef-d4a21a648f39",
+      "klass": "KEEP",
+      "why": null,
+      "name": "Beach Side",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "description",
+        "location_name"
+      ],
+      "realKeys": [
+        "description",
+        "location_name"
+      ]
+    },
+    {
+      "id": "ee155f15-e924-4447-b3cc-f0e19f613f53",
+      "activity": "861b3eeb-b7d6-431b-83ac-6b0afaae920b",
+      "klass": "KEEP",
+      "why": null,
+      "name": "Miami Truck",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "end_time",
+        "start_time",
+        "description",
+        "location_name"
+      ],
+      "realKeys": [
+        "location_name"
+      ]
+    },
+    {
+      "id": "1212952b-f9d4-4a55-825f-789babf639ec",
+      "activity": "e98f16b8-32d6-48fa-a178-769f29d2322f",
+      "klass": "KEEP",
+      "why": null,
+      "name": "Burekas Yam - כשר למהדרין",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "description",
+        "location_name"
+      ],
+      "realKeys": [
+        "location_name"
+      ]
+    },
+    {
+      "id": "e9547792-077b-4d5e-8a61-06f94f0e6ef3",
+      "activity": "733107b8-044e-4971-a46b-4fe3d7eb34ad",
+      "klass": "KEEP",
+      "why": null,
+      "name": "סיור ספארי בין ערביים",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "description"
+      ],
+      "realKeys": [
+        "description"
+      ]
+    },
+    {
+      "id": "42e0176c-cf34-40fb-9f61-f0ce696204bd",
+      "activity": "7935509e-6940-4fb8-ba87-dba0aa25e188",
+      "klass": "KEEP",
+      "why": null,
+      "name": "Vollyball Acai - כשר למהדרין",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "description",
+        "location_name"
+      ],
+      "realKeys": [
+        "location_name"
+      ]
+    },
+    {
+      "id": "adfbdfb2-40bf-4bea-bfdc-466c6c098366",
+      "activity": "359afd7e-6dcb-4957-89de-ce2f0b8e39fb",
+      "klass": "KEEP",
+      "why": null,
+      "name": "Yummy פוד טראק",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "description",
+        "location_name"
+      ],
+      "realKeys": [
+        "location_name"
+      ]
+    },
+    {
+      "id": "214d61b9-b615-4a36-a1e1-687823ccf88e",
+      "activity": "96587b34-32c3-441b-9937-35425ddc0235",
+      "klass": "KEEP",
+      "why": null,
+      "name": "זהבה ושלושת הדובים - נתי הגעתי הופעתי",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "event_key",
+        "has_image"
+      ],
+      "realKeys": [
+        "event_key",
+        "has_image"
+      ]
+    },
+    {
+      "id": "83a87847-9256-464b-8256-87edf7327db0",
+      "activity": "3dc25beb-723b-41ad-8158-24e6441cfaa8",
+      "klass": "KEEP",
+      "why": null,
+      "name": "גן החיות התנ״כי בירושלים",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "description",
+        "location_name"
+      ],
+      "realKeys": [
+        "description"
+      ]
+    },
+    {
+      "id": "bf13be51-e82d-4d4c-aa3d-67795e2db7cb",
+      "activity": "29c732ae-c215-4a7a-9d05-f42696fa4725",
+      "klass": "KEEP",
+      "why": null,
+      "name": "WORLD JAZZ MUSIC 2026 - SAVE THE DATE",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "end_time",
+        "start_time",
+        "description",
+        "location_name"
+      ],
+      "realKeys": [
+        "description"
+      ]
+    },
+    {
+      "id": "20303366-e111-4d0a-8c4d-361b8c2e4ceb",
+      "activity": "e8e378b4-1100-4588-97b6-c6989b82213f",
+      "klass": "KEEP",
+      "why": null,
+      "name": "מאשה והדב בקרקס",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "event_key",
+        "has_image"
+      ],
+      "realKeys": [
+        "event_key",
+        "has_image"
+      ]
+    },
+    {
+      "id": "4be8cdcf-288e-448f-9ce7-a757bbed2b9b",
+      "activity": "5d643dc3-7262-4a07-8955-07e2b4c356a7",
+      "klass": "KEEP",
+      "why": null,
+      "name": "היומן - מחזמר מברודווי",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "one_time_date"
+      ],
+      "realKeys": [
+        "one_time_date"
+      ]
+    },
+    {
+      "id": "c96de308-3dda-45ea-8ee6-64b741fcb304",
+      "activity": "4cff74c1-2bb1-41d7-954e-ce2b869c8688",
+      "klass": "KEEP",
+      "why": null,
+      "name": "MOMMY MORNING",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "max_age",
+        "event_key",
+        "price_type",
+        "start_time",
+        "description",
+        "price_amount",
+        "one_time_date"
+      ],
+      "realKeys": [
+        "max_age",
+        "event_key",
+        "price_type",
+        "description",
+        "price_amount",
+        "one_time_date"
+      ]
+    },
+    {
+      "id": "121db0ad-0612-449e-9b08-4cc750440bc3",
+      "activity": "9e502e05-7afd-4550-8ffa-0774a4f46a0e",
+      "klass": "KEEP",
+      "why": null,
+      "name": "ביאליק לקטנטנים",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "max_age",
+        "min_age",
+        "event_key",
+        "price_type",
+        "price_amount"
+      ],
+      "realKeys": [
+        "max_age",
+        "min_age",
+        "event_key",
+        "price_type",
+        "price_amount"
+      ]
+    },
+    {
+      "id": "eb261e41-f337-4e81-8ceb-64ad3904643f",
+      "activity": "582ab48c-553f-4a3f-b191-3c36888afe9b",
+      "klass": "KEEP",
+      "why": null,
+      "name": "רובינזון קרוזו - תיאטרון המדיטק",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "start_time",
+        "description",
+        "price_amount",
+        "location_name"
+      ],
+      "realKeys": [
+        "description",
+        "price_amount"
+      ]
+    },
+    {
+      "id": "a2aa7f89-1f03-4691-a36e-5d6c9fdecf4a",
+      "activity": "f0e3485d-2e0d-4969-9b75-2fe12f0a2c30",
+      "klass": "KEEP",
+      "why": null,
+      "name": "תירס חם - שעת סיפור תיאטרלית",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "price_type",
+        "start_time",
+        "description",
+        "price_amount",
+        "location_name",
+        "booking_requirement"
+      ],
+      "realKeys": [
+        "price_type",
+        "description",
+        "price_amount",
+        "booking_requirement"
+      ]
+    },
+    {
+      "id": "072d1b46-6e37-421f-9ba8-61a19d598c5a",
+      "activity": "fe54fccb-ebcf-4802-b37b-f0a2dbbce108",
+      "klass": "KEEP",
+      "why": null,
+      "name": "סינדרלה - מחזמר לכל המשפחה",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "max_age",
+        "min_age",
+        "event_key"
+      ],
+      "realKeys": [
+        "max_age",
+        "min_age",
+        "event_key"
+      ]
+    },
+    {
+      "id": "0708a6e4-7e52-45af-8f7c-2285d7da54cb",
+      "activity": "d9b9fb9a-0b36-4810-920f-674f82551574",
+      "klass": "KEEP",
+      "why": null,
+      "name": "זכרונות מהגולן בית ספר שדה גולן",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "start_time",
+        "description",
+        "one_time_date"
+      ],
+      "realKeys": [
+        "start_time",
+        "one_time_date"
+      ]
+    },
+    {
+      "id": "15aeff02-e892-4e3f-b627-fd3b0b7bc349",
+      "activity": "934861aa-fe30-45fc-8c8b-615f59044a67",
+      "klass": "KEEP",
+      "why": null,
+      "name": "קסם של קוסם",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "event_key",
+        "description",
+        "one_time_date"
+      ],
+      "realKeys": [
+        "event_key",
+        "one_time_date"
+      ]
+    },
+    {
+      "id": "0523d5fa-3afb-483d-8907-703f64268241",
+      "activity": "e24d609e-03e5-4a11-b4b1-d1beb64c4b2d",
+      "klass": "KEEP",
+      "why": null,
+      "name": "סדנת איור עם רמי טל בחול המועד",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "event_key",
+        "description",
+        "one_time_date"
+      ],
+      "realKeys": [
+        "event_key",
+        "one_time_date"
+      ]
+    },
+    {
+      "id": "0a8f06a1-bd7e-4f03-b62e-ae8df2faf4c7",
+      "activity": "7e954a3c-a832-475e-9ba8-d26a4871fd22",
+      "klass": "KEEP",
+      "why": null,
+      "name": "מצילים את נחל סעדיה",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "end_time",
+        "start_time",
+        "description"
+      ],
+      "realKeys": [
+        "end_time",
+        "start_time"
+      ]
+    },
+    {
+      "id": "9da26860-23a2-4e6c-ba04-fc83ae750416",
+      "activity": "fccb55a5-8a4d-46b0-be8c-d74bd491626a",
+      "klass": "KEEP",
+      "why": null,
+      "name": "מפרץ ההרפתקאות: אי הדינוזאורים-מדובב",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "has_image",
+        "start_time",
+        "description"
+      ],
+      "realKeys": [
+        "has_image",
+        "description"
+      ]
+    },
+    {
+      "id": "4ba8af9a-c3b4-4759-b53e-34f2088083f7",
+      "activity": "ee579c30-1132-4053-b998-8b704a68e716",
+      "klass": "KEEP",
+      "why": null,
+      "name": "מסיבת הקיץ עם משפחת ספיר",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "has_image",
+        "start_time",
+        "description"
+      ],
+      "realKeys": [
+        "has_image",
+        "description"
+      ]
+    },
+    {
+      "id": "635e9577-b141-445b-9cf0-d1310ad410ff",
+      "activity": "54de76da-fa71-43fb-bea8-a73c04018376",
+      "klass": "KEEP",
+      "why": null,
+      "name": "קסמים בשחקים",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "has_image",
+        "start_time",
+        "description"
+      ],
+      "realKeys": [
+        "has_image",
+        "description"
+      ]
+    },
+    {
+      "id": "888cb934-5861-45d3-a13b-54c1caacc7ca",
+      "activity": "848e3c14-8ae4-4919-abd3-e50c16b888e1",
+      "klass": "KEEP",
+      "why": null,
+      "name": "אלפרד הקוסם",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "has_image",
+        "start_time",
+        "description"
+      ],
+      "realKeys": [
+        "has_image",
+        "description"
+      ]
+    },
+    {
+      "id": "6dbafc25-3a96-4d00-8b62-657b26e9518b",
+      "activity": "6c1ab4d7-4cd7-4403-adab-a84d5a18e7ad",
+      "klass": "KEEP",
+      "why": null,
+      "name": "מיקי - הבית של יעל",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "has_image",
+        "start_time",
+        "description"
+      ],
+      "realKeys": [
+        "has_image",
+        "description"
+      ]
+    },
+    {
+      "id": "b9514d74-e4b6-4907-91d0-a62320c3a012",
+      "activity": "c277539c-06a8-4a5f-bc4f-7635003e7288",
+      "klass": "KEEP",
+      "why": null,
+      "name": "אופרה בקהילה - חליל הקסם",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "start_time",
+        "description"
+      ],
+      "realKeys": [
+        "description"
+      ]
+    },
+    {
+      "id": "40c2fd81-ecc2-48e3-9172-a73067d9a148",
+      "activity": "eb07c773-4368-4b26-9a8d-2319993314d6",
+      "klass": "KEEP",
+      "why": null,
+      "name": "ספיידרמן: יום חדש",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "has_image",
+        "start_time",
+        "description"
+      ],
+      "realKeys": [
+        "has_image",
+        "description"
+      ]
+    },
+    {
+      "id": "833bb6ee-fe1b-45a8-ac3d-93e4ccbc5489",
+      "activity": "1d6b74f0-0230-4999-9c6a-9bb93621c234",
+      "klass": "KEEP",
+      "why": null,
+      "name": "לוני טונס מציגים: קיוטי נגד אקמי-מדובב",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "has_image",
+        "start_time",
+        "description"
+      ],
+      "realKeys": [
+        "has_image",
+        "description"
+      ]
+    },
+    {
+      "id": "b1019e9e-5308-4228-80df-07998bc1778b",
+      "activity": "b05a2c4d-bb86-4cdf-b02e-6871b00a3789",
+      "klass": "KEEP",
+      "why": null,
+      "name": "סינדרלה – בכיכובה של רינת גבאי – קיץ 2026",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "has_image",
+        "start_time",
+        "description"
+      ],
+      "realKeys": [
+        "has_image",
+        "description"
+      ]
+    },
+    {
+      "id": "c908071b-f9bf-43b1-b3e8-a60557d76cf4",
+      "activity": "5ac27453-4453-476e-98b3-60ed32af6e67",
+      "klass": "KEEP",
+      "why": null,
+      "name": "כספיון התיאטרון השחור",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "start_time",
+        "description"
+      ],
+      "realKeys": [
+        "description"
+      ]
+    },
+    {
+      "id": "924812c7-6340-4c0a-9809-835658d5bceb",
+      "activity": "a0e796cd-1f15-4ead-b86b-8cc7d0b8c953",
+      "klass": "KEEP",
+      "why": null,
+      "name": "יובל המבולבל - בהצגה המסע אל הכוכב",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "start_time",
+        "description"
+      ],
+      "realKeys": [
+        "description"
+      ]
+    },
+    {
+      "id": "77befd59-9570-4237-9de4-4c9a951abc2c",
+      "activity": "890621ef-8e44-4654-b695-f809f34f5c65",
+      "klass": "KEEP",
+      "why": null,
+      "name": "חנות סופגניות קטנה ומתוקה",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "start_time",
+        "description"
+      ],
+      "realKeys": [
+        "description"
+      ]
+    },
+    {
+      "id": "884ddd33-2a6c-4489-876c-7818a967abc5",
+      "activity": "4615d804-df6b-41c4-9fde-e209b50948eb",
+      "klass": "KEEP",
+      "why": null,
+      "name": "טרזן וג׳יין בין שני עולמות",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "start_time",
+        "description"
+      ],
+      "realKeys": [
+        "description"
+      ]
+    },
+    {
+      "id": "d5e85690-f48c-4881-a84d-eee50f188548",
+      "activity": "a5611dc7-f222-46e6-bbc4-c4adad804173",
+      "klass": "KEEP",
+      "why": null,
+      "name": "אליסה בארץ הפלאות תיאטרון פטל",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "start_time",
+        "description"
+      ],
+      "realKeys": [
+        "description"
+      ]
+    },
+    {
+      "id": "2e38dca1-7e9d-4266-b636-48233b883b7c",
+      "activity": "84d1ba64-b83a-40e5-ad0e-af84c3383fa9",
+      "klass": "KEEP",
+      "why": null,
+      "name": "קסם של כוכבים - חנוכה 2026",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "start_time",
+        "description"
+      ],
+      "realKeys": [
+        "description"
+      ]
+    },
+    {
+      "id": "2670436b-f465-4aeb-8d80-5fb17491224a",
+      "activity": "5fe6bd9d-f9c5-4b73-998d-54b01b12e9b1",
+      "klass": "KEEP",
+      "why": null,
+      "name": "המכבים 2026",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "start_time",
+        "description"
+      ],
+      "realKeys": [
+        "description"
+      ]
+    },
+    {
+      "id": "be21bcbf-c2bd-45b5-95b2-125f3cacb01c",
+      "activity": "ba05dc70-8dec-4167-9386-c30d1a755cc8",
+      "klass": "KEEP",
+      "why": null,
+      "name": "סתיו בכל מיני צבעים",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "start_time",
+        "description"
+      ],
+      "realKeys": [
+        "description"
+      ]
+    },
+    {
+      "id": "9d06d424-8fbc-4260-97c1-0ff7cd284522",
+      "activity": "923e2a01-49f7-44bf-a2b2-732f7f680b4c",
+      "klass": "KEEP",
+      "why": null,
+      "name": "היי סקול - משפחת טרסוב",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "start_time",
+        "description"
+      ],
+      "realKeys": [
+        "description"
+      ]
+    },
+    {
+      "id": "a35b16aa-3c1c-4f14-8e2f-d99a670627b3",
+      "activity": "82d318c6-303a-4f36-b4c9-7e796a07134a",
+      "klass": "KEEP",
+      "why": null,
+      "name": "אליסה בארץ הפלאות",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "start_time",
+        "description"
+      ],
+      "realKeys": [
+        "description"
+      ]
+    },
+    {
+      "id": "2bb58e81-62d5-452b-8214-683e4c9ca87f",
+      "activity": "d09b60f9-6e49-412a-aba6-d94588d33411",
+      "klass": "KEEP",
+      "why": null,
+      "name": "לאסי",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "start_time",
+        "description"
+      ],
+      "realKeys": [
+        "description"
+      ]
+    },
+    {
+      "id": "4ae7e90c-ac09-4e48-8c32-c9162982833c",
+      "activity": "7e9a82b0-cebd-4ae5-a479-25ac301ad17d",
+      "klass": "KEEP",
+      "why": null,
+      "name": "חנן הגנן",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "start_time",
+        "description"
+      ],
+      "realKeys": [
+        "description"
+      ]
+    },
+    {
+      "id": "6b559d69-52df-432c-a0c1-37c16666ba4e",
+      "activity": "fc4ace30-e7f0-4705-bdb1-37ae32c68241",
+      "klass": "KEEP",
+      "why": null,
+      "name": "לציונה יש כנף אחת",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "start_time",
+        "description"
+      ],
+      "realKeys": [
+        "description"
+      ]
+    },
+    {
+      "id": "efd7321e-f289-4d3e-8ec6-369d723d4582",
+      "activity": "c6a34889-46b8-40b8-9a40-a033087d89d7",
+      "klass": "KEEP",
+      "why": null,
+      "name": "הבאגיז בארץ עוץ",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "start_time",
+        "description"
+      ],
+      "realKeys": [
+        "description"
+      ]
+    },
+    {
+      "id": "a68e6d6f-f9fa-4db9-9176-88263bfde304",
+      "activity": "c61c9199-44eb-4c82-914b-1f156db9146c",
+      "klass": "KEEP",
+      "why": null,
+      "name": "ממלכת שטות וממלכת רצינות",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "start_time",
+        "description"
+      ],
+      "realKeys": [
+        "description"
+      ]
+    },
+    {
+      "id": "3f96197f-9111-4c8b-b8e0-3a772e2c8c8c",
+      "activity": "9ccac2ed-029e-4500-98c9-ecd2f603fd80",
+      "klass": "KEEP",
+      "why": null,
+      "name": "קסם של כוכבים׳ חנוכה 2026",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "has_image",
+        "start_time",
+        "description",
+        "booking_requirement"
+      ],
+      "realKeys": [
+        "has_image",
+        "description",
+        "booking_requirement"
+      ]
+    },
+    {
+      "id": "4ccd0a9c-69a7-4465-8867-8eef2e6b4446",
+      "activity": "9a42c2a5-e66b-4e4a-8148-27810091cbea",
+      "klass": "KEEP",
+      "why": null,
+      "name": "גיבורים בקומיקס - סדנה עם הקומיקסאי יניב שמעוני",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "max_age",
+        "min_age",
+        "event_key",
+        "price_type",
+        "occurrences",
+        "price_amount"
+      ],
+      "realKeys": [
+        "max_age",
+        "min_age",
+        "event_key",
+        "price_type",
+        "occurrences",
+        "price_amount"
+      ]
+    },
+    {
+      "id": "d45e734f-99b3-4d5b-8582-74c7f3fbaf25",
+      "activity": "04ecc2ca-dfe5-4e73-b5f2-4c9c63ff0918",
+      "klass": "KEEP",
+      "why": null,
+      "name": "בת הים הקטנה - הפקת הענק של קיץ 2026",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "has_image",
+        "start_time",
+        "description",
+        "booking_requirement"
+      ],
+      "realKeys": [
+        "has_image",
+        "description",
+        "booking_requirement"
+      ]
+    },
+    {
+      "id": "ec16ac5e-c901-4842-a029-337b70fceba3",
+      "activity": "c12dce38-a4c0-4cd3-b0e6-d67a238b5215",
+      "klass": "KEEP",
+      "why": null,
+      "name": "זהבה ושלושת הדובים - נתי הגעתי",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "start_time",
+        "description",
+        "location_name"
+      ],
+      "realKeys": [
+        "start_time",
+        "description",
+        "location_name"
+      ]
+    },
+    {
+      "id": "5bce97d8-76ac-415c-9681-5313f7b1eaca",
+      "activity": "f0e3485d-2e0d-4969-9b75-2fe12f0a2c30",
+      "klass": "KEEP",
+      "why": null,
+      "name": "סינדרלה - בכיכובה של רינת גבאי - קיץ 2026",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "start_time",
+        "description",
+        "booking_requirement"
+      ],
+      "realKeys": [
+        "booking_requirement"
+      ]
+    },
+    {
+      "id": "6b1311d7-0cdf-4031-b43a-5f0d406c7b27",
+      "activity": "e2ce4a61-7ffd-4afa-89c1-2d55340cd7e5",
+      "klass": "KEEP",
+      "why": null,
+      "name": "סינדרלה - בכיכובה של רינת גבאי - קיץ 2026",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "start_time",
+        "description",
+        "booking_requirement"
+      ],
+      "realKeys": [
+        "description",
+        "booking_requirement"
+      ]
+    },
+    {
+      "id": "0898bcd5-8f9a-42a4-a90b-1528a7739036",
+      "activity": "96587b34-32c3-441b-9937-35425ddc0235",
+      "klass": "KEEP",
+      "why": null,
+      "name": "זהבה ושלושת הדובים - נתי הגעתי",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "start_time",
+        "description",
+        "booking_requirement"
+      ],
+      "realKeys": [
+        "description",
+        "booking_requirement"
+      ]
+    },
+    {
+      "id": "05a84b54-16cc-453e-ac9c-278b563aec12",
+      "activity": "5e281bfb-8283-44f4-91be-894596980c5c",
+      "klass": "KEEP",
+      "why": null,
+      "name": "סדנת יצירה בקרטון לחגי תשרי",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "start_time",
+        "description",
+        "location_name",
+        "booking_requirement"
+      ],
+      "realKeys": [
+        "description",
+        "booking_requirement"
+      ]
+    },
+    {
+      "id": "f1f461c1-0e51-4148-a9bf-3079f7f97d91",
+      "activity": "6637e3b7-9336-4008-999f-59f188bee123",
+      "klass": "KEEP",
+      "why": null,
+      "name": "״אצלנו בסלון״ - ילדים מנגנים לילדים",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "max_age",
+        "min_age",
+        "event_key",
+        "description",
+        "occurrences",
+        "schedule_type"
+      ],
+      "realKeys": [
+        "max_age",
+        "min_age",
+        "event_key",
+        "description",
+        "occurrences",
+        "schedule_type"
+      ]
+    },
+    {
+      "id": "b00e52ba-74d9-45b0-9cc8-627524300d9b",
+      "activity": "73080d23-4ec7-405a-a146-0253f9e75f2a",
+      "klass": "KEEP",
+      "why": null,
+      "name": "זורעים שנה נפלאה",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "address",
+        "event_key"
+      ],
+      "realKeys": [
+        "address",
+        "event_key"
+      ]
+    },
+    {
+      "id": "bce1aec0-6ec1-4ed7-85d3-ecbabf53f2b4",
+      "activity": "2024f268-43b5-436d-b547-145e53748c8f",
+      "klass": "KEEP",
+      "why": null,
+      "name": "סינדרלה- בכיכובה של רינת גבאי",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "event_key",
+        "price_type",
+        "occurrences",
+        "price_amount"
+      ],
+      "realKeys": [
+        "event_key",
+        "price_type",
+        "occurrences",
+        "price_amount"
+      ]
+    },
+    {
+      "id": "178be09d-fa30-45f3-8e69-f9b4b2091bd5",
+      "activity": "ccb313ce-3c43-4599-88f3-022759ed4ddd",
+      "klass": "KEEP",
+      "why": null,
+      "name": "חנן הגנן",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "event_key",
+        "price_type",
+        "occurrences",
+        "price_amount"
+      ],
+      "realKeys": [
+        "event_key",
+        "price_type",
+        "occurrences",
+        "price_amount"
+      ]
+    },
+    {
+      "id": "2b40d24b-bc54-428f-beaa-370ed46de776",
+      "activity": "3493f271-f951-4eb2-9d2c-7048f1c4b13c",
+      "klass": "KEEP",
+      "why": null,
+      "name": "ספר הג'ונגל - חברים לעולם - הצגת ילדים (שמחת תורה)",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "start_time",
+        "description",
+        "booking_requirement"
+      ],
+      "realKeys": [
+        "description",
+        "booking_requirement"
+      ]
+    },
+    {
+      "id": "1d49fb78-5f14-42ce-a5e9-f2770a611588",
+      "activity": "91c36f1a-a8a0-4180-ac90-33e58c6cd9b9",
+      "klass": "KEEP",
+      "why": null,
+      "name": "מרכז אגדה - יוגה מוזיקלית עם עדי והגיטרה",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "start_time",
+        "description",
+        "one_time_date",
+        "booking_requirement"
+      ],
+      "realKeys": [
+        "description",
+        "one_time_date",
+        "booking_requirement"
+      ]
+    },
+    {
+      "id": "804895b5-eb3a-4f03-92c4-7443d9da2040",
+      "activity": "2a6778c3-12f9-47e5-812d-ad99d699f48f",
+      "klass": "KEEP",
+      "why": null,
+      "name": "סוכות עם מוז״ה | סיור בגן הפסלים | אמנות כמראה לריבוי קולות",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "start_time",
+        "description",
+        "booking_requirement"
+      ],
+      "realKeys": [
+        "booking_requirement"
+      ]
+    },
+    {
+      "id": "68fb9373-d9f8-4dbe-a1c0-846ec1430a2a",
+      "activity": "6492edb1-b5b4-4642-9767-0b5eec1f8896",
+      "klass": "KEEP",
+      "why": null,
+      "name": "אנני - המחזמר - סוכות לכל המשפחה",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "start_time",
+        "description",
+        "one_time_date",
+        "booking_requirement"
+      ],
+      "realKeys": [
+        "one_time_date",
+        "booking_requirement"
+      ]
+    },
+    {
+      "id": "22edd8e2-a98c-4156-995d-3dbdb12a8b6a",
+      "activity": "d10a8c3a-cc0f-412d-a7fb-ab6d54c6f439",
+      "klass": "KEEP",
+      "why": null,
+      "name": "מרכז אגדה - Music with Maya",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "start_time",
+        "description",
+        "one_time_date",
+        "booking_requirement"
+      ],
+      "realKeys": [
+        "description",
+        "one_time_date",
+        "booking_requirement"
+      ]
+    },
+    {
+      "id": "6fb4f042-4f9f-49ea-8025-6c0cee84f227",
+      "activity": "d1d14181-a502-4dd9-941e-cd596ed00090",
+      "klass": "KEEP",
+      "why": null,
+      "name": "קייטנת אנרג'י יומית - סוכות",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "start_time",
+        "description",
+        "booking_requirement"
+      ],
+      "realKeys": [
+        "description",
+        "booking_requirement"
+      ]
+    },
+    {
+      "id": "b105e820-d2d2-4658-89a9-96ede7d75a0b",
+      "activity": "02a95785-f957-4f06-8ce7-00482c742ef6",
+      "klass": "KEEP",
+      "why": null,
+      "name": "שובו של הקרקס",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "min_age",
+        "event_key",
+        "price_type",
+        "occurrences",
+        "price_amount"
+      ],
+      "realKeys": [
+        "min_age",
+        "event_key",
+        "price_type",
+        "occurrences",
+        "price_amount"
+      ]
+    },
+    {
+      "id": "ec20a053-e5e9-44cd-af61-9831f05550b8",
+      "activity": "09a43710-0a59-4e87-a41e-928e767158c2",
+      "klass": "KEEP",
+      "why": null,
+      "name": "הדרדסים ההצגה - LIVE על הבמה!",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "event_key",
+        "price_type",
+        "occurrences",
+        "price_amount"
+      ],
+      "realKeys": [
+        "event_key",
+        "price_type",
+        "occurrences",
+        "price_amount"
+      ]
+    },
+    {
+      "id": "0e16d3a5-99af-4261-a0db-d9f41de94bb9",
+      "activity": "8a3a4f35-7f3e-4880-a49b-82dbb265da52",
+      "klass": "KEEP",
+      "why": null,
+      "name": "חנות סופגניות קטנה ומצחיקה",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "event_key",
+        "price_type",
+        "occurrences",
+        "price_amount"
+      ],
+      "realKeys": [
+        "event_key",
+        "price_type",
+        "occurrences",
+        "price_amount"
+      ]
+    },
+    {
+      "id": "44814287-5ec7-4b08-959f-1db9dabaacac",
+      "activity": "8d4eda2a-fba3-44c6-98d3-b7f68f2acc58",
+      "klass": "KEEP",
+      "why": null,
+      "name": "בת הים הקטנה",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "end_time",
+        "start_time",
+        "description"
+      ],
+      "realKeys": [
+        "end_time",
+        "start_time",
+        "description"
+      ]
+    },
+    {
+      "id": "edcddd19-517f-401f-a81b-3bd630f9f514",
+      "activity": "00416a81-9078-435c-8461-3f3b0a6989db",
+      "klass": "KEEP",
+      "why": null,
+      "name": "מלך הטבע",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "end_time",
+        "start_time",
+        "description",
+        "booking_requirement"
+      ],
+      "realKeys": [
+        "booking_requirement"
+      ]
+    },
+    {
+      "id": "00046317-c487-49d1-aa89-6c0cdb27570b",
+      "activity": "f5500a49-9e56-471a-9a40-1bd22273bc35",
+      "klass": "KEEP",
+      "why": null,
+      "name": "אוצר החברות – הצגה חדשה",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "end_time",
+        "start_time",
+        "description"
+      ],
+      "realKeys": [
+        "description"
+      ]
+    },
+    {
+      "id": "b698cc5a-05fd-4f11-b6f4-d0a3b3afebec",
+      "activity": "1731dc37-c10c-4fa6-ae09-3232b9f65d7b",
+      "klass": "KEEP",
+      "why": null,
+      "name": "רובינזון קרוזו – הצגה חדשה",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "end_time",
+        "start_time",
+        "description"
+      ],
+      "realKeys": [
+        "description"
+      ]
+    },
+    {
+      "id": "15029e46-bb46-47b8-afa9-b189a0ff68f1",
+      "activity": "564e630c-d2f4-4f87-89e5-ea7b836efff1",
+      "klass": "KEEP",
+      "why": null,
+      "name": "גוליברה",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "end_time",
+        "start_time",
+        "description",
+        "price_amount",
+        "location_name"
+      ],
+      "realKeys": [
+        "end_time",
+        "start_time",
+        "description",
+        "price_amount",
+        "location_name"
+      ]
+    },
+    {
+      "id": "8ee5ab6f-c053-484f-b417-96221febe6de",
+      "activity": "bddfc358-2a0a-48b8-a920-99c86f4972b5",
+      "klass": "KEEP",
+      "why": null,
+      "name": "הכינה נחמה",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "end_time",
+        "start_time",
+        "description"
+      ],
+      "realKeys": [
+        "description"
+      ]
+    },
+    {
+      "id": "dd6a4ec1-591a-4200-a229-4f88fcf679df",
+      "activity": "2f3649fc-0058-4baa-91e5-03ca899741e3",
+      "klass": "KEEP",
+      "why": null,
+      "name": "בוקר בשניים - טעימות ראשונות ומעבר למוצקים",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "end_time",
+        "start_time",
+        "description",
+        "location_name"
+      ],
+      "realKeys": [
+        "description"
+      ]
+    },
+    {
+      "id": "cbc8b627-de99-4d01-829d-bde51ad98a1e",
+      "activity": "7e26e5ee-0067-4ee6-bf8f-e311e939e666",
+      "klass": "KEEP",
+      "why": null,
+      "name": "דוקטור דוליטל",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "end_time",
+        "start_time",
+        "description"
+      ],
+      "realKeys": [
+        "description"
+      ]
+    },
+    {
+      "id": "6f08f5de-eb8e-41dd-965b-e62c05d9447f",
+      "activity": "89071a84-1602-483d-a17e-3378ad6d5a3f",
+      "klass": "KEEP",
+      "why": null,
+      "name": "סיפורו של פרדיננד",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "end_time",
+        "start_time",
+        "description"
+      ],
+      "realKeys": [
+        "description"
+      ]
+    },
+    {
+      "id": "18bc65b8-3ada-4240-a0a9-4ea67f945e34",
+      "activity": "a08ab845-9e2c-45dd-b0e4-2bed05c8ce1b",
+      "klass": "KEEP",
+      "why": null,
+      "name": "ילדי בית העץ",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "end_time",
+        "start_time",
+        "description"
+      ],
+      "realKeys": [
+        "end_time",
+        "start_time",
+        "description"
+      ]
+    },
+    {
+      "id": "2893301d-78ac-4bc3-b33a-19dd3799eb04",
+      "activity": "5268898f-8c91-4a4b-8af5-5a6d3566d0b9",
+      "klass": "KEEP",
+      "why": null,
+      "name": "חנן הגנן",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "end_time",
+        "start_time",
+        "description"
+      ],
+      "realKeys": [
+        "description"
+      ]
+    },
+    {
+      "id": "d30d6140-6e51-4a00-ad0f-e4e832fc7869",
+      "activity": "6e6f2e20-e7f0-4034-8849-d2448d5433e0",
+      "klass": "KEEP",
+      "why": null,
+      "name": "שלגיה - הצגת ילדים",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "end_time",
+        "start_time",
+        "description"
+      ],
+      "realKeys": [
+        "description"
+      ]
+    },
+    {
+      "id": "8fb157fb-c40b-493f-a98d-f5be98f50bd0",
+      "activity": "5cf45429-918a-4993-9da6-1f872a29f5be",
+      "klass": "KEEP",
+      "why": null,
+      "name": "האביב של חפרפר",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "end_time",
+        "start_time",
+        "description"
+      ],
+      "realKeys": [
+        "description"
+      ]
+    },
+    {
+      "id": "d438e39c-0243-4484-b24e-7d8305397489",
+      "activity": "90ff758e-8fdd-4a3e-b528-dae60862459a",
+      "klass": "KEEP",
+      "why": null,
+      "name": "איינשטיין",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "end_time",
+        "start_time",
+        "description"
+      ],
+      "realKeys": [
+        "description"
+      ]
+    },
+    {
+      "id": "5893eecb-76f3-4530-b6ff-7ea2c5dfceae",
+      "activity": "31eb576b-9de3-4363-a118-cedd8c542559",
+      "klass": "KEEP",
+      "why": null,
+      "name": "אגם המרינה החדש",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "price_type",
+        "location_name",
+        "booking_requirement"
+      ],
+      "realKeys": [
+        "price_type",
+        "booking_requirement"
+      ]
+    },
+    {
+      "id": "5d085a88-d726-4b67-9bd1-7dbeee370086",
+      "activity": "54de76da-fa71-43fb-bea8-a73c04018376",
+      "klass": "KEEP",
+      "why": null,
+      "name": "קסמים בשחקים",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "start_time",
+        "description"
+      ],
+      "realKeys": [
+        "start_time",
+        "description"
+      ]
+    },
+    {
+      "id": "d048596e-bbf7-40c3-93e6-9365b2e9e61f",
+      "activity": "d5696593-81ba-4d77-95db-3df48fb602e7",
+      "klass": "KEEP",
+      "why": null,
+      "name": "אל תגעו באהבה",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "start_time",
+        "description"
+      ],
+      "realKeys": [
+        "description"
+      ]
+    },
+    {
+      "id": "140aedc1-b0d6-4e72-a3c0-6e01ddfd2e44",
+      "activity": "350b6d39-d731-40f4-86b8-787c89df3975",
+      "klass": "KEEP",
+      "why": null,
+      "name": "ג׳ימבורי בית רחל",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "start_time",
+        "description",
+        "one_time_date"
+      ],
+      "realKeys": [
+        "description",
+        "one_time_date"
+      ]
+    },
+    {
+      "id": "620394b7-39d8-451b-af42-90ca96293ae9",
+      "activity": "f7f4ab38-5dae-4e37-930d-4ffab419c8e4",
+      "klass": "KEEP",
+      "why": null,
+      "name": "מצודת אשדוד ים",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "event_key",
+        "has_image",
+        "price_type",
+        "description",
+        "price_amount",
+        "booking_requirement"
+      ],
+      "realKeys": [
+        "event_key",
+        "has_image",
+        "price_type",
+        "price_amount",
+        "booking_requirement"
+      ]
+    },
+    {
+      "id": "8a6b58f1-29c6-4802-bafe-fabedc33d935",
+      "activity": "d53c394a-afd9-41ae-9bb1-06519f364637",
+      "klass": "KEEP",
+      "why": null,
+      "name": "מדעטק - מוזיאון המדע",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "description"
+      ],
+      "realKeys": [
+        "description"
+      ]
+    },
+    {
+      "id": "06cf1a1d-0d27-484f-b041-db4dcb3d2ece",
+      "activity": "fe68c4ee-6b48-40d4-bc21-531c020a3c44",
+      "klass": "KEEP",
+      "why": null,
+      "name": "זמן קסם - פעילות להורים וקטנטנים בבית חשמונאי",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "start_time",
+        "description",
+        "booking_requirement"
+      ],
+      "realKeys": [
+        "description",
+        "booking_requirement"
+      ]
+    },
+    {
+      "id": "6bef85a9-5f0f-4c66-8c6b-157d12c18405",
+      "activity": "209b0096-2c62-4ee1-be93-da4b04aeb608",
+      "klass": "KEEP",
+      "why": null,
+      "name": "הסדנה היוצרת - כיתות ד׳-ו׳",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "min_age",
+        "end_time",
+        "start_time",
+        "description",
+        "one_time_date"
+      ],
+      "realKeys": [
+        "min_age",
+        "one_time_date"
+      ]
+    },
+    {
+      "id": "f25b1c54-7ecb-424a-887c-b9ed18219e77",
+      "activity": "9dc1b859-5ea5-484b-90f9-8107e71ccd7c",
+      "klass": "KEEP",
+      "why": null,
+      "name": "אסטרונאוטים צעירים - כיתות א׳-ג׳",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "description",
+        "price_amount",
+        "one_time_date"
+      ],
+      "realKeys": [
+        "price_amount",
+        "one_time_date"
+      ]
+    },
+    {
+      "id": "af58d949-408f-4a7f-9535-5c94aef5d108",
+      "activity": "3f9fcbc9-e6be-4b31-b11a-9c552409ff8c",
+      "klass": "KEEP",
+      "why": null,
+      "name": "ספריית קריית אליעזר",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "description",
+        "location_name"
+      ],
+      "realKeys": [
+        "description",
+        "location_name"
+      ]
+    },
+    {
+      "id": "e7b8f471-c592-4485-b04f-593513663c87",
+      "activity": "ea5fa958-47f4-45a7-9375-d9e8f3aac250",
+      "klass": "KEEP",
+      "why": null,
+      "name": "ספריית בית הגפן",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "end_time",
+        "start_time",
+        "description",
+        "location_name"
+      ],
+      "realKeys": [
+        "end_time",
+        "start_time",
+        "location_name"
+      ]
+    },
+    {
+      "id": "38fbb359-165a-423a-b81b-9af453404b55",
+      "activity": "8bc86555-dc52-4b81-8fa9-42160fd93e55",
+      "klass": "KEEP",
+      "why": null,
+      "name": "שייט במרינה",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "location_name"
+      ],
+      "realKeys": [
+        "location_name"
+      ]
+    },
+    {
+      "id": "aeb39845-a6bd-4f00-9674-afc95e207795",
+      "activity": "2560f37b-2c02-490c-a349-a2951f7bf773",
+      "klass": "KEEP",
+      "why": null,
+      "name": "פארק אשדוד ים",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "price_type",
+        "booking_requirement"
+      ],
+      "realKeys": [
+        "price_type",
+        "booking_requirement"
+      ]
+    },
+    {
+      "id": "caa0d732-46e6-4ada-9866-a54c8bb6057e",
+      "activity": "2831c77f-32fb-49f9-8618-b59ebb198c81",
+      "klass": "KEEP",
+      "why": null,
+      "name": "ספריית מיינץ",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "end_time",
+        "start_time",
+        "description",
+        "location_name"
+      ],
+      "realKeys": [
+        "end_time",
+        "start_time",
+        "description",
+        "location_name"
+      ]
+    },
+    {
+      "id": "aed657eb-a8f7-4bc6-9439-b4c5fd4deaf1",
+      "activity": "32d9edc3-21df-44a8-a855-daf4877da53f",
+      "klass": "KEEP",
+      "why": null,
+      "name": "פארק הפיראטים",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "description",
+        "location_name",
+        "booking_requirement"
+      ],
+      "realKeys": [
+        "description",
+        "location_name",
+        "booking_requirement"
+      ]
+    },
+    {
+      "id": "dc8ee880-5ae3-43ab-bceb-1e40c5906927",
+      "activity": "7dd47357-2000-40f6-8eaa-49e3d625f82b",
+      "klass": "KEEP",
+      "why": null,
+      "name": "יוגה חיות עם ליטל ממן",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "end_time",
+        "price_type",
+        "start_time",
+        "description",
+        "booking_requirement"
+      ],
+      "realKeys": [
+        "price_type",
+        "description",
+        "booking_requirement"
+      ]
+    },
+    {
+      "id": "45a0d72b-b219-407b-b135-076269045085",
+      "activity": "64cce0c3-e4b7-44c5-9017-c488f4367aea",
+      "klass": "KEEP",
+      "why": null,
+      "name": "הפיל שרצה להיות הכי",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "event_key",
+        "has_image"
+      ],
+      "realKeys": [
+        "event_key",
+        "has_image"
+      ]
+    },
+    {
+      "id": "7a1e7954-6d37-4995-b92f-f3ce0f87c386",
+      "activity": "c9ec8f52-4b1f-4157-a7e1-a61f755e5dac",
+      "klass": "KEEP",
+      "why": null,
+      "name": "צלילים מרפאים לקטנטנים",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "end_time",
+        "price_type",
+        "start_time",
+        "description",
+        "booking_requirement"
+      ],
+      "realKeys": [
+        "price_type",
+        "description",
+        "booking_requirement"
+      ]
+    },
+    {
+      "id": "3fd8d296-4c08-4bd6-bff4-916168b45317",
+      "activity": "3f8ccb4f-f548-4696-901e-477e5c893eca",
+      "klass": "KEEP",
+      "why": null,
+      "name": "אגדה בצלילים",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "end_time",
+        "price_type",
+        "start_time",
+        "description",
+        "booking_requirement"
+      ],
+      "realKeys": [
+        "price_type",
+        "booking_requirement"
+      ]
+    },
+    {
+      "id": "bae299e8-4a1e-4b6a-b1f7-8a1ac8bc8077",
+      "activity": "6784944a-3725-4152-bded-6451d656743a",
+      "klass": "KEEP",
+      "why": null,
+      "name": "סדנת רכיבה על אופניים",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "end_time",
+        "price_type",
+        "start_time",
+        "description",
+        "booking_requirement"
+      ],
+      "realKeys": [
+        "price_type",
+        "booking_requirement"
+      ]
+    },
+    {
+      "id": "9f0c9a26-6472-4c91-880c-557bee4bf19a",
+      "activity": "8ae6575f-434f-4f57-96cc-765752b9d32c",
+      "klass": "KEEP",
+      "why": null,
+      "name": "חוגגים חגים עם דורין - זחילה עד עמידה",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "max_age",
+        "end_time",
+        "price_type",
+        "start_time",
+        "description",
+        "booking_requirement"
+      ],
+      "realKeys": [
+        "max_age",
+        "price_type",
+        "description",
+        "booking_requirement"
+      ]
+    },
+    {
+      "id": "da115ca9-b6a9-4448-87f6-6d922563cb2e",
+      "activity": "50f55863-261b-4182-933a-7a9340eb0805",
+      "klass": "KEEP",
+      "why": null,
+      "name": "חוגגים חגים עם דורין - שנה עד שלוש",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "end_time",
+        "price_type",
+        "start_time",
+        "description",
+        "booking_requirement"
+      ],
+      "realKeys": [
+        "price_type",
+        "booking_requirement"
+      ]
+    },
+    {
+      "id": "6a00bbd0-5f27-4fb8-972b-6a6006cb93ec",
+      "activity": "b15469bd-2fa8-4c87-8894-1d49610e3298",
+      "klass": "KEEP",
+      "why": null,
+      "name": "צלילים ומיינדפולנס",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "end_time",
+        "price_type",
+        "start_time",
+        "description",
+        "booking_requirement"
+      ],
+      "realKeys": [
+        "price_type",
+        "booking_requirement"
+      ]
+    },
+    {
+      "id": "10a7c996-4878-4486-82ea-6738c96e87b7",
+      "activity": "f04e5d27-ccfa-48aa-900f-0c9ca5a9c21f",
+      "klass": "KEEP",
+      "why": null,
+      "name": "ריקוד מנשאים",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "end_time",
+        "price_type",
+        "start_time",
+        "description",
+        "booking_requirement"
+      ],
+      "realKeys": [
+        "price_type",
+        "description",
+        "booking_requirement"
+      ]
+    },
+    {
+      "id": "37c2b789-43ff-40d3-bbd2-e501981a3778",
+      "activity": "26455d0f-4922-4f2a-bac9-4ae5026126a1",
+      "klass": "KEEP",
+      "why": null,
+      "name": "ישראל והגיטרה",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "max_age",
+        "end_time",
+        "price_type",
+        "start_time",
+        "description",
+        "booking_requirement"
+      ],
+      "realKeys": [
+        "max_age",
+        "price_type",
+        "description",
+        "booking_requirement"
+      ]
+    },
+    {
+      "id": "98e51d80-64a9-4b18-b5d9-cbf121fe84c3",
+      "activity": "358788a1-0e16-4b40-889f-c601a2abd62a",
+      "klass": "KEEP",
+      "why": null,
+      "name": "משחקייה מודרכת",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "description"
+      ],
+      "realKeys": [
+        "description"
+      ]
+    },
+    {
+      "id": "142b7fd7-8b23-4739-92af-bb7cd1bb9026",
+      "activity": "f267e022-1312-46e2-b19d-b5aa5f377bbd",
+      "klass": "KEEP",
+      "why": null,
+      "name": "חוף אורנים",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "description"
+      ],
+      "realKeys": [
+        "description"
+      ]
+    },
+    {
+      "id": "d9a82e0a-0846-4a16-986a-8d5d5f3d3541",
+      "activity": "ea9721dd-32ef-418a-9bdd-b80d1eb978d5",
+      "klass": "KEEP",
+      "why": null,
+      "name": "חוף המצודה",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "description",
+        "location_name"
+      ],
+      "realKeys": [
+        "description",
+        "location_name"
+      ]
+    },
+    {
+      "id": "9b662ff9-476f-4470-be8b-6cd1d09ca9bc",
+      "activity": "ad99db3e-328e-4533-a685-910640bf4e1a",
+      "klass": "KEEP",
+      "why": null,
+      "name": "פסטיבל אשדודאנס - ASHDODANCE",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "description",
+        "location_name",
+        "booking_requirement"
+      ],
+      "realKeys": [
+        "location_name",
+        "booking_requirement"
+      ]
+    },
+    {
+      "id": "8694ec8e-3193-4c10-bf69-85104fa71a9a",
+      "activity": "7e05be2d-acc3-4ef5-8924-f100a7ba96d6",
+      "klass": "KEEP",
+      "why": null,
+      "name": "קסם של פסטיבל",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "event_key",
+        "has_image"
+      ],
+      "realKeys": [
+        "event_key",
+        "has_image"
+      ]
+    },
+    {
+      "id": "bdf25618-620a-42c6-8340-22be3b7eea6f",
+      "activity": "0f520a00-5214-4846-9367-b3bed8cd48bb",
+      "klass": "KEEP",
+      "why": null,
+      "name": "ערב קהל במצפה הכוכבים גבעתיים",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "max_age",
+        "event_key",
+        "description",
+        "booking_requirement"
+      ],
+      "realKeys": [
+        "max_age",
+        "event_key",
+        "description",
+        "booking_requirement"
+      ]
+    },
+    {
+      "id": "d95502af-5520-4b9e-a5ea-6637e331528f",
+      "activity": "a7719531-a324-46ed-8f81-f4a55c0da363",
+      "klass": "KEEP",
+      "why": null,
+      "name": "יריד האוכל הכי טעים שיש!",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "description"
+      ],
+      "realKeys": [
+        "description"
+      ]
+    },
+    {
+      "id": "2420a7f6-0608-473c-bde4-4802257fcd97",
+      "activity": "d6653697-cc25-43c5-a6dd-8877abf07285",
+      "klass": "KEEP",
+      "why": null,
+      "name": "שעת סיפור מומחזת - \"האריה והעכבר\" מאת לוין קיפניס",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "end_time",
+        "start_time",
+        "description",
+        "booking_requirement"
+      ],
+      "realKeys": [
+        "booking_requirement"
+      ]
+    },
+    {
+      "id": "838a18b0-c36f-4ff6-bde3-8328655f5c43",
+      "activity": "29b30d06-0e35-4bc6-8181-a641535ec1a7",
+      "klass": "KEEP",
+      "why": null,
+      "name": "סדנה להכנת נרות ופאי מוקצפים",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "max_age",
+        "end_time",
+        "start_time",
+        "description",
+        "booking_requirement"
+      ],
+      "realKeys": [
+        "max_age",
+        "description",
+        "booking_requirement"
+      ]
+    },
+    {
+      "id": "b18e9a9e-2a69-4d6e-b22c-ae0ecc2a9428",
+      "activity": "29f31df0-ff90-4cad-9410-6c59f641f4fb",
+      "klass": "KEEP",
+      "why": null,
+      "name": "\"כולם עושים קקי\" - מאת טָארוֹ גּוֹמִי",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "end_time",
+        "start_time",
+        "description",
+        "booking_requirement"
+      ],
+      "realKeys": [
+        "description",
+        "booking_requirement"
+      ]
+    },
+    {
+      "id": "ea9abe3f-4189-4b69-a179-3ecedb3a2da4",
+      "activity": "0b8a6064-9e87-410a-bb81-e9c6bba783b5",
+      "klass": "KEEP",
+      "why": null,
+      "name": "סוכה קהילתית - ערב סרט",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "end_time",
+        "start_time",
+        "description",
+        "booking_requirement"
+      ],
+      "realKeys": [
+        "end_time",
+        "start_time",
+        "description",
+        "booking_requirement"
+      ]
+    },
+    {
+      "id": "3389502f-4bad-49c3-b106-ff2d3765131e",
+      "activity": "2d97d89a-020c-4fbb-af9b-46f805d4b43f",
+      "klass": "KEEP",
+      "why": null,
+      "name": "סדנת משחק",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "end_time",
+        "start_time",
+        "description",
+        "booking_requirement"
+      ],
+      "realKeys": [
+        "description",
+        "booking_requirement"
+      ]
+    },
+    {
+      "id": "22586558-5c30-42ad-97dd-aa0d6023fa37",
+      "activity": "d9d7073f-c151-46da-808f-addf606b7b50",
+      "klass": "KEEP",
+      "why": null,
+      "name": "טיול מוזיקלי מסביב לעולם עם עידן ילד המוזיקה",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "end_time",
+        "start_time",
+        "description",
+        "booking_requirement"
+      ],
+      "realKeys": [
+        "description",
+        "booking_requirement"
+      ]
+    },
+    {
+      "id": "0c426ff7-204b-461d-9ce6-de16d4653827",
+      "activity": "170daa73-69ee-4cce-832e-bebe683c7072",
+      "klass": "KEEP",
+      "why": null,
+      "name": "עיסוי תינוקות",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "max_age",
+        "end_time",
+        "start_time",
+        "description",
+        "booking_requirement"
+      ],
+      "realKeys": [
+        "max_age",
+        "description",
+        "booking_requirement"
+      ]
+    },
+    {
+      "id": "29dc7e0f-7b66-47f3-946b-e97a24c35fa4",
+      "activity": "a3af6beb-afe2-4b25-ac7c-a9aceb79f048",
+      "klass": "KEEP",
+      "why": null,
+      "name": "החתול במגפיים",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "end_time",
+        "start_time",
+        "description",
+        "booking_requirement"
+      ],
+      "realKeys": [
+        "booking_requirement"
+      ]
+    },
+    {
+      "id": "1a0a9b21-b114-470b-9108-e09fc560df85",
+      "activity": "3cc74408-feff-46ce-83c2-bc8b85093221",
+      "klass": "KEEP",
+      "why": null,
+      "name": "אנר אלייב מפגש אומן בשילוב קהל - אומן הקסם והאשליה",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "event_key",
+        "has_image",
+        "description",
+        "location_name"
+      ],
+      "realKeys": [
+        "event_key",
+        "has_image",
+        "description",
+        "location_name"
+      ]
+    },
+    {
+      "id": "ac722f32-8daf-4c0d-a10b-1fd7b52beb8c",
+      "activity": "1436ca68-0430-4ff6-bcc5-d94b1ef11963",
+      "klass": "KEEP",
+      "why": null,
+      "name": "סדנה להכנת בצק סוכר",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "min_age",
+        "event_key",
+        "price_type"
+      ],
+      "realKeys": [
+        "min_age",
+        "event_key",
+        "price_type"
+      ]
+    },
+    {
+      "id": "db17d40e-3af0-4565-ae3c-79c16c26c0ee",
+      "activity": "d4a4c2cb-7072-43d6-81ab-92ba4bc932c5",
+      "klass": "KEEP",
+      "why": null,
+      "name": "חיפזון וזהירון סיפור הנס",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "event_key",
+        "has_image"
+      ],
+      "realKeys": [
+        "event_key",
+        "has_image"
+      ]
+    },
+    {
+      "id": "db1c5c05-9a3b-417b-bee2-59dadaa3d90c",
+      "activity": "e570fcb8-74d4-4fca-9195-8579a7caed9c",
+      "klass": "KEEP",
+      "why": null,
+      "name": "שחר ליבנה במופע לכל המשפחה",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "event_key",
+        "has_image",
+        "description"
+      ],
+      "realKeys": [
+        "event_key",
+        "has_image",
+        "description"
+      ]
+    },
+    {
+      "id": "9bc6e252-edce-4aa0-adc3-b6769166ff85",
+      "activity": "b96f8b21-84fa-4741-b493-8e91426991c1",
+      "klass": "KEEP",
+      "why": null,
+      "name": "קסם של כוכבים",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "end_time",
+        "start_time",
+        "description",
+        "one_time_date"
+      ],
+      "realKeys": [
+        "end_time",
+        "start_time",
+        "description",
+        "one_time_date"
+      ]
+    },
+    {
+      "id": "52cd0e5c-a68f-4cba-bff3-aca1367bda31",
+      "activity": "582ab48c-553f-4a3f-b191-3c36888afe9b",
+      "klass": "KEEP",
+      "why": null,
+      "name": "רובינזון קרוזו – הצגה חדשה",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "end_time",
+        "start_time",
+        "description"
+      ],
+      "realKeys": [
+        "description"
+      ]
+    },
+    {
+      "id": "9294d597-66b5-4089-8ab3-e54789339a99",
+      "activity": "7323a0d3-dfb0-4bf4-81e4-2e957fb97e48",
+      "klass": "KEEP",
+      "why": null,
+      "name": "מהומה על הבמה",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "end_time",
+        "start_time",
+        "description"
+      ],
+      "realKeys": [
+        "description"
+      ]
+    },
+    {
+      "id": "4baa14e9-acb3-48a1-9fde-0c8a352a4968",
+      "activity": "81c1774c-cfa3-4ebb-aa55-9c8fe9f8f0d3",
+      "klass": "KEEP",
+      "why": null,
+      "name": "לא קל להיות גיבור על",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "min_age",
+        "end_time",
+        "price_type",
+        "start_time",
+        "description"
+      ],
+      "realKeys": [
+        "min_age",
+        "price_type",
+        "description"
+      ]
+    },
+    {
+      "id": "b87249f5-a56b-49a9-a921-dd94f49c25b0",
+      "activity": "cfd92847-2e7f-43e3-ab4d-7804607af81c",
+      "klass": "KEEP",
+      "why": null,
+      "name": "גוליבר",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "min_age",
+        "end_time",
+        "start_time",
+        "description",
+        "price_amount"
+      ],
+      "realKeys": [
+        "min_age",
+        "description",
+        "price_amount"
+      ]
+    },
+    {
+      "id": "e29d0a07-4001-4eac-90b8-11884b94c6df",
+      "activity": "c286b295-5740-4d8d-af50-efb8b3c666bb",
+      "klass": "KEEP",
+      "why": null,
+      "name": "הדבורה מאיה",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "end_time",
+        "start_time",
+        "description"
+      ],
+      "realKeys": [
+        "description"
+      ]
+    },
+    {
+      "id": "0fbfe27a-ea39-4d85-8b25-e2ad00cd85f2",
+      "activity": "5ebede7d-7b00-4fb0-9993-c33bfb3fb948",
+      "klass": "KEEP",
+      "why": null,
+      "name": "הרוח בערבי הנחל",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "end_time",
+        "start_time",
+        "description"
+      ],
+      "realKeys": [
+        "description"
+      ]
+    },
+    {
+      "id": "a1c800a3-897c-4c77-b191-06b642a2014f",
+      "activity": "12f2cacc-f27a-4073-aab7-ccae242934d6",
+      "klass": "KEEP",
+      "why": null,
+      "name": "סוכות שמח בלה פארק! סוכת החלומות!",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "end_time",
+        "start_time",
+        "description",
+        "location_name"
+      ],
+      "realKeys": [
+        "description"
+      ]
+    },
+    {
+      "id": "7c295381-6ece-4e96-bd50-5b21039ebd26",
+      "activity": "73fdc0a9-ec5e-4c12-91ad-30a34c0f844d",
+      "klass": "KEEP",
+      "why": null,
+      "name": "הממלכה הקטנטנה- הצגה חדשה",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "end_time",
+        "start_time",
+        "description"
+      ],
+      "realKeys": [
+        "description"
+      ]
+    },
+    {
+      "id": "a47e39e0-206e-4f05-b1aa-0ad10aaca42a",
+      "activity": "155d238a-c105-4ff0-a4bc-a53e8a0550e3",
+      "klass": "KEEP",
+      "why": null,
+      "name": "המשחקייה בבניין העירייה",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "address",
+        "end_time",
+        "has_image",
+        "start_time",
+        "description"
+      ],
+      "realKeys": [
+        "address",
+        "has_image"
+      ]
+    },
+    {
+      "id": "2497d77a-1f84-489f-acdb-2a4ebcf6fc81",
+      "activity": "b0cc767f-8b36-4972-bc4d-7525d3c006a6",
+      "klass": "KEEP",
+      "why": null,
+      "name": "המשחקייה | שבלול אריק איינשטיין",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "has_image",
+        "description",
+        "booking_requirement"
+      ],
+      "realKeys": [
+        "has_image",
+        "description",
+        "booking_requirement"
+      ]
+    },
+    {
+      "id": "1609c32e-64cd-45c9-a189-ec21e6cc21d2",
+      "activity": "f548c950-a4d1-4ee6-971a-918928e681fd",
+      "klass": "KEEP",
+      "why": null,
+      "name": "מצודת אשדוד ים",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "description",
+        "location_name"
+      ],
+      "realKeys": [
+        "description",
+        "location_name"
+      ]
+    },
+    {
+      "id": "8ee12278-3672-4e94-8a40-1c25f9a1cc0b",
+      "activity": "8836b0b8-b3ea-4d0c-ac85-ca5642ba3570",
+      "klass": "KEEP",
+      "why": null,
+      "name": "משחקיית ורד לגיל הרך מגיל לידה ועד גיל 4",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "end_time",
+        "start_time",
+        "description",
+        "one_time_date"
+      ],
+      "realKeys": [
+        "end_time",
+        "start_time",
+        "description",
+        "one_time_date"
+      ]
+    },
+    {
+      "id": "05b3f498-dbc9-41cf-a297-9a6320054c7b",
+      "activity": "40dc51dc-e86e-4658-92d2-fb10157d1fd4",
+      "klass": "KEEP",
+      "why": null,
+      "name": "שעת סיפור מומחזת״ליאור בכה כשאמא הלכה״",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "end_time",
+        "start_time",
+        "description",
+        "booking_requirement"
+      ],
+      "realKeys": [
+        "description",
+        "booking_requirement"
+      ]
+    },
+    {
+      "id": "00fe98b2-81e6-4edc-a92c-fbd5835a7a48",
+      "activity": "810103d7-58a1-4c56-a1e5-93d5b21d851e",
+      "klass": "KEEP",
+      "why": null,
+      "name": "משחקיית ורד לגיל הרך מגיל לידה ועד גיל 4",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "description"
+      ],
+      "realKeys": [
+        "description"
+      ]
+    },
+    {
+      "id": "3d6c97e3-f943-4be6-a994-ddf3f55f70f8",
+      "activity": "a434b12b-9c9e-4235-9a6d-b8ebaf64fd62",
+      "klass": "KEEP",
+      "why": null,
+      "name": "בייבי צ'יל",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "max_age",
+        "end_time",
+        "start_time",
+        "description",
+        "booking_requirement"
+      ],
+      "realKeys": [
+        "max_age",
+        "description",
+        "booking_requirement"
+      ]
+    },
+    {
+      "id": "845f8dfb-765d-4cd2-a550-3295d62d583d",
+      "activity": "99325a22-bdaa-483f-af8d-3c008f210142",
+      "klass": "KEEP",
+      "why": null,
+      "name": "הקראת ספרים לקטנטנים״בים בם בם תירס חם! ספרים ומה שביניהם״",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "max_age",
+        "end_time",
+        "start_time",
+        "description",
+        "booking_requirement"
+      ],
+      "realKeys": [
+        "max_age",
+        "description",
+        "booking_requirement"
+      ]
+    },
+    {
+      "id": "aad91c72-8dca-47a0-b91f-8b63415f4eac",
+      "activity": "edd7041b-4ce4-4ca6-91f8-e83907e08e70",
+      "klass": "KEEP",
+      "why": null,
+      "name": "ג'ימבו קיד",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "address",
+        "description",
+        "one_time_date"
+      ],
+      "realKeys": [
+        "address",
+        "one_time_date"
+      ]
+    },
+    {
+      "id": "99b66f48-c859-468e-9f9f-12b6c476b593",
+      "activity": "41ec9157-5020-4882-9d94-65dc99c09c3b",
+      "klass": "KEEP",
+      "why": null,
+      "name": "סדנה יצירה בחימר לסוכות",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "end_time",
+        "start_time",
+        "description"
+      ],
+      "realKeys": [
+        "end_time",
+        "start_time"
+      ]
+    },
+    {
+      "id": "f09b6a28-6855-4130-a2bb-390c57ab3b5d",
+      "activity": "3910cf02-7d49-4139-8c79-6d886a948a8e",
+      "klass": "KEEP",
+      "why": null,
+      "name": "מהספר אל המכחול בהשראת אמנים",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "address",
+        "end_time",
+        "start_time",
+        "description"
+      ],
+      "realKeys": [
+        "address",
+        "end_time",
+        "start_time"
+      ]
+    },
+    {
+      "id": "60f243dc-bceb-48f2-b661-2a900767e2f5",
+      "activity": "1e73d98c-5e43-4c37-97c9-9186ebc87e5c",
+      "klass": "KEEP",
+      "why": null,
+      "name": "מועדון קוראים צעירים",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "end_time",
+        "start_time",
+        "description",
+        "location_name"
+      ],
+      "realKeys": [
+        "description",
+        "location_name"
+      ]
+    },
+    {
+      "id": "27d1191e-e512-4b11-9bed-af9d92c930eb",
+      "activity": "3ef5b5f2-a5e9-44f3-a09d-d5b8b8e1cc64",
+      "klass": "KEEP",
+      "why": null,
+      "name": "סיפורים מהספרים: חגיגה בסוכה",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "start_time",
+        "description",
+        "location_name"
+      ],
+      "realKeys": [
+        "description"
+      ]
+    },
+    {
+      "id": "c8f11ccb-d186-4874-8aa1-fa0de5aedf8d",
+      "activity": "cdf60edb-06e8-46c4-b933-138fec6c6884",
+      "klass": "KEEP",
+      "why": null,
+      "name": "ג׳ימבורי משפחתי",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "start_time",
+        "description"
+      ],
+      "realKeys": [
+        "start_time",
+        "description"
+      ]
+    },
+    {
+      "id": "d2a89d3f-a456-4c24-878b-6e1ea4639507",
+      "activity": "6cc400a0-5fd4-4f43-8a7e-af19112bc91f",
+      "klass": "KEEP",
+      "why": null,
+      "name": "פארק נחל לכיש באשדוד",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "end_time",
+        "start_time",
+        "description"
+      ],
+      "realKeys": [
+        "description"
+      ]
+    },
+    {
+      "id": "4cff05c6-0e5a-4603-b183-b452024c6cda",
+      "activity": "3780b9b8-1690-4280-98b3-6bbca24ced8b",
+      "klass": "KEEP",
+      "why": null,
+      "name": "מרכז המבקרים הרשמי של אשדוד",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "description",
+        "location_name"
+      ],
+      "realKeys": [
+        "location_name"
+      ]
+    },
+    {
+      "id": "c6d9e1ad-2105-42eb-a47f-8d7557c08647",
+      "activity": "12ae1a08-6b1a-4fcc-82e6-f338b82d7b2e",
+      "klass": "KEEP",
+      "why": null,
+      "name": "צלילי הרחמים",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "description",
+        "one_time_date"
+      ],
+      "realKeys": [
+        "description",
+        "one_time_date"
+      ]
+    },
+    {
+      "id": "eebb9d21-fc47-4750-89ba-93cfd4146b51",
+      "activity": "6893408e-abdc-4e32-b422-70a73b661d68",
+      "klass": "KEEP",
+      "why": null,
+      "name": "סדנת יצירה: קישוטים לסוכה",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "description",
+        "booking_requirement"
+      ],
+      "realKeys": [
+        "booking_requirement"
+      ]
+    },
+    {
+      "id": "307dba2c-100c-4806-a83f-e38743e41378",
+      "activity": "3474e52d-f9ed-46e8-9a6b-479acbd57179",
+      "klass": "KEEP",
+      "why": null,
+      "name": "חופשת לידה בעזריאלי ראשונים",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "event_key",
+        "description",
+        "location_name",
+        "one_time_date"
+      ],
+      "realKeys": [
+        "event_key",
+        "description",
+        "one_time_date"
+      ]
+    },
+    {
+      "id": "cbfb90ad-0c5c-4ee5-bd77-f8ec9614e386",
+      "activity": "4ecac4ef-dc27-4d1d-825a-c4c4a66d3c9a",
+      "klass": "KEEP",
+      "why": null,
+      "name": "בוקר של טף",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "event_key",
+        "description",
+        "one_time_date"
+      ],
+      "realKeys": [
+        "event_key",
+        "description",
+        "one_time_date"
+      ]
+    },
+    {
+      "id": "21c153e9-03e7-4e49-891f-d2b527430849",
+      "activity": "50a2ba0b-a981-4415-9fb8-0010bb639d7a",
+      "klass": "KEEP",
+      "why": null,
+      "name": "בייבי בוקר בירוקה",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "max_age",
+        "min_age",
+        "event_key",
+        "description"
+      ],
+      "realKeys": [
+        "max_age",
+        "min_age",
+        "event_key",
+        "description"
+      ]
+    },
+    {
+      "id": "c4003e9b-d9fd-4489-a7d8-db7220aaf5dd",
+      "activity": "c86c1d80-294c-428e-8eaa-c891df56975d",
+      "klass": "KEEP",
+      "why": null,
+      "name": "חנות סופגניות קטנה ומצחיקה",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "event_key",
+        "has_image"
+      ],
+      "realKeys": [
+        "event_key",
+        "has_image"
+      ]
+    },
+    {
+      "id": "d0e47420-65bc-4a7d-8993-27a1a1bbb9f6",
+      "activity": "acdff975-c320-480c-a8f4-e28a0d44f84f",
+      "klass": "KEEP",
+      "why": null,
+      "name": "קרקס על הקרח ממוסקבה (ניקולין) מפצח האגוזים",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "event_key",
+        "has_image"
+      ],
+      "realKeys": [
+        "event_key",
+        "has_image"
+      ]
+    },
+    {
+      "id": "2198f2c3-ed81-44c5-9367-7f392ff20af8",
+      "activity": "1253d87b-e0c0-432f-a909-5323613c61dc",
+      "klass": "KEEP",
+      "why": null,
+      "name": "לוח מחיק",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "description",
+        "one_time_date"
+      ],
+      "realKeys": [
+        "description",
+        "one_time_date"
+      ]
+    },
+    {
+      "id": "aef33ac2-6a30-4d4f-8532-b94f67d3bf85",
+      "activity": "54a1d77c-913a-414e-a64a-8224f59c28c8",
+      "klass": "KEEP",
+      "why": null,
+      "name": "שלמה החיות",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "description",
+        "one_time_date"
+      ],
+      "realKeys": [
+        "one_time_date"
+      ]
+    },
+    {
+      "id": "ede897ff-5f3a-4347-939d-74dfc607f9f4",
+      "activity": "a96ad400-0ee7-478d-80b1-27069f4335fe",
+      "klass": "KEEP",
+      "why": null,
+      "name": "התעלומה המסתורית",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "description",
+        "one_time_date"
+      ],
+      "realKeys": [
+        "description",
+        "one_time_date"
+      ]
+    },
+    {
+      "id": "119f802f-9880-4d17-8c79-b947a9af64f5",
+      "activity": "7c9b6655-29d6-4b38-a999-8d0eef55e4de",
+      "klass": "KEEP",
+      "why": null,
+      "name": "מופע אשליות וטלפתיה",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "description",
+        "one_time_date"
+      ],
+      "realKeys": [
+        "one_time_date"
+      ]
+    },
+    {
+      "id": "28f04d87-84bd-4c75-bfec-e5d14cb82be2",
+      "activity": "7b46f536-df23-4e4c-bbe9-045cfe859ba0",
+      "klass": "KEEP",
+      "why": null,
+      "name": "סוכות בפארקים - גן הפעמון",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "description",
+        "location_name"
+      ],
+      "realKeys": [
+        "location_name"
+      ]
+    },
+    {
+      "id": "0ae0e21b-b167-43d2-aedc-735232e7298b",
+      "activity": "6951a9ac-85b2-4818-84e6-98d4bd189e07",
+      "klass": "KEEP",
+      "why": null,
+      "name": "תפוח בדבש",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "description",
+        "one_time_date"
+      ],
+      "realKeys": [
+        "description",
+        "one_time_date"
+      ]
+    },
+    {
+      "id": "24527387-789e-49b2-a830-c4f459c5306a",
+      "activity": "79865fe2-3dcd-4e53-a948-a46aca9c6bad",
+      "klass": "KEEP",
+      "why": null,
+      "name": "עוגיות שנה טובה",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "event_key",
+        "description",
+        "one_time_date"
+      ],
+      "realKeys": [
+        "event_key",
+        "description",
+        "one_time_date"
+      ]
+    },
+    {
+      "id": "d33468aa-b989-4459-849e-7a97a9053c27",
+      "activity": "eb038c8a-936b-4695-bef9-666ac0ab5c5c",
+      "klass": "KEEP",
+      "why": null,
+      "name": "קישוט לסוכה",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "description",
+        "one_time_date"
+      ],
+      "realKeys": [
+        "description",
+        "one_time_date"
+      ]
+    },
+    {
+      "id": "669b3286-995d-4d83-98b7-6a6bcbe0adbc",
+      "activity": "55194471-2f12-4db4-833b-2aaff8ec9dba",
+      "klass": "KEEP",
+      "why": null,
+      "name": "תוכים לכל המשפחה",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "description",
+        "one_time_date"
+      ],
+      "realKeys": [
+        "one_time_date"
+      ]
+    },
+    {
+      "id": "b9d1ebc5-cc26-4442-83b9-fb3148ae9d21",
+      "activity": "8893432a-038c-4eca-b199-599b67fe6f6c",
+      "klass": "KEEP",
+      "why": null,
+      "name": "Carter׳s - קרטרס",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "description"
+      ],
+      "realKeys": [
+        "description"
+      ]
+    },
+    {
+      "id": "30b4c4ba-4c0f-4c29-86d5-43407b58be06",
+      "activity": "a34fa772-934c-4e6f-88a8-b42a627be482",
+      "klass": "KEEP",
+      "why": null,
+      "name": "הקסם שבצבע - בכיכובה של סתיו בכל הצבעים",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "event_key",
+        "description"
+      ],
+      "realKeys": [
+        "event_key",
+        "description"
+      ]
+    },
+    {
+      "id": "02a7a68c-019d-4e92-8dc6-d6a451f8ff34",
+      "activity": "38d748ec-c9dc-42f9-ae53-cd39fb4c84eb",
+      "klass": "KEEP",
+      "why": null,
+      "name": "מוצצים",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "max_age",
+        "description"
+      ],
+      "realKeys": [
+        "max_age"
+      ]
+    },
+    {
+      "id": "e081bae0-e791-4521-9f3d-49ddf31055a2",
+      "activity": "dff19408-e34d-44d8-9fcd-47351b0e0a22",
+      "klass": "KEEP",
+      "why": null,
+      "name": "היער הקסום",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "description"
+      ],
+      "realKeys": [
+        "description"
+      ]
+    },
+    {
+      "id": "fe17a7a5-a0a5-49ec-85ce-573e7f6f4142",
+      "activity": "bf2a28be-6fb4-443e-8cd4-f89fe281707f",
+      "klass": "KEEP",
+      "why": null,
+      "name": "קסם של כוכבים - רועיקי מצחיקי וסמי הכבאי",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "event_key",
+        "description"
+      ],
+      "realKeys": [
+        "event_key",
+        "description"
+      ]
+    },
+    {
+      "id": "14388e90-d079-40bc-875f-3d7f1ceff28b",
+      "activity": "d9d34a14-4f58-46a3-8b6d-c74c26ee17aa",
+      "klass": "KEEP",
+      "why": null,
+      "name": "היי סקול דרמה - האקדמיה למדעי היוטיוב - משפחת טרסוב",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "event_key",
+        "description"
+      ],
+      "realKeys": [
+        "event_key",
+        "description"
+      ]
+    },
+    {
+      "id": "8ad7bf69-8a8b-4801-abbc-050d9857cd68",
+      "activity": "29de2029-6702-4aac-9161-ac25db91e107",
+      "klass": "KEEP",
+      "why": null,
+      "name": "גשר של חגיגה",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "event_key",
+        "has_image",
+        "description",
+        "occurrences"
+      ],
+      "realKeys": [
+        "event_key",
+        "has_image",
+        "description",
+        "occurrences"
+      ]
+    },
+    {
+      "id": "5a5a1ff9-8e67-402d-a412-dbf0529c0558",
+      "activity": "6d40597e-3dc7-4b97-afbb-84bbe517de28",
+      "klass": "KEEP",
+      "why": null,
+      "name": "מי בא לשחק עם שרון?",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "event_key",
+        "description",
+        "location_name",
+        "one_time_date"
+      ],
+      "realKeys": [
+        "event_key",
+        "description",
+        "one_time_date"
+      ]
+    },
+    {
+      "id": "2c365514-9e5a-4ce1-8167-85e81e37c5f8",
+      "activity": "c23f716d-6489-40f8-a772-1963fd31431f",
+      "klass": "KEEP",
+      "why": null,
+      "name": "יוצאים למסע של הכנות לחג",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "event_key",
+        "has_image",
+        "description"
+      ],
+      "realKeys": [
+        "event_key",
+        "has_image",
+        "description"
+      ]
+    },
+    {
+      "id": "ce3c5007-2343-4fbf-84bb-9b16b68c3e16",
+      "activity": "908c268f-5f85-4c55-9fc4-8d7c62826e93",
+      "klass": "KEEP",
+      "why": null,
+      "name": "לאון במעבדה",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "has_image",
+        "description"
+      ],
+      "realKeys": [
+        "has_image",
+        "description"
+      ]
+    },
+    {
+      "id": "2b1a7e1b-28c6-4991-99f6-ed2485ba021b",
+      "activity": "ca022cc0-4dee-4997-a4dd-195890caa14f",
+      "klass": "KEEP",
+      "why": null,
+      "name": "שוק ארבעת המינים",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "event_key",
+        "description"
+      ],
+      "realKeys": [
+        "event_key",
+        "description"
+      ]
+    },
+    {
+      "id": "e42f29d3-4300-49ce-b8f2-21bbb372bac6",
+      "activity": "ee579c30-1132-4053-b998-8b704a68e716",
+      "klass": "KEEP",
+      "why": null,
+      "name": "משפחת ספיר - במופע מסיבת קיץ",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "event_key",
+        "description",
+        "location_name",
+        "booking_requirement"
+      ],
+      "realKeys": [
+        "event_key",
+        "description",
+        "booking_requirement"
+      ]
+    },
+    {
+      "id": "83170369-3258-446c-aad1-95de3ebf4dd5",
+      "activity": "8d4eda2a-fba3-44c6-98d3-b7f68f2acc58",
+      "klass": "KEEP",
+      "why": null,
+      "name": "בת הים הקטנה - הצגה",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "event_key",
+        "start_time",
+        "description",
+        "location_name"
+      ],
+      "realKeys": [
+        "event_key",
+        "start_time",
+        "description"
+      ]
+    },
+    {
+      "id": "360ece43-e037-4c45-92b2-a5b80afeb0c1",
+      "activity": "350b6d39-d731-40f4-86b8-787c89df3975",
+      "klass": "KEEP",
+      "why": null,
+      "name": "ג׳ימבורי בית רחל",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "event_key",
+        "has_image",
+        "description"
+      ],
+      "realKeys": [
+        "event_key",
+        "has_image",
+        "description"
+      ]
+    },
+    {
+      "id": "9e2e9113-674f-474f-bc4f-4c6de65d4273",
+      "activity": "49325644-d6e9-43cc-9cd6-17138ad1b072",
+      "klass": "KEEP",
+      "why": null,
+      "name": "פסטיבל קסמים ואשליות",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "event_key",
+        "has_image",
+        "description",
+        "location_name"
+      ],
+      "realKeys": [
+        "event_key",
+        "has_image",
+        "location_name"
+      ]
+    },
+    {
+      "id": "c1bdadba-3540-450f-80dc-aaa3b7cc0090",
+      "activity": "032bea13-e1e7-4730-b9f9-d9f05814b658",
+      "klass": "KEEP",
+      "why": null,
+      "name": "סדנת לימוד קסמים עם איילון גאון - קוסם ילדים",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "event_key",
+        "has_image",
+        "description",
+        "location_name"
+      ],
+      "realKeys": [
+        "event_key",
+        "has_image",
+        "description",
+        "location_name"
+      ]
+    },
+    {
+      "id": "c18b659f-1d92-4009-8e4c-2a8a8a0de63a",
+      "activity": "aebb2351-2361-44be-84ad-c258bc4ab5c0",
+      "klass": "KEEP",
+      "why": null,
+      "name": "הספרייה העירונית קרית אתא",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "event_key",
+        "price_type",
+        "description",
+        "location_name"
+      ],
+      "realKeys": [
+        "event_key",
+        "price_type",
+        "description",
+        "location_name"
+      ]
+    },
+    {
+      "id": "1290a2b7-354b-4616-bcc2-c3b0826c9283",
+      "activity": "9067a6bb-8236-4040-9f80-b03dcb631017",
+      "klass": "KEEP",
+      "why": null,
+      "name": "סוכות בהיכל- הסרט- מפרץ ההרפתקאות: אי הדינוזאורים – דיבוב לעברית",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "one_time_date"
+      ],
+      "realKeys": [
+        "one_time_date"
+      ]
+    },
+    {
+      "id": "cbac4dd2-fd3c-4abc-96af-34019dc29b48",
+      "activity": "b44018f9-b392-42a8-93bc-00f0b464c771",
+      "klass": "KEEP",
+      "why": null,
+      "name": "בלט ירושלים - נוסטרדמוס",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "event_key",
+        "has_image"
+      ],
+      "realKeys": [
+        "event_key",
+        "has_image"
+      ]
+    },
+    {
+      "id": "0871ca94-894f-477a-9526-0973a13cf6f2",
+      "activity": "e3ffca14-5923-4ad7-a3a8-97664e63fc4d",
+      "klass": "KEEP",
+      "why": null,
+      "name": "הצבעים משחקים מחבואים - תיאטרון סיפור",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "address",
+        "event_key",
+        "price_type",
+        "price_amount"
+      ],
+      "realKeys": [
+        "address",
+        "event_key",
+        "price_type",
+        "price_amount"
+      ]
+    },
+    {
+      "id": "a6fd567c-79c2-4a57-bede-9383014a8f99",
+      "activity": "900cb3cf-2137-45e8-9367-9c8451690b62",
+      "klass": "KEEP",
+      "why": null,
+      "name": "משחקייה בקטנטנים",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "occurrences"
+      ],
+      "realKeys": [
+        "occurrences"
+      ]
+    },
+    {
+      "id": "007c0a39-09df-43e4-95d5-1161c1babadc",
+      "activity": "60d1b669-8c37-418d-940c-12afaf042fcd",
+      "klass": "KEEP",
+      "why": null,
+      "name": "בוקר בקטנטנים - גנצ׳יק לגילאי חצי שנה עד שנה וחצי",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "max_age",
+        "min_age",
+        "event_key",
+        "has_image",
+        "start_time",
+        "description",
+        "location_name"
+      ],
+      "realKeys": [
+        "max_age",
+        "min_age",
+        "event_key",
+        "has_image",
+        "start_time",
+        "description",
+        "location_name"
+      ]
+    },
+    {
+      "id": "d7c9bb9d-2f90-4856-a3a3-b561646f8529",
+      "activity": "5dd75405-5d25-4267-affb-a2ae57e35649",
+      "klass": "KEEP",
+      "why": null,
+      "name": "ממלכת שטות וממלכת רצינות - הצגת ילדים",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "max_age",
+        "min_age",
+        "event_key"
+      ],
+      "realKeys": [
+        "max_age",
+        "min_age",
+        "event_key"
+      ]
+    },
+    {
+      "id": "a11007f0-c0f8-4cdb-b5ad-757e4e85a339",
+      "activity": "cefc0aa8-3c44-49f3-a9b2-b28b47f6da4b",
+      "klass": "KEEP",
+      "why": null,
+      "name": "דיירים חדשים - תיאטרון סיפור",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "address",
+        "max_age",
+        "min_age",
+        "event_key",
+        "price_type",
+        "price_amount"
+      ],
+      "realKeys": [
+        "address",
+        "max_age",
+        "min_age",
+        "event_key",
+        "price_type",
+        "price_amount"
+      ]
+    },
+    {
+      "id": "74986a94-5e36-417b-b4a7-92cc30eb2dd5",
+      "activity": "c12dce38-a4c0-4cd3-b0e6-d67a238b5215",
+      "klass": "KEEP",
+      "why": null,
+      "name": "D.N.A – מיומנה לכל המשפחה במופע חדש",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "min_age",
+        "event_key"
+      ],
+      "realKeys": [
+        "min_age",
+        "event_key"
+      ]
+    },
+    {
+      "id": "706475ce-f3a0-45c4-8d71-d1251e4e3f4f",
+      "activity": "c87a7957-d9d0-45e6-a5fa-1fe9121da884",
+      "klass": "KEEP",
+      "why": null,
+      "name": "זהבה ושלושת הדובים - תיאטרון סיפור",
+      "existingName": null,
+      "detachTo": null,
+      "diffKeys": [
+        "address",
+        "max_age",
+        "min_age",
+        "event_key",
+        "price_type",
+        "price_amount"
+      ],
+      "realKeys": [
+        "address",
+        "max_age",
+        "min_age",
+        "event_key",
+        "price_type",
+        "price_amount"
+      ]
+    }
+  ]
+}

@@ -16,6 +16,22 @@ const { all } = require('./discover');
 
 const NEAR_KM = 0.15;
 
+// SHARED MULTI-LABEL POINT (2026-09-17): one exact coordinate carried by >= 3 DIFFERENTLY NAMED locations is
+// not a place - it is what the geocoder returned when it only understood the CITY (37 Tel Aviv venues, from
+// the water park to the port, sat on one point). Rooms of one building share a point too, but they do not
+// produce three unrelated labels; the label count is what separates a busy venue from a fallback.
+// Such a point proves nothing: it must never be reverse-geocoded into a "street address" and never become a
+// canonical venue's coordinates (both happened: 157 activities, 21 venues).
+const SHARED_POINT_MIN_LABELS = 3;
+const labelKey = (s) => String(s || '').replace(/["'\u05F3\u05F4]/g, '').replace(/\s+/g, ' ').trim();
+async function sharedPointLabels(client, lat, lng) {
+  if (lat == null || lng == null) return [];
+  const e = 0.00002; // ~2 m
+  const { data } = await client.from('locations').select('name').gte('lat', Number(lat) - e).lte('lat', Number(lat) + e).gte('lng', Number(lng) - e).lte('lng', Number(lng) + e).limit(80);
+  return [...new Set((data || []).map((r) => labelKey(r.name)).filter(Boolean))];
+}
+async function isSharedMultiLabelPoint(client, lat, lng) { return (await sharedPointLabels(client, lat, lng)).length >= SHARED_POINT_MIN_LABELS; }
+
 async function cityCentroid(city, cache) {
   if (cache.has(city)) return cache.get(city);
   const rows = await geocodeText(city);
@@ -51,4 +67,4 @@ async function auditCityCentroids(client, { apply = false, log = console.log } =
   return { candidates: locs.length, flagged, byCity, provenanceFlagged };
 }
 
-module.exports = { auditCityCentroids, NEAR_KM };
+module.exports = { auditCityCentroids, NEAR_KM, sharedPointLabels, isSharedMultiLabelPoint, SHARED_POINT_MIN_LABELS };

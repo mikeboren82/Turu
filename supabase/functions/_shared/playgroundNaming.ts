@@ -26,7 +26,9 @@ export function isGenericPlaygroundName(name: string | null | undefined): boolea
 export function parseStreetAddress(address: string | null | undefined): { street: string | null; houseNumber: string | null } {
   if (!address) return { street: null, houseNumber: null };
   const streetPart = String(address).split(',')[0].trim();
-  if (!streetPart) return { street: null, houseNumber: null };
+  // a bare number is a ROAD REFERENCE ("367", "4311") that reverse geocoding returns in its `road` field for a
+  // point beside a highway - never a street name (2026-09-17: 337 addresses, 284 generated playground titles)
+  if (!streetPart || /^\d+$/.test(streetPart)) return { street: null, houseNumber: null };
   const match = streetPart.match(/^(.*?)\s+(\d+[א-ת]?)$/);
   if (match) return { street: match[1].trim() || null, houseNumber: match[2] };
   return { street: streetPart, houseNumber: null };

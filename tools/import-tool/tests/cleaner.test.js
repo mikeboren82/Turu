@@ -75,3 +75,19 @@ test('listing-card image discovery: card image + detail link (Givatayim markup),
   assert.equal(containsScore('סדנת רכיבה על אופניים 15/09/2026 17:00 גבעתיים', 'סדנת רכיבה על אופניים'), 1);
   assert.equal(findEventCard(giv, 'https://x', 'הצגה שלא קיימת').detailUrl, null);
 });
+
+// wave 2 (2026-09-17) - mirror of the Deno rule: genre words are not identity; place + dates contradiction blocks URL identity
+test('matching mirror: a different show sharing only genre words on one listing is not an update of the other', () => {
+  const { distinctiveSharedWords } = require('../cleaner/matching');
+  const listing = 'https://tickets.example.muni.il/kids';
+  const ex = { id: 'e1', name: 'הארנב שמצא חבר - תיאטרון סיפור', source_url: listing, location_name: 'מרכז קהילתי נווה זמר', city: 'רעננה', lat: null, lng: null, venue_id: null, event_fingerprint: 'fp-a', one_time_date: '2026-10-10', occurrences: [{ date: '2026-10-10', start_time: '11:00' }], recurring_days: [] };
+  const other = { name: 'הצב והצפרדע - תיאטרון סיפור', city: 'רעננה', pageUrl: listing, location_name: 'אודיטוריום יד לבנים', venue_id: null, one_time_date: '2026-11-09', recurring_days: [] };
+  const c = computeConfidence(other, ex, thresholds);
+  assert.equal(c.breakdown.distinctive_name, 0); assert.ok(c.score < thresholds.needsReview, String(c.score));
+  const later = { name: 'הארנב שמצא חבר - תיאטרון סיפור', city: 'רעננה', pageUrl: listing, location_name: 'מרכז קהילתי נווה זמר', venue_id: null, one_time_date: '2026-11-14', recurring_days: [] };
+  assert.ok(computeConfidence(later, ex, thresholds).score >= thresholds.duplicate, 'a later performance at the same place is the same event');
+  const elsewhere = { ...later, location_name: 'ספריית כפר בתיה', one_time_date: '2026-12-01' };
+  const e = computeConfidence(elsewhere, ex, thresholds);
+  assert.equal(e.breakdown.association_conflict, 1); assert.ok(e.score < thresholds.duplicate, String(e.score));
+  assert.equal(distinctiveSharedWords('שעת סיפור לגילאי 2-4', 'הצגת ילדים לגילאי 2-4'), 0);
+});

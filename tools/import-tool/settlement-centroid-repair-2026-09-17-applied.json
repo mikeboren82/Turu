@@ -1,0 +1,1725 @@
+{
+  "generatedAt": "2026-09-17T16:10:33.167Z",
+  "applied": true,
+  "counts": {
+    "suspects": 119,
+    "replace": 27,
+    "high_confidence_written": 8,
+    "proposed_null_NOT_written": 41,
+    "proposed_replace_below_bar": 19,
+    "keep_confirmed": 31,
+    "keep_unverified": 20,
+    "skipped_geocoder_unavailable": 0
+  },
+  "plan": [
+    {
+      "settlement_id": "3777",
+      "name_he": "סנסנה",
+      "basis": "council הר חברון",
+      "old": {
+        "lat": 31.3163707,
+        "lng": 34.9024177,
+        "km_from_group": 50.4
+      },
+      "action": "NULL",
+      "new": null,
+      "why": "nearest real place is 45 km from its group (limit 25)"
+    },
+    {
+      "settlement_id": "3759",
+      "name_he": "אדורה",
+      "basis": "council הר חברון",
+      "old": {
+        "lat": 32.2916738,
+        "lng": 34.8469084,
+        "km_from_group": 59.9
+      },
+      "action": "REPLACE",
+      "new": {
+        "lat": 31.5519201,
+        "lng": 35.0165158,
+        "type": "place/village",
+        "km_from_group": 23.9,
+        "display": "אדורה, שטח C, יהודה ושומרון, الأراضي الفلسطينية"
+      },
+      "why": null
+    },
+    {
+      "settlement_id": "3987",
+      "name_he": "אדוריים",
+      "basis": "council הר חברון",
+      "old": {
+        "lat": 31.6023409,
+        "lng": 34.7601573,
+        "km_from_group": 27.6
+      },
+      "action": "KEEP_UNVERIFIED",
+      "new": null,
+      "why": "moderate outlier, no place-class confirmation either way"
+    },
+    {
+      "settlement_id": "1157",
+      "name_he": "אחווה",
+      "basis": "council באר טוביה",
+      "old": {
+        "lat": 32.782656,
+        "lng": 35.541232,
+        "km_from_group": 137.9
+      },
+      "action": "KEEP",
+      "new": null,
+      "why": "a real place of this name is at the stored centroid (place/neighbourhood) - far from the group median but correct"
+    },
+    {
+      "settlement_id": "3715",
+      "name_he": "עלמון",
+      "basis": "council מטה בנימין",
+      "old": {
+        "lat": 32.7050793,
+        "lng": 35.1643467,
+        "km_from_group": 89.6
+      },
+      "action": "NULL",
+      "new": null,
+      "why": "nearest real place is 41 km from its group (limit 25)"
+    },
+    {
+      "settlement_id": "960",
+      "name_he": "אסד (שבט)",
+      "basis": "office באר שבע",
+      "old": {
+        "lat": 32.1637066,
+        "lng": 34.8266306,
+        "km_from_group": 97.1
+      },
+      "action": "KEEP_UNVERIFIED",
+      "new": null,
+      "why": "moderate outlier, no place-class confirmation either way"
+    },
+    {
+      "settlement_id": "3754",
+      "name_he": "אספר",
+      "basis": "council גוש עציון",
+      "old": {
+        "lat": 31.7803212,
+        "lng": 35.2237311,
+        "km_from_group": 28.7
+      },
+      "action": "REPLACE",
+      "new": {
+        "lat": 31.9324487,
+        "lng": 35.0433428,
+        "type": "place/city",
+        "km_from_group": 9.3,
+        "display": "מודיעין עילית, שטח C, יהודה ושומרון, الأراضي الفلسطينية"
+      },
+      "why": null
+    },
+    {
+      "settlement_id": "3906",
+      "name_he": "אסיף",
+      "basis": "council שומרון",
+      "old": {
+        "lat": 32.6117193,
+        "lng": 35.298168,
+        "km_from_group": 58.2
+      },
+      "action": "NULL",
+      "new": null,
+      "why": "no place-class result"
+    },
+    {
+      "settlement_id": "3658",
+      "name_he": "עטרת",
+      "basis": "council מטה בנימין",
+      "old": {
+        "lat": 33.0046638,
+        "lng": 35.6278005,
+        "km_from_group": 138
+      },
+      "action": "NULL",
+      "new": null,
+      "why": "nearest real place is 28 km from its group (limit 25)"
+    },
+    {
+      "settlement_id": "3905",
+      "name_he": "אביה",
+      "basis": "council גוש עציון",
+      "old": {
+        "lat": 32.9220287,
+        "lng": 35.0759079,
+        "km_from_group": 114.5
+      },
+      "action": "NULL",
+      "new": null,
+      "why": "nearest real place is 64 km from its group (limit 25)"
+    },
+    {
+      "settlement_id": "3499",
+      "name_he": "בר כוכבא",
+      "basis": "council גוש עציון",
+      "old": {
+        "lat": 31.8036408,
+        "lng": 35.2391578,
+        "km_from_group": 28.9
+      },
+      "action": "KEEP_UNVERIFIED",
+      "new": null,
+      "why": "moderate outlier, no place-class confirmation either way"
+    },
+    {
+      "settlement_id": "1278",
+      "name_he": "באר מילכה",
+      "basis": "council רמת נגב",
+      "old": {
+        "lat": 30.9328457,
+        "lng": 34.4070405,
+        "km_from_group": 31.8
+      },
+      "action": "KEEP",
+      "new": null,
+      "why": "a real place of this name is at the stored centroid (place/village) - far from the group median but correct"
+    },
+    {
+      "settlement_id": "21",
+      "name_he": "באר אורה",
+      "basis": "council חבל אילות",
+      "old": {
+        "lat": 29.7101748,
+        "lng": 34.986604,
+        "km_from_group": 26
+      },
+      "action": "KEEP_UNVERIFIED",
+      "new": null,
+      "why": "moderate outlier, no place-class confirmation either way"
+    },
+    {
+      "settlement_id": "3612",
+      "name_he": "בקעות",
+      "basis": "council ערבות הירדן",
+      "old": {
+        "lat": 32.3381951,
+        "lng": 35.0128413,
+        "km_from_group": 32.8
+      },
+      "action": "KEEP_UNVERIFIED",
+      "new": null,
+      "why": "moderate outlier, no place-class confirmation either way"
+    },
+    {
+      "settlement_id": "3710",
+      "name_he": "ברכה",
+      "basis": "council שומרון",
+      "old": {
+        "lat": 31.7310483,
+        "lng": 34.7560684,
+        "km_from_group": 52.2
+      },
+      "action": "REPLACE",
+      "new": {
+        "lat": 32.1924095,
+        "lng": 35.2651028,
+        "type": "place/village",
+        "km_from_group": 24.9,
+        "display": "הר ברכה, שטח C, יהודה ושומרון, الأراضي الفلسطينية"
+      },
+      "why": null
+    },
+    {
+      "settlement_id": "3745",
+      "name_he": "בית יתיר",
+      "basis": "council הר חברון",
+      "old": {
+        "lat": 31.3376271,
+        "lng": 35.0341281,
+        "km_from_group": 47.8
+      },
+      "action": "NULL",
+      "new": null,
+      "why": "nearest real place is 46 km from its group (limit 25)"
+    },
+    {
+      "settlement_id": "212",
+      "name_he": "בית צבי",
+      "basis": "council חוף הכרמל",
+      "old": {
+        "lat": 32.0784961,
+        "lng": 34.8216731,
+        "km_from_group": 64.3
+      },
+      "action": "NULL",
+      "new": null,
+      "why": "no place-class result"
+    },
+    {
+      "settlement_id": "3747",
+      "name_he": "דולב",
+      "basis": "council מטה בנימין",
+      "old": {
+        "lat": 32.2019659,
+        "lng": 34.8809999,
+        "km_from_group": 29.6
+      },
+      "action": "REPLACE",
+      "new": {
+        "lat": 31.9264697,
+        "lng": 35.1246668,
+        "type": "boundary/administrative",
+        "km_from_group": 23,
+        "display": "דולב, שטח C, יהודה ושומרון, الأراضي الفلسطينية"
+      },
+      "why": null
+    },
+    {
+      "settlement_id": "3618",
+      "name_he": "אלעזר",
+      "basis": "council גוש עציון",
+      "old": {
+        "lat": 32.0860161,
+        "lng": 34.808529,
+        "km_from_group": 25
+      },
+      "action": "KEEP_UNVERIFIED",
+      "new": null,
+      "why": "moderate outlier, no place-class confirmation either way"
+    },
+    {
+      "settlement_id": "4003",
+      "name_he": "אל-רום",
+      "basis": "council גולן",
+      "old": {
+        "lat": 33.1796457,
+        "lng": 35.7721224,
+        "km_from_group": 32.4
+      },
+      "action": "KEEP",
+      "new": null,
+      "why": "a real place of this name is at the stored centroid (place/village) - far from the group median but correct"
+    },
+    {
+      "settlement_id": "3765",
+      "name_he": "עלי",
+      "basis": "council מטה בנימין",
+      "old": {
+        "lat": 31.6552574,
+        "lng": 34.5784492,
+        "km_from_group": 42.3
+      },
+      "action": "NULL",
+      "new": null,
+      "why": "nearest real place is 39 km from its group (limit 25)"
+    },
+    {
+      "settlement_id": "3579",
+      "name_he": "אלון מורה",
+      "basis": "council שומרון",
+      "old": {
+        "lat": 32.2305463,
+        "lng": 35.3292144,
+        "km_from_group": 31.7
+      },
+      "action": "KEEP",
+      "new": null,
+      "why": "a real place of this name is at the stored centroid (place/village) - far from the group median but correct"
+    },
+    {
+      "settlement_id": "1126",
+      "name_he": "אילות",
+      "basis": "council חבל אילות",
+      "old": {
+        "lat": 29.5812438,
+        "lng": 34.962663,
+        "km_from_group": 40.5
+      },
+      "action": "KEEP",
+      "new": null,
+      "why": "a real place of this name is at the stored centroid (place/village) - far from the group median but correct"
+    },
+    {
+      "settlement_id": "3560",
+      "name_he": "אלקנה",
+      "basis": "office ראש העין",
+      "old": {
+        "lat": 31.7940984,
+        "lng": 35.2138072,
+        "km_from_group": 41.5
+      },
+      "action": "REPLACE",
+      "new": {
+        "lat": 32.1131324,
+        "lng": 35.0292797,
+        "type": "place/village",
+        "km_from_group": 7.4,
+        "display": "אלקנה, שטח C, יהודה ושומרון, الأراضي الفلسطينية"
+      },
+      "why": null
+    },
+    {
+      "settlement_id": "2042",
+      "name_he": "עין גדי",
+      "basis": "council תמר",
+      "old": {
+        "lat": 31.4523959,
+        "lng": 35.3848241,
+        "km_from_group": 33.3
+      },
+      "action": "KEEP",
+      "new": null,
+      "why": "a real place of this name is at the stored centroid (place/village) - far from the group median but correct"
+    },
+    {
+      "settlement_id": "1053",
+      "name_he": "עין חצבה",
+      "basis": "council תמר",
+      "old": {
+        "lat": 30.7982828,
+        "lng": 35.2463979,
+        "km_from_group": 41.3
+      },
+      "action": "KEEP",
+      "new": null,
+      "why": "a real place of this name is at the stored centroid (place/village) - far from the group median but correct"
+    },
+    {
+      "settlement_id": "3722",
+      "name_he": "אשכולות",
+      "basis": "council הר חברון",
+      "old": {
+        "lat": 32.8066037,
+        "lng": 34.9810992,
+        "km_from_group": 115.8
+      },
+      "action": "NULL",
+      "new": null,
+      "why": "nearest real place is 42 km from its group (limit 25)"
+    },
+    {
+      "settlement_id": "1298",
+      "name_he": "אתגר",
+      "basis": "council משגב",
+      "old": {
+        "lat": 32.7723973,
+        "lng": 34.9674141,
+        "km_from_group": 31
+      },
+      "action": "KEEP_UNVERIFIED",
+      "new": null,
+      "why": "moderate outlier, no place-class confirmation either way"
+    },
+    {
+      "settlement_id": "3880",
+      "name_he": "עיבל",
+      "basis": "council שומרון",
+      "old": {
+        "lat": 31.3848563,
+        "lng": 34.8794868,
+        "km_from_group": 85.9
+      },
+      "action": "NULL",
+      "new": null,
+      "why": "nearest real place is 26 km from its group (limit 25)"
+    },
+    {
+      "settlement_id": "182",
+      "name_he": "אבן יהודה",
+      "basis": "office נתניה",
+      "old": {
+        "lat": 31.7815411,
+        "lng": 35.217932,
+        "km_from_group": 65.9
+      },
+      "action": "REPLACE",
+      "new": {
+        "lat": 32.2715833,
+        "lng": 34.8889594,
+        "type": "place/town",
+        "km_from_group": 5.3,
+        "display": "אבן יהודה, נפת השרון, מחוז המרכז, 4051765, ישראל"
+      },
+      "why": null
+    },
+    {
+      "settlement_id": "369",
+      "name_he": "גלעד (אבן יצחק)",
+      "basis": "council מגידו",
+      "old": {
+        "lat": 33.005216,
+        "lng": 35.102978,
+        "km_from_group": 43.7
+      },
+      "action": "NULL",
+      "new": null,
+      "why": "no place-class result"
+    },
+    {
+      "settlement_id": "328",
+      "name_he": "עזוז",
+      "basis": "council רמת נגב",
+      "old": {
+        "lat": 30.7916672,
+        "lng": 34.4722219,
+        "km_from_group": 31.8
+      },
+      "action": "KEEP",
+      "new": null,
+      "why": "a real place of this name is at the stored centroid (place/village) - far from the group median but correct"
+    },
+    {
+      "settlement_id": "379",
+      "name_he": "גאולים",
+      "basis": "council לב השרון",
+      "old": {
+        "lat": 31.7595534,
+        "lng": 35.2196723,
+        "km_from_group": 62.9
+      },
+      "action": "REPLACE",
+      "new": {
+        "lat": 32.2962452,
+        "lng": 34.9474014,
+        "type": "place/village",
+        "km_from_group": 2.6,
+        "display": "גאולים, נפת השרון, מחוז המרכז, ישראל"
+      },
+      "why": null
+    },
+    {
+      "settlement_id": "3606",
+      "name_he": "גלגל",
+      "basis": "council ערבות הירדן",
+      "old": {
+        "lat": 32.7958801,
+        "lng": 34.9833524,
+        "km_from_group": 83.4
+      },
+      "action": "NULL",
+      "new": null,
+      "why": "nearest real place is 45 km from its group (limit 25)"
+    },
+    {
+      "settlement_id": "1272",
+      "name_he": "חלוץ",
+      "basis": "council משגב",
+      "old": {
+        "lat": 32.0127061,
+        "lng": 34.7644997,
+        "km_from_group": 108.2
+      },
+      "action": "REPLACE",
+      "new": {
+        "lat": 32.950674,
+        "lng": 35.3121922,
+        "type": "place/village",
+        "km_from_group": 8.1,
+        "display": "הר חלוץ, מועצה אזורית משגב, נפת עכו, מחוז הצפון, ישראל"
+      },
+      "why": null
+    },
+    {
+      "settlement_id": "3609",
+      "name_he": "חמרה",
+      "basis": "council ערבות הירדן",
+      "old": {
+        "lat": 30.4305549,
+        "lng": 34.5719498,
+        "km_from_group": 183.6
+      },
+      "action": "NULL",
+      "new": null,
+      "why": "nearest real place is 47 km from its group (limit 25)"
+    },
+    {
+      "settlement_id": "1261",
+      "name_he": "הר עמשא",
+      "basis": "council תמר",
+      "old": {
+        "lat": 31.330998,
+        "lng": 35.096784,
+        "km_from_group": 33
+      },
+      "action": "KEEP",
+      "new": null,
+      "why": "a real place of this name is at the stored centroid (place/village) - far from the group median but correct"
+    },
+    {
+      "settlement_id": "3603",
+      "name_he": "הר גילה",
+      "basis": "council גוש עציון",
+      "old": {
+        "lat": 32.1551468,
+        "lng": 34.8954652,
+        "km_from_group": 29.2
+      },
+      "action": "KEEP_UNVERIFIED",
+      "new": null,
+      "why": "moderate outlier, no place-class confirmation either way"
+    },
+    {
+      "settlement_id": "3870",
+      "name_he": "חרשה",
+      "basis": "council מטה בנימין",
+      "old": {
+        "lat": 33.046635,
+        "lng": 35.4395495,
+        "km_from_group": 134.2
+      },
+      "action": "NULL",
+      "new": null,
+      "why": "nearest real place is 25 km from its group (limit 25)"
+    },
+    {
+      "settlement_id": "801",
+      "name_he": "חמד",
+      "basis": "council שדות דן",
+      "old": {
+        "lat": 31.6629483,
+        "lng": 34.5673052,
+        "km_from_group": 45.1
+      },
+      "action": "REPLACE",
+      "new": {
+        "lat": 32.1598443,
+        "lng": 34.9435452,
+        "type": "place/village",
+        "km_from_group": 20.9,
+        "display": "שדי חמד, מועצה אזורית דרום השרון, נפת פתח תקווה, מחוז המרכז, ישראל"
+      },
+      "why": null
+    },
+    {
+      "settlement_id": "162",
+      "name_he": "חירות",
+      "basis": "council לב השרון",
+      "old": {
+        "lat": 31.8649798,
+        "lng": 34.7431652,
+        "km_from_group": 49.2
+      },
+      "action": "NULL",
+      "new": null,
+      "why": "no place-class result"
+    },
+    {
+      "settlement_id": "1208",
+      "name_he": "הילה",
+      "basis": "council מעלה יוסף",
+      "old": {
+        "lat": 32.8098037,
+        "lng": 35.0700465,
+        "km_from_group": 31.1
+      },
+      "action": "REPLACE",
+      "new": {
+        "lat": 33.0358267,
+        "lng": 35.2443398,
+        "type": "place/village",
+        "km_from_group": 1.7,
+        "display": "מצפה הילה, נפת עכו, מחוז הצפון, 2495300, ישראל"
+      },
+      "why": null
+    },
+    {
+      "settlement_id": "3643",
+      "name_he": "חיננית",
+      "basis": "council שומרון",
+      "old": {
+        "lat": 32.0326405,
+        "lng": 34.7547014,
+        "km_from_group": 27
+      },
+      "action": "KEEP_UNVERIFIED",
+      "new": null,
+      "why": "moderate outlier, no place-class confirmation either way"
+    },
+    {
+      "settlement_id": "3891",
+      "name_he": "איבי הנחל",
+      "basis": "council גוש עציון",
+      "old": {
+        "lat": 31.7003528,
+        "lng": 34.6075215,
+        "km_from_group": 39.4
+      },
+      "action": "KEEP_UNVERIFIED",
+      "new": null,
+      "why": "moderate outlier, no place-class confirmation either way"
+    },
+    {
+      "settlement_id": "652",
+      "name_he": "אבטין",
+      "basis": "council זבולון",
+      "old": {
+        "lat": 31.2757636,
+        "lng": 34.8838656,
+        "km_from_group": 166.3
+      },
+      "action": "KEEP",
+      "new": null,
+      "why": "a real place of this name is at the stored centroid (place/village) - far from the group median but correct"
+    },
+    {
+      "settlement_id": "3660",
+      "name_he": "עמנואל",
+      "basis": "office ראש העין",
+      "old": {
+        "lat": 31.6669558,
+        "lng": 34.5927448,
+        "km_from_group": 58.5
+      },
+      "action": "REPLACE",
+      "new": {
+        "lat": 32.1618975,
+        "lng": 35.1361352,
+        "type": "boundary/administrative",
+        "km_from_group": 18.7,
+        "display": "עמנואל, שטח C, יהודה ושומרון, الأراضي الفلسطينية"
+      },
+      "why": null
+    },
+    {
+      "settlement_id": "3656",
+      "name_he": "כרמל",
+      "basis": "council הר חברון",
+      "old": {
+        "lat": 32.7866144,
+        "lng": 34.9803096,
+        "km_from_group": 113.6
+      },
+      "action": "NULL",
+      "new": null,
+      "why": "nearest real place is 42 km from its group (limit 25)"
+    },
+    {
+      "settlement_id": "3488",
+      "name_he": "כפר עציון",
+      "basis": "council גוש עציון",
+      "old": {
+        "lat": 31.7451343,
+        "lng": 35.2222845,
+        "km_from_group": 30.5
+      },
+      "action": "KEEP_UNVERIFIED",
+      "new": null,
+      "why": "moderate outlier, no place-class confirmation either way"
+    },
+    {
+      "settlement_id": "1291",
+      "name_he": "כמהין",
+      "basis": "council רמת נגב",
+      "old": {
+        "lat": 30.9100139,
+        "lng": 34.4310272,
+        "km_from_group": 29.9
+      },
+      "action": "KEEP",
+      "new": null,
+      "why": "a real place of this name is at the stored centroid (place/village) - far from the group median but correct"
+    },
+    {
+      "settlement_id": "3923",
+      "name_he": "קרן יער",
+      "basis": "council גוש עציון",
+      "old": {
+        "lat": 32.5656765,
+        "lng": 34.9535681,
+        "km_from_group": 74.3
+      },
+      "action": "NULL",
+      "new": null,
+      "why": "nearest real place is 35 km from its group (limit 25)"
+    },
+    {
+      "settlement_id": "3564",
+      "name_he": "כוכב השחר",
+      "basis": "council מטה בנימין",
+      "old": {
+        "lat": 31.7781705,
+        "lng": 34.6396487,
+        "km_from_group": 28.8
+      },
+      "action": "KEEP_UNVERIFIED",
+      "new": null,
+      "why": "moderate outlier, no place-class confirmation either way"
+    },
+    {
+      "settlement_id": "3901",
+      "name_he": "לח\"י",
+      "basis": "council שומרון",
+      "old": {
+        "lat": 31.7984836,
+        "lng": 35.2364009,
+        "km_from_group": 44.8
+      },
+      "action": "NULL",
+      "new": null,
+      "why": "no place-class result"
+    },
+    {
+      "settlement_id": "3892",
+      "name_he": "לשם",
+      "basis": "council שומרון",
+      "old": {
+        "lat": 31.7286939,
+        "lng": 35.1885118,
+        "km_from_group": 50
+      },
+      "action": "NULL",
+      "new": null,
+      "why": "no place-class result"
+    },
+    {
+      "settlement_id": "1230",
+      "name_he": "לבנים",
+      "basis": "council מרום הגליל",
+      "old": {
+        "lat": 31.6649271,
+        "lng": 34.5639058,
+        "km_from_group": 169
+      },
+      "action": "NULL",
+      "new": null,
+      "why": "nearest real place is 50 km from its group (limit 25)"
+    },
+    {
+      "settlement_id": "595",
+      "name_he": "לוחמי הגיטאות",
+      "basis": "council מטה אשר",
+      "old": {
+        "lat": 32.0372187,
+        "lng": 34.8960147,
+        "km_from_group": 108.6
+      },
+      "action": "NULL",
+      "new": null,
+      "why": "no place-class result"
+    },
+    {
+      "settlement_id": "3608",
+      "name_he": "מעלה אפרים",
+      "basis": "office עפולה",
+      "old": {
+        "lat": 32.3245814,
+        "lng": 34.8475892,
+        "km_from_group": 50.1
+      },
+      "action": "KEEP_UNVERIFIED",
+      "new": null,
+      "why": "moderate outlier, no place-class confirmation either way"
+    },
+    {
+      "settlement_id": "230",
+      "name_he": "מעש",
+      "basis": "council דרום השרון",
+      "old": {
+        "lat": 31.8581427,
+        "lng": 35.2166148,
+        "km_from_group": 42.5
+      },
+      "action": "NULL",
+      "new": null,
+      "why": "no place-class result"
+    },
+    {
+      "settlement_id": "3657",
+      "name_he": "מעון",
+      "basis": "council הר חברון",
+      "old": {
+        "lat": 32.0558127,
+        "lng": 34.7663838,
+        "km_from_group": 38.1
+      },
+      "action": "KEEP_UNVERIFIED",
+      "new": null,
+      "why": "moderate outlier, no place-class confirmation either way"
+    },
+    {
+      "settlement_id": "3879",
+      "name_he": "מעוז",
+      "basis": "council שומרון",
+      "old": {
+        "lat": 31.2598548,
+        "lng": 35.2238643,
+        "km_from_group": 101.1
+      },
+      "action": "REPLACE",
+      "new": {
+        "lat": 32.0992323,
+        "lng": 34.8904241,
+        "type": "place/suburb",
+        "km_from_group": 12.2,
+        "display": "נווה מעוז, שיפר, פתח תקווה, נפת פתח תקווה, מחוז המרכז, 4947900, ישראל"
+      },
+      "why": null
+    },
+    {
+      "settlement_id": "1415",
+      "name_he": "מחנה יפה",
+      "basis": "council מרחבים",
+      "old": {
+        "lat": 32.513083,
+        "lng": 35.495006,
+        "km_from_group": 143.6
+      },
+      "action": "NULL",
+      "new": null,
+      "why": "no place-class result"
+    },
+    {
+      "settlement_id": "1413",
+      "name_he": "מחנה יהודית",
+      "basis": "council עמק יזרעאל",
+      "old": {
+        "lat": 31.2169629,
+        "lng": 34.7985876,
+        "km_from_group": 168.7
+      },
+      "action": "NULL",
+      "new": null,
+      "why": "no place-class result"
+    },
+    {
+      "settlement_id": "3785",
+      "name_he": "משכיות",
+      "basis": "council ערבות הירדן",
+      "old": {
+        "lat": 30.6272162,
+        "lng": 34.7759251,
+        "km_from_group": 158.8
+      },
+      "action": "NULL",
+      "new": null,
+      "why": "nearest real place is 58 km from its group (limit 25)"
+    },
+    {
+      "settlement_id": "1315",
+      "name_he": "מתן",
+      "basis": "council דרום השרון",
+      "old": {
+        "lat": 31.7554136,
+        "lng": 35.2086154,
+        "km_from_group": 51.4
+      },
+      "action": "REPLACE",
+      "new": {
+        "lat": 32.1561435,
+        "lng": 34.9742805,
+        "type": "place/village",
+        "km_from_group": 4.4,
+        "display": "מתן, נפת פתח תקווה, מחוז המרכז, ישראל"
+      },
+      "why": null
+    },
+    {
+      "settlement_id": "3648",
+      "name_he": "מתתיהו",
+      "basis": "council מטה בנימין",
+      "old": {
+        "lat": 31.7872538,
+        "lng": 35.2138119,
+        "km_from_group": 35.5
+      },
+      "action": "REPLACE",
+      "new": {
+        "lat": 31.9298532,
+        "lng": 35.0346264,
+        "type": "place/village",
+        "km_from_group": 14.5,
+        "display": "מתתיהו, שטח C, יהודה ושומרון, الأراضي الفلسطينية"
+      },
+      "why": null
+    },
+    {
+      "settlement_id": "3614",
+      "name_he": "מכורה",
+      "basis": "council ערבות הירדן",
+      "old": {
+        "lat": 32.4714596,
+        "lng": 34.991554,
+        "km_from_group": 47.4
+      },
+      "action": "NULL",
+      "new": null,
+      "why": "nearest real place is 45 km from its group (limit 25)"
+    },
+    {
+      "settlement_id": "4101",
+      "name_he": "מרום גולן",
+      "basis": "council גולן",
+      "old": {
+        "lat": 33.1321192,
+        "lng": 35.7773161,
+        "km_from_group": 27.2
+      },
+      "action": "KEEP",
+      "new": null,
+      "why": "a real place of this name is at the stored centroid (place/village) - far from the group median but correct"
+    },
+    {
+      "settlement_id": "3751",
+      "name_he": "מגדלים",
+      "basis": "council שומרון",
+      "old": {
+        "lat": 32.7805932,
+        "lng": 35.0190178,
+        "km_from_group": 70.1
+      },
+      "action": "NULL",
+      "new": null,
+      "why": "nearest real place is 32 km from its group (limit 25)"
+    },
+    {
+      "settlement_id": "22",
+      "name_he": "מקווה ישראל",
+      "basis": "office חולון",
+      "old": {
+        "lat": 31.7983281,
+        "lng": 35.2236453,
+        "km_from_group": 46.7
+      },
+      "action": "KEEP_UNVERIFIED",
+      "new": null,
+      "why": "moderate outlier, no place-class confirmation either way"
+    },
+    {
+      "settlement_id": "3797",
+      "name_he": "מודיעין עילית",
+      "basis": "office ירושלים",
+      "old": {
+        "lat": 32.7961796,
+        "lng": 35.5334249,
+        "km_from_group": 118.4
+      },
+      "action": "REPLACE",
+      "new": {
+        "lat": 31.9324487,
+        "lng": 35.0433428,
+        "type": "place/city",
+        "km_from_group": 14.3,
+        "display": "מודיעין עילית, שטח C, יהודה ושומרון, الأراضي الفلسطينية"
+      },
+      "why": null
+    },
+    {
+      "settlement_id": "3620",
+      "name_he": "נערן",
+      "basis": "council ערבות הירדן",
+      "old": {
+        "lat": 32.4541807,
+        "lng": 34.8997408,
+        "km_from_group": 45.9
+      },
+      "action": "NULL",
+      "new": null,
+      "why": "nearest real place is 46 km from its group (limit 25)"
+    },
+    {
+      "settlement_id": "3713",
+      "name_he": "נעמ\"ה",
+      "basis": "council ערבות הירדן",
+      "old": {
+        "lat": 31.7872218,
+        "lng": 34.653435,
+        "km_from_group": 41.6
+      },
+      "action": "NULL",
+      "new": null,
+      "why": "nearest real place is 49 km from its group (limit 25)"
+    },
+    {
+      "settlement_id": "3646",
+      "name_he": "חמדת",
+      "basis": "council ערבות הירדן",
+      "old": {
+        "lat": 32.9488949,
+        "lng": 35.4245296,
+        "km_from_group": 109.1
+      },
+      "action": "NULL",
+      "new": null,
+      "why": "nearest real place is 57 km from its group (limit 25)"
+    },
+    {
+      "settlement_id": "1267",
+      "name_he": "שיטים",
+      "basis": "council חבל אילות",
+      "old": {
+        "lat": 30.1767668,
+        "lng": 35.0164837,
+        "km_from_group": 26.2
+      },
+      "action": "KEEP",
+      "new": null,
+      "why": "a real place of this name is at the stored centroid (place/hamlet) - far from the group median but correct"
+    },
+    {
+      "settlement_id": "3767",
+      "name_he": "נחליאל",
+      "basis": "council מטה בנימין",
+      "old": {
+        "lat": 32.4446424,
+        "lng": 34.9266889,
+        "km_from_group": 56.7
+      },
+      "action": "REPLACE",
+      "new": {
+        "lat": 31.973754,
+        "lng": 35.1401861,
+        "type": "place/village",
+        "km_from_group": 24.8,
+        "display": "נחליאל, שטח C, יהודה ושומרון, الأراضي الفلسطينية"
+      },
+      "why": null
+    },
+    {
+      "settlement_id": "186",
+      "name_he": "נעורים",
+      "basis": "council עמק חפר",
+      "old": {
+        "lat": 31.9731203,
+        "lng": 34.815858,
+        "km_from_group": 44.1
+      },
+      "action": "KEEP",
+      "new": null,
+      "why": "a real place of this name is at the stored centroid (place/suburb) - far from the group median but correct"
+    },
+    {
+      "settlement_id": "3724",
+      "name_he": "נגוהות",
+      "basis": "council הר חברון",
+      "old": {
+        "lat": 31.500571,
+        "lng": 34.942379,
+        "km_from_group": 29.6
+      },
+      "action": "KEEP_UNVERIFIED",
+      "new": null,
+      "why": "moderate outlier, no place-class confirmation either way"
+    },
+    {
+      "settlement_id": "3890",
+      "name_he": "נריה",
+      "basis": "council מטה בנימין",
+      "old": {
+        "lat": 31.2470244,
+        "lng": 34.7925462,
+        "km_from_group": 77.1
+      },
+      "action": "REPLACE",
+      "new": {
+        "lat": 31.9542675,
+        "lng": 35.1258533,
+        "type": "place/village",
+        "km_from_group": 23.2,
+        "display": "נריה, שטח C, יהודה ושומרון, الأراضي الفلسطينية"
+      },
+      "why": null
+    },
+    {
+      "settlement_id": "4303",
+      "name_he": "נווה אטי\"ב",
+      "basis": "council גולן",
+      "old": {
+        "lat": 33.2619578,
+        "lng": 35.7407856,
+        "km_from_group": 41.4
+      },
+      "action": "KEEP",
+      "new": null,
+      "why": "a real place of this name is at the stored centroid (place/village) - far from the group median but correct"
+    },
+    {
+      "settlement_id": "926",
+      "name_he": "נווה אבות",
+      "basis": "office חדרה",
+      "old": {
+        "lat": 31.7947473,
+        "lng": 35.2033791,
+        "km_from_group": 79.6
+      },
+      "action": "NULL",
+      "new": null,
+      "why": "no place-class result"
+    },
+    {
+      "settlement_id": "405",
+      "name_he": "נווה אילן",
+      "basis": "council מטה יהודה",
+      "old": {
+        "lat": 31.6677901,
+        "lng": 34.5785462,
+        "km_from_group": 42.1
+      },
+      "action": "KEEP",
+      "new": null,
+      "why": "a real place of this name is at the stored centroid (place/neighbourhood) - far from the group median but correct"
+    },
+    {
+      "settlement_id": "3655",
+      "name_he": "ניל\"י",
+      "basis": "council מטה בנימין",
+      "old": {
+        "lat": 31.7665204,
+        "lng": 35.2078341,
+        "km_from_group": 36.2
+      },
+      "action": "REPLACE",
+      "new": {
+        "lat": 31.959415,
+        "lng": 35.0428321,
+        "type": "boundary/administrative",
+        "km_from_group": 15.5,
+        "display": "ניל\"י, שטח C, יהודה ושומרון, الأراضي الفلسطينية"
+      },
+      "why": null
+    },
+    {
+      "settlement_id": "4035",
+      "name_he": "נמרוד",
+      "basis": "council גולן",
+      "old": {
+        "lat": 33.2452094,
+        "lng": 35.7510271,
+        "km_from_group": 39.5
+      },
+      "action": "KEEP",
+      "new": null,
+      "why": "a real place of this name is at the stored centroid (place/village) - far from the group median but correct"
+    },
+    {
+      "settlement_id": "1280",
+      "name_he": "ניצני סיני",
+      "basis": "council רמת נגב",
+      "old": {
+        "lat": 30.903912,
+        "lng": 34.3968932,
+        "km_from_group": 33.3
+      },
+      "action": "KEEP",
+      "new": null,
+      "why": "a real place of this name is at the stored centroid (place/village) - far from the group median but correct"
+    },
+    {
+      "settlement_id": "3790",
+      "name_he": "נופים",
+      "basis": "council שומרון",
+      "old": {
+        "lat": 31.2724366,
+        "lng": 35.2345525,
+        "km_from_group": 100
+      },
+      "action": "REPLACE",
+      "new": {
+        "lat": 32.1552683,
+        "lng": 35.1008663,
+        "type": "place/village",
+        "km_from_group": 9,
+        "display": "נופים, מועצה אזורית שומרון, שטח C, יהודה ושומרון, الأراضي الفلسطينية"
+      },
+      "why": null
+    },
+    {
+      "settlement_id": "3726",
+      "name_he": "נוקדים",
+      "basis": "council גוש עציון",
+      "old": {
+        "lat": 31.3049236,
+        "lng": 35.2742358,
+        "km_from_group": 72.6
+      },
+      "action": "NULL",
+      "new": null,
+      "why": "nearest real place is 39 km from its group (limit 25)"
+    },
+    {
+      "settlement_id": "4010",
+      "name_he": "אודם",
+      "basis": "council גולן",
+      "old": {
+        "lat": 33.1943741,
+        "lng": 35.7483145,
+        "km_from_group": 33.9
+      },
+      "action": "KEEP",
+      "new": null,
+      "why": "a real place of this name is at the stored centroid (place/village) - far from the group median but correct"
+    },
+    {
+      "settlement_id": "3760",
+      "name_he": "אורנית",
+      "basis": "office ראש העין",
+      "old": {
+        "lat": 32.7050952,
+        "lng": 35.1637548,
+        "km_from_group": 70.6
+      },
+      "action": "REPLACE",
+      "new": {
+        "lat": 32.1309209,
+        "lng": 34.9919607,
+        "type": "boundary/administrative",
+        "km_from_group": 5.4,
+        "display": "אורנית, שטח C, יהודה ושומרון, الأراضي الفلسطينية"
+      },
+      "why": null
+    },
+    {
+      "settlement_id": "1151",
+      "name_he": "פארן",
+      "basis": "council הערבה התיכונה",
+      "old": {
+        "lat": 30.3626131,
+        "lng": 35.1538972,
+        "km_from_group": 33.7
+      },
+      "action": "KEEP",
+      "new": null,
+      "why": "a real place of this name is at the stored centroid (place/village) - far from the group median but correct"
+    },
+    {
+      "settlement_id": "3894",
+      "name_he": "פרשים",
+      "basis": "council שומרון",
+      "old": {
+        "lat": 32.7257257,
+        "lng": 35.1132321,
+        "km_from_group": 64.8
+      },
+      "action": "NULL",
+      "new": null,
+      "why": "no place-class result"
+    },
+    {
+      "settlement_id": "3615",
+      "name_he": "פצאל",
+      "basis": "council ערבות הירדן",
+      "old": {
+        "lat": 32.8095421,
+        "lng": 34.9933508,
+        "km_from_group": 85
+      },
+      "action": "NULL",
+      "new": null,
+      "why": "nearest real place is 44 km from its group (limit 25)"
+    },
+    {
+      "settlement_id": "1211",
+      "name_he": "קדרים",
+      "basis": "council הגליל העליון",
+      "old": {
+        "lat": 32.8984224,
+        "lng": 35.4737461,
+        "km_from_group": 29.5
+      },
+      "action": "KEEP",
+      "new": null,
+      "why": "a real place of this name is at the stored centroid (place/village) - far from the group median but correct"
+    },
+    {
+      "settlement_id": "3601",
+      "name_he": "קליה",
+      "basis": "council מגילות ים המלח",
+      "old": {
+        "lat": 32.0244654,
+        "lng": 34.8639652,
+        "km_from_group": 45.4
+      },
+      "action": "REPLACE",
+      "new": {
+        "lat": 31.7498072,
+        "lng": 35.4661484,
+        "type": "place/village",
+        "km_from_group": 23.2,
+        "display": "קליה, מועצה אזורית מגילות ים המלח, שטח C, יהודה ושומרון, الأراضي الفلسطينية"
+      },
+      "why": null
+    },
+    {
+      "settlement_id": "4024",
+      "name_he": "קלע",
+      "basis": "council גולן",
+      "old": {
+        "lat": 31.9838746,
+        "lng": 34.7612591,
+        "km_from_group": 136.1
+      },
+      "action": "NULL",
+      "new": null,
+      "why": "nearest real place is 27 km from its group (limit 25)"
+    },
+    {
+      "settlement_id": "4702",
+      "name_he": "רמות",
+      "basis": "council גולן",
+      "old": {
+        "lat": 31.81561,
+        "lng": 35.1954938,
+        "km_from_group": 129.8
+      },
+      "action": "REPLACE",
+      "new": {
+        "lat": 32.8498005,
+        "lng": 35.6667474,
+        "type": "place/village",
+        "km_from_group": 7.9,
+        "display": "רמות, מועצה אזורית גולן, נפת רמת הגולן, מחוז הצפון, ישראל"
+      },
+      "why": null
+    },
+    {
+      "settlement_id": "3565",
+      "name_he": "רימונים",
+      "basis": "council מטה בנימין",
+      "old": {
+        "lat": 32.6896127,
+        "lng": 35.4222377,
+        "km_from_group": 98
+      },
+      "action": "KEEP",
+      "new": null,
+      "why": "a real place of this name is at the stored centroid (place/neighbourhood) - far from the group median but correct"
+    },
+    {
+      "settlement_id": "3619",
+      "name_he": "רועי",
+      "basis": "council ערבות הירדן",
+      "old": {
+        "lat": 31.8126696,
+        "lng": 34.9715153,
+        "km_from_group": 25.9
+      },
+      "action": "KEEP_UNVERIFIED",
+      "new": null,
+      "why": "moderate outlier, no place-class confirmation either way"
+    },
+    {
+      "settlement_id": "3782",
+      "name_he": "רותם",
+      "basis": "council ערבות הירדן",
+      "old": {
+        "lat": 31.2652918,
+        "lng": 35.2256532,
+        "km_from_group": 90
+      },
+      "action": "KEEP",
+      "new": null,
+      "why": "a real place of this name is at the stored centroid (place/neighbourhood) - far from the group median but correct"
+    },
+    {
+      "settlement_id": "1360",
+      "name_he": "סעוה",
+      "basis": "council אל קסום",
+      "old": {
+        "lat": 33.0741292,
+        "lng": 35.6989145,
+        "km_from_group": 207.1
+      },
+      "action": "NULL",
+      "new": null,
+      "why": "no place-class result"
+    },
+    {
+      "settlement_id": "3711",
+      "name_he": "שא-נור",
+      "basis": "council שומרון",
+      "old": {
+        "lat": 32.860632,
+        "lng": 35.189528,
+        "km_from_group": 80.9
+      },
+      "action": "NULL",
+      "new": null,
+      "why": "nearest real place is 28 km from its group (limit 25)"
+    },
+    {
+      "settlement_id": "4009",
+      "name_he": "שעל",
+      "basis": "council גולן",
+      "old": {
+        "lat": 33.1162357,
+        "lng": 35.7148885,
+        "km_from_group": 25.2
+      },
+      "action": "KEEP",
+      "new": null,
+      "why": "a real place of this name is at the stored centroid (place/village) - far from the group median but correct"
+    },
+    {
+      "settlement_id": "1287",
+      "name_he": "שני",
+      "basis": "council הר חברון",
+      "old": {
+        "lat": 31.3562772,
+        "lng": 35.0692807,
+        "km_from_group": 46.2
+      },
+      "action": "KEEP",
+      "new": null,
+      "why": "a real place of this name is at the stored centroid (place/village) - far from the group median but correct"
+    },
+    {
+      "settlement_id": "3649",
+      "name_he": "שקד",
+      "basis": "council שומרון",
+      "old": {
+        "lat": 31.2653242,
+        "lng": 35.2202838,
+        "km_from_group": 100.5
+      },
+      "action": "KEEP",
+      "new": null,
+      "why": "a real place of this name is at the stored centroid (place/neighbourhood) - far from the group median but correct"
+    },
+    {
+      "settlement_id": "324",
+      "name_he": "שאר ישוב",
+      "basis": "council מבואות החרמון",
+      "old": {
+        "lat": 33.2272088,
+        "lng": 35.6463364,
+        "km_from_group": 25.8
+      },
+      "action": "KEEP",
+      "new": null,
+      "why": "a real place of this name is at the stored centroid (place/village) - far from the group median but correct"
+    },
+    {
+      "settlement_id": "3641",
+      "name_he": "שילה",
+      "basis": "council מטה בנימין",
+      "old": {
+        "lat": 31.7832623,
+        "lng": 35.2119071,
+        "km_from_group": 35.6
+      },
+      "action": "KEEP_UNVERIFIED",
+      "new": null,
+      "why": "moderate outlier, no place-class confirmation either way"
+    },
+    {
+      "settlement_id": "3910",
+      "name_he": "שירה",
+      "basis": "council שומרון",
+      "old": {
+        "lat": 31.9686161,
+        "lng": 34.7627793,
+        "km_from_group": 30.5
+      },
+      "action": "REPLACE",
+      "new": {
+        "lat": 32.1791473,
+        "lng": 35.2159336,
+        "type": "place/village",
+        "km_from_group": 20.1,
+        "display": "עסירה אל-קבליה, שטח B, הגדה המערבית, الأراضي الفلسطينية"
+      },
+      "why": null
+    },
+    {
+      "settlement_id": "3756",
+      "name_he": "סוסיה",
+      "basis": "council הר חברון",
+      "old": {
+        "lat": 31.2441068,
+        "lng": 34.7730819,
+        "km_from_group": 61.2
+      },
+      "action": "NULL",
+      "new": null,
+      "why": "nearest real place is 43 km from its group (limit 25)"
+    },
+    {
+      "settlement_id": "3873",
+      "name_he": "טל מנשה",
+      "basis": "council שומרון",
+      "old": {
+        "lat": 32.482077,
+        "lng": 35.0194158,
+        "km_from_group": 36.9
+      },
+      "action": "KEEP_UNVERIFIED",
+      "new": null,
+      "why": "moderate outlier, no place-class confirmation either way"
+    },
+    {
+      "settlement_id": "3815",
+      "name_he": "תל ציון",
+      "basis": "council מטה בנימין",
+      "old": {
+        "lat": 31.8782551,
+        "lng": 35.2366365,
+        "km_from_group": 34.2
+      },
+      "action": "KEEP",
+      "new": null,
+      "why": "a real place of this name is at the stored centroid (place/village) - far from the group median but correct"
+    },
+    {
+      "settlement_id": "3719",
+      "name_he": "תלם",
+      "basis": "council הר חברון",
+      "old": {
+        "lat": 32.1843823,
+        "lng": 34.8969006,
+        "km_from_group": 47.3
+      },
+      "action": "REPLACE",
+      "new": {
+        "lat": 31.5634575,
+        "lng": 35.0310066,
+        "type": "place/village",
+        "km_from_group": 22.9,
+        "display": "תלם, שטח C, יהודה ושומרון, الأراضي الفلسطينية"
+      },
+      "why": null
+    },
+    {
+      "settlement_id": "3743",
+      "name_he": "טנא",
+      "basis": "council הר חברון",
+      "old": {
+        "lat": 32.9170678,
+        "lng": 35.3018632,
+        "km_from_group": 131.6
+      },
+      "action": "KEEP",
+      "new": null,
+      "why": "a real place of this name is at the stored centroid (place/neighbourhood) - far from the group median but correct"
+    },
+    {
+      "settlement_id": "3878",
+      "name_he": "תמרה",
+      "basis": "council ערבות הירדן",
+      "old": {
+        "lat": 32.6343499,
+        "lng": 35.4042528,
+        "km_from_group": 77.1
+      },
+      "action": "KEEP",
+      "new": null,
+      "why": "a real place of this name is at the stored centroid (place/village) - far from the group median but correct"
+    },
+    {
+      "settlement_id": "3558",
+      "name_he": "תומר",
+      "basis": "council ערבות הירדן",
+      "old": {
+        "lat": 31.5200414,
+        "lng": 34.5963209,
+        "km_from_group": 68.4
+      },
+      "action": "NULL",
+      "new": null,
+      "why": "nearest real place is 44 km from its group (limit 25)"
+    },
+    {
+      "settlement_id": "3647",
+      "name_he": "יקיר",
+      "basis": "council שומרון",
+      "old": {
+        "lat": 32.3878625,
+        "lng": 34.914705,
+        "km_from_group": 27.8
+      },
+      "action": "REPLACE",
+      "new": {
+        "lat": 32.1493843,
+        "lng": 35.1145215,
+        "type": "place/village",
+        "km_from_group": 10.3,
+        "display": "יקיר, מועצה אזורית שומרון, שטח C, יהודה ושומרון, الأراضي الفلسطينية"
+      },
+      "why": null
+    },
+    {
+      "settlement_id": "1144",
+      "name_he": "ידידה",
+      "basis": "council מטה יהודה",
+      "old": {
+        "lat": 32.792367,
+        "lng": 34.989041,
+        "km_from_group": 113.3
+      },
+      "action": "NULL",
+      "new": null,
+      "why": "no place-class result"
+    },
+    {
+      "settlement_id": "3749",
+      "name_he": "יצהר",
+      "basis": "council שומרון",
+      "old": {
+        "lat": 31.7391295,
+        "lng": 35.188809,
+        "km_from_group": 48.9
+      },
+      "action": "REPLACE",
+      "new": {
+        "lat": 32.1686097,
+        "lng": 35.2337655,
+        "type": "place/village",
+        "km_from_group": 21.6,
+        "display": "יצהר, שטח C, יהודה ושומרון, الأراضي الفلسطينية"
+      },
+      "why": null
+    },
+    {
+      "settlement_id": "3896",
+      "name_he": "יונדב",
+      "basis": "council הר חברון",
+      "old": {
+        "lat": 32.0480913,
+        "lng": 34.7931605,
+        "km_from_group": 36.1
+      },
+      "action": "KEEP_UNVERIFIED",
+      "new": null,
+      "why": "moderate outlier, no place-class confirmation either way"
+    },
+    {
+      "settlement_id": "2009",
+      "name_he": "יובל",
+      "basis": "council מבואות החרמון",
+      "old": {
+        "lat": 31.4234365,
+        "lng": 34.5774743,
+        "km_from_group": 198.9
+      },
+      "action": "NULL",
+      "new": null,
+      "why": "nearest real place is 27 km from its group (limit 25)"
+    },
+    {
+      "settlement_id": "1065",
+      "name_he": "זמרת",
+      "basis": "council שדות נגב",
+      "old": {
+        "lat": 32.4893868,
+        "lng": 35.5005074,
+        "km_from_group": 145.2
+      },
+      "action": "KEEP",
+      "new": null,
+      "why": "a real place of this name is at the stored centroid (place/suburb) - far from the group median but correct"
+    },
+    {
+      "settlement_id": "3791",
+      "name_he": "צופים",
+      "basis": "council שומרון",
+      "old": {
+        "lat": 31.7704752,
+        "lng": 35.207418,
+        "km_from_group": 46.3
+      },
+      "action": "REPLACE",
+      "new": {
+        "lat": 32.1981952,
+        "lng": 35.0096527,
+        "type": "place/village",
+        "km_from_group": 5.3,
+        "display": "צופים, שטח C, יהודה ושומרון, الأراضي الفلسطينية"
+      },
+      "why": null
+    }
+  ]
+}

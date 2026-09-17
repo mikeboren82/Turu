@@ -635,8 +635,8 @@ export default function ActivityScreen() {
             </View>
           ) : null}
 
-          {activity.requiresTicket ? (
-            <Pressable onPress={() => Linking.openURL(activity.sourceUrl)} style={styles.ticketBtnWrap}>
+          {activity.requiresTicket && (activity.actionUrl || activity.sourceUrl) ? (
+            <Pressable onPress={() => Linking.openURL(activity.actionUrl || activity.sourceUrl)} style={styles.ticketBtnWrap}>
               <LinearGradient colors={['#ffbb4d', '#ff8a3d']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.ticketBtn}>
                 <Text style={styles.ticketBtnText}>{t('activity.detail.buyTickets')}</Text>
               </LinearGradient>

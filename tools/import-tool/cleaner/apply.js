@@ -12,6 +12,7 @@ const { normalizeCityName } = require('../cityNaming');
 const { assessChildRelevance } = require('../childRelevance');
 const { computeEventFingerprint } = require('../eventFingerprint');
 const { bestMatch } = require('./matching');
+const { isMissingCity } = require('../lib/canonicalSettlement');
 
 const SOFT = new Set(['מחיר']);
 const ADMIN_BASE = process.env.ADMIN_BASE || 'http://localhost:4321';
@@ -44,7 +45,7 @@ async function patchIncomingLocation(client, row, loc) {
 // source-trust gate does not apply; every other guard (matcher, date, relevance, /approve dedup) does
 async function handBackIncoming(client, row, { settings, userId, cache, today, counters, trustedOverride = false }) {
   const c = row.extracted_data || {};
-  const candidate = { name: c.name, city: c.city, pageUrl: row.page_url, venue_id: c.venue_id || null, lat: c.lat ?? null, lng: c.lng ?? null, one_time_date: c.one_time_date || null, recurring_days: c.recurring_days || [], event_fingerprint: c.event_fingerprint || computeEventFingerprint({ name: c.name, venueId: c.venue_id || null, city: c.city, scheduleType: c.schedule_type, oneTimeDate: c.one_time_date, recurringDays: c.recurring_days, startTime: c.start_time }) };
+  const candidate = { name: c.name, city: c.city, location_name: c.location_name || null, pageUrl: row.page_url, venue_id: c.venue_id || null, lat: c.lat ?? null, lng: c.lng ?? null, one_time_date: c.one_time_date || null, recurring_days: c.recurring_days || [], event_fingerprint: c.event_fingerprint || computeEventFingerprint({ name: c.name, venueId: c.venue_id || null, city: c.city, scheduleType: c.schedule_type, oneTimeDate: c.one_time_date, recurringDays: c.recurring_days, startTime: c.start_time }) };
   const match = await bestMatch(client, candidate, settings.thresholds, cache);
   const now = new Date().toISOString();
   if (match && match.confidence.score >= settings.thresholds.duplicate) {
@@ -137,6 +138,28 @@ async function applyAddressToActivity(client, activity, loc, { replaceWeak = fal
   return { wrote, skipped };
 }
 
+// MISSING_CITY write: only the canonical settlement value, only while the city is STILL missing
+// (re-read right before the write + the value seen as the SQL guard). A city filled meanwhile by an
+// admin / the Monster wins -> already_fixed. Region is filled null-only from the same settlement.
+async function applyCityToActivity(client, activity, proposal) {
+  const locId = activity.location_id || activity.locations?.id;
+  const { data: cur } = await client.from('locations').select('id, city, region').eq('id', locId).maybeSingle();
+  if (!cur) return { wrote: [], why: 'location_gone' };
+  if (!isMissingCity(cur.city)) return { wrote: [], why: 'already_fixed', city: cur.city };
+  let q = client.from('locations').update({ city: proposal.city }).eq('id', locId);
+  q = cur.city == null ? q.is('city', null) : q.eq('city', cur.city);
+  const { data, error } = await q.select('id');
+  if (error) throw error;
+  if (!data || !data.length) return { wrote: [], why: 'already_fixed' };
+  const wrote = ['citiesAdded'];
+  if (!cur.region && proposal.region) { const { data: r } = await client.from('locations').update({ region: proposal.region }).eq('id', locId).is('region', null).select('id'); if (r && r.length) wrote.push('regionsAdded'); }
+  // a row that had NO city got its region from the importer's coordinate bounding-box fallback
+  // (import-playgrounds-osm.js classifyRegion - documented there as wrong in several areas); the
+  // canonical settlement's region replaces exactly that value, guarded by the value seen
+  else if (cur.region && proposal.region && cur.region !== proposal.region) { const { data: r } = await client.from('locations').update({ region: proposal.region }).eq('id', locId).eq('region', cur.region).select('id'); if (r && r.length) { wrote.push('regionsCorrected'); return { wrote, regionWas: cur.region }; } }
+  return { wrote };
+}
+
 // insert only when the activity still has no image (a second worker / the scanner may have added one)
 async function applyImageToActivity(client, activity, img, userId) {
   const { count } = await client.from('activity_images').select('id', { count: 'exact', head: true }).eq('activity_id', activity.id);
@@ -147,4 +170,4 @@ async function applyImageToActivity(client, activity, img, userId) {
   return { wrote: true };
 }
 
-module.exports = { patchIncomingLocation, handBackIncoming, enrichExistingFromCandidate, applyAddressToActivity, applyImageToActivity, adminUp, OPEN_INCOMING };
+module.exports = { patchIncomingLocation, handBackIncoming, enrichExistingFromCandidate, applyAddressToActivity, applyCityToActivity, applyImageToActivity, adminUp, OPEN_INCOMING };

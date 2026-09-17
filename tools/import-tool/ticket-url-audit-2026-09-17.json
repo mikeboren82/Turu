@@ -1,0 +1,572 @@
+{
+  "generatedAt": "2026-09-17T18:57:10.023Z",
+  "action_urls_total": 52,
+  "checked": 52,
+  "distribution": {
+    "KEEP_DIRECT": 34,
+    "WRONG_EVENT": 6,
+    "INDIRECT_BEST": 11,
+    "BROKEN": 1
+  },
+  "upcoming_events_without_any_action": 506,
+  "upgrade": {
+    "with_verified_detail_url": 23,
+    "none": 483
+  },
+  "byProviderAndClass": {
+    "tickets.raanana.muni.il|KEEP_DIRECT": 19,
+    "eventbuzz.co.il|KEEP_DIRECT": 1,
+    "cpnclub.co.il|KEEP_DIRECT": 3,
+    "weizmann.ac.il|KEEP_DIRECT": 1,
+    "zebratix.com|WRONG_EVENT": 1,
+    "karamel.co.il|WRONG_EVENT": 1,
+    "ligdol.co.il|WRONG_EVENT": 1,
+    "2jump.co.il|INDIRECT_BEST": 1,
+    "mybaby.co.il|KEEP_DIRECT": 1,
+    "junglecity.org.il|INDIRECT_BEST": 1,
+    "kiftzuba.co.il|INDIRECT_BEST": 1,
+    "skyjump.co.il|INDIRECT_BEST": 1,
+    "kinderland.co.il|WRONG_EVENT": 1,
+    "haypark.co.il|INDIRECT_BEST": 1,
+    "ligdol.co.il|KEEP_DIRECT": 1,
+    "eingev.com|INDIRECT_BEST": 1,
+    "kivunimb7.smarticket.co.il|BROKEN": 1,
+    "itraveljerusalem.com|KEEP_DIRECT": 1,
+    "smnh.tau.ac.il|KEEP_DIRECT": 1,
+    "tamuseum.org.il|KEEP_DIRECT": 1,
+    "namalyafo.co.il|INDIRECT_BEST": 1,
+    "visit-tlv.co.il|KEEP_DIRECT": 1,
+    "museumofillusions.co.il|INDIRECT_BEST": 1,
+    "lib.cet.ac.il|WRONG_EVENT": 1,
+    "tel-aviv.gov.il|WRONG_EVENT": 1,
+    "malamma.wordpress.com|KEEP_DIRECT": 1,
+    "nitzaneihamada.tik-tak.school|INDIRECT_BEST": 1,
+    "davidson.org.il|KEEP_DIRECT": 1,
+    "buggykids.co.il|INDIRECT_BEST": 1,
+    "park.co.il|KEEP_DIRECT": 1,
+    "sophiasecretwisdom.com|KEEP_DIRECT": 1,
+    "icepeaks.co.il|INDIRECT_BEST": 1
+  },
+  "rows": [
+    {
+      "klass": "KEEP_DIRECT",
+      "why": "event page (title words 100%)",
+      "kind": "occurrence_booking",
+      "activity_id": "900cb3cf-2137-45e8-9367-9c8451690b62",
+      "name": "משחקייה בקטנטנים",
+      "url": "https://tickets.raanana.muni.il/%D7%9E%D7%A9%D7%97%D7%A7%D7%99%D7%99%D7%94_%D7%91%D7%A7%D7%98%D7%A0%D7%98%D7%A0%D7%99%D7%9D/?id=31548",
+      "date": "2026-09-17",
+      "host": "tickets.raanana.muni.il"
+    },
+    {
+      "klass": "KEEP_DIRECT",
+      "why": "event page (title words 100%)",
+      "kind": "occurrence_booking",
+      "activity_id": "900cb3cf-2137-45e8-9367-9c8451690b62",
+      "name": "משחקייה בקטנטנים",
+      "url": "https://tickets.raanana.muni.il/%D7%9E%D7%A9%D7%97%D7%A7%D7%99%D7%99%D7%94_%D7%91%D7%A7%D7%98%D7%A0%D7%98%D7%A0%D7%99%D7%9D/?id=31552",
+      "date": "2026-09-17",
+      "host": "tickets.raanana.muni.il"
+    },
+    {
+      "klass": "KEEP_DIRECT",
+      "why": "provider url",
+      "kind": "official_url",
+      "activity_id": "7a993721-8b61-44e5-aa1c-050fa90a2961",
+      "name": "סדנת יצירה משותפת להורים וילדים מגיל 3",
+      "url": "https://eventbuzz.co.il/producer/v2/byltlv",
+      "date": "2026-09-28",
+      "host": "eventbuzz.co.il"
+    },
+    {
+      "klass": "KEEP_DIRECT",
+      "why": "event page (title words 83%)",
+      "kind": "occurrence_booking",
+      "activity_id": "04d436c7-2107-433c-bcc1-0670dce12cee",
+      "name": "אחה״צ בקטנטנים - חוג תנועה ומוזיקה בעברית ואנגלית עם מאיה אדלר גילאי הליכה עד 4 + משחקייה",
+      "url": "https://tickets.raanana.muni.il/%D7%90%D7%97%D7%94_%D7%A6_%D7%91%D7%A7%D7%98%D7%A0%D7%98%D7%A0%D7%99%D7%9D-_%D7%97%D7%95%D7%92_%D7%AA%D7%A0%D7%95%D7%A2%D7%94_%D7%95%D7%9E%D7%95%D7%A1%D7%99%D7%A7%D7%94_%D7%91%D7%A2%D7%91%D7%A8%D7%99%D7%AA_%D7%95%D7%90%D7%A0%D7%92%D7%9C%D7%99%D7%AA_%D7%A2%D7%9D_%D7%9E%D7%90%D7%99%D7%94_%D7%90%D7%93%D7%9C%D7%A8_%D7%92%D7%99%D7%9C%D7%90%D7%99_%D7%94%D7%9C%D7%99%D7%9B%D7%94_%D7%A2%D7%93_4___%D7%9E%D7%A9%D7%97%D7%A7%D7%99%D7%99%D7%94/?id=31492",
+      "date": "2026-10-05",
+      "host": "tickets.raanana.muni.il"
+    },
+    {
+      "klass": "KEEP_DIRECT",
+      "why": "event page (title words 100%)",
+      "kind": "occurrence_booking",
+      "activity_id": "6f254902-7f3f-4b88-a8f1-482254ee196b",
+      "name": "גולי והגיטרה ששרה לגיל 2-4",
+      "url": "https://tickets.raanana.muni.il/%D7%92%D7%95%D7%9C%D7%99_%D7%95%D7%94%D7%92%D7%99%D7%98%D7%A8%D7%94_%D7%A9%D7%A9%D7%A8%D7%94_%D7%9C%D7%92%D7%99%D7%9C_2-4/?id=31436",
+      "date": "2026-10-12",
+      "host": "tickets.raanana.muni.il"
+    },
+    {
+      "klass": "KEEP_DIRECT",
+      "why": "event page (title words 100%)",
+      "kind": "occurrence_booking",
+      "activity_id": "6f254902-7f3f-4b88-a8f1-482254ee196b",
+      "name": "גולי והגיטרה ששרה לגיל 2-4",
+      "url": "https://tickets.raanana.muni.il/%D7%92%D7%95%D7%9C%D7%99_%D7%95%D7%94%D7%92%D7%99%D7%98%D7%A8%D7%94_%D7%A9%D7%A9%D7%A8%D7%94_%D7%9C%D7%92%D7%99%D7%9C_2-4/?id=31435",
+      "date": "2026-10-12",
+      "host": "tickets.raanana.muni.il"
+    },
+    {
+      "klass": "KEEP_DIRECT",
+      "why": "event page (title words 83%)",
+      "kind": "occurrence_booking",
+      "activity_id": "04d436c7-2107-433c-bcc1-0670dce12cee",
+      "name": "אחה״צ בקטנטנים - חוג תנועה ומוזיקה בעברית ואנגלית עם מאיה אדלר גילאי הליכה עד 4 + משחקייה",
+      "url": "https://tickets.raanana.muni.il/%D7%90%D7%97%D7%94_%D7%A6_%D7%91%D7%A7%D7%98%D7%A0%D7%98%D7%A0%D7%99%D7%9D-_%D7%97%D7%95%D7%92_%D7%AA%D7%A0%D7%95%D7%A2%D7%94_%D7%95%D7%9E%D7%95%D7%A1%D7%99%D7%A7%D7%94_%D7%91%D7%A2%D7%91%D7%A8%D7%99%D7%AA_%D7%95%D7%90%D7%A0%D7%92%D7%9C%D7%99%D7%AA_%D7%A2%D7%9D_%D7%9E%D7%90%D7%99%D7%94_%D7%90%D7%93%D7%9C%D7%A8_%D7%92%D7%99%D7%9C%D7%90%D7%99_%D7%94%D7%9C%D7%99%D7%9B%D7%94_%D7%A2%D7%93_4___%D7%9E%D7%A9%D7%97%D7%A7%D7%99%D7%99%D7%94/?id=31495",
+      "date": "2026-10-19",
+      "host": "tickets.raanana.muni.il"
+    },
+    {
+      "klass": "KEEP_DIRECT",
+      "why": "event page (title words 83%)",
+      "kind": "occurrence_booking",
+      "activity_id": "04d436c7-2107-433c-bcc1-0670dce12cee",
+      "name": "אחה״צ בקטנטנים - חוג תנועה ומוזיקה בעברית ואנגלית עם מאיה אדלר גילאי הליכה עד 4 + משחקייה",
+      "url": "https://tickets.raanana.muni.il/%D7%90%D7%97%D7%94_%D7%A6_%D7%91%D7%A7%D7%98%D7%A0%D7%98%D7%A0%D7%99%D7%9D-_%D7%97%D7%95%D7%92_%D7%AA%D7%A0%D7%95%D7%A2%D7%94_%D7%95%D7%9E%D7%95%D7%A1%D7%99%D7%A7%D7%94_%D7%91%D7%A2%D7%91%D7%A8%D7%99%D7%AA_%D7%95%D7%90%D7%A0%D7%92%D7%9C%D7%99%D7%AA_%D7%A2%D7%9D_%D7%9E%D7%90%D7%99%D7%94_%D7%90%D7%93%D7%9C%D7%A8_%D7%92%D7%99%D7%9C%D7%90%D7%99_%D7%94%D7%9C%D7%99%D7%9B%D7%94_%D7%A2%D7%93_4___%D7%9E%D7%A9%D7%97%D7%A7%D7%99%D7%99%D7%94/?id=31496",
+      "date": "2026-10-26",
+      "host": "tickets.raanana.muni.il"
+    },
+    {
+      "klass": "KEEP_DIRECT",
+      "why": "event page (title words 83%)",
+      "kind": "occurrence_booking",
+      "activity_id": "04d436c7-2107-433c-bcc1-0670dce12cee",
+      "name": "אחה״צ בקטנטנים - חוג תנועה ומוזיקה בעברית ואנגלית עם מאיה אדלר גילאי הליכה עד 4 + משחקייה",
+      "url": "https://tickets.raanana.muni.il/%D7%90%D7%97%D7%94_%D7%A6_%D7%91%D7%A7%D7%98%D7%A0%D7%98%D7%A0%D7%99%D7%9D-_%D7%97%D7%95%D7%92_%D7%AA%D7%A0%D7%95%D7%A2%D7%94_%D7%95%D7%9E%D7%95%D7%A1%D7%99%D7%A7%D7%94_%D7%91%D7%A2%D7%91%D7%A8%D7%99%D7%AA_%D7%95%D7%90%D7%A0%D7%92%D7%9C%D7%99%D7%AA_%D7%A2%D7%9D_%D7%9E%D7%90%D7%99%D7%94_%D7%90%D7%93%D7%9C%D7%A8_%D7%92%D7%99%D7%9C%D7%90%D7%99_%D7%94%D7%9C%D7%99%D7%9B%D7%94_%D7%A2%D7%93_4___%D7%9E%D7%A9%D7%97%D7%A7%D7%99%D7%99%D7%94/?id=31493",
+      "date": "2026-11-02",
+      "host": "tickets.raanana.muni.il"
+    },
+    {
+      "klass": "KEEP_DIRECT",
+      "why": "event page (title words 83%)",
+      "kind": "occurrence_booking",
+      "activity_id": "04d436c7-2107-433c-bcc1-0670dce12cee",
+      "name": "אחה״צ בקטנטנים - חוג תנועה ומוזיקה בעברית ואנגלית עם מאיה אדלר גילאי הליכה עד 4 + משחקייה",
+      "url": "https://tickets.raanana.muni.il/%D7%90%D7%97%D7%94_%D7%A6_%D7%91%D7%A7%D7%98%D7%A0%D7%98%D7%A0%D7%99%D7%9D-_%D7%97%D7%95%D7%92_%D7%AA%D7%A0%D7%95%D7%A2%D7%94_%D7%95%D7%9E%D7%95%D7%A1%D7%99%D7%A7%D7%94_%D7%91%D7%A2%D7%91%D7%A8%D7%99%D7%AA_%D7%95%D7%90%D7%A0%D7%92%D7%9C%D7%99%D7%AA_%D7%A2%D7%9D_%D7%9E%D7%90%D7%99%D7%94_%D7%90%D7%93%D7%9C%D7%A8_%D7%92%D7%99%D7%9C%D7%90%D7%99_%D7%94%D7%9C%D7%99%D7%9B%D7%94_%D7%A2%D7%93_4___%D7%9E%D7%A9%D7%97%D7%A7%D7%99%D7%99%D7%94/?id=31497",
+      "date": "2026-11-09",
+      "host": "tickets.raanana.muni.il"
+    },
+    {
+      "klass": "KEEP_DIRECT",
+      "why": "event page (title words 83%)",
+      "kind": "occurrence_booking",
+      "activity_id": "04d436c7-2107-433c-bcc1-0670dce12cee",
+      "name": "אחה״צ בקטנטנים - חוג תנועה ומוזיקה בעברית ואנגלית עם מאיה אדלר גילאי הליכה עד 4 + משחקייה",
+      "url": "https://tickets.raanana.muni.il/%D7%90%D7%97%D7%94_%D7%A6_%D7%91%D7%A7%D7%98%D7%A0%D7%98%D7%A0%D7%99%D7%9D-_%D7%97%D7%95%D7%92_%D7%AA%D7%A0%D7%95%D7%A2%D7%94_%D7%95%D7%9E%D7%95%D7%A1%D7%99%D7%A7%D7%94_%D7%91%D7%A2%D7%91%D7%A8%D7%99%D7%AA_%D7%95%D7%90%D7%A0%D7%92%D7%9C%D7%99%D7%AA_%D7%A2%D7%9D_%D7%9E%D7%90%D7%99%D7%94_%D7%90%D7%93%D7%9C%D7%A8_%D7%92%D7%99%D7%9C%D7%90%D7%99_%D7%94%D7%9C%D7%99%D7%9B%D7%94_%D7%A2%D7%93_4___%D7%9E%D7%A9%D7%97%D7%A7%D7%99%D7%99%D7%94/?id=31498",
+      "date": "2026-11-16",
+      "host": "tickets.raanana.muni.il"
+    },
+    {
+      "klass": "KEEP_DIRECT",
+      "why": "event page (title words 83%)",
+      "kind": "occurrence_booking",
+      "activity_id": "04d436c7-2107-433c-bcc1-0670dce12cee",
+      "name": "אחה״צ בקטנטנים - חוג תנועה ומוזיקה בעברית ואנגלית עם מאיה אדלר גילאי הליכה עד 4 + משחקייה",
+      "url": "https://tickets.raanana.muni.il/%D7%90%D7%97%D7%94_%D7%A6_%D7%91%D7%A7%D7%98%D7%A0%D7%98%D7%A0%D7%99%D7%9D-_%D7%97%D7%95%D7%92_%D7%AA%D7%A0%D7%95%D7%A2%D7%94_%D7%95%D7%9E%D7%95%D7%A1%D7%99%D7%A7%D7%94_%D7%91%D7%A2%D7%91%D7%A8%D7%99%D7%AA_%D7%95%D7%90%D7%A0%D7%92%D7%9C%D7%99%D7%AA_%D7%A2%D7%9D_%D7%9E%D7%90%D7%99%D7%94_%D7%90%D7%93%D7%9C%D7%A8_%D7%92%D7%99%D7%9C%D7%90%D7%99_%D7%94%D7%9C%D7%99%D7%9B%D7%94_%D7%A2%D7%93_4___%D7%9E%D7%A9%D7%97%D7%A7%D7%99%D7%99%D7%94/?id=31499",
+      "date": "2026-11-23",
+      "host": "tickets.raanana.muni.il"
+    },
+    {
+      "klass": "KEEP_DIRECT",
+      "why": "event page (title words 83%)",
+      "kind": "occurrence_booking",
+      "activity_id": "04d436c7-2107-433c-bcc1-0670dce12cee",
+      "name": "אחה״צ בקטנטנים - חוג תנועה ומוזיקה בעברית ואנגלית עם מאיה אדלר גילאי הליכה עד 4 + משחקייה",
+      "url": "https://tickets.raanana.muni.il/%D7%90%D7%97%D7%94_%D7%A6_%D7%91%D7%A7%D7%98%D7%A0%D7%98%D7%A0%D7%99%D7%9D-_%D7%97%D7%95%D7%92_%D7%AA%D7%A0%D7%95%D7%A2%D7%94_%D7%95%D7%9E%D7%95%D7%A1%D7%99%D7%A7%D7%94_%D7%91%D7%A2%D7%91%D7%A8%D7%99%D7%AA_%D7%95%D7%90%D7%A0%D7%92%D7%9C%D7%99%D7%AA_%D7%A2%D7%9D_%D7%9E%D7%90%D7%99%D7%94_%D7%90%D7%93%D7%9C%D7%A8_%D7%92%D7%99%D7%9C%D7%90%D7%99_%D7%94%D7%9C%D7%99%D7%9B%D7%94_%D7%A2%D7%93_4___%D7%9E%D7%A9%D7%97%D7%A7%D7%99%D7%99%D7%94/?id=31500",
+      "date": "2026-11-30",
+      "host": "tickets.raanana.muni.il"
+    },
+    {
+      "klass": "KEEP_DIRECT",
+      "why": "event page (title words 83%)",
+      "kind": "occurrence_booking",
+      "activity_id": "04d436c7-2107-433c-bcc1-0670dce12cee",
+      "name": "אחה״צ בקטנטנים - חוג תנועה ומוזיקה בעברית ואנגלית עם מאיה אדלר גילאי הליכה עד 4 + משחקייה",
+      "url": "https://tickets.raanana.muni.il/%D7%90%D7%97%D7%94_%D7%A6_%D7%91%D7%A7%D7%98%D7%A0%D7%98%D7%A0%D7%99%D7%9D-_%D7%97%D7%95%D7%92_%D7%AA%D7%A0%D7%95%D7%A2%D7%94_%D7%95%D7%9E%D7%95%D7%A1%D7%99%D7%A7%D7%94_%D7%91%D7%A2%D7%91%D7%A8%D7%99%D7%AA_%D7%95%D7%90%D7%A0%D7%92%D7%9C%D7%99%D7%AA_%D7%A2%D7%9D_%D7%9E%D7%90%D7%99%D7%94_%D7%90%D7%93%D7%9C%D7%A8_%D7%92%D7%99%D7%9C%D7%90%D7%99_%D7%94%D7%9C%D7%99%D7%9B%D7%94_%D7%A2%D7%93_4___%D7%9E%D7%A9%D7%97%D7%A7%D7%99%D7%99%D7%94/?id=31494",
+      "date": "2026-12-07",
+      "host": "tickets.raanana.muni.il"
+    },
+    {
+      "klass": "KEEP_DIRECT",
+      "why": "event page (title words 100%)",
+      "kind": "occurrence_booking",
+      "activity_id": "6f254902-7f3f-4b88-a8f1-482254ee196b",
+      "name": "גולי והגיטרה ששרה לגיל 2-4",
+      "url": "https://tickets.raanana.muni.il/%D7%92%D7%95%D7%9C%D7%99_%D7%95%D7%94%D7%92%D7%99%D7%98%D7%A8%D7%94_%D7%A9%D7%A9%D7%A8%D7%94_%D7%9C%D7%92%D7%99%D7%9C_2-4/?id=31437",
+      "date": "2026-12-21",
+      "host": "tickets.raanana.muni.il"
+    },
+    {
+      "klass": "KEEP_DIRECT",
+      "why": "event page (title words 100%)",
+      "kind": "occurrence_booking",
+      "activity_id": "6f254902-7f3f-4b88-a8f1-482254ee196b",
+      "name": "גולי והגיטרה ששרה לגיל 2-4",
+      "url": "https://tickets.raanana.muni.il/%D7%92%D7%95%D7%9C%D7%99_%D7%95%D7%94%D7%92%D7%99%D7%98%D7%A8%D7%94_%D7%A9%D7%A9%D7%A8%D7%94_%D7%9C%D7%92%D7%99%D7%9C_2-4/?id=31438",
+      "date": "2026-12-21",
+      "host": "tickets.raanana.muni.il"
+    },
+    {
+      "klass": "KEEP_DIRECT",
+      "why": "event page (title words 100%)",
+      "kind": "occurrence_booking",
+      "activity_id": "6f254902-7f3f-4b88-a8f1-482254ee196b",
+      "name": "גולי והגיטרה ששרה לגיל 2-4",
+      "url": "https://tickets.raanana.muni.il/%D7%92%D7%95%D7%9C%D7%99_%D7%95%D7%94%D7%92%D7%99%D7%98%D7%A8%D7%94_%D7%A9%D7%A9%D7%A8%D7%94_%D7%9C%D7%92%D7%99%D7%9C_2-4/?id=31439",
+      "date": "2027-02-01",
+      "host": "tickets.raanana.muni.il"
+    },
+    {
+      "klass": "KEEP_DIRECT",
+      "why": "event page (title words 100%)",
+      "kind": "occurrence_booking",
+      "activity_id": "6f254902-7f3f-4b88-a8f1-482254ee196b",
+      "name": "גולי והגיטרה ששרה לגיל 2-4",
+      "url": "https://tickets.raanana.muni.il/%D7%92%D7%95%D7%9C%D7%99_%D7%95%D7%94%D7%92%D7%99%D7%98%D7%A8%D7%94_%D7%A9%D7%A9%D7%A8%D7%94_%D7%9C%D7%92%D7%99%D7%9C_2-4/?id=31440",
+      "date": "2027-02-01",
+      "host": "tickets.raanana.muni.il"
+    },
+    {
+      "klass": "KEEP_DIRECT",
+      "why": "event page (title words 100%)",
+      "kind": "occurrence_booking",
+      "activity_id": "6f254902-7f3f-4b88-a8f1-482254ee196b",
+      "name": "גולי והגיטרה ששרה לגיל 2-4",
+      "url": "https://tickets.raanana.muni.il/%D7%92%D7%95%D7%9C%D7%99_%D7%95%D7%94%D7%92%D7%99%D7%98%D7%A8%D7%94_%D7%A9%D7%A9%D7%A8%D7%94_%D7%9C%D7%92%D7%99%D7%9C_2-4/?id=31441",
+      "date": "2027-04-05",
+      "host": "tickets.raanana.muni.il"
+    },
+    {
+      "klass": "KEEP_DIRECT",
+      "why": "event page (title words 100%)",
+      "kind": "occurrence_booking",
+      "activity_id": "6f254902-7f3f-4b88-a8f1-482254ee196b",
+      "name": "גולי והגיטרה ששרה לגיל 2-4",
+      "url": "https://tickets.raanana.muni.il/%D7%92%D7%95%D7%9C%D7%99_%D7%95%D7%94%D7%92%D7%99%D7%98%D7%A8%D7%94_%D7%A9%D7%A9%D7%A8%D7%94_%D7%9C%D7%92%D7%99%D7%9C_2-4/?id=31442",
+      "date": "2027-04-05",
+      "host": "tickets.raanana.muni.il"
+    },
+    {
+      "klass": "KEEP_DIRECT",
+      "why": "event page (title words 100%)",
+      "kind": "official_url",
+      "activity_id": "110fa009-8d10-4b82-9202-e08b287f3cea",
+      "name": "פארק יהורם גאון",
+      "url": "https://cpnclub.co.il/category/%D7%90%D7%98%D7%A8%D7%A7%D7%A6%D7%99%D7%95%D7%AA-%D7%9C%D7%99%D7%9C%D7%93%D7%99%D7%9D?page\\u003d3",
+      "date": null,
+      "host": "cpnclub.co.il"
+    },
+    {
+      "klass": "KEEP_DIRECT",
+      "why": "event page (title words n/a)",
+      "kind": "official_url",
+      "activity_id": "8df458b6-41ae-4447-84f4-4f7ce8d34d68",
+      "name": "מחנה קיץ שוחרי מדע ע״ש ד״ר בסי לורנס",
+      "url": "https://www.weizmann.ac.il/pages/he/node?page\\u003d469",
+      "date": null,
+      "host": "weizmann.ac.il"
+    },
+    {
+      "klass": "WRONG_EVENT",
+      "why": "page mentions 0% of the event's title words",
+      "kind": "official_url",
+      "activity_id": "98045313-5733-42e8-bbe1-f8383bf90c06",
+      "name": "free jump",
+      "url": "https://www.zebratix.com/singlesale/FREE%20JUMP",
+      "date": null,
+      "host": "zebratix.com"
+    },
+    {
+      "klass": "WRONG_EVENT",
+      "why": "page mentions 0% of the event's title words",
+      "kind": "official_url",
+      "activity_id": "fbf4cc68-67e2-47b7-8296-025c906764f3",
+      "name": "ג'אמפיקס",
+      "url": "https://www.karamel.co.il/%D7%A6%D7%A0%D7%99%D7%97%D7%94_%D7%97%D7%95%D7%A4%D7%A9%D7%99%D7%AA_%D7%97%D7%95%D7%A3_%D7%94%D7%91%D7%95%D7%A0%D7%99%D7%9D.asp",
+      "date": null,
+      "host": "karamel.co.il"
+    },
+    {
+      "klass": "WRONG_EVENT",
+      "why": "page mentions 33% of the event's title words",
+      "kind": "official_url",
+      "activity_id": "f4384924-e4c6-4e12-aebd-df4559edc1d1",
+      "name": "נאון מיני גולף",
+      "url": "https://www.ligdol.co.il/ligdolindexes/default.aspx?indexid\\u003d4\\u0026place\\u003d88",
+      "date": null,
+      "host": "ligdol.co.il"
+    },
+    {
+      "klass": "INDIRECT_BEST",
+      "why": "site_root",
+      "kind": "official_url",
+      "activity_id": "74203dff-b314-433e-a58e-caee4e669f32",
+      "name": "2 ג'אמפ",
+      "url": "https://2jump.co.il/",
+      "date": null,
+      "host": "2jump.co.il"
+    },
+    {
+      "klass": "KEEP_DIRECT",
+      "why": "event page (title words 100%)",
+      "kind": "official_url",
+      "activity_id": "2a52ab5e-ee7b-44e8-a008-d9aa2e030938",
+      "name": "מיי בייבי",
+      "url": "https://www.mybaby.co.il/?srsltid\\u003dAfmBOoq3AHnt9U2_bZwT0jp4k0v2VMd-IA-VFuM1TKaTklARA-gnPNZQ",
+      "date": null,
+      "host": "mybaby.co.il"
+    },
+    {
+      "klass": "INDIRECT_BEST",
+      "why": "site_root",
+      "kind": "official_url",
+      "activity_id": "7485d851-756c-40e5-9a8d-7a605007491b",
+      "name": "משחקיית ג'ונגל סיטי",
+      "url": "https://www.junglecity.org.il/",
+      "date": null,
+      "host": "junglecity.org.il"
+    },
+    {
+      "klass": "INDIRECT_BEST",
+      "why": "site_root",
+      "kind": "official_url",
+      "activity_id": "353f0697-ad96-429c-b0fb-cbd00b43b9e0",
+      "name": "קיפצובה",
+      "url": "https://kiftzuba.co.il/",
+      "date": null,
+      "host": "kiftzuba.co.il"
+    },
+    {
+      "klass": "KEEP_DIRECT",
+      "why": "event page (title words 100%)",
+      "kind": "official_url",
+      "activity_id": "42e34500-f029-497a-b38c-36cabeafca3b",
+      "name": "משחקיית רינו",
+      "url": "https://cpnclub.co.il/supplier/2486",
+      "date": null,
+      "host": "cpnclub.co.il"
+    },
+    {
+      "klass": "INDIRECT_BEST",
+      "why": "site_root",
+      "kind": "official_url",
+      "activity_id": "b622f305-295f-4acd-94c1-9184cb6d9f12",
+      "name": "סקיי ג'אמפ",
+      "url": "https://www.skyjump.co.il/",
+      "date": null,
+      "host": "skyjump.co.il"
+    },
+    {
+      "klass": "WRONG_EVENT",
+      "why": "page mentions 0% of the event's title words",
+      "kind": "official_url",
+      "activity_id": "3b0ac9ed-a062-4fcd-bbc7-fd93de821736",
+      "name": "בלונה ג'ימבורי",
+      "url": "https://kinderland.co.il/page/107/?cat\\u003d0",
+      "date": null,
+      "host": "kinderland.co.il"
+    },
+    {
+      "klass": "INDIRECT_BEST",
+      "why": "site_root",
+      "kind": "official_url",
+      "activity_id": "1549748f-6cc2-4fa8-b92c-6a12a14fcb49",
+      "name": "חי פארק",
+      "url": "https://haypark.co.il/",
+      "date": null,
+      "host": "haypark.co.il"
+    },
+    {
+      "klass": "KEEP_DIRECT",
+      "why": "event page (title words 67%)",
+      "kind": "official_url",
+      "activity_id": "f90b8309-471d-4a4e-ad62-e01fbf86a5d5",
+      "name": "פארק ארץ הצבי",
+      "url": "https://www.ligdol.co.il/ligdolindexes/default.aspx?indexid\\u003d4\\u0026place\\u003d30\\u0026location\\u003d88",
+      "date": null,
+      "host": "ligdol.co.il"
+    },
+    {
+      "klass": "INDIRECT_BEST",
+      "why": "site_root",
+      "kind": "official_url",
+      "activity_id": "71263175-06f5-4cf4-8b1a-2eb6c317c8e9",
+      "name": "הבית בנמל",
+      "url": "https://eingev.com/",
+      "date": null,
+      "host": "eingev.com"
+    },
+    {
+      "klass": "BROKEN",
+      "why": "HTTP 404",
+      "kind": "official_url",
+      "activity_id": "6fd54665-7fae-4c43-8013-ad6a4851da08",
+      "name": "לונדע מוזיאון הילדים של באר שבע",
+      "url": "https://kivunimb7.smarticket.co.il/%D7%9B%D7%A0%D7%99%D7%A1%D7%94_%D7%9C%D7%95%D7%A0%D7%93%D7%A2/?id\\u003d94431",
+      "date": null,
+      "host": "kivunimb7.smarticket.co.il"
+    },
+    {
+      "klass": "KEEP_DIRECT",
+      "why": "event page (title words 100%)",
+      "kind": "official_url",
+      "activity_id": "42b4758b-85ae-44db-b3d1-41b714cd717a",
+      "name": "אקווריום ישראל",
+      "url": "https://www.itraveljerusalem.com/he/list/attractions?secondary_areas\\u003d30\\u0026attraction_types\\u003d39",
+      "date": null,
+      "host": "itraveljerusalem.com"
+    },
+    {
+      "klass": "KEEP_DIRECT",
+      "why": "event page (title words 100%)",
+      "kind": "official_url",
+      "activity_id": "1e6b4266-d1a9-4b1d-bc09-4cb5d1d4ce2c",
+      "name": "מוזיאון הטבע ע\"ש שטיינהרדט",
+      "url": "https://smnh.tau.ac.il/teaching-resources-tag/lesson_plan/",
+      "date": null,
+      "host": "smnh.tau.ac.il"
+    },
+    {
+      "klass": "KEEP_DIRECT",
+      "why": "event page (title words 100%)",
+      "kind": "official_url",
+      "activity_id": "269d6c13-9e1b-467f-8f25-273176aa542b",
+      "name": "מוזיאון תל אביב",
+      "url": "https://tamuseum.org.il/he/event/philosophy-art-cinema-7_23-24/",
+      "date": null,
+      "host": "tamuseum.org.il"
+    },
+    {
+      "klass": "INDIRECT_BEST",
+      "why": "site_root",
+      "kind": "official_url",
+      "activity_id": "5db04b7c-7ac3-4a94-ac01-bf6d983b17d7",
+      "name": "נמל יפו",
+      "url": "https://www.namalyafo.co.il/",
+      "date": null,
+      "host": "namalyafo.co.il"
+    },
+    {
+      "klass": "KEEP_DIRECT",
+      "why": "event page (title words 100%)",
+      "kind": "official_url",
+      "activity_id": "ca213b52-900a-42e9-ad9d-9acd4a3d36f4",
+      "name": "שוק הכרמל",
+      "url": "https://visit-tlv.co.il/tour_type/%D7%A1%D7%99%D7%95%D7%A8%D7%99%D7%9D-%D7%A7%D7%95%D7%9C%D7%99%D7%A0%D7%A8%D7%99%D7%9D/",
+      "date": null,
+      "host": "visit-tlv.co.il"
+    },
+    {
+      "klass": "INDIRECT_BEST",
+      "why": "site_root",
+      "kind": "official_url",
+      "activity_id": "bc0a215f-cf12-4f41-9531-3ed17b6d7c6f",
+      "name": "מוזיאון האשליות",
+      "url": "https://museumofillusions.co.il/",
+      "date": null,
+      "host": "museumofillusions.co.il"
+    },
+    {
+      "klass": "WRONG_EVENT",
+      "why": "page mentions 0% of the event's title words",
+      "kind": "official_url",
+      "activity_id": "c2aa1d62-055d-4096-bf57-babce86e19b3",
+      "name": "מוזיאון המדע ע״ש בלומפילד",
+      "url": "https://www.lib.cet.ac.il/PAGES/subx.asp?item\\u003d0\\u0026type\\u003dsite\\u0026kwd\\u003d3722",
+      "date": null,
+      "host": "lib.cet.ac.il"
+    },
+    {
+      "klass": "WRONG_EVENT",
+      "why": "page mentions 0% of the event's title words",
+      "kind": "official_url",
+      "activity_id": "28123193-948b-4da2-9808-1cb4b471b34a",
+      "name": "פסטיבל האורות",
+      "url": "https://www.tel-aviv.gov.il/Visitors/ArtCulture/_layouts/15/Authenticate.aspx?Source\\u003d%2FVisitors%2FArtCulture%2FPages%2FArtCulture%2Easpx%3FSource%3D%252FVisitors%252FArtCulture%252FPages%252FArtCulture%252Easpx%253FSource%253D%25252FVisitors%25252FArtCulture%25252FPages%25252FArtCulture%25252Easpx%25253FSource%25253D%2525252FVisitors%2525252FArtCulture%2525252FPages%2525252FArtCulture%2525252Easpx%2525253FSource%2525253D%252525252FVisitors%252525252FArtCulture%252525252FPages%252525252FArtCulture%252525252Easpx%252525253FSource%252525253D%25252525252FVisitors%25252525252FArtCulture%25252525252FPages%25252525252FArtCulture%25252525252Easpx%25252525253FSource%25252525253D%2525252525252FVisitors%2525252525252FArtCulture%2525252525252FPages%2525252525252FArtCulture%2525252525252Easpx%2525252525253FSource%2525252525253D%252525252525252FVisitors%252525252525252FArtCulture%252525252525252FPages%252525252525252FArtCulture%252525252525252Easpx%252525252525253FSource%252525252525253D%25252525252525252FVisitors%25252525252525252FArtCulture%25252525252525252FPages%25252525252525252FArtCulture%25252525252525252Easpx%25252525252525253FSource%25252525252525253D%2525252525252525252FVisitors%2525252525252525252FArtCulture%2525252525252525252Fpages%2525252525252525252Fwohlamphitheatre%2525252525252525252Easpx%2525252525252525253FIccID%2525252525252525253D208%252525252525252526IntsID%25252525252525253D15%2525252525252526IntsID%252525252525253D15%25252525252526IntsID%2525252525253D15%252525252526IntsID%25252525253D15%25252526IntsID%2525253D15",
+      "date": null,
+      "host": "tel-aviv.gov.il"
+    },
+    {
+      "klass": "KEEP_DIRECT",
+      "why": "event page (title words 100%)",
+      "kind": "official_url",
+      "activity_id": "8abdbc79-4e63-456a-82dc-d0559f391e92",
+      "name": "תערוכת הבלונים (Balloon Story)",
+      "url": "https://malamma.wordpress.com/2025/08/02/balloon-story%D7%9E%D7%9B%D7%95%D7%A0%D7%AA-%D7%94%D7%96%D7%9E%D7%9F/",
+      "date": null,
+      "host": "malamma.wordpress.com"
+    },
+    {
+      "klass": "INDIRECT_BEST",
+      "why": "site_root",
+      "kind": "official_url",
+      "activity_id": "da3e0e90-f083-4a64-8079-8cd498efab87",
+      "name": "ניצני מדע",
+      "url": "https://nitzaneihamada.tik-tak.school/",
+      "date": null,
+      "host": "nitzaneihamada.tik-tak.school"
+    },
+    {
+      "klass": "KEEP_DIRECT",
+      "why": "event page (title words 100%)",
+      "kind": "official_url",
+      "activity_id": "fb3c1c12-a4a0-45b8-abb5-030fb5733b3f",
+      "name": "חוקרים צעירים",
+      "url": "https://davidson.org.il/learn-experience/courses/%D7%97%D7%95%D7%A7%D7%A8%D7%99%D7%9D-%D7%A6%D7%A2%D7%99%D7%A8%D7%99%D7%9D/",
+      "date": null,
+      "host": "davidson.org.il"
+    },
+    {
+      "klass": "INDIRECT_BEST",
+      "why": "site_root",
+      "kind": "official_url",
+      "activity_id": "39c83044-872a-4045-9a39-1170afa27a2e",
+      "name": "באגי קידס",
+      "url": "https://www.buggykids.co.il/",
+      "date": null,
+      "host": "buggykids.co.il"
+    },
+    {
+      "klass": "KEEP_DIRECT",
+      "why": "event page (title words 100%)",
+      "kind": "official_url",
+      "activity_id": "bed23c30-94ca-4236-970c-9a4dfe5c435f",
+      "name": "פארק הירקון",
+      "url": "https://park.co.il/projects/",
+      "date": null,
+      "host": "park.co.il"
+    },
+    {
+      "klass": "KEEP_DIRECT",
+      "why": "event page (title words 100%)",
+      "kind": "official_url",
+      "activity_id": "939adc81-9901-48b4-8c5d-c950d95ebc38",
+      "name": "מימדיון",
+      "url": "https://www.sophiasecretwisdom.com/%D7%A4%D7%90%D7%A8%D7%A7-%D7%9E%D7%99%D7%9D-%D7%9E%D7%99%D7%9E%D7%93%D7%99%D7%95%D7%9F-%D7%9E%D7%99%D7%9E%D7%93%D7%99%D7%95%D7%9F-%D7%AA%D7%9C-%D7%90%D7%91%D7%99%D7%91-%D7%90%D7%98%D7%A8%D7%A7/",
+      "date": null,
+      "host": "sophiasecretwisdom.com"
+    },
+    {
+      "klass": "KEEP_DIRECT",
+      "why": "event page (title words 100%)",
+      "kind": "official_url",
+      "activity_id": "2d7e393d-5cbb-42a8-8db6-0025b5201db1",
+      "name": "בלון תל אביב (Balloon TLV)",
+      "url": "https://cpnclub.co.il/category/%D7%90%D7%98%D7%A8%D7%A7%D7%A6%D7%99%D7%95%D7%AA/%D7%9E%D7%A7%D7%95%D7%9D/10",
+      "date": null,
+      "host": "cpnclub.co.il"
+    },
+    {
+      "klass": "INDIRECT_BEST",
+      "why": "site_root",
+      "kind": "official_url",
+      "activity_id": "bac153f9-73a1-4c3d-80dd-46a683bf661e",
+      "name": "היכל הקרח בחולון",
+      "url": "https://icepeaks.co.il/",
+      "date": null,
+      "host": "icepeaks.co.il"
+    }
+  ]
+}

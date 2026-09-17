@@ -1,0 +1,726 @@
+{
+  "generatedAt": "2026-09-17T18:34:39.397Z",
+  "sitemap": "https://cochav-hanofesh.com/parks-sitemap.xml",
+  "counts": {
+    "source_entities": 54,
+    "canonical_matched": 20,
+    "coverage_pct": 37,
+    "matched_by_source_url": 0,
+    "matched_by_name": 20,
+    "ambiguous_name_matches": 10,
+    "missing_entities": 34,
+    "complete_city": 20,
+    "complete_verified_coords": 20,
+    "complete_address": 19,
+    "complete_image": 8,
+    "complete_venue": 1
+  },
+  "rows": [
+    {
+      "entity": "פארק הזהב",
+      "url": "https://cochav-hanofesh.com/parks/פארק-הזהב/",
+      "matched": false,
+      "how": null,
+      "ambiguous": 0,
+      "activity": null,
+      "complete": null
+    },
+    {
+      "entity": "בריכות נחל קרת",
+      "url": "https://cochav-hanofesh.com/parks/בריכות-נחל-קרת/",
+      "matched": false,
+      "how": null,
+      "ambiguous": 0,
+      "activity": null,
+      "complete": null
+    },
+    {
+      "entity": "גן האם",
+      "url": "https://cochav-hanofesh.com/parks/גן-האם/",
+      "matched": true,
+      "how": "name",
+      "ambiguous": 2,
+      "activity": {
+        "id": "6cc5e5eb-8dd8-45c2-982a-7fb348d47954",
+        "name": "גן האם Ha'em garden",
+        "category": "גן שעשועים",
+        "city": "תל אביב יפו"
+      },
+      "complete": {
+        "city": true,
+        "coords": true,
+        "address": true,
+        "image": true,
+        "venue": false
+      }
+    },
+    {
+      "entity": "גן הוורדים",
+      "url": "https://cochav-hanofesh.com/parks/גן-הוורדים/",
+      "matched": true,
+      "how": "name",
+      "ambiguous": 5,
+      "activity": {
+        "id": "cae35b8a-e833-4298-9574-fc95043dc26b",
+        "name": "גן שעשועים – הורדים, קדימה",
+        "category": "גן שעשועים",
+        "city": "קדימה"
+      },
+      "complete": {
+        "city": true,
+        "coords": true,
+        "address": true,
+        "image": false,
+        "venue": false
+      }
+    },
+    {
+      "entity": "גן הפסגה",
+      "url": "https://cochav-hanofesh.com/parks/גן-הפסגה/",
+      "matched": true,
+      "how": "name",
+      "ambiguous": 4,
+      "activity": {
+        "id": "612629e3-7027-400d-a2f9-2c1f1c4f2cc5",
+        "name": "גן שעשועים – הפסגה, אריאל",
+        "category": "גן שעשועים",
+        "city": "אריאל"
+      },
+      "complete": {
+        "city": true,
+        "coords": true,
+        "address": true,
+        "image": false,
+        "venue": false
+      }
+    },
+    {
+      "entity": "גן המדע",
+      "url": "https://cochav-hanofesh.com/parks/גן-המדע/",
+      "matched": true,
+      "how": "name",
+      "ambiguous": 2,
+      "activity": {
+        "id": "b70588c4-27c3-4e98-b562-76a10d432399",
+        "name": "גן המדע",
+        "category": "גן שעשועים",
+        "city": "ראשון לציון"
+      },
+      "complete": {
+        "city": true,
+        "coords": true,
+        "address": true,
+        "image": false,
+        "venue": false
+      }
+    },
+    {
+      "entity": "גני יהושע",
+      "url": "https://cochav-hanofesh.com/parks/גני-יהושע/",
+      "matched": false,
+      "how": null,
+      "ambiguous": 0,
+      "activity": null,
+      "complete": null
+    },
+    {
+      "entity": "הגן הבוטני עכו",
+      "url": "https://cochav-hanofesh.com/parks/הגן-הבוטני-עכו/",
+      "matched": false,
+      "how": null,
+      "ambiguous": 0,
+      "activity": null,
+      "complete": null
+    },
+    {
+      "entity": "הפארק הלאומי",
+      "url": "https://cochav-hanofesh.com/parks/הפארק-הלאומי/",
+      "matched": true,
+      "how": "name",
+      "ambiguous": 0,
+      "activity": {
+        "id": "096f8b0b-e24e-4193-ab2f-fa02ff0a4308",
+        "name": "גן שעשועים לילדים- הפארק הלאומי",
+        "category": "גן שעשועים",
+        "city": "רמת גן"
+      },
+      "complete": {
+        "city": true,
+        "coords": true,
+        "address": true,
+        "image": true,
+        "venue": false
+      }
+    },
+    {
+      "entity": "טיילת 471",
+      "url": "https://cochav-hanofesh.com/parks/טיילת-471/",
+      "matched": false,
+      "how": null,
+      "ambiguous": 0,
+      "activity": null,
+      "complete": null
+    },
+    {
+      "entity": "טיילת העצמאות",
+      "url": "https://cochav-hanofesh.com/parks/טיילת-העצמאות/",
+      "matched": false,
+      "how": null,
+      "ambiguous": 0,
+      "activity": null,
+      "complete": null
+    },
+    {
+      "entity": "מעגן הדייג",
+      "url": "https://cochav-hanofesh.com/parks/מעגן-הדייג/",
+      "matched": false,
+      "how": null,
+      "ambiguous": 0,
+      "activity": null,
+      "complete": null
+    },
+    {
+      "entity": "עמק הצבאים",
+      "url": "https://cochav-hanofesh.com/parks/עמק-הצבאים/",
+      "matched": false,
+      "how": null,
+      "ambiguous": 0,
+      "activity": null,
+      "complete": null
+    },
+    {
+      "entity": "פארק אשדוד ים",
+      "url": "https://cochav-hanofesh.com/parks/פארק-אשדוד-ים/",
+      "matched": true,
+      "how": "name",
+      "ambiguous": 0,
+      "activity": {
+        "id": "f548c950-a4d1-4ee6-971a-918928e681fd",
+        "name": "פארק אשדוד ים",
+        "category": "פארק",
+        "city": "אשדוד"
+      },
+      "complete": {
+        "city": true,
+        "coords": true,
+        "address": true,
+        "image": true,
+        "venue": false
+      }
+    },
+    {
+      "entity": "פארק בית הכרם",
+      "url": "https://cochav-hanofesh.com/parks/פארק-בית-הכרם/",
+      "matched": true,
+      "how": "name",
+      "ambiguous": 0,
+      "activity": {
+        "id": "84851353-0dba-46c5-84cf-a3d4df765811",
+        "name": "פארק בית הכרם",
+        "category": "גן שעשועים",
+        "city": "כרמיאל"
+      },
+      "complete": {
+        "city": true,
+        "coords": true,
+        "address": true,
+        "image": false,
+        "venue": false
+      }
+    },
+    {
+      "entity": "פארק האקליפטוס",
+      "url": "https://cochav-hanofesh.com/parks/פארק-האקליפטוס/",
+      "matched": true,
+      "how": "name",
+      "ambiguous": 0,
+      "activity": {
+        "id": "b66b7883-ff18-4f5e-a64a-f7335680a20f",
+        "name": "פארק האקליפטוס",
+        "category": "גן שעשועים",
+        "city": "בית שמש"
+      },
+      "complete": {
+        "city": true,
+        "coords": true,
+        "address": true,
+        "image": false,
+        "venue": false
+      }
+    },
+    {
+      "entity": "פארק הגליל",
+      "url": "https://cochav-hanofesh.com/parks/פארק-הגליל/",
+      "matched": true,
+      "how": "name",
+      "ambiguous": 2,
+      "activity": {
+        "id": "ca1b2db3-a1d1-4f21-bb11-645238d8561a",
+        "name": "פארק הגליל",
+        "category": "גן שעשועים",
+        "city": "כרמיאל"
+      },
+      "complete": {
+        "city": true,
+        "coords": true,
+        "address": true,
+        "image": false,
+        "venue": false
+      }
+    },
+    {
+      "entity": "פארק הוד השרון",
+      "url": "https://cochav-hanofesh.com/parks/פארק-הוד-השרון/",
+      "matched": false,
+      "how": null,
+      "ambiguous": 0,
+      "activity": null,
+      "complete": null
+    },
+    {
+      "entity": "פינת חי בני ברק",
+      "url": "https://cochav-hanofesh.com/parks/פינת-חי-בני-ברק/",
+      "matched": false,
+      "how": null,
+      "ambiguous": 0,
+      "activity": null,
+      "complete": null
+    },
+    {
+      "entity": "פארק הכט",
+      "url": "https://cochav-hanofesh.com/parks/פארק-הכט/",
+      "matched": false,
+      "how": null,
+      "ambiguous": 0,
+      "activity": null,
+      "complete": null
+    },
+    {
+      "entity": "פארק הירקון שבע טחנות",
+      "url": "https://cochav-hanofesh.com/parks/פארק-הירקון-שבע-טחנות/",
+      "matched": false,
+      "how": null,
+      "ambiguous": 0,
+      "activity": null,
+      "complete": null
+    },
+    {
+      "entity": "פארק השיש",
+      "url": "https://cochav-hanofesh.com/parks/פארק-השיש/",
+      "matched": false,
+      "how": null,
+      "ambiguous": 0,
+      "activity": null,
+      "complete": null
+    },
+    {
+      "entity": "פארק חשמונאים",
+      "url": "https://cochav-hanofesh.com/parks/פארק-חשמונאים/",
+      "matched": false,
+      "how": null,
+      "ambiguous": 0,
+      "activity": null,
+      "complete": null
+    },
+    {
+      "entity": "פארק טדי",
+      "url": "https://cochav-hanofesh.com/parks/פארק-טדי/",
+      "matched": false,
+      "how": null,
+      "ambiguous": 0,
+      "activity": null,
+      "complete": null
+    },
+    {
+      "entity": "פארק לכיש",
+      "url": "https://cochav-hanofesh.com/parks/פארק-לכיש/",
+      "matched": true,
+      "how": "name",
+      "ambiguous": 2,
+      "activity": {
+        "id": "e4a659b9-b454-4976-9701-a7c2b07fb264",
+        "name": "פארק לכיש",
+        "category": "פארק",
+        "city": "אשדוד"
+      },
+      "complete": {
+        "city": true,
+        "coords": true,
+        "address": false,
+        "image": true,
+        "venue": false
+      }
+    },
+    {
+      "entity": "פארק עורבים",
+      "url": "https://cochav-hanofesh.com/parks/פארק-עורבים/",
+      "matched": false,
+      "how": null,
+      "ambiguous": 0,
+      "activity": null,
+      "complete": null
+    },
+    {
+      "entity": "פארק ענבה",
+      "url": "https://cochav-hanofesh.com/parks/פארק-ענבה/",
+      "matched": false,
+      "how": null,
+      "ambiguous": 0,
+      "activity": null,
+      "complete": null
+    },
+    {
+      "entity": "פארק פרס",
+      "url": "https://cochav-hanofesh.com/parks/פארק-פרס/",
+      "matched": false,
+      "how": null,
+      "ambiguous": 0,
+      "activity": null,
+      "complete": null
+    },
+    {
+      "entity": "פארק רמת הנדיב",
+      "url": "https://cochav-hanofesh.com/parks/פארק-רמת-הנדיב/",
+      "matched": false,
+      "how": null,
+      "ambiguous": 0,
+      "activity": null,
+      "complete": null
+    },
+    {
+      "entity": "פארק רמת השרון",
+      "url": "https://cochav-hanofesh.com/parks/פארק-רמת-השרון/",
+      "matched": false,
+      "how": null,
+      "ambiguous": 0,
+      "activity": null,
+      "complete": null
+    },
+    {
+      "entity": "פארק רעננה",
+      "url": "https://cochav-hanofesh.com/parks/פארק-רעננה/",
+      "matched": true,
+      "how": "name",
+      "ambiguous": 2,
+      "activity": {
+        "id": "b62be6b0-9dd8-40f5-9108-83d8b5419740",
+        "name": "פארק רעננה",
+        "category": "פארק",
+        "city": "רעננה"
+      },
+      "complete": {
+        "city": true,
+        "coords": true,
+        "address": true,
+        "image": true,
+        "venue": true
+      }
+    },
+    {
+      "entity": "גן העיר בני ברק",
+      "url": "https://cochav-hanofesh.com/parks/גן-העיר-בני-ברק/",
+      "matched": false,
+      "how": null,
+      "ambiguous": 0,
+      "activity": null,
+      "complete": null
+    },
+    {
+      "entity": "הגן הבוטני ירושלים",
+      "url": "https://cochav-hanofesh.com/parks/הגן-הבוטני-ירושלים/",
+      "matched": false,
+      "how": null,
+      "ambiguous": 0,
+      "activity": null,
+      "complete": null
+    },
+    {
+      "entity": "פארק גולדה",
+      "url": "https://cochav-hanofesh.com/parks/פארק-גולדה/",
+      "matched": false,
+      "how": null,
+      "ambiguous": 0,
+      "activity": null,
+      "complete": null
+    },
+    {
+      "entity": "פארק הצנירים",
+      "url": "https://cochav-hanofesh.com/parks/פארק-הצנירים/",
+      "matched": false,
+      "how": null,
+      "ambiguous": 0,
+      "activity": null,
+      "complete": null
+    },
+    {
+      "entity": "פארק בלינסון",
+      "url": "https://cochav-hanofesh.com/parks/פארק-בלינסון/",
+      "matched": false,
+      "how": null,
+      "ambiguous": 0,
+      "activity": null,
+      "complete": null
+    },
+    {
+      "entity": "גשר הצבים",
+      "url": "https://cochav-hanofesh.com/parks/גשר-הצבים/",
+      "matched": false,
+      "how": null,
+      "ambiguous": 0,
+      "activity": null,
+      "complete": null
+    },
+    {
+      "entity": "פארק נחל חדרה",
+      "url": "https://cochav-hanofesh.com/parks/פארק-נחל-חדרה/",
+      "matched": true,
+      "how": "name",
+      "ambiguous": 2,
+      "activity": {
+        "id": "85069d43-58f1-4795-a3e3-56479d7a56ec",
+        "name": "פארק נחל חדרה",
+        "category": "פארק",
+        "city": "חדרה"
+      },
+      "complete": {
+        "city": true,
+        "coords": true,
+        "address": true,
+        "image": true,
+        "venue": false
+      }
+    },
+    {
+      "entity": "גן חי ופארק אלעד",
+      "url": "https://cochav-hanofesh.com/parks/גן-חי-ופארק-אלעד/",
+      "matched": false,
+      "how": null,
+      "ambiguous": 0,
+      "activity": null,
+      "complete": null
+    },
+    {
+      "entity": "פארק בית שאן",
+      "url": "https://cochav-hanofesh.com/parks/פארק-בית-שאן/",
+      "matched": false,
+      "how": null,
+      "ambiguous": 0,
+      "activity": null,
+      "complete": null
+    },
+    {
+      "entity": "פארק טראמפ",
+      "url": "https://cochav-hanofesh.com/parks/פארק-טראמפ/",
+      "matched": false,
+      "how": null,
+      "ambiguous": 0,
+      "activity": null,
+      "complete": null
+    },
+    {
+      "entity": "פארק מרום נווה",
+      "url": "https://cochav-hanofesh.com/parks/פארק-מרום-נווה/",
+      "matched": false,
+      "how": null,
+      "ambiguous": 0,
+      "activity": null,
+      "complete": null
+    },
+    {
+      "entity": "מצודת ים אשדוד",
+      "url": "https://cochav-hanofesh.com/parks/מצודת-ים-אשדוד/",
+      "matched": true,
+      "how": "name",
+      "ambiguous": 0,
+      "activity": {
+        "id": "f7f4ab38-5dae-4e37-930d-4ffab419c8e4",
+        "name": "מצודת אשדוד ים",
+        "category": "אחר",
+        "city": "אשדוד"
+      },
+      "complete": {
+        "city": true,
+        "coords": true,
+        "address": true,
+        "image": false,
+        "venue": false
+      }
+    },
+    {
+      "entity": "פארק לוקי",
+      "url": "https://cochav-hanofesh.com/parks/פארק-לוקי/",
+      "matched": false,
+      "how": null,
+      "ambiguous": 0,
+      "activity": null,
+      "complete": null
+    },
+    {
+      "entity": "פארק אקו חדרה",
+      "url": "https://cochav-hanofesh.com/parks/פארק-אקו-חדרה/",
+      "matched": false,
+      "how": null,
+      "ambiguous": 0,
+      "activity": null,
+      "complete": null
+    },
+    {
+      "entity": "פארק הציפורים",
+      "url": "https://cochav-hanofesh.com/parks/פארק-הציפורים/",
+      "matched": true,
+      "how": "name",
+      "ambiguous": 2,
+      "activity": {
+        "id": "255c68af-e825-41ba-b084-04d1c9bbfc46",
+        "name": "פארק הציפורים",
+        "category": "גן שעשועים",
+        "city": "מודיעין מכבים רעות"
+      },
+      "complete": {
+        "city": true,
+        "coords": true,
+        "address": true,
+        "image": false,
+        "venue": false
+      }
+    },
+    {
+      "entity": "גן המצודה",
+      "url": "https://cochav-hanofesh.com/parks/גן-המצודה/",
+      "matched": true,
+      "how": "name",
+      "ambiguous": 0,
+      "activity": {
+        "id": "bc2fde1e-8e60-4ca8-b0f4-fe14aaf04e73",
+        "name": "גן שעשועים – המצודה, אזור",
+        "category": "גן שעשועים",
+        "city": "אזור"
+      },
+      "complete": {
+        "city": true,
+        "coords": true,
+        "address": true,
+        "image": false,
+        "venue": false
+      }
+    },
+    {
+      "entity": "פארק הירקון",
+      "url": "https://cochav-hanofesh.com/parks/פארק-הירקון/",
+      "matched": true,
+      "how": "name",
+      "ambiguous": 0,
+      "activity": {
+        "id": "bed23c30-94ca-4236-970c-9a4dfe5c435f",
+        "name": "פארק הירקון",
+        "category": "פארק",
+        "city": "תל אביב"
+      },
+      "complete": {
+        "city": true,
+        "coords": true,
+        "address": true,
+        "image": true,
+        "venue": false
+      }
+    },
+    {
+      "entity": "פארק הקטר",
+      "url": "https://cochav-hanofesh.com/parks/פארק-הקטר/",
+      "matched": true,
+      "how": "name",
+      "ambiguous": 0,
+      "activity": {
+        "id": "394e9e9b-b582-4456-a355-498967992e20",
+        "name": "פארק הקטר",
+        "category": "גן שעשועים",
+        "city": "קריית טבעון"
+      },
+      "complete": {
+        "city": true,
+        "coords": true,
+        "address": true,
+        "image": false,
+        "venue": false
+      }
+    },
+    {
+      "entity": "פארק המושבה",
+      "url": "https://cochav-hanofesh.com/parks/פארק-המושבה/",
+      "matched": true,
+      "how": "name",
+      "ambiguous": 2,
+      "activity": {
+        "id": "b500a908-d438-4c49-a6a7-532903828147",
+        "name": "פארק המושבה",
+        "category": "גן שעשועים",
+        "city": "באר יעקב"
+      },
+      "complete": {
+        "city": true,
+        "coords": true,
+        "address": true,
+        "image": false,
+        "venue": false
+      }
+    },
+    {
+      "entity": "פארק עפולה",
+      "url": "https://cochav-hanofesh.com/parks/פארק-עפולה/",
+      "matched": false,
+      "how": null,
+      "ambiguous": 0,
+      "activity": null,
+      "complete": null
+    },
+    {
+      "entity": "פארק ירמות",
+      "url": "https://cochav-hanofesh.com/parks/פארק-ירמות/",
+      "matched": false,
+      "how": null,
+      "ambiguous": 0,
+      "activity": null,
+      "complete": null
+    },
+    {
+      "entity": "פארק החבלים",
+      "url": "https://cochav-hanofesh.com/parks/פארק-החבלים/",
+      "matched": true,
+      "how": "name",
+      "ambiguous": 0,
+      "activity": {
+        "id": "cc7812fd-4aa3-47e5-84ad-fc4113e7afa0",
+        "name": "פארק החבלים",
+        "category": "גן שעשועים",
+        "city": "יבנה"
+      },
+      "complete": {
+        "city": true,
+        "coords": true,
+        "address": true,
+        "image": true,
+        "venue": false
+      }
+    },
+    {
+      "entity": "פארק התפוח",
+      "url": "https://cochav-hanofesh.com/parks/פארק-התפוח/",
+      "matched": true,
+      "how": "name",
+      "ambiguous": 0,
+      "activity": {
+        "id": "a761b241-77ef-413c-b35e-b4241251a16c",
+        "name": "פארק התפוח",
+        "category": "גן שעשועים",
+        "city": "בית שמש"
+      },
+      "complete": {
+        "city": true,
+        "coords": true,
+        "address": true,
+        "image": false,
+        "venue": false
+      }
+    }
+  ]
+}

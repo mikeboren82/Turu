@@ -109,6 +109,25 @@ function rootCause(src, cases) {
   const { count: liveNoAddr } = await client.from('locations').select('id', { count: 'exact', head: true }).is('address', null);
   const { count: centroidSuspected } = await client.from('locations').select('id', { count: 'exact', head: true }).in('address_source', ['geocode:city_centroid', 'geocode:city_centroid_suspected']);
   const { count: centroidRepaired } = await client.from('cleaner_cases').select('id', { count: 'exact', head: true }).eq('issue', 'unverified_location').eq('status', 'resolved');
+  // MISSING_CITY (0094): the one number that must always be answerable + the case breakdown
+  const { data: mcRows } = await client.from('activities').select('id, locations!inner(city, lat)').eq('status', 'approved').not('locations.lat', 'is', null).or('city.is.null,city.eq.', { referencedTable: 'locations' });
+  const mcCases = cases.filter((c) => c.issue === 'missing_city');
+  const mcRuns = (runs || []).map((r) => r.counters?.missingCity).filter(Boolean);
+  const mcSum = (k) => mcRuns.reduce((n, m) => n + (m[k] || 0), 0);
+  const missingCity = {
+    published_missing_city: (mcRows || []).length,
+    missing_city_cases_opened: mcCases.length,
+    missing_city_auto_fixed: mcCases.filter((c) => c.status === 'resolved' && c.resolution?.outcome === 'city_filled').length,
+    missing_city_already_fixed: mcCases.filter((c) => c.status === 'resolved' && c.resolution?.outcome !== 'city_filled').length,
+    missing_city_conflict: mcCases.filter((c) => c.archive_reason === 'requires_human_judgment').length,
+    missing_city_unresolved: mcCases.filter((c) => c.archive_reason === 'city_unresolved').length,
+    missing_city_human_review: mcCases.filter((c) => c.archive_reason === 'requires_human_judgment').length,
+    missing_city_outside_service_area: mcCases.filter((c) => c.archive_reason === 'outside_service_area').length,
+    missing_city_open: mcCases.filter((c) => c.status === 'open').length,
+    reverse_geocode_attempts: mcSum('reverseAttempts'), reverse_geocode_success: mcSum('reverseSuccess'), reverse_geocode_requests: mcSum('reverseRequests'),
+    canonical_settlement_match: mcSum('settlementMatch'), normalization_failure: mcSum('normalizationFailure'),
+    byMethod: tally(mcCases.filter((c) => c.resolution?.outcome === 'city_filled'), (c) => c.resolution.method),
+  };
   const report = {
     generatedAt: new Date().toISOString(), since: since.toISOString(),
     backlog: { open: open.length, due: open.filter((c) => new Date(c.next_attempt_at).getTime() <= now).length, awaitingRetry: awaiting.length, stuckBeyondWindow: stuck.length, byIssue, byPriorityBucket: tally(open, (c) => (c.priority <= 15 ? 'blocking' : c.priority <= 35 ? 'important' : 'enrichment')), leased: open.filter((c) => c.lease_until && new Date(c.lease_until).getTime() > now).length },
@@ -118,6 +137,7 @@ function rootCause(src, cases) {
     informationGain, venueEffects,
     byFamily, sourceDebt: sourceDebt.slice(0, 40), topSources: sourceDebt.slice(0, 15).map((s) => [s.source, s.cases]),
     historicalDebt: debtSplit(histCases), newDebt,
+    missingCity,
     centroid: { suspectedLocations: centroidSuspected || 0, repairedCases: centroidRepaired || 0 },
     runs: (runs || []).slice(0, 20).map((r) => ({ started_at: r.started_at, finished_at: r.finished_at, worker: r.worker, notes: r.notes, counters: r.counters })),
     stuckSample: stuck.slice(0, 10).map((c) => ({ issue: c.issue, subject: c.subject_id, attempts: c.attempts, last_error: c.last_error })),
@@ -136,6 +156,7 @@ function rootCause(src, cases) {
   console.log('venue effects', JSON.stringify(venueEffects));
   console.log('awaiting retry by next strategy', JSON.stringify(awaitingByNext));
   console.log('historical debt', histCases.length, '| new debt', JSON.stringify({ total: newDebt.cases.total, open: newDebt.cases.open, per100: newDebt.casesPer100Subjects, entered: newDebt.subjectsEntered, byIssue: newDebt.cases.byIssue, byPath: newDebt.cases.byIngestionPath }));
+  console.log('missing city', JSON.stringify(report.missingCity));
   console.log('centroid', JSON.stringify(report.centroid));
   console.log('source debt (top 12):'); sourceDebt.slice(0, 12).forEach((s) => console.log(`  ${s.source} | ${s.family}/${s.path} | acts ${s.activities} cand ${s.candidates} | cases ${s.cases} (open ${s.open}) | ${s.dominantIssue} | ratio ${s.debtRatio}% | ${s.likelyRootCause} ${s.flags.join(',')}`));
   console.log('last run', report.runs[0] ? JSON.stringify(report.runs[0]).slice(0, 400) : '-');

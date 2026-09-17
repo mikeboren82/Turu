@@ -1,0 +1,121 @@
+{
+  "generatedAt": "2026-09-17T16:41:55.316Z",
+  "applied": true,
+  "counts": {
+    "activities_whose_coords_contradict_their_city": 5,
+    "contradicted": 3,
+    "replace": 3,
+    "report_only": 0
+  },
+  "plan": [
+    {
+      "settlement_id": "3616",
+      "name_he": "מעלה אדומים",
+      "points": 44,
+      "spread_km": 1.4,
+      "old": {
+        "lat": 31.802886,
+        "lng": 35.2526186
+      },
+      "km_off": 5.3,
+      "cluster": {
+        "lat": 31.7778195,
+        "lng": 35.3006472
+      },
+      "geocoder": "ok",
+      "action": "REPLACE",
+      "new": {
+        "lat": 31.7706181,
+        "lng": 35.2984501,
+        "type": "place/town",
+        "km_from_cluster": 0.8,
+        "display": "מעלה אדומים, שטח C, יהודה ושומרון, الأراضي الفلسطينية"
+      }
+    },
+    {
+      "settlement_id": "3570",
+      "name_he": "אריאל",
+      "points": 28,
+      "spread_km": 1.5,
+      "old": {
+        "lat": 31.7901054,
+        "lng": 35.2032871
+      },
+      "km_off": 35,
+      "cluster": {
+        "lat": 32.1044331,
+        "lng": 35.1846507
+      },
+      "geocoder": "ok",
+      "action": "REPLACE",
+      "new": {
+        "lat": 32.1060817,
+        "lng": 35.1851368,
+        "type": "boundary/administrative",
+        "km_from_cluster": 0.2,
+        "display": "אריאל, שטח C, יהודה ושומרון, الأراضي الفلسطينية"
+      }
+    },
+    {
+      "settlement_id": "3730",
+      "name_he": "גבעת זאב",
+      "points": 22,
+      "spread_km": 1.7,
+      "old": {
+        "lat": 31.8260249,
+        "lng": 35.2606499
+      },
+      "km_off": 9.6,
+      "cluster": {
+        "lat": 31.8618207,
+        "lng": 35.1677773
+      },
+      "geocoder": "ok",
+      "action": "REPLACE",
+      "new": {
+        "lat": 31.8623329,
+        "lng": 35.1687498,
+        "type": "boundary/administrative",
+        "km_from_cluster": 0.1,
+        "display": "גבעת זאב, שטח C, יהודה ושומרון, الأراضي الفلسطينية"
+      }
+    }
+  ],
+  "outliers": [
+    {
+      "activity_id": "1e3cf161-8e3e-4dc1-8594-0815260fe558",
+      "city": "יבנה",
+      "km_from_city_cluster": 21.7,
+      "lat": 32.0658693,
+      "lng": 34.7730609
+    },
+    {
+      "activity_id": "8cebe928-ac32-411a-b3bf-7c4a2ec4f412",
+      "city": "חיפה",
+      "km_from_city_cluster": 40.4,
+      "lat": 32.437563,
+      "lng": 34.9214216
+    },
+    {
+      "activity_id": "603a8c3e-87ab-4bd8-a9bf-a8624d9f973b",
+      "city": "תל אביב - יפו",
+      "km_from_city_cluster": 16,
+      "lat": 32.1727584,
+      "lng": 34.9230098
+    },
+    {
+      "activity_id": "5e47bf63-994f-44b1-9b96-6838b5ec9f69",
+      "city": "כפר סבא",
+      "km_from_city_cluster": 38.8,
+      "lat": 31.8526086,
+      "lng": 34.7650612
+    },
+    {
+      "activity_id": "a8732015-f05a-42dc-a218-e0ec3d579f9d",
+      "city": "אריאל",
+      "km_from_city_cluster": 35,
+      "lat": 31.7901054,
+      "lng": 35.2032871
+    }
+  ]
+}

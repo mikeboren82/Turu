@@ -1,0 +1,478 @@
+{
+  "generatedAt": "2026-09-17T18:29:19.886Z",
+  "applied": true,
+  "counts": {
+    "sharedPoints": 19,
+    "verifiedFallbackPoints": 18,
+    "activitiesOnThem": 308,
+    "launderedAddressesCleared": 68,
+    "ownAddressesKept": 28,
+    "venuesUnanchored": 23,
+    "venueAddressesCleared": 11
+  },
+  "plan": [
+    {
+      "city": "יבנה",
+      "lat": 31.8768863,
+      "lng": 34.7382974,
+      "labels": 7,
+      "activities": 13,
+      "locations": 7,
+      "km_from_city_geocode": 0,
+      "verified": true,
+      "geocoder": "ok",
+      "launderedAddresses": 5,
+      "launderedStreets": [
+        "הזית 1"
+      ],
+      "keptAddresses": 0,
+      "venues": [
+        {
+          "id": "b1a0d189-62b8-4b50-bd2d-93b9cf46af96",
+          "name": "כותר - הספרייה העירונית יבנה",
+          "address": "הזית 1",
+          "clearAddress": true
+        },
+        {
+          "id": "f53e3886-0030-4090-b8c2-fee1cb412dc5",
+          "name": "סינמטק יבנה",
+          "address": null,
+          "clearAddress": false
+        }
+      ]
+    },
+    {
+      "city": "קריית גת",
+      "lat": 31.6031494,
+      "lng": 34.7779274,
+      "labels": 7,
+      "activities": 19,
+      "locations": 7,
+      "km_from_city_geocode": 0,
+      "verified": true,
+      "geocoder": "ok",
+      "launderedAddresses": 7,
+      "launderedStreets": [
+        "חשוון"
+      ],
+      "keptAddresses": 0,
+      "venues": [
+        {
+          "id": "6c76ca2b-30f6-4a80-95c6-cdc30916d99c",
+          "name": "ג׳ימבורי בית רחל",
+          "address": null,
+          "clearAddress": false
+        }
+      ]
+    },
+    {
+      "city": "אשדוד",
+      "lat": 31.7977314,
+      "lng": 34.6529922,
+      "labels": 13,
+      "activities": 13,
+      "locations": 13,
+      "km_from_city_geocode": 0,
+      "verified": true,
+      "geocoder": "ok",
+      "launderedAddresses": 1,
+      "launderedStreets": [
+        "שדרות בני ברית"
+      ],
+      "keptAddresses": 0,
+      "venues": []
+    },
+    {
+      "city": "תל אביב",
+      "lat": 32.0852997,
+      "lng": 34.7818064,
+      "labels": 21,
+      "activities": 37,
+      "locations": 21,
+      "km_from_city_geocode": 0,
+      "verified": true,
+      "geocoder": "ok",
+      "launderedAddresses": 11,
+      "launderedStreets": [
+        "ארלוזורוב"
+      ],
+      "keptAddresses": 7,
+      "venues": [
+        {
+          "id": "5709d8a0-0ff2-41f3-a184-bde3a70be05c",
+          "name": "מוזיאון ארץ ישראל",
+          "address": "ארלוזורוב",
+          "clearAddress": true
+        }
+      ]
+    },
+    {
+      "city": "נתניה",
+      "lat": 32.3286181,
+      "lng": 34.8566246,
+      "labels": 3,
+      "activities": 3,
+      "locations": 3,
+      "km_from_city_geocode": 0,
+      "verified": true,
+      "geocoder": "ok",
+      "launderedAddresses": 0,
+      "launderedStreets": [],
+      "keptAddresses": 3,
+      "venues": []
+    },
+    {
+      "city": "חולון",
+      "lat": 32.0193121,
+      "lng": 34.7804076,
+      "labels": 9,
+      "activities": 32,
+      "locations": 9,
+      "km_from_city_geocode": 0,
+      "verified": true,
+      "geocoder": "ok",
+      "launderedAddresses": 8,
+      "launderedStreets": [
+        "עוזיאל"
+      ],
+      "keptAddresses": 1,
+      "venues": [
+        {
+          "id": "3133b3db-51aa-4d5e-8a68-409e818dedba",
+          "name": "מדיטק חולון",
+          "address": "עוזיאל",
+          "clearAddress": true
+        }
+      ]
+    },
+    {
+      "city": "חיפה",
+      "lat": 32.8191218,
+      "lng": 34.9983856,
+      "labels": 3,
+      "activities": 4,
+      "locations": 3,
+      "km_from_city_geocode": 0,
+      "verified": true,
+      "geocoder": "ok",
+      "launderedAddresses": 1,
+      "launderedStreets": [
+        "כיאט"
+      ],
+      "keptAddresses": 2,
+      "venues": []
+    },
+    {
+      "city": "רעננה",
+      "lat": 32.1860244,
+      "lng": 34.8678359,
+      "labels": 16,
+      "activities": 36,
+      "locations": 16,
+      "km_from_city_geocode": 0,
+      "verified": true,
+      "geocoder": "ok",
+      "launderedAddresses": 6,
+      "launderedStreets": [
+        "חפץ חיים"
+      ],
+      "keptAddresses": 3,
+      "venues": [
+        {
+          "id": "fc2babc1-8e53-40a8-b419-360fb8c7775a",
+          "name": "המשכן למוסיקה ואמנויות רעננה",
+          "address": "חפץ חיים",
+          "clearAddress": true
+        },
+        {
+          "id": "4788645d-c2b9-443f-8bfe-c70298b02527",
+          "name": "מרכז קטנטנים",
+          "address": "חפץ חיים",
+          "clearAddress": true
+        },
+        {
+          "id": "4311b2f8-a412-4f5f-9feb-ff3e4e2fad06",
+          "name": "מרכז המוסיקה",
+          "address": null,
+          "clearAddress": false
+        }
+      ]
+    },
+    {
+      "city": "פתח תקווה",
+      "lat": 32.0877639,
+      "lng": 34.8859985,
+      "labels": 3,
+      "activities": 4,
+      "locations": 3,
+      "km_from_city_geocode": 0,
+      "verified": true,
+      "geocoder": "ok",
+      "launderedAddresses": 0,
+      "launderedStreets": [],
+      "keptAddresses": 3,
+      "venues": []
+    },
+    {
+      "city": "כפר סבא",
+      "lat": 32.1773471,
+      "lng": 34.907459,
+      "labels": 3,
+      "activities": 13,
+      "locations": 3,
+      "km_from_city_geocode": 0,
+      "verified": true,
+      "geocoder": "ok",
+      "launderedAddresses": 0,
+      "launderedStreets": [],
+      "keptAddresses": 3,
+      "venues": []
+    },
+    {
+      "city": "רחובות",
+      "lat": 31.8952532,
+      "lng": 34.8105616,
+      "labels": 6,
+      "activities": 13,
+      "locations": 7,
+      "km_from_city_geocode": 0,
+      "verified": true,
+      "geocoder": "ok",
+      "launderedAddresses": 5,
+      "launderedStreets": [
+        "ביל\"ו"
+      ],
+      "keptAddresses": 2,
+      "venues": [
+        {
+          "id": "67fe1cc2-318e-430a-ae25-43da972cdadf",
+          "name": "הבית למשפחות מיוחדות",
+          "address": null,
+          "clearAddress": false
+        },
+        {
+          "id": "625acb44-3cb6-482c-b678-66f6b2001865",
+          "name": "חוויות שוויץ רחובות החדשה",
+          "address": "ביל\"ו",
+          "clearAddress": true
+        }
+      ]
+    },
+    {
+      "city": "גבעתיים",
+      "lat": 32.0729606,
+      "lng": 34.8113279,
+      "labels": 9,
+      "activities": 29,
+      "locations": 9,
+      "km_from_city_geocode": 0,
+      "verified": true,
+      "geocoder": "ok",
+      "launderedAddresses": 8,
+      "launderedStreets": [
+        "גולומב 30"
+      ],
+      "keptAddresses": 0,
+      "venues": [
+        {
+          "id": "6028ff34-bbdf-47e6-8017-6b118d166b68",
+          "name": "מרכז קהילתי בית ראשונים",
+          "address": "גולומב 30",
+          "clearAddress": true
+        },
+        {
+          "id": "40ed22a4-8e58-4f1f-8549-79845ef25c56",
+          "name": "מרכז השחר",
+          "address": "גולומב 30",
+          "clearAddress": true
+        },
+        {
+          "id": "b9ee6298-087a-4c4c-ba1c-ec8e971c95ce",
+          "name": "מקלט רמב״ם",
+          "address": "גולומב 30",
+          "clearAddress": true
+        }
+      ]
+    },
+    {
+      "city": "הרצליה",
+      "lat": 32.1656255,
+      "lng": 34.8469023,
+      "labels": 6,
+      "activities": 14,
+      "locations": 6,
+      "km_from_city_geocode": 0,
+      "verified": true,
+      "geocoder": "ok",
+      "launderedAddresses": 6,
+      "launderedStreets": [
+        "ראש פינה 8"
+      ],
+      "keptAddresses": 0,
+      "venues": [
+        {
+          "id": "34d583ee-c6aa-4dd3-a146-19888d00c7c4",
+          "name": "היכל אמנויות הבמה",
+          "address": null,
+          "clearAddress": false
+        },
+        {
+          "id": "398be187-4d12-4ea9-9b38-11cc135cf8ed",
+          "name": "גן הפסלים של מוזיאון הרצליה",
+          "address": null,
+          "clearAddress": false
+        },
+        {
+          "id": "abb21509-af15-49e1-8771-bdaa1c7e5556",
+          "name": "מרכז אגדה",
+          "address": null,
+          "clearAddress": false
+        },
+        {
+          "id": "098264d6-66c0-41bd-9d12-5cbd15b0dac9",
+          "name": "בית הספר פלג",
+          "address": "ראש פינה 8",
+          "clearAddress": true
+        }
+      ]
+    },
+    {
+      "city": "באר שבע",
+      "lat": 31.2457442,
+      "lng": 34.7925181,
+      "labels": 4,
+      "activities": 10,
+      "locations": 4,
+      "km_from_city_geocode": 0,
+      "verified": true,
+      "geocoder": "ok",
+      "launderedAddresses": 2,
+      "launderedStreets": [
+        "בלפור"
+      ],
+      "keptAddresses": 1,
+      "venues": []
+    },
+    {
+      "city": "ירושלים",
+      "lat": 31.7788472,
+      "lng": 35.2257856,
+      "labels": 4,
+      "activities": 8,
+      "locations": 4,
+      "km_from_city_geocode": 0,
+      "verified": true,
+      "geocoder": "ok",
+      "launderedAddresses": 3,
+      "launderedStreets": [
+        "כיכר צה\"ל"
+      ],
+      "keptAddresses": 0,
+      "venues": [
+        {
+          "id": "6b785f3c-af9e-4404-b0e2-ee508ae554c8",
+          "name": "גן החיות ואקווריום ישראל",
+          "address": null,
+          "clearAddress": false
+        },
+        {
+          "id": "287600a2-96ba-4a70-8caf-5963114d2c90",
+          "name": "גן החיות התנ״כי בירושלים",
+          "address": null,
+          "clearAddress": false
+        }
+      ]
+    },
+    {
+      "city": "נוף הגליל",
+      "lat": 32.7023065,
+      "lng": 35.3183216,
+      "labels": 5,
+      "activities": 9,
+      "locations": 5,
+      "km_from_city_geocode": 0,
+      "verified": true,
+      "geocoder": "ok",
+      "launderedAddresses": 0,
+      "launderedStreets": [],
+      "keptAddresses": 0,
+      "venues": [
+        {
+          "id": "1d8b0369-a848-4a30-bcaa-e03cf77deea0",
+          "name": "מרכז קהילתי גרין",
+          "address": null,
+          "clearAddress": false
+        }
+      ]
+    },
+    {
+      "city": "אשדוד",
+      "lat": 31.8125611,
+      "lng": 34.6459164,
+      "labels": 3,
+      "activities": 4,
+      "locations": 3,
+      "km_from_city_geocode": 1.779,
+      "verified": false,
+      "geocoder": "ok",
+      "launderedAddresses": 0,
+      "launderedStreets": [],
+      "keptAddresses": 3,
+      "venues": []
+    },
+    {
+      "city": "בית שמש",
+      "lat": 31.746214,
+      "lng": 34.9886825,
+      "labels": 3,
+      "activities": 17,
+      "locations": 3,
+      "km_from_city_geocode": 0,
+      "verified": true,
+      "geocoder": "ok",
+      "launderedAddresses": 3,
+      "launderedStreets": [
+        "הגפן"
+      ],
+      "keptAddresses": 0,
+      "venues": [
+        {
+          "id": "fbd41866-38cf-4b0d-9a6c-eeefafc7fb3b",
+          "name": "מרכז קהילתי פסגות השבע",
+          "address": "הגפן",
+          "clearAddress": true
+        },
+        {
+          "id": "d300a0bf-a3bf-4e72-bde1-75308cf00a98",
+          "name": "מרכז קהילתי לב העיר",
+          "address": null,
+          "clearAddress": false
+        }
+      ]
+    },
+    {
+      "city": "רמת השרון",
+      "lat": 32.1431276,
+      "lng": 34.8380853,
+      "labels": 5,
+      "activities": 34,
+      "locations": 5,
+      "km_from_city_geocode": 0,
+      "verified": true,
+      "geocoder": "ok",
+      "launderedAddresses": 2,
+      "launderedStreets": [
+        "הרב אוורבוך 3"
+      ],
+      "keptAddresses": 3,
+      "venues": [
+        {
+          "id": "b1c524c3-b14e-4258-aa7b-8aa94c238631",
+          "name": "אולם תיאטרון",
+          "address": "שדרות ביאליק",
+          "clearAddress": false
+        }
+      ]
+    }
+  ]
+}

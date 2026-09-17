@@ -3,8 +3,10 @@
 // paginated selects). Playgrounds are exempt from missing_image (placeholder policy is their designed
 // resolution) but not from incomplete_address (reverse geocoding is cheap and useful in the app).
 const { normalizeCityName } = require('../cityNaming');
+const { isMissingCity } = require('../lib/canonicalSettlement');
+const { classifyPlayVenue } = require('../lib/playVenueClassifier');
 
-const BASE_PRIORITY = { missing_location: 10, rejected_missing_address: 12, unverified_location: 15, missing_schedule: 25, incomplete_address: 30, missing_required_metadata: 35, missing_venue: 40, missing_region: 45, missing_image: 50, broken_image: 52, low_quality_description: 60 };
+const BASE_PRIORITY = { missing_location: 10, rejected_missing_address: 12, unverified_location: 15, missing_city: 22, misclassified: 24, missing_schedule: 25, incomplete_address: 30, missing_required_metadata: 35, missing_venue: 40, missing_region: 45, missing_image: 50, broken_image: 52, low_quality_description: 60 };
 const META_ISSUES = new Set(['קטגוריה', 'תאריך', 'סוג ישות', 'קהל יעד לא ברור']);
 
 async function all(client, table, select, fn) {
@@ -56,7 +58,7 @@ async function discoverCases(client, { today }) {
   }
 
   // B. live activities with missing important data
-  const acts = await all(client, 'activities', 'id, category, venue_id, source_id, placeholder_group, photo_skipped, locations(id, address, city, lat, lng, region, address_source, address_confidence), activity_schedules(schedule_type, one_time_date), activity_images(id)', (q) => q.eq('status', 'approved'));
+  const acts = await all(client, 'activities', 'id, name, category, venue_id, source_id, placeholder_group, photo_skipped, locations(id, address, city, lat, lng, region, address_source, address_confidence), activity_schedules(schedule_type, one_time_date), activity_images(id)', (q) => q.eq('status', 'approved'));
   for (const a of acts) {
     const pg = a.category === 'גן שעשועים';
     const loc = a.locations; const sched = a.activity_schedules || [];
@@ -73,6 +75,14 @@ async function discoverCases(client, { today }) {
     if (!loc || loc.lat == null || loc.lng == null) add({ subject_kind: 'activity', subject_id: a.id, issue: 'missing_coordinates', priority: 12, event_date: eventDate, source_id: a.source_id, opened_reason: 'live without coordinates' });
     else if (weakCoords && !pg) add({ subject_kind: 'activity', subject_id: a.id, issue: 'unverified_location', priority: priorityFor('unverified_location', ctx), event_date: eventDate, source_id: a.source_id, opened_reason: 'coordinates are a city centroid (' + loc.address_source + ')' });
     else if (!loc.address) add({ subject_kind: 'activity', subject_id: a.id, issue: 'incomplete_address', priority: priorityFor('incomplete_address', ctx) + (pg ? 20 : 0), event_date: eventDate, source_id: a.source_id, opened_reason: 'coordinates without street address' });
+    // MISSING_CITY: published + coordinates + no canonical city (NULL / blank / placeholder). The card reads
+    // locations.city, so the locality vanishes from Results while the detail screen still shows the address.
+    // Playgrounds included - they are most of this debt. One case per activity (unique subject+issue).
+    if (loc && loc.lat != null && loc.lng != null && isMissingCity(loc.city)) add({ subject_kind: 'activity', subject_id: a.id, issue: 'missing_city', priority: priorityFor('missing_city', ctx), event_date: eventDate, source_id: a.source_id, opened_reason: 'published with coordinates but no canonical city' });
+    // MISCLASSIFIED (0096): filed as a public playground, but its own name proves another kind of venue
+    // (indoor play centre / amusement park) or no venue at all (an equipment company). HIGH and MEDIUM both
+    // open a case; only HIGH is ever written.
+    if (pg) { const k = classifyPlayVenue(a.name); if (k) add({ subject_kind: 'activity', subject_id: a.id, issue: 'misclassified', priority: priorityFor('misclassified', ctx), event_date: null, source_id: a.source_id, opened_reason: `playground by category, ${k.kind} by name ("${k.token}")` }); }
     if (!pg && !a.venue_id) add({ subject_kind: 'activity', subject_id: a.id, issue: 'missing_venue', priority: priorityFor('missing_venue', ctx), event_date: eventDate, source_id: a.source_id, opened_reason: 'no canonical venue' });
     if (!pg && !(a.activity_images || []).length && !a.photo_skipped) add({ subject_kind: 'activity', subject_id: a.id, issue: 'missing_image', priority: priorityFor('missing_image', ctx), event_date: eventDate, source_id: a.source_id, opened_reason: a.placeholder_group ? 'placeholder ' + a.placeholder_group : 'no image' });
     if (!pg && !sched.length) add({ subject_kind: 'activity', subject_id: a.id, issue: 'missing_schedule', priority: priorityFor('missing_schedule', ctx), event_date: null, source_id: a.source_id, opened_reason: 'no schedule rows' });

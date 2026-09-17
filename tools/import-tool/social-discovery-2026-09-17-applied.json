@@ -1,0 +1,4063 @@
+{
+  "generatedAt": "2026-09-17T19:17:23.093Z",
+  "applied": true,
+  "publishersKnown": 101,
+  "tally": {
+    "sites": 101,
+    "fetched": 99,
+    "fetch_failed": 2,
+    "with_any_account": 93,
+    "accounts_verified": 131,
+    "accounts_discovered_only": 72,
+    "bio_links": 0,
+    "whatsapp": 62,
+    "already_registered": 0
+  },
+  "cohort": {
+    "size": 20,
+    "perType": {
+      "attraction": 3,
+      "mall": 4,
+      "petting_zoo": 0,
+      "library": 1,
+      "museum": 4,
+      "farm": 1,
+      "theater": 1,
+      "cultural_center": 0,
+      "shopping_center": 1,
+      "community_center_network": 3,
+      "municipality": 1,
+      "organizer": 1,
+      "library_network": 0,
+      "regional_council": 0,
+      "local_council": 0,
+      "mall_chain": 0,
+      "venue_operator": 0
+    },
+    "members": [
+      {
+        "publisher": "ספארי רמת גן",
+        "type": "attraction",
+        "region": "גוש דן והמרכז",
+        "accounts": [
+          "facebook:safari.israel",
+          "instagram:safari_israel"
+        ]
+      },
+      {
+        "publisher": "קניון רננים",
+        "type": "mall",
+        "region": "השרון",
+        "accounts": [
+          "facebook:renanim.mall",
+          "instagram:renanim_mall"
+        ]
+      },
+      {
+        "publisher": "קניון רמות",
+        "type": "mall",
+        "region": "ירושלים והסביבה",
+        "accounts": [
+          "facebook:ramotmall",
+          "instagram:ramot_mall"
+        ]
+      },
+      {
+        "publisher": "סינמול",
+        "type": "mall",
+        "region": "חיפה והקריות",
+        "accounts": [
+          "facebook:cinemall.haifa",
+          "instagram:cinemallhaifa"
+        ]
+      },
+      {
+        "publisher": "קניון כפר סבא הירוקה",
+        "type": "mall",
+        "region": "השרון",
+        "accounts": [
+          "facebook:kenyon.hayeruka.ks",
+          "instagram:kenyon_hayeruka"
+        ]
+      },
+      {
+        "publisher": "טכנודע",
+        "type": "museum",
+        "region": "השרון",
+        "accounts": [
+          "facebook:technoda",
+          "instagram:technoda.hadera"
+        ]
+      },
+      {
+        "publisher": "חוות הנדיב",
+        "type": "farm",
+        "region": "חיפה והקריות",
+        "accounts": [
+          "facebook:havathanadiv",
+          "instagram:hanadiv_farm"
+        ]
+      },
+      {
+        "publisher": "גן החיות התנ״כי",
+        "type": "attraction",
+        "region": "ירושלים והסביבה",
+        "accounts": [
+          "facebook:jerusalembiblicalzoo",
+          "instagram:jerusalem_zoo"
+        ]
+      },
+      {
+        "publisher": "מדבריום",
+        "type": "attraction",
+        "region": "השפלה והדרום",
+        "accounts": [
+          "instagram:midbarium_il"
+        ]
+      },
+      {
+        "publisher": "ממלכת הילדים - מוזיאון הכט",
+        "type": "museum",
+        "region": "חיפה והקריות",
+        "accounts": [
+          "facebook:hechtmus",
+          "instagram:hechtmus"
+        ]
+      },
+      {
+        "publisher": "גן המדע מכון דוידסון",
+        "type": "museum",
+        "region": "השפלה והדרום",
+        "accounts": [
+          "facebook:davidsononline",
+          "instagram:davidson.institute"
+        ]
+      },
+      {
+        "publisher": "מוזיאון ארץ ישראל",
+        "type": "museum",
+        "region": "גוש דן והמרכז",
+        "accounts": [
+          "facebook:eretzmuseum",
+          "instagram:eretzisraelmuseum"
+        ]
+      },
+      {
+        "publisher": "ספריית הילדים והנוער כפר סבא",
+        "type": "library",
+        "region": "השרון",
+        "accounts": [
+          "facebook:kfarsaba.bridge",
+          "facebook:kfar-saba-chess-club-213204232066732",
+          "facebook:kfarsaba.city",
+          "instagram:kfarsaba.city"
+        ]
+      },
+      {
+        "publisher": "מרכז רוטשטיין",
+        "type": "shopping_center",
+        "region": "השרון",
+        "accounts": [
+          "facebook:rotshtein.il",
+          "instagram:rotshtein_ltd"
+        ]
+      },
+      {
+        "publisher": "תיאטרון הקרון",
+        "type": "theater",
+        "region": null,
+        "accounts": [
+          "instagram:traintheater"
+        ]
+      },
+      {
+        "publisher": "רשת המתנ\"סים הרצליה",
+        "type": "community_center_network",
+        "region": "השרון",
+        "accounts": [
+          "facebook:herzliya.matnasim",
+          "instagram:mercazim_kehilatayim_herzliya"
+        ]
+      },
+      {
+        "publisher": "רשת המתנ\"סים יבנה",
+        "type": "community_center_network",
+        "region": "השפלה והדרום",
+        "accounts": [
+          "facebook:matnasim.yavne",
+          "instagram:matnas_yavne"
+        ]
+      },
+      {
+        "publisher": "עיריית אריאל",
+        "type": "municipality",
+        "region": "יו\"ש והבנימין",
+        "accounts": [
+          "facebook:ariel.municipality"
+        ]
+      },
+      {
+        "publisher": "תיאטרון אורנה פורת",
+        "type": "organizer",
+        "region": null,
+        "accounts": [
+          "facebook:porattheater",
+          "instagram:porattheater"
+        ]
+      },
+      {
+        "publisher": "החברה העירונית לתרבות ופנאי אשדוד",
+        "type": "community_center_network",
+        "region": "השפלה והדרום",
+        "accounts": [
+          "facebook:ironitash",
+          "instagram:ironit_ashdod"
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "publisher": "ספארי רמת גן",
+      "host": "safari.co.il",
+      "kind": "venue",
+      "type": "attraction",
+      "region": "גוש דן והמרכז",
+      "venue_id": "5a299b39-b4a2-429b-9107-2dcbf283ccd0",
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "safari.israel",
+          "url": "https://www.facebook.com/Safari.Israel",
+          "by": "handle",
+          "mentions": 4,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        },
+        {
+          "platform": "instagram",
+          "handle": "safari_israel",
+          "url": "https://www.instagram.com/safari_israel/",
+          "by": "handle",
+          "mentions": 3,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 0,
+      "rejected": 0
+    },
+    {
+      "publisher": "קניון רננים",
+      "host": "renanim.co.il",
+      "kind": "venue",
+      "type": "mall",
+      "region": "השרון",
+      "venue_id": "457e0bd3-dd3c-40e8-ab8b-445872d74532",
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "renanim.mall",
+          "url": "https://www.facebook.com/Renanim.Mall",
+          "by": "handle",
+          "mentions": 2,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        },
+        {
+          "platform": "instagram",
+          "handle": "renanim_mall",
+          "url": "https://www.instagram.com/renanim_mall/",
+          "by": "handle",
+          "mentions": 2,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 0,
+      "rejected": 7
+    },
+    {
+      "publisher": "פארק ארץ הצבי",
+      "host": "eretzhatzvi.co.il",
+      "kind": "venue",
+      "type": "petting_zoo",
+      "region": "גוש דן והמרכז",
+      "venue_id": "e826b3c7-03fb-491c-ac08-b7ce55c8df55",
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "פארק-ארץ-הצבי-הטבע-במלוא-אדיבותו-הרשמי-1607389729496121",
+          "url": "https://www.facebook.com/פארק-ארץ-הצבי-הטבע-במלוא-אדיבותו-הרשמי-1607389729496121",
+          "by": "handle",
+          "mentions": 1,
+          "state": "DISCOVERED",
+          "verified_via": null,
+          "hint": "only_account_of_this_platform_on_the_official_site",
+          "why_not_verified": "linked from the official site, but the handle does not carry the publisher's name (may be a parent company / agency account)",
+          "already_registered": false
+        },
+        {
+          "platform": "instagram",
+          "handle": "tzvi_land",
+          "url": "https://www.instagram.com/tzvi_land/",
+          "by": "handle",
+          "mentions": 1,
+          "state": "DISCOVERED",
+          "verified_via": null,
+          "hint": "only_account_of_this_platform_on_the_official_site",
+          "why_not_verified": "linked from the official site, but the handle does not carry the publisher's name (may be a parent company / agency account)",
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 0,
+      "rejected": 0
+    },
+    {
+      "publisher": "קניון רמות",
+      "host": "ramot-mall.co.il",
+      "kind": "venue",
+      "type": "mall",
+      "region": "ירושלים והסביבה",
+      "venue_id": "58e1f218-df28-4c6e-865d-d9cc16f04cd7",
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "ramotmall",
+          "url": "https://www.facebook.com/ramotmall",
+          "by": "handle",
+          "mentions": 2,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        },
+        {
+          "platform": "instagram",
+          "handle": "ramot_mall",
+          "url": "https://www.instagram.com/ramot_mall/",
+          "by": "handle",
+          "mentions": 2,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 0,
+      "rejected": 0
+    },
+    {
+      "publisher": "סינמול",
+      "host": "cinemall.co.il",
+      "kind": "venue",
+      "type": "mall",
+      "region": "חיפה והקריות",
+      "venue_id": "e8098fd4-d658-43b8-b5e3-fcc71eaacbb2",
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "cinemall.haifa",
+          "url": "https://www.facebook.com/Cinemall.haifa",
+          "by": "handle",
+          "mentions": 1,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        },
+        {
+          "platform": "instagram",
+          "handle": "cinemallhaifa",
+          "url": "https://www.instagram.com/cinemallhaifa/",
+          "by": "handle",
+          "mentions": 1,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 0,
+      "rejected": 0
+    },
+    {
+      "publisher": "קניון כפר סבא הירוקה",
+      "host": "hayeruka-ks.co.il",
+      "kind": "venue",
+      "type": "mall",
+      "region": "השרון",
+      "venue_id": "2f7fd706-c980-4699-8220-df46fd29b9a1",
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "kenyon.hayeruka.ks",
+          "url": "https://www.facebook.com/Kenyon.hayeruka.ks",
+          "by": "handle",
+          "mentions": 3,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        },
+        {
+          "platform": "instagram",
+          "handle": "kenyon_hayeruka",
+          "url": "https://www.instagram.com/kenyon_hayeruka/",
+          "by": "handle",
+          "mentions": 3,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 0,
+      "rejected": 0
+    },
+    {
+      "publisher": "דיזנגוף סנטר",
+      "host": "dizengof-center.co.il",
+      "kind": "venue",
+      "type": "mall",
+      "region": "גוש דן והמרכז",
+      "venue_id": "af9c08e6-5b23-4afc-9ff9-cc41a6c9a71a",
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "dizengofcenter.il",
+          "url": "https://www.facebook.com/dizengofcenter.il",
+          "by": "handle",
+          "mentions": 3,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        },
+        {
+          "platform": "instagram",
+          "handle": "dizengofcenter",
+          "url": "https://www.instagram.com/dizengofcenter/",
+          "by": "handle",
+          "mentions": 3,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 0,
+      "rejected": 0
+    },
+    {
+      "publisher": "קניון שבעת הכוכבים",
+      "host": "7stars.co.il",
+      "kind": "venue",
+      "type": "mall",
+      "region": "גוש דן והמרכז",
+      "venue_id": "bd5687c2-7c8c-4733-957b-e05e95e341db",
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "508045395913681",
+          "url": "https://www.facebook.com/508045395913681",
+          "by": "page_id",
+          "mentions": 1,
+          "state": "DISCOVERED",
+          "verified_via": null,
+          "hint": "only_account_of_this_platform_on_the_official_site",
+          "why_not_verified": "linked from the official site, but the handle does not carry the publisher's name (may be a parent company / agency account)",
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 0,
+      "rejected": 0
+    },
+    {
+      "publisher": "קניון ערים",
+      "host": "malls.amot.co.il",
+      "kind": "venue",
+      "type": "mall",
+      "region": "גוש דן והמרכז",
+      "venue_id": "cae1fd00-5d13-4a22-85dc-914ee39ca450",
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "instagram",
+          "handle": "amot_investment",
+          "url": "https://www.instagram.com/amot_investment/",
+          "by": "handle",
+          "mentions": 2,
+          "state": "DISCOVERED",
+          "verified_via": null,
+          "hint": "only_account_of_this_platform_on_the_official_site",
+          "why_not_verified": "linked from the official site, but the handle does not carry the publisher's name (may be a parent company / agency account)",
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 0,
+      "rejected": 0
+    },
+    {
+      "publisher": "עזריאלי אילון",
+      "host": "azrielimalls.co.il",
+      "kind": "venue",
+      "type": "mall",
+      "region": "גוש דן והמרכז",
+      "venue_id": "c76d8448-fb06-4e70-b6c7-aecfd29ababb",
+      "http": 0,
+      "accounts": [],
+      "bioLinks": [],
+      "whatsapp": 0,
+      "rejected": 0
+    },
+    {
+      "publisher": "בית אריאלה",
+      "host": "ariela.today",
+      "kind": "venue",
+      "type": "library",
+      "region": "גוש דן והמרכז",
+      "venue_id": "af47029d-3b57-4103-82e5-6cdc439212dc",
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "tlv.libraries",
+          "url": "https://www.facebook.com/tlv.libraries",
+          "by": "handle",
+          "mentions": 1,
+          "state": "DISCOVERED",
+          "verified_via": null,
+          "hint": "only_account_of_this_platform_on_the_official_site",
+          "why_not_verified": "linked from the official site, but the handle does not carry the publisher's name (may be a parent company / agency account)",
+          "already_registered": false
+        },
+        {
+          "platform": "instagram",
+          "handle": "tlv_publiclibrary",
+          "url": "https://www.instagram.com/tlv_publiclibrary/",
+          "by": "handle",
+          "mentions": 1,
+          "state": "DISCOVERED",
+          "verified_via": null,
+          "hint": "only_account_of_this_platform_on_the_official_site",
+          "why_not_verified": "linked from the official site, but the handle does not carry the publisher's name (may be a parent company / agency account)",
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 0,
+      "rejected": 0
+    },
+    {
+      "publisher": "טכנודע",
+      "host": "technoda.org.il",
+      "kind": "venue",
+      "type": "museum",
+      "region": "השרון",
+      "venue_id": "f47d3ab3-06bc-4c99-96b5-09bf88cbaa4c",
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "technoda",
+          "url": "https://www.facebook.com/Technoda",
+          "by": "handle",
+          "mentions": 3,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        },
+        {
+          "platform": "instagram",
+          "handle": "technoda.hadera",
+          "url": "https://www.instagram.com/technoda.hadera/",
+          "by": "handle",
+          "mentions": 3,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 1,
+      "rejected": 0
+    },
+    {
+      "publisher": "קניון ארנה",
+      "host": "arenamall.co.il",
+      "kind": "venue",
+      "type": "mall",
+      "region": "גוש דן והמרכז",
+      "venue_id": "db91a891-0806-4ada-a92d-996764e30186",
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "arenamall",
+          "url": "https://www.facebook.com/arenamall",
+          "by": "handle",
+          "mentions": 2,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 1,
+      "rejected": 0
+    },
+    {
+      "publisher": "חוות הנדיב",
+      "host": "hanadiv-farm.co.il",
+      "kind": "venue",
+      "type": "farm",
+      "region": "חיפה והקריות",
+      "venue_id": "0f0b5b05-32c1-49c7-900f-cca29d4a21dc",
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "havathanadiv",
+          "url": "https://www.facebook.com/havathanadiv",
+          "by": "handle",
+          "mentions": 1,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        },
+        {
+          "platform": "instagram",
+          "handle": "hanadiv_farm",
+          "url": "https://www.instagram.com/hanadiv_farm/",
+          "by": "handle",
+          "mentions": 2,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 0,
+      "rejected": 1
+    },
+    {
+      "publisher": "גן החיות התנ״כי",
+      "host": "jerusalemzoo.org.il",
+      "kind": "venue",
+      "type": "attraction",
+      "region": "ירושלים והסביבה",
+      "venue_id": "e254dab3-2fff-48e9-b793-9824f08af119",
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "jerusalembiblicalzoo",
+          "url": "https://www.facebook.com/JerusalemBiblicalZoo",
+          "by": "handle",
+          "mentions": 1,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        },
+        {
+          "platform": "instagram",
+          "handle": "jerusalem_zoo",
+          "url": "https://www.instagram.com/jerusalem_zoo/",
+          "by": "handle",
+          "mentions": 1,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 0,
+      "rejected": 0
+    },
+    {
+      "publisher": "מדבריום",
+      "host": "midbarium.co.il",
+      "kind": "venue",
+      "type": "attraction",
+      "region": "השפלה והדרום",
+      "venue_id": "5743e2ee-716f-47bb-b04a-aed59821f536",
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "negev.zoo.b7",
+          "url": "https://www.facebook.com/Negev.zoo.B7",
+          "by": "handle",
+          "mentions": 1,
+          "state": "DISCOVERED",
+          "verified_via": null,
+          "hint": "only_account_of_this_platform_on_the_official_site",
+          "why_not_verified": "linked from the official site, but the handle does not carry the publisher's name (may be a parent company / agency account)",
+          "already_registered": false
+        },
+        {
+          "platform": "instagram",
+          "handle": "midbarium_il",
+          "url": "https://www.instagram.com/midbarium_il/",
+          "by": "handle",
+          "mentions": 1,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 1,
+      "rejected": 0
+    },
+    {
+      "publisher": "ממלכת הילדים - מוזיאון הכט",
+      "host": "mushecht.haifa.ac.il",
+      "kind": "venue",
+      "type": "museum",
+      "region": "חיפה והקריות",
+      "venue_id": "a28a5eb0-ba34-40b1-aa88-35e838c9eb4e",
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "hechtmus",
+          "url": "https://www.facebook.com/hechtmus",
+          "by": "handle",
+          "mentions": 1,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        },
+        {
+          "platform": "instagram",
+          "handle": "hechtmus",
+          "url": "https://www.instagram.com/hechtmus/",
+          "by": "handle",
+          "mentions": 1,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 0,
+      "rejected": 0
+    },
+    {
+      "publisher": "חוות ארץ האיילים",
+      "host": "deer-land.co.il",
+      "kind": "venue",
+      "type": "farm",
+      "region": "ירושלים והסביבה",
+      "venue_id": "321d0c38-b9d4-4e87-be39-296025927ffd",
+      "http": 200,
+      "accounts": [],
+      "bioLinks": [],
+      "whatsapp": 0,
+      "rejected": 0
+    },
+    {
+      "publisher": "גן המדע מכון דוידסון",
+      "host": "davidson.org.il",
+      "kind": "venue",
+      "type": "museum",
+      "region": "השפלה והדרום",
+      "venue_id": "300aa808-d357-47d6-bf43-ab9a309af0d2",
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "davidsononline",
+          "url": "https://www.facebook.com/DavidsonOnLine",
+          "by": "handle",
+          "mentions": 1,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        },
+        {
+          "platform": "instagram",
+          "handle": "davidson.institute",
+          "url": "https://www.instagram.com/davidson.institute/",
+          "by": "handle",
+          "mentions": 1,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 0,
+      "rejected": 0
+    },
+    {
+      "publisher": "מוזיאון ישראל",
+      "host": "imj.org.il",
+      "kind": "venue",
+      "type": "museum",
+      "region": "ירושלים והסביבה",
+      "venue_id": "99d804ed-a251-49c1-9a63-f2a290cb35d6",
+      "http": 200,
+      "accounts": [],
+      "bioLinks": [],
+      "whatsapp": 0,
+      "rejected": 0
+    },
+    {
+      "publisher": "מוזיאון המדע ע״ש בלומפילד",
+      "host": "mada.org.il",
+      "kind": "venue",
+      "type": "museum",
+      "region": "ירושלים והסביבה",
+      "venue_id": "f94755d1-cabc-40c7-95c1-f2099c207b3b",
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "bloomfield.science.museum.jerusalem",
+          "url": "https://www.facebook.com/Bloomfield.Science.Museum.Jerusalem",
+          "by": "handle",
+          "mentions": 1,
+          "state": "DISCOVERED",
+          "verified_via": null,
+          "hint": "only_account_of_this_platform_on_the_official_site",
+          "why_not_verified": "linked from the official site, but the handle does not carry the publisher's name (may be a parent company / agency account)",
+          "already_registered": false
+        },
+        {
+          "platform": "instagram",
+          "handle": "mada_museum_jerusalem",
+          "url": "https://www.instagram.com/mada_museum_jerusalem/",
+          "by": "handle",
+          "mentions": 1,
+          "state": "DISCOVERED",
+          "verified_via": null,
+          "hint": "only_account_of_this_platform_on_the_official_site",
+          "why_not_verified": "linked from the official site, but the handle does not carry the publisher's name (may be a parent company / agency account)",
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 1,
+      "rejected": 0
+    },
+    {
+      "publisher": "היכל התרבות כרמיאל",
+      "host": "htk.co.il",
+      "kind": "venue",
+      "type": "theater",
+      "region": "הצפון והעמק",
+      "venue_id": "f749ebe5-da97-46bf-b565-e37c6d345f04",
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "tarbut1",
+          "url": "https://www.facebook.com/tarbut1",
+          "by": "handle",
+          "mentions": 2,
+          "state": "DISCOVERED",
+          "verified_via": null,
+          "hint": "only_account_of_this_platform_on_the_official_site",
+          "why_not_verified": "linked from the official site, but the handle does not carry the publisher's name (may be a parent company / agency account)",
+          "already_registered": false
+        },
+        {
+          "platform": "instagram",
+          "handle": "htkarmiel",
+          "url": "https://www.instagram.com/htkarmiel/",
+          "by": "handle",
+          "mentions": 2,
+          "state": "DISCOVERED",
+          "verified_via": null,
+          "hint": "only_account_of_this_platform_on_the_official_site",
+          "why_not_verified": "linked from the official site, but the handle does not carry the publisher's name (may be a parent company / agency account)",
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 0,
+      "rejected": 1
+    },
+    {
+      "publisher": "ביג פאשן נצרת",
+      "host": "bigcenters.co.il",
+      "kind": "venue",
+      "type": "mall",
+      "region": "הצפון והעמק",
+      "venue_id": "a7a4282f-04ba-49b7-8d38-b3d1d7d7c687",
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "bigcenterisrael",
+          "url": "https://www.facebook.com/BIGCENTERISRAEL",
+          "by": "handle",
+          "mentions": 2,
+          "state": "DISCOVERED",
+          "verified_via": null,
+          "hint": "only_account_of_this_platform_on_the_official_site",
+          "why_not_verified": "linked from the official site, but the handle does not carry the publisher's name (may be a parent company / agency account)",
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 0,
+      "rejected": 0
+    },
+    {
+      "publisher": "היכל התרבות מעלה אדומים",
+      "host": "htma.smarticket.co.il",
+      "kind": "venue",
+      "type": "theater",
+      "region": "ירושלים והסביבה",
+      "venue_id": "fde44012-a4fb-4aa4-a2f3-8326b7167557",
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "culturemaaleadomim",
+          "url": "https://www.facebook.com/CultureMaaleAdomim",
+          "by": "handle",
+          "mentions": 2,
+          "state": "DISCOVERED",
+          "verified_via": null,
+          "hint": null,
+          "why_not_verified": "2 facebook accounts on the site and this handle does not carry the publisher's name",
+          "already_registered": false
+        },
+        {
+          "platform": "facebook",
+          "handle": "stage.and.food",
+          "url": "https://www.facebook.com/STAGE.and.FOOD",
+          "by": "handle",
+          "mentions": 1,
+          "state": "DISCOVERED",
+          "verified_via": null,
+          "hint": null,
+          "why_not_verified": "2 facebook accounts on the site and this handle does not carry the publisher's name",
+          "already_registered": false
+        },
+        {
+          "platform": "instagram",
+          "handle": "ht_maale",
+          "url": "https://www.instagram.com/ht_maale/",
+          "by": "handle",
+          "mentions": 2,
+          "state": "DISCOVERED",
+          "verified_via": null,
+          "hint": "only_account_of_this_platform_on_the_official_site",
+          "why_not_verified": "linked from the official site, but the handle does not carry the publisher's name (may be a parent company / agency account)",
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 0,
+      "rejected": 1
+    },
+    {
+      "publisher": "מוזיאון ארץ ישראל",
+      "host": "eretzmuseum.org.il",
+      "kind": "venue",
+      "type": "museum",
+      "region": "גוש דן והמרכז",
+      "venue_id": "5709d8a0-0ff2-41f3-a184-bde3a70be05c",
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "eretzmuseum",
+          "url": "https://www.facebook.com/eretzmuseum",
+          "by": "handle",
+          "mentions": 2,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        },
+        {
+          "platform": "instagram",
+          "handle": "eretzisraelmuseum",
+          "url": "https://www.instagram.com/eretzisraelmuseum/",
+          "by": "handle",
+          "mentions": 2,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 1,
+      "rejected": 0
+    },
+    {
+      "publisher": "קניון סי מול אשדוד",
+      "host": "seamall.co.il",
+      "kind": "venue",
+      "type": "mall",
+      "region": "השפלה והדרום",
+      "venue_id": "aa6c5dc0-d0c6-4d22-8835-d8d461bc0533",
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "ashdodseamall",
+          "url": "https://www.facebook.com/ashdodseamall",
+          "by": "handle",
+          "mentions": 1,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        },
+        {
+          "platform": "instagram",
+          "handle": "sea_mall_ashdod",
+          "url": "https://www.instagram.com/sea_mall_ashdod/",
+          "by": "handle",
+          "mentions": 1,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 0,
+      "rejected": 0
+    },
+    {
+      "publisher": "מדיטק חולון",
+      "host": "mediatheque.org.il",
+      "kind": "venue",
+      "type": "cultural_center",
+      "region": "גוש דן והמרכז",
+      "venue_id": "3133b3db-51aa-4d5e-8a68-409e818dedba",
+      "http": 200,
+      "accounts": [],
+      "bioLinks": [],
+      "whatsapp": 1,
+      "rejected": 0
+    },
+    {
+      "publisher": "היכל התרבות אשקלון",
+      "host": "htash.co.il",
+      "kind": "venue",
+      "type": "theater",
+      "region": "השפלה והדרום",
+      "venue_id": "0ec1d4c9-301e-450e-80ad-e8fa2a17299b",
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "tarbut.ashkelon",
+          "url": "https://www.facebook.com/tarbut.ashkelon",
+          "by": "handle",
+          "mentions": 1,
+          "state": "DISCOVERED",
+          "verified_via": null,
+          "hint": "only_account_of_this_platform_on_the_official_site",
+          "why_not_verified": "linked from the official site, but the handle does not carry the publisher's name (may be a parent company / agency account)",
+          "already_registered": false
+        },
+        {
+          "platform": "instagram",
+          "handle": "cultural_arts_center_ashkelon",
+          "url": "https://www.instagram.com/cultural_arts_center_ashkelon/",
+          "by": "handle",
+          "mentions": 1,
+          "state": "DISCOVERED",
+          "verified_via": null,
+          "hint": "only_account_of_this_platform_on_the_official_site",
+          "why_not_verified": "linked from the official site, but the handle does not carry the publisher's name (may be a parent company / agency account)",
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 1,
+      "rejected": 0
+    },
+    {
+      "publisher": "מרכז ענב לתרבות",
+      "host": "enav.org.il",
+      "kind": "venue",
+      "type": "cultural_center",
+      "region": "גוש דן והמרכז",
+      "venue_id": "7a60d768-b291-4a43-bdfe-9a3c6e38e791",
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "580279612074210",
+          "url": "https://www.facebook.com/580279612074210",
+          "by": "page_id",
+          "mentions": 1,
+          "state": "DISCOVERED",
+          "verified_via": null,
+          "hint": "only_account_of_this_platform_on_the_official_site",
+          "why_not_verified": "linked from the official site, but the handle does not carry the publisher's name (may be a parent company / agency account)",
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 0,
+      "rejected": 0
+    },
+    {
+      "publisher": "מדעטק",
+      "host": "madatech.org.il",
+      "kind": "venue",
+      "type": "museum",
+      "region": "חיפה והקריות",
+      "venue_id": "9be87d81-17c0-4e8a-bcf5-3758fd2a933b",
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "madatech.museum",
+          "url": "https://www.facebook.com/madatech.museum",
+          "by": "handle",
+          "mentions": 1,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        },
+        {
+          "platform": "instagram",
+          "handle": "madatech",
+          "url": "https://www.instagram.com/madatech/",
+          "by": "handle",
+          "mentions": 1,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 1,
+      "rejected": 0
+    },
+    {
+      "publisher": "היכל התרבות עכו",
+      "host": "htakko.co.il",
+      "kind": "venue",
+      "type": "theater",
+      "region": "הצפון והעמק",
+      "venue_id": "e8f92bbc-3bb4-4d02-8e5c-dcf4fe5a894b",
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "heichalhatarbutakko",
+          "url": "https://www.facebook.com/heichalhatarbutakko",
+          "by": "handle",
+          "mentions": 2,
+          "state": "DISCOVERED",
+          "verified_via": null,
+          "hint": "only_account_of_this_platform_on_the_official_site",
+          "why_not_verified": "linked from the official site, but the handle does not carry the publisher's name (may be a parent company / agency account)",
+          "already_registered": false
+        },
+        {
+          "platform": "instagram",
+          "handle": "heichal_hatarbut_akko",
+          "url": "https://www.instagram.com/heichal_hatarbut_akko/",
+          "by": "handle",
+          "mentions": 2,
+          "state": "DISCOVERED",
+          "verified_via": null,
+          "hint": "only_account_of_this_platform_on_the_official_site",
+          "why_not_verified": "linked from the official site, but the handle does not carry the publisher's name (may be a parent company / agency account)",
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 0,
+      "rejected": 1
+    },
+    {
+      "publisher": "הספרייה העירונית קריית אתא",
+      "host": "kiryatata.library.org.il",
+      "kind": "venue",
+      "type": "library",
+      "region": "חיפה והקריות",
+      "venue_id": "f5357010-4bb0-4d6d-a70e-04371f87bbc8",
+      "http": 403,
+      "accounts": [],
+      "bioLinks": [],
+      "whatsapp": 0,
+      "rejected": 0
+    },
+    {
+      "publisher": "ספריית הילדים והנוער כפר סבא",
+      "host": "kfar-saba.muni.il",
+      "kind": "venue",
+      "type": "library",
+      "region": "השרון",
+      "venue_id": "10f003b0-b21a-41b4-9e09-05ce8c17f9ba",
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "lagaatbakelev",
+          "url": "https://www.facebook.com/lagaatbakelev",
+          "by": "handle",
+          "mentions": 1,
+          "state": "DISCOVERED",
+          "verified_via": null,
+          "hint": null,
+          "why_not_verified": "7 facebook accounts on the site and this handle does not carry the publisher's name",
+          "already_registered": false
+        },
+        {
+          "platform": "facebook",
+          "handle": "בית-ספר-ל-גודו-כפר-סבא-ורעננה-בהנהלת-שוקי-קואז-102836289761589",
+          "url": "https://www.facebook.com/בית-ספר-ל-גודו-כפר-סבא-ורעננה-בהנהלת-שוקי-קואז-102836289761589",
+          "by": "handle",
+          "mentions": 1,
+          "state": "DISCOVERED",
+          "verified_via": null,
+          "hint": null,
+          "why_not_verified": "7 facebook accounts on the site and this handle does not carry the publisher's name",
+          "already_registered": false
+        },
+        {
+          "platform": "facebook",
+          "handle": "מועדון-טאקוונדו-הפועל-כפר-סבא-213952518624242",
+          "url": "https://www.facebook.com/מועדון-טאקוונדו-הפועל-כפר-סבא-213952518624242",
+          "by": "handle",
+          "mentions": 1,
+          "state": "DISCOVERED",
+          "verified_via": null,
+          "hint": null,
+          "why_not_verified": "7 facebook accounts on the site and this handle does not carry the publisher's name",
+          "already_registered": false
+        },
+        {
+          "platform": "facebook",
+          "handle": "kfarsaba.bridge",
+          "url": "https://www.facebook.com/KfarSaba.Bridge",
+          "by": "handle",
+          "mentions": 1,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        },
+        {
+          "platform": "facebook",
+          "handle": "167265256649352",
+          "url": "https://www.facebook.com/167265256649352",
+          "by": "page_id",
+          "mentions": 1,
+          "state": "DISCOVERED",
+          "verified_via": null,
+          "hint": null,
+          "why_not_verified": "7 facebook accounts on the site and this handle does not carry the publisher's name",
+          "already_registered": false
+        },
+        {
+          "platform": "facebook",
+          "handle": "kfar-saba-chess-club-213204232066732",
+          "url": "https://www.facebook.com/Kfar-Saba-Chess-Club-213204232066732",
+          "by": "handle",
+          "mentions": 1,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        },
+        {
+          "platform": "facebook",
+          "handle": "kfarsaba.city",
+          "url": "https://www.facebook.com/kfarsaba.city",
+          "by": "handle",
+          "mentions": 3,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        },
+        {
+          "platform": "instagram",
+          "handle": "kfarsaba.city",
+          "url": "https://www.instagram.com/kfarsaba.city/",
+          "by": "handle",
+          "mentions": 1,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 0,
+      "rejected": 0
+    },
+    {
+      "publisher": "מרכז רוטשטיין",
+      "host": "rotshtein.co.il",
+      "kind": "venue",
+      "type": "shopping_center",
+      "region": "השרון",
+      "venue_id": "8a4778f9-f295-4a62-ab0c-c61bf3877361",
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "rotshtein.il",
+          "url": "https://www.facebook.com/rotshtein.il",
+          "by": "handle",
+          "mentions": 3,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        },
+        {
+          "platform": "instagram",
+          "handle": "rotshtein_ltd",
+          "url": "https://www.instagram.com/rotshtein_ltd/",
+          "by": "handle",
+          "mentions": 2,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 0,
+      "rejected": 0
+    },
+    {
+      "publisher": "מוזיאון הילדים חולון",
+      "host": "childrensmuseum.org.il",
+      "kind": "venue",
+      "type": "museum",
+      "region": "גוש דן והמרכז",
+      "venue_id": "bad356c8-066e-4623-bd2c-a01aeb73797a",
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "childrenmuseum",
+          "url": "https://www.facebook.com/childrenmuseum",
+          "by": "handle",
+          "mentions": 2,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        },
+        {
+          "platform": "instagram",
+          "handle": "israelchildrensmuseum",
+          "url": "https://www.instagram.com/israelchildrensmuseum/",
+          "by": "handle",
+          "mentions": 2,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 1,
+      "rejected": 0
+    },
+    {
+      "publisher": "תיאטרון הקרון",
+      "host": "traintheater.co.il",
+      "kind": "venue",
+      "type": "theater",
+      "region": null,
+      "venue_id": "63685e06-61d4-4aa5-9725-977afaadb1a1",
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "163974750398180",
+          "url": "https://www.facebook.com/163974750398180",
+          "by": "page_id",
+          "mentions": 2,
+          "state": "DISCOVERED",
+          "verified_via": null,
+          "hint": "only_account_of_this_platform_on_the_official_site",
+          "why_not_verified": "linked from the official site, but the handle does not carry the publisher's name (may be a parent company / agency account)",
+          "already_registered": false
+        },
+        {
+          "platform": "instagram",
+          "handle": "traintheater",
+          "url": "https://www.instagram.com/traintheater/",
+          "by": "handle",
+          "mentions": 2,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 0,
+      "rejected": 0
+    },
+    {
+      "publisher": "מרכז קהילתי גוש עציון",
+      "host": "matnasetzion.com",
+      "kind": "source",
+      "type": "community_center_network",
+      "region": "יו\"ש והבנימין",
+      "venue_id": null,
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "matnas.gush",
+          "url": "https://www.facebook.com/matnas.gush",
+          "by": "handle",
+          "mentions": 3,
+          "state": "DISCOVERED",
+          "verified_via": null,
+          "hint": "only_account_of_this_platform_on_the_official_site",
+          "why_not_verified": "linked from the official site, but the handle does not carry the publisher's name (may be a parent company / agency account)",
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 1,
+      "rejected": 1
+    },
+    {
+      "publisher": "רשת המתנ\"סים הרצליה",
+      "host": "herzliya-matnasim.org.il",
+      "kind": "source",
+      "type": "community_center_network",
+      "region": "השרון",
+      "venue_id": null,
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "herzliya.matnasim",
+          "url": "https://www.facebook.com/herzliya.matnasim",
+          "by": "handle",
+          "mentions": 2,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        },
+        {
+          "platform": "instagram",
+          "handle": "mercazim_kehilatayim_herzliya",
+          "url": "https://www.instagram.com/mercazim_kehilatayim_herzliya/",
+          "by": "handle",
+          "mentions": 2,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 1,
+      "rejected": 0
+    },
+    {
+      "publisher": "רשת המתנ\"סים קריית ים",
+      "host": "matnasky.com",
+      "kind": "source",
+      "type": "community_center_network",
+      "region": "חיפה והקריות",
+      "venue_id": null,
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "mandel.k.y",
+          "url": "https://www.facebook.com/mandel.k.y",
+          "by": "handle",
+          "mentions": 1,
+          "state": "DISCOVERED",
+          "verified_via": null,
+          "hint": "only_account_of_this_platform_on_the_official_site",
+          "why_not_verified": "linked from the official site, but the handle does not carry the publisher's name (may be a parent company / agency account)",
+          "already_registered": false
+        },
+        {
+          "platform": "instagram",
+          "handle": "matnasim.ky",
+          "url": "https://www.instagram.com/matnasim.ky/",
+          "by": "handle",
+          "mentions": 1,
+          "state": "DISCOVERED",
+          "verified_via": null,
+          "hint": "only_account_of_this_platform_on_the_official_site",
+          "why_not_verified": "linked from the official site, but the handle does not carry the publisher's name (may be a parent company / agency account)",
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 2,
+      "rejected": 0
+    },
+    {
+      "publisher": "עיריית רעננה - המדור לגיל הרך",
+      "host": "raanana-ktantanim.webflow.io",
+      "kind": "source",
+      "type": "municipality",
+      "region": "השרון",
+      "venue_id": null,
+      "http": 200,
+      "accounts": [],
+      "bioLinks": [],
+      "whatsapp": 0,
+      "rejected": 0
+    },
+    {
+      "publisher": "רשת המתנ\"סים יבנה",
+      "host": "matnasyavne.co.il",
+      "kind": "source",
+      "type": "community_center_network",
+      "region": "השפלה והדרום",
+      "venue_id": null,
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "matnasim.yavne",
+          "url": "https://www.facebook.com/matnasim.yavne",
+          "by": "handle",
+          "mentions": 2,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        },
+        {
+          "platform": "instagram",
+          "handle": "matnas_yavne",
+          "url": "https://www.instagram.com/matnas_yavne/",
+          "by": "handle",
+          "mentions": 2,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 0,
+      "rejected": 0
+    },
+    {
+      "publisher": "עיריית אריאל",
+      "host": "ariel.muni.il",
+      "kind": "source",
+      "type": "municipality",
+      "region": "יו\"ש והבנימין",
+      "venue_id": null,
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "ariel.municipality",
+          "url": "https://www.facebook.com/ariel.municipality",
+          "by": "handle",
+          "mentions": 1,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 0,
+      "rejected": 0
+    },
+    {
+      "publisher": "תיאטרון אורנה פורת",
+      "host": "porat-theater.co.il",
+      "kind": "source",
+      "type": "organizer",
+      "region": null,
+      "venue_id": null,
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "porattheater",
+          "url": "https://www.facebook.com/PoratTheater",
+          "by": "handle",
+          "mentions": 3,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        },
+        {
+          "platform": "instagram",
+          "handle": "porattheater",
+          "url": "https://www.instagram.com/porattheater/",
+          "by": "handle",
+          "mentions": 3,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 0,
+      "rejected": 0
+    },
+    {
+      "publisher": "רשת מרכזים קהילתיים נהריה",
+      "host": "mkn.org.il",
+      "kind": "source",
+      "type": "community_center_network",
+      "region": "הצפון והעמק",
+      "venue_id": null,
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "mkn.org.il",
+          "url": "https://www.facebook.com/mkn.org.il",
+          "by": "handle",
+          "mentions": 2,
+          "state": "DISCOVERED",
+          "verified_via": null,
+          "hint": "only_account_of_this_platform_on_the_official_site",
+          "why_not_verified": "linked from the official site, but the handle does not carry the publisher's name (may be a parent company / agency account)",
+          "already_registered": false
+        },
+        {
+          "platform": "instagram",
+          "handle": "matnas.nahariya",
+          "url": "https://www.instagram.com/matnas.nahariya/",
+          "by": "handle",
+          "mentions": 2,
+          "state": "DISCOVERED",
+          "verified_via": null,
+          "hint": "only_account_of_this_platform_on_the_official_site",
+          "why_not_verified": "linked from the official site, but the handle does not carry the publisher's name (may be a parent company / agency account)",
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 1,
+      "rejected": 0
+    },
+    {
+      "publisher": "החברה העירונית לתרבות ופנאי אשדוד",
+      "host": "ironit.org.il",
+      "kind": "source",
+      "type": "community_center_network",
+      "region": "השפלה והדרום",
+      "venue_id": null,
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "ironitash",
+          "url": "https://www.facebook.com/ironitash",
+          "by": "handle",
+          "mentions": 2,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        },
+        {
+          "platform": "instagram",
+          "handle": "ironit_ashdod",
+          "url": "https://www.instagram.com/ironit_ashdod/",
+          "by": "handle",
+          "mentions": 2,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 0,
+      "rejected": 0
+    },
+    {
+      "publisher": "עיריית גבעתיים",
+      "host": "givatayim.muni.il",
+      "kind": "source",
+      "type": "municipality",
+      "region": "גוש דן והמרכז",
+      "venue_id": null,
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "givatayim",
+          "url": "https://www.facebook.com/givatayim",
+          "by": "handle",
+          "mentions": 2,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        },
+        {
+          "platform": "instagram",
+          "handle": "givatayim.muni.il",
+          "url": "https://www.instagram.com/givatayim.muni.il/",
+          "by": "handle",
+          "mentions": 1,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 1,
+      "rejected": 0
+    },
+    {
+      "publisher": "עיריית כרמיאל",
+      "host": "karmiel.muni.il",
+      "kind": "source",
+      "type": "municipality",
+      "region": "הצפון והעמק",
+      "venue_id": null,
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "karmiel.il",
+          "url": "https://www.facebook.com/karmiel.il",
+          "by": "handle",
+          "mentions": 1,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 0,
+      "rejected": 0
+    },
+    {
+      "publisher": "עיריית קריית ביאליק",
+      "host": "qbialik.org.il",
+      "kind": "source",
+      "type": "municipality",
+      "region": "חיפה והקריות",
+      "venue_id": null,
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "qbialik",
+          "url": "https://www.facebook.com/qbialik",
+          "by": "handle",
+          "mentions": 2,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        },
+        {
+          "platform": "instagram",
+          "handle": "kiryatbialik.city",
+          "url": "https://www.instagram.com/kiryatbialik.city/",
+          "by": "handle",
+          "mentions": 2,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 1,
+      "rejected": 0
+    },
+    {
+      "publisher": "חוויות - רשת הספריות רחובות",
+      "host": "havayot.org.il",
+      "kind": "source",
+      "type": "library_network",
+      "region": "השפלה והדרום",
+      "venue_id": null,
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "reshet.havayot.rehovot",
+          "url": "https://www.facebook.com/reshet.havayot.rehovot",
+          "by": "handle",
+          "mentions": 3,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        },
+        {
+          "platform": "instagram",
+          "handle": "havayot_rehovot",
+          "url": "https://www.instagram.com/havayot_rehovot/",
+          "by": "handle",
+          "mentions": 3,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 0,
+      "rejected": 0
+    },
+    {
+      "publisher": "מועצה אזורית לב השרון",
+      "host": "tour-levhasharon.org.il",
+      "kind": "source",
+      "type": "regional_council",
+      "region": "השרון",
+      "venue_id": null,
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "61578883833533",
+          "url": "https://www.facebook.com/profile.php?id=61578883833533",
+          "by": "page_id",
+          "mentions": 3,
+          "state": "DISCOVERED",
+          "verified_via": null,
+          "hint": "only_account_of_this_platform_on_the_official_site",
+          "why_not_verified": "linked from the official site, but the handle does not carry the publisher's name (may be a parent company / agency account)",
+          "already_registered": false
+        },
+        {
+          "platform": "instagram",
+          "handle": "tour_levhasharon",
+          "url": "https://www.instagram.com/tour_levhasharon/",
+          "by": "handle",
+          "mentions": 3,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 1,
+      "rejected": 0
+    },
+    {
+      "publisher": "מועצה מקומית אפרת",
+      "host": "efrat.muni.il",
+      "kind": "source",
+      "type": "local_council",
+      "region": "יו\"ש והבנימין",
+      "venue_id": null,
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "mmefrat",
+          "url": "https://www.facebook.com/mmefrat",
+          "by": "handle",
+          "mentions": 1,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        },
+        {
+          "platform": "instagram",
+          "handle": "efrat.muni",
+          "url": "https://www.instagram.com/efrat.muni/",
+          "by": "handle",
+          "mentions": 1,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 0,
+      "rejected": 0
+    },
+    {
+      "publisher": "מועצה אזורית לב השרון",
+      "host": "lev-hasharon.com",
+      "kind": "source",
+      "type": "regional_council",
+      "region": "השרון",
+      "venue_id": null,
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "malevhasharon",
+          "url": "https://www.facebook.com/malevhasharon",
+          "by": "handle",
+          "mentions": 1,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        },
+        {
+          "platform": "instagram",
+          "handle": "levhasharon_",
+          "url": "https://www.instagram.com/levhasharon_/",
+          "by": "handle",
+          "mentions": 1,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 1,
+      "rejected": 0
+    },
+    {
+      "publisher": "מקפ״ת",
+      "host": "makefet.com",
+      "kind": "source",
+      "type": "community_center_network",
+      "region": "גוש דן והמרכז",
+      "venue_id": null,
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "makefet",
+          "url": "https://www.facebook.com/makefet",
+          "by": "handle",
+          "mentions": 1,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        },
+        {
+          "platform": "instagram",
+          "handle": "makefet",
+          "url": "https://www.instagram.com/makefet/",
+          "by": "handle",
+          "mentions": 1,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 2,
+      "rejected": 0
+    },
+    {
+      "publisher": "עיריית קריית מוצקין",
+      "host": "kiryat-motzkin.muni.il",
+      "kind": "source",
+      "type": "municipality",
+      "region": "חיפה והקריות",
+      "venue_id": null,
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "kiryat.motzkin",
+          "url": "https://www.facebook.com/Kiryat.Motzkin",
+          "by": "handle",
+          "mentions": 3,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        },
+        {
+          "platform": "instagram",
+          "handle": "kiryatmotzkin",
+          "url": "https://www.instagram.com/kiryatmotzkin/",
+          "by": "handle",
+          "mentions": 3,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 0,
+      "rejected": 0
+    },
+    {
+      "publisher": "עיריית חיפה",
+      "host": "haifa.muni.il",
+      "kind": "source",
+      "type": "municipality",
+      "region": "חיפה והקריות",
+      "venue_id": null,
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "msg",
+          "url": "https://www.facebook.com/msg",
+          "by": "handle",
+          "mentions": 2,
+          "state": "DISCOVERED",
+          "verified_via": null,
+          "hint": null,
+          "why_not_verified": "2 facebook accounts on the site and this handle does not carry the publisher's name",
+          "already_registered": false
+        },
+        {
+          "platform": "facebook",
+          "handle": "haifamuni",
+          "url": "https://www.facebook.com/haifamuni",
+          "by": "handle",
+          "mentions": 2,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        },
+        {
+          "platform": "instagram",
+          "handle": "haifacity",
+          "url": "https://www.instagram.com/haifacity/",
+          "by": "handle",
+          "mentions": 2,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 1,
+      "rejected": 0
+    },
+    {
+      "publisher": "רשת המתנ\"סים כרמיאל",
+      "host": "m-karmiel.co.il",
+      "kind": "source",
+      "type": "community_center_network",
+      "region": "הצפון והעמק",
+      "venue_id": null,
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "matnasarye",
+          "url": "https://www.facebook.com/matnasarye",
+          "by": "handle",
+          "mentions": 1,
+          "state": "DISCOVERED",
+          "verified_via": null,
+          "hint": "only_account_of_this_platform_on_the_official_site",
+          "why_not_verified": "linked from the official site, but the handle does not carry the publisher's name (may be a parent company / agency account)",
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 0,
+      "rejected": 0
+    },
+    {
+      "publisher": "החברה העירונית ראשון לציון",
+      "host": "hironit.org.il",
+      "kind": "source",
+      "type": "community_center_network",
+      "region": "גוש דן והמרכז",
+      "venue_id": null,
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "hmdrshlhqrhybtzywn",
+          "url": "https://www.facebook.com/HmdrshLhqrHybtZywn",
+          "by": "handle",
+          "mentions": 1,
+          "state": "DISCOVERED",
+          "verified_via": null,
+          "hint": null,
+          "why_not_verified": "2 facebook accounts on the site and this handle does not carry the publisher's name",
+          "already_registered": false
+        },
+        {
+          "platform": "facebook",
+          "handle": "100067916587325",
+          "url": "https://www.facebook.com/profile.php?id=100067916587325",
+          "by": "page_id",
+          "mentions": 1,
+          "state": "DISCOVERED",
+          "verified_via": null,
+          "hint": null,
+          "why_not_verified": "2 facebook accounts on the site and this handle does not carry the publisher's name",
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 0,
+      "rejected": 0
+    },
+    {
+      "publisher": "עיריית נשר",
+      "host": "nesher.muni.il",
+      "kind": "source",
+      "type": "municipality",
+      "region": "חיפה והקריות",
+      "venue_id": null,
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "neshermuni",
+          "url": "https://www.facebook.com/neshermuni",
+          "by": "handle",
+          "mentions": 2,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        },
+        {
+          "platform": "instagram",
+          "handle": "nesher.city",
+          "url": "https://www.instagram.com/nesher.city/",
+          "by": "handle",
+          "mentions": 1,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 1,
+      "rejected": 0
+    },
+    {
+      "publisher": "עיריית אשדוד (תיירות)",
+      "host": "visit.ashdod.muni.il",
+      "kind": "source",
+      "type": "municipality",
+      "region": "השפלה והדרום",
+      "venue_id": null,
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "visit.ashdod",
+          "url": "https://www.facebook.com/visit.ashdod",
+          "by": "handle",
+          "mentions": 1,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        },
+        {
+          "platform": "instagram",
+          "handle": "visit.ashdod",
+          "url": "https://www.instagram.com/visit.ashdod/",
+          "by": "handle",
+          "mentions": 2,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 0,
+      "rejected": 8
+    },
+    {
+      "publisher": "עיריית חולון",
+      "host": "holon.muni.il",
+      "kind": "source",
+      "type": "municipality",
+      "region": "גוש דן והמרכז",
+      "venue_id": null,
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "imholoni",
+          "url": "https://www.facebook.com/imholoni",
+          "by": "handle",
+          "mentions": 2,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        },
+        {
+          "platform": "facebook",
+          "handle": "holon.muni",
+          "url": "https://www.facebook.com/holon.muni",
+          "by": "handle",
+          "mentions": 3,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        },
+        {
+          "platform": "instagram",
+          "handle": "holon.muni",
+          "url": "https://www.instagram.com/holon.muni/",
+          "by": "handle",
+          "mentions": 1,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 0,
+      "rejected": 15
+    },
+    {
+      "publisher": "G סיטי",
+      "host": "g-city.co.il",
+      "kind": "source",
+      "type": "mall_chain",
+      "region": null,
+      "venue_id": null,
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "g.kfarsaba",
+          "url": "https://www.facebook.com/G.KfarSaba",
+          "by": "handle",
+          "mentions": 1,
+          "state": "DISCOVERED",
+          "verified_via": null,
+          "hint": "only_account_of_this_platform_on_the_official_site",
+          "why_not_verified": "linked from the official site, but the handle does not carry the publisher's name (may be a parent company / agency account)",
+          "already_registered": false
+        },
+        {
+          "platform": "instagram",
+          "handle": "g.kfarsaba",
+          "url": "https://www.instagram.com/g.kfarsaba/",
+          "by": "handle",
+          "mentions": 1,
+          "state": "DISCOVERED",
+          "verified_via": null,
+          "hint": "only_account_of_this_platform_on_the_official_site",
+          "why_not_verified": "linked from the official site, but the handle does not carry the publisher's name (may be a parent company / agency account)",
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 0,
+      "rejected": 1
+    },
+    {
+      "publisher": "מרכז קהילתי מזרח נתניה",
+      "host": "matnasgan.org.il",
+      "kind": "source",
+      "type": "community_center_network",
+      "region": "השרון",
+      "venue_id": null,
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "matnaseastnetanya",
+          "url": "https://www.facebook.com/matnaseastnetanya",
+          "by": "handle",
+          "mentions": 3,
+          "state": "DISCOVERED",
+          "verified_via": null,
+          "hint": "only_account_of_this_platform_on_the_official_site",
+          "why_not_verified": "linked from the official site, but the handle does not carry the publisher's name (may be a parent company / agency account)",
+          "already_registered": false
+        },
+        {
+          "platform": "instagram",
+          "handle": "eastnetanya",
+          "url": "https://www.instagram.com/eastnetanya/",
+          "by": "handle",
+          "mentions": 3,
+          "state": "DISCOVERED",
+          "verified_via": null,
+          "hint": "only_account_of_this_platform_on_the_official_site",
+          "why_not_verified": "linked from the official site, but the handle does not carry the publisher's name (may be a parent company / agency account)",
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 0,
+      "rejected": 0
+    },
+    {
+      "publisher": "עיריית נהריה",
+      "host": "nahariya.muni.il",
+      "kind": "source",
+      "type": "municipality",
+      "region": "הצפון והעמק",
+      "venue_id": null,
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "citynahariya",
+          "url": "https://www.facebook.com/citynahariya",
+          "by": "handle",
+          "mentions": 3,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        },
+        {
+          "platform": "instagram",
+          "handle": "nahariya_city",
+          "url": "https://www.instagram.com/nahariya_city/",
+          "by": "handle",
+          "mentions": 1,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 1,
+      "rejected": 0
+    },
+    {
+      "publisher": "עיריית עפולה",
+      "host": "afula.muni.il",
+      "kind": "source",
+      "type": "municipality",
+      "region": "הצפון והעמק",
+      "venue_id": null,
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "100094738167041",
+          "url": "https://www.facebook.com/profile.php?id=100094738167041",
+          "by": "page_id",
+          "mentions": 1,
+          "state": "DISCOVERED",
+          "verified_via": null,
+          "hint": null,
+          "why_not_verified": "19 facebook accounts on the site and this handle does not carry the publisher's name",
+          "already_registered": false
+        },
+        {
+          "platform": "facebook",
+          "handle": "communitydepartment",
+          "url": "https://www.facebook.com/CommunityDepartment",
+          "by": "handle",
+          "mentions": 1,
+          "state": "DISCOVERED",
+          "verified_via": null,
+          "hint": null,
+          "why_not_verified": "19 facebook accounts on the site and this handle does not carry the publisher's name",
+          "already_registered": false
+        },
+        {
+          "platform": "facebook",
+          "handle": "100068944123307",
+          "url": "https://www.facebook.com/profile.php?id=100068944123307",
+          "by": "page_id",
+          "mentions": 1,
+          "state": "DISCOVERED",
+          "verified_via": null,
+          "hint": null,
+          "why_not_verified": "19 facebook accounts on the site and this handle does not carry the publisher's name",
+          "already_registered": false
+        },
+        {
+          "platform": "facebook",
+          "handle": "100035297071890",
+          "url": "https://www.facebook.com/profile.php?id=100035297071890",
+          "by": "page_id",
+          "mentions": 1,
+          "state": "DISCOVERED",
+          "verified_via": null,
+          "hint": null,
+          "why_not_verified": "19 facebook accounts on the site and this handle does not carry the publisher's name",
+          "already_registered": false
+        },
+        {
+          "platform": "facebook",
+          "handle": "100064522909028",
+          "url": "https://www.facebook.com/profile.php?id=100064522909028",
+          "by": "page_id",
+          "mentions": 1,
+          "state": "DISCOVERED",
+          "verified_via": null,
+          "hint": null,
+          "why_not_verified": "19 facebook accounts on the site and this handle does not carry the publisher's name",
+          "already_registered": false
+        },
+        {
+          "platform": "facebook",
+          "handle": "hashukhayashanafula",
+          "url": "https://www.facebook.com/hashukhayashanafula",
+          "by": "handle",
+          "mentions": 1,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        },
+        {
+          "platform": "facebook",
+          "handle": "wizo.afula",
+          "url": "https://www.facebook.com/wizo.afula",
+          "by": "handle",
+          "mentions": 1,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        },
+        {
+          "platform": "facebook",
+          "handle": "afuligallery",
+          "url": "https://www.facebook.com/AFULIGALLERY",
+          "by": "handle",
+          "mentions": 1,
+          "state": "DISCOVERED",
+          "verified_via": null,
+          "hint": null,
+          "why_not_verified": "19 facebook accounts on the site and this handle does not carry the publisher's name",
+          "already_registered": false
+        },
+        {
+          "platform": "facebook",
+          "handle": "היכל-התרבות-עפולה-974118219313902",
+          "url": "https://www.facebook.com/היכל-התרבות-עפולה-974118219313902",
+          "by": "handle",
+          "mentions": 1,
+          "state": "DISCOVERED",
+          "verified_via": null,
+          "hint": null,
+          "why_not_verified": "19 facebook accounts on the site and this handle does not carry the publisher's name",
+          "already_registered": false
+        },
+        {
+          "platform": "facebook",
+          "handle": "shchakim.afula",
+          "url": "https://www.facebook.com/shchakim.afula",
+          "by": "handle",
+          "mentions": 1,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        },
+        {
+          "platform": "facebook",
+          "handle": "100064653883231",
+          "url": "https://www.facebook.com/profile.php?id=100064653883231",
+          "by": "page_id",
+          "mentions": 1,
+          "state": "DISCOVERED",
+          "verified_via": null,
+          "hint": null,
+          "why_not_verified": "19 facebook accounts on the site and this handle does not carry the publisher's name",
+          "already_registered": false
+        },
+        {
+          "platform": "facebook",
+          "handle": "afula.edu",
+          "url": "https://www.facebook.com/afula.edu",
+          "by": "handle",
+          "mentions": 1,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        },
+        {
+          "platform": "facebook",
+          "handle": "100064871612524",
+          "url": "https://www.facebook.com/profile.php?id=100064871612524",
+          "by": "page_id",
+          "mentions": 1,
+          "state": "DISCOVERED",
+          "verified_via": null,
+          "hint": null,
+          "why_not_verified": "19 facebook accounts on the site and this handle does not carry the publisher's name",
+          "already_registered": false
+        },
+        {
+          "platform": "facebook",
+          "handle": "focus.afula",
+          "url": "https://www.facebook.com/Focus.afula",
+          "by": "handle",
+          "mentions": 1,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        },
+        {
+          "platform": "facebook",
+          "handle": "shitur.afula",
+          "url": "https://www.facebook.com/Shitur.afula",
+          "by": "handle",
+          "mentions": 1,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        },
+        {
+          "platform": "facebook",
+          "handle": "100064388693352",
+          "url": "https://www.facebook.com/profile.php?id=100064388693352",
+          "by": "page_id",
+          "mentions": 1,
+          "state": "DISCOVERED",
+          "verified_via": null,
+          "hint": null,
+          "why_not_verified": "19 facebook accounts on the site and this handle does not carry the publisher's name",
+          "already_registered": false
+        },
+        {
+          "platform": "facebook",
+          "handle": "aec.co.il",
+          "url": "https://www.facebook.com/aec.co.il",
+          "by": "handle",
+          "mentions": 1,
+          "state": "DISCOVERED",
+          "verified_via": null,
+          "hint": null,
+          "why_not_verified": "19 facebook accounts on the site and this handle does not carry the publisher's name",
+          "already_registered": false
+        },
+        {
+          "platform": "facebook",
+          "handle": "100092653643320",
+          "url": "https://www.facebook.com/profile.php?id=100092653643320",
+          "by": "page_id",
+          "mentions": 1,
+          "state": "DISCOVERED",
+          "verified_via": null,
+          "hint": null,
+          "why_not_verified": "19 facebook accounts on the site and this handle does not carry the publisher's name",
+          "already_registered": false
+        },
+        {
+          "platform": "facebook",
+          "handle": "afula.live",
+          "url": "https://www.facebook.com/afula.live",
+          "by": "handle",
+          "mentions": 3,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        },
+        {
+          "platform": "instagram",
+          "handle": "afula.muni",
+          "url": "https://www.instagram.com/afula.muni/",
+          "by": "handle",
+          "mentions": 3,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 1,
+      "rejected": 1
+    },
+    {
+      "publisher": "עיריית רמת השרון",
+      "host": "ramat-hasharon.muni.il",
+      "kind": "source",
+      "type": "municipality",
+      "region": "גוש דן והמרכז",
+      "venue_id": null,
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "ramathsaronmunicipality",
+          "url": "https://www.facebook.com/ramathsaronmunicipality",
+          "by": "handle",
+          "mentions": 1,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        },
+        {
+          "platform": "instagram",
+          "handle": "ramat.hasharon",
+          "url": "https://www.instagram.com/ramat.hasharon/",
+          "by": "handle",
+          "mentions": 1,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 0,
+      "rejected": 0
+    },
+    {
+      "publisher": "מתנ\"ס נווה יוסף חיפה",
+      "host": "matnasny.org.il",
+      "kind": "source",
+      "type": "community_center_network",
+      "region": "חיפה והקריות",
+      "venue_id": null,
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "matnas.ny",
+          "url": "https://www.facebook.com/matnas.ny",
+          "by": "handle",
+          "mentions": 1,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 0,
+      "rejected": 0
+    },
+    {
+      "publisher": "מועצה אזורית מטה בנימין",
+      "host": "binyamin.org.il",
+      "kind": "source",
+      "type": "regional_council",
+      "region": "יו\"ש והבנימין",
+      "venue_id": null,
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "binyamin.org",
+          "url": "https://www.facebook.com/Binyamin.org",
+          "by": "handle",
+          "mentions": 2,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        },
+        {
+          "platform": "instagram",
+          "handle": "go_binyamin",
+          "url": "https://www.instagram.com/go_binyamin/",
+          "by": "handle",
+          "mentions": 2,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 5,
+      "rejected": 0
+    },
+    {
+      "publisher": "עיריית אילת",
+      "host": "eilat.muni.il",
+      "kind": "source",
+      "type": "municipality",
+      "region": "השפלה והדרום",
+      "venue_id": null,
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "eilat.muni",
+          "url": "https://www.facebook.com/Eilat.Muni",
+          "by": "handle",
+          "mentions": 1,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        },
+        {
+          "platform": "instagram",
+          "handle": "eilatmuni",
+          "url": "https://www.instagram.com/eilatmuni/",
+          "by": "handle",
+          "mentions": 1,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 1,
+      "rejected": 0
+    },
+    {
+      "publisher": "רשת המתנ\"סים קריית ביאליק",
+      "host": "mqb.org.il",
+      "kind": "source",
+      "type": "community_center_network",
+      "region": "חיפה והקריות",
+      "venue_id": null,
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "rmmqb",
+          "url": "https://www.facebook.com/rmmqb",
+          "by": "handle",
+          "mentions": 2,
+          "state": "DISCOVERED",
+          "verified_via": null,
+          "hint": "only_account_of_this_platform_on_the_official_site",
+          "why_not_verified": "linked from the official site, but the handle does not carry the publisher's name (may be a parent company / agency account)",
+          "already_registered": false
+        },
+        {
+          "platform": "instagram",
+          "handle": "matnasbialik",
+          "url": "https://www.instagram.com/matnasbialik/",
+          "by": "handle",
+          "mentions": 1,
+          "state": "DISCOVERED",
+          "verified_via": null,
+          "hint": "only_account_of_this_platform_on_the_official_site",
+          "why_not_verified": "linked from the official site, but the handle does not carry the publisher's name (may be a parent company / agency account)",
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 1,
+      "rejected": 0
+    },
+    {
+      "publisher": "עיריית יבנה",
+      "host": "yavne.muni.il",
+      "kind": "source",
+      "type": "municipality",
+      "region": "השפלה והדרום",
+      "venue_id": null,
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "yavnemunicipality",
+          "url": "https://www.facebook.com/yavneMunicipality",
+          "by": "handle",
+          "mentions": 4,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        },
+        {
+          "platform": "facebook",
+          "handle": "y.yavne",
+          "url": "https://www.facebook.com/Y.YAVNE",
+          "by": "handle",
+          "mentions": 1,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        },
+        {
+          "platform": "instagram",
+          "handle": "yavne.city",
+          "url": "https://www.instagram.com/yavne.city/",
+          "by": "handle",
+          "mentions": 4,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 1,
+      "rejected": 0
+    },
+    {
+      "publisher": "עיריית טבריה",
+      "host": "tiberias.muni.il",
+      "kind": "source",
+      "type": "municipality",
+      "region": "הצפון והעמק",
+      "venue_id": null,
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "עיריית-טבריה-הדף-הרשמי-303857116471745",
+          "url": "https://www.facebook.com/עיריית-טבריה-הדף-הרשמי-303857116471745",
+          "by": "handle",
+          "mentions": 1,
+          "state": "DISCOVERED",
+          "verified_via": null,
+          "hint": null,
+          "why_not_verified": "2 facebook accounts on the site and this handle does not carry the publisher's name",
+          "already_registered": false
+        },
+        {
+          "platform": "facebook",
+          "handle": "tiberias.municipality",
+          "url": "https://www.facebook.com/tiberias.municipality",
+          "by": "handle",
+          "mentions": 1,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        },
+        {
+          "platform": "instagram",
+          "handle": "tiberias_sea_of_galilee_city",
+          "url": "https://www.instagram.com/tiberias_sea_of_galilee_city/",
+          "by": "handle",
+          "mentions": 1,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        },
+        {
+          "platform": "instagram",
+          "handle": "tiberiasupdate",
+          "url": "https://www.instagram.com/tiberiasupdate/",
+          "by": "handle",
+          "mentions": 1,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 1,
+      "rejected": 0
+    },
+    {
+      "publisher": "קניוני עזריאלי",
+      "host": "mallsevents.azrielimalls.co.il",
+      "kind": "source",
+      "type": "mall_chain",
+      "region": null,
+      "venue_id": null,
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "azrieli.malls",
+          "url": "https://www.facebook.com/azrieli.malls",
+          "by": "handle",
+          "mentions": 1,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        },
+        {
+          "platform": "instagram",
+          "handle": "azrielimalls",
+          "url": "https://www.instagram.com/azrielimalls/",
+          "by": "handle",
+          "mentions": 1,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 0,
+      "rejected": 0
+    },
+    {
+      "publisher": "עיריית אשדוד",
+      "host": "ashdod.muni.il",
+      "kind": "source",
+      "type": "municipality",
+      "region": "השפלה והדרום",
+      "venue_id": null,
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "ashdod.municipality",
+          "url": "https://www.facebook.com/Ashdod.municipality",
+          "by": "handle",
+          "mentions": 1,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        },
+        {
+          "platform": "instagram",
+          "handle": "ashdod_city",
+          "url": "https://www.instagram.com/ashdod_city/",
+          "by": "handle",
+          "mentions": 1,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 2,
+      "rejected": 0
+    },
+    {
+      "publisher": "רשת המרכזים הקהילתיים בית שמש",
+      "host": "matnasbs.org.il",
+      "kind": "source",
+      "type": "community_center_network",
+      "region": "ירושלים והסביבה",
+      "venue_id": null,
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "100081652596147",
+          "url": "https://www.facebook.com/profile.php?id=100081652596147",
+          "by": "page_id",
+          "mentions": 2,
+          "state": "DISCOVERED",
+          "verified_via": null,
+          "hint": "only_account_of_this_platform_on_the_official_site",
+          "why_not_verified": "linked from the official site, but the handle does not carry the publisher's name (may be a parent company / agency account)",
+          "already_registered": false
+        },
+        {
+          "platform": "instagram",
+          "handle": "matnasim_bs",
+          "url": "https://www.instagram.com/matnasim_bs/",
+          "by": "handle",
+          "mentions": 2,
+          "state": "DISCOVERED",
+          "verified_via": null,
+          "hint": "only_account_of_this_platform_on_the_official_site",
+          "why_not_verified": "linked from the official site, but the handle does not carry the publisher's name (may be a parent company / agency account)",
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 1,
+      "rejected": 0
+    },
+    {
+      "publisher": "החברה העירונית אשקלון",
+      "host": "ironitash.org.il",
+      "kind": "source",
+      "type": "community_center_network",
+      "region": "השפלה והדרום",
+      "venue_id": null,
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "ironitashqelon",
+          "url": "https://www.facebook.com/ironitashqelon",
+          "by": "handle",
+          "mentions": 1,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        },
+        {
+          "platform": "instagram",
+          "handle": "ironitash",
+          "url": "https://www.instagram.com/ironitash/",
+          "by": "handle",
+          "mentions": 1,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 1,
+      "rejected": 0
+    },
+    {
+      "publisher": "תיאטרון ירושלים",
+      "host": "jerusalem-theatre.co.il",
+      "kind": "source",
+      "type": "venue_operator",
+      "region": "ירושלים והסביבה",
+      "venue_id": null,
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "jerusalemtheather",
+          "url": "https://www.facebook.com/JerusalemTheather",
+          "by": "handle",
+          "mentions": 1,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        },
+        {
+          "platform": "instagram",
+          "handle": "jerusalemtheatre",
+          "url": "https://www.instagram.com/jerusalemtheatre/",
+          "by": "handle",
+          "mentions": 1,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 0,
+      "rejected": 0
+    },
+    {
+      "publisher": "קק\"ל",
+      "host": "kkl.org.il",
+      "kind": "source",
+      "type": "organizer",
+      "region": null,
+      "venue_id": null,
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "kkl.org.il",
+          "url": "https://www.facebook.com/kkl.org.il",
+          "by": "handle",
+          "mentions": 1,
+          "state": "DISCOVERED",
+          "verified_via": null,
+          "hint": "only_account_of_this_platform_on_the_official_site",
+          "why_not_verified": "linked from the official site, but the handle does not carry the publisher's name (may be a parent company / agency account)",
+          "already_registered": false
+        },
+        {
+          "platform": "instagram",
+          "handle": "kkl_jnf",
+          "url": "https://www.instagram.com/kkl_jnf/",
+          "by": "handle",
+          "mentions": 1,
+          "state": "DISCOVERED",
+          "verified_via": null,
+          "hint": "only_account_of_this_platform_on_the_official_site",
+          "why_not_verified": "linked from the official site, but the handle does not carry the publisher's name (may be a parent company / agency account)",
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 0,
+      "rejected": 0
+    },
+    {
+      "publisher": "עיריית הרצליה",
+      "host": "herzliya.muni.il",
+      "kind": "source",
+      "type": "municipality",
+      "region": "גוש דן והמרכז",
+      "venue_id": null,
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "herzliyacity",
+          "url": "https://www.facebook.com/HerzliyaCity",
+          "by": "handle",
+          "mentions": 3,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        },
+        {
+          "platform": "instagram",
+          "handle": "herzliya.city",
+          "url": "https://www.instagram.com/herzliya.city/",
+          "by": "handle",
+          "mentions": 3,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 1,
+      "rejected": 0
+    },
+    {
+      "publisher": "מתנ\"ס קריית מוצקין",
+      "host": "mozkin.org.il",
+      "kind": "source",
+      "type": "community_center_network",
+      "region": "חיפה והקריות",
+      "venue_id": null,
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "מרכזים-קהילתיים-רשת-המתנסים-קרית-מוצקין-104718807748119",
+          "url": "https://www.facebook.com/מרכזים-קהילתיים-רשת-המתנסים-קרית-מוצקין-104718807748119",
+          "by": "handle",
+          "mentions": 2,
+          "state": "DISCOVERED",
+          "verified_via": null,
+          "hint": null,
+          "why_not_verified": "3 facebook accounts on the site and this handle does not carry the publisher's name",
+          "already_registered": false
+        },
+        {
+          "platform": "facebook",
+          "handle": "100083850562441",
+          "url": "https://www.facebook.com/profile.php?id=100083850562441",
+          "by": "page_id",
+          "mentions": 2,
+          "state": "DISCOVERED",
+          "verified_via": null,
+          "hint": null,
+          "why_not_verified": "3 facebook accounts on the site and this handle does not carry the publisher's name",
+          "already_registered": false
+        },
+        {
+          "platform": "facebook",
+          "handle": "matnasimmotzkin",
+          "url": "https://www.facebook.com/matnasimmotzkin",
+          "by": "handle",
+          "mentions": 2,
+          "state": "DISCOVERED",
+          "verified_via": null,
+          "hint": null,
+          "why_not_verified": "3 facebook accounts on the site and this handle does not carry the publisher's name",
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 2,
+      "rejected": 0
+    },
+    {
+      "publisher": "עיריית תל אביב-יפו",
+      "host": "tel-aviv.gov.il",
+      "kind": "source",
+      "type": "municipality",
+      "region": "גוש דן והמרכז",
+      "venue_id": null,
+      "http": 200,
+      "accounts": [],
+      "bioLinks": [],
+      "whatsapp": 0,
+      "rejected": 0
+    },
+    {
+      "publisher": "החברה להגנת הטבע",
+      "host": "teva.org.il",
+      "kind": "source",
+      "type": "organizer",
+      "region": null,
+      "venue_id": null,
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "tevaorg",
+          "url": "https://www.facebook.com/tevaorg",
+          "by": "handle",
+          "mentions": 1,
+          "state": "DISCOVERED",
+          "verified_via": null,
+          "hint": "only_account_of_this_platform_on_the_official_site",
+          "why_not_verified": "linked from the official site, but the handle does not carry the publisher's name (may be a parent company / agency account)",
+          "already_registered": false
+        },
+        {
+          "platform": "instagram",
+          "handle": "teva_il",
+          "url": "https://www.instagram.com/teva_il/",
+          "by": "handle",
+          "mentions": 1,
+          "state": "DISCOVERED",
+          "verified_via": null,
+          "hint": "only_account_of_this_platform_on_the_official_site",
+          "why_not_verified": "linked from the official site, but the handle does not carry the publisher's name (may be a parent company / agency account)",
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 1,
+      "rejected": 0
+    },
+    {
+      "publisher": "מועצה מקומית אבן יהודה",
+      "host": "even-yehuda.muni.il",
+      "kind": "source",
+      "type": "local_council",
+      "region": "השרון",
+      "venue_id": null,
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "even.yehuda.council",
+          "url": "https://www.facebook.com/even.yehuda.council",
+          "by": "handle",
+          "mentions": 1,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 2,
+      "rejected": 0
+    },
+    {
+      "publisher": "מועצה אזורית שומרון",
+      "host": "shomron.org.il",
+      "kind": "source",
+      "type": "regional_council",
+      "region": "יו\"ש והבנימין",
+      "venue_id": null,
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "shomron4u",
+          "url": "https://www.facebook.com/shomron4u",
+          "by": "handle",
+          "mentions": 2,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        },
+        {
+          "platform": "instagram",
+          "handle": "shomron_muni",
+          "url": "https://www.instagram.com/shomron_muni/",
+          "by": "handle",
+          "mentions": 2,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 4,
+      "rejected": 0
+    },
+    {
+      "publisher": "תיאטרון חיפה",
+      "host": "haifakids.co.il",
+      "kind": "source",
+      "type": "venue_operator",
+      "region": "חיפה והקריות",
+      "venue_id": null,
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "haifa.theatre",
+          "url": "https://www.facebook.com/Haifa.Theatre",
+          "by": "handle",
+          "mentions": 1,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        },
+        {
+          "platform": "instagram",
+          "handle": "haifatheatre",
+          "url": "https://www.instagram.com/haifatheatre/",
+          "by": "handle",
+          "mentions": 1,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 1,
+      "rejected": 0
+    },
+    {
+      "publisher": "עיריית מודיעין מכבים רעות",
+      "host": "modiin.muni.il",
+      "kind": "source",
+      "type": "municipality",
+      "region": "השפלה והדרום",
+      "venue_id": null,
+      "http": 200,
+      "accounts": [],
+      "bioLinks": [],
+      "whatsapp": 0,
+      "rejected": 0
+    },
+    {
+      "publisher": "מתנ\"ס צפת",
+      "host": "matnas-zefat.co.il",
+      "kind": "source",
+      "type": "community_center_network",
+      "region": "הצפון והעמק",
+      "venue_id": null,
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "mtns.zpt",
+          "url": "https://www.facebook.com/mtns.zpt",
+          "by": "handle",
+          "mentions": 2,
+          "state": "DISCOVERED",
+          "verified_via": null,
+          "hint": "only_account_of_this_platform_on_the_official_site",
+          "why_not_verified": "linked from the official site, but the handle does not carry the publisher's name (may be a parent company / agency account)",
+          "already_registered": false
+        },
+        {
+          "platform": "instagram",
+          "handle": "matnas_zefat",
+          "url": "https://www.instagram.com/matnas_zefat/",
+          "by": "handle",
+          "mentions": 2,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 1,
+      "rejected": 0
+    },
+    {
+      "publisher": "מתנ\"ס קריית אונו",
+      "host": "hamatnas.co.il",
+      "kind": "source",
+      "type": "community_center_network",
+      "region": "גוש דן והמרכז",
+      "venue_id": null,
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "hamatnasko",
+          "url": "https://www.facebook.com/hamatnasko",
+          "by": "handle",
+          "mentions": 2,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        },
+        {
+          "platform": "instagram",
+          "handle": "hamatnas",
+          "url": "https://www.instagram.com/hamatnas/",
+          "by": "handle",
+          "mentions": 1,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 0,
+      "rejected": 0
+    },
+    {
+      "publisher": "עיריית חדרה",
+      "host": "hadera.muni.il",
+      "kind": "source",
+      "type": "municipality",
+      "region": "השרון",
+      "venue_id": null,
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "hadera.muni",
+          "url": "https://www.facebook.com/hadera.muni",
+          "by": "handle",
+          "mentions": 1,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        },
+        {
+          "platform": "instagram",
+          "handle": "hadera.city",
+          "url": "https://www.instagram.com/hadera.city/",
+          "by": "handle",
+          "mentions": 1,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 0,
+      "rejected": 0
+    },
+    {
+      "publisher": "רשת המתנ\"סים קריית אתא",
+      "host": "matnasata.org.il",
+      "kind": "source",
+      "type": "community_center_network",
+      "region": "חיפה והקריות",
+      "venue_id": null,
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "matnas.k.a",
+          "url": "https://www.facebook.com/matnas.k.a",
+          "by": "handle",
+          "mentions": 3,
+          "state": "DISCOVERED",
+          "verified_via": null,
+          "hint": "only_account_of_this_platform_on_the_official_site",
+          "why_not_verified": "linked from the official site, but the handle does not carry the publisher's name (may be a parent company / agency account)",
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 1,
+      "rejected": 1
+    },
+    {
+      "publisher": "עיריית גני תקווה",
+      "host": "ganeytikva.org.il",
+      "kind": "source",
+      "type": "municipality",
+      "region": "גוש דן והמרכז",
+      "venue_id": null,
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "ganeytikva",
+          "url": "https://www.facebook.com/ganeytikva",
+          "by": "handle",
+          "mentions": 3,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        },
+        {
+          "platform": "instagram",
+          "handle": "ganey_tikva",
+          "url": "https://www.instagram.com/ganey_tikva/",
+          "by": "handle",
+          "mentions": 2,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 3,
+      "rejected": 0
+    },
+    {
+      "publisher": "מועצה אזורית גזר",
+      "host": "gezer-region.muni.il",
+      "kind": "source",
+      "type": "regional_council",
+      "region": "השפלה והדרום",
+      "venue_id": null,
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "gezerregion",
+          "url": "https://www.facebook.com/GezerRegion",
+          "by": "handle",
+          "mentions": 3,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 1,
+      "rejected": 0
+    },
+    {
+      "publisher": "מתנ\"ס טירת כרמל",
+      "host": "matnastc.co.il",
+      "kind": "source",
+      "type": "community_center_network",
+      "region": "חיפה והקריות",
+      "venue_id": null,
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "matnastc",
+          "url": "https://www.facebook.com/matnastc",
+          "by": "handle",
+          "mentions": 1,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        },
+        {
+          "platform": "instagram",
+          "handle": "matnastiratcarmel",
+          "url": "https://www.instagram.com/matnastiratcarmel/",
+          "by": "handle",
+          "mentions": 1,
+          "state": "DISCOVERED",
+          "verified_via": null,
+          "hint": "only_account_of_this_platform_on_the_official_site",
+          "why_not_verified": "linked from the official site, but the handle does not carry the publisher's name (may be a parent company / agency account)",
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 0,
+      "rejected": 0
+    },
+    {
+      "publisher": "מועצה אזורית חבל מודיעין",
+      "host": "modiin-region.muni.il",
+      "kind": "source",
+      "type": "regional_council",
+      "region": "השפלה והדרום",
+      "venue_id": null,
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "modiin.region",
+          "url": "https://www.facebook.com/modiin.region",
+          "by": "handle",
+          "mentions": 2,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        },
+        {
+          "platform": "instagram",
+          "handle": "hevelmodiin",
+          "url": "https://www.instagram.com/hevelmodiin/",
+          "by": "handle",
+          "mentions": 2,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 0,
+      "rejected": 0
+    },
+    {
+      "publisher": "עיריית עכו",
+      "host": "akko.muni.il",
+      "kind": "source",
+      "type": "municipality",
+      "region": "הצפון והעמק",
+      "venue_id": null,
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "akko.municipality",
+          "url": "https://www.facebook.com/akko.municipality",
+          "by": "handle",
+          "mentions": 1,
+          "state": "DISCOVERED",
+          "verified_via": null,
+          "hint": "only_account_of_this_platform_on_the_official_site",
+          "why_not_verified": "linked from the official site, but the handle does not carry the publisher's name (may be a parent company / agency account)",
+          "already_registered": false
+        },
+        {
+          "platform": "instagram",
+          "handle": "invites",
+          "url": "https://www.instagram.com/invites/",
+          "by": "handle",
+          "mentions": 1,
+          "state": "DISCOVERED",
+          "verified_via": null,
+          "hint": "only_account_of_this_platform_on_the_official_site",
+          "why_not_verified": "linked from the official site, but the handle does not carry the publisher's name (may be a parent company / agency account)",
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 0,
+      "rejected": 0
+    },
+    {
+      "publisher": "עיריית לוד",
+      "host": "lod.muni.il",
+      "kind": "source",
+      "type": "municipality",
+      "region": "השפלה והדרום",
+      "venue_id": null,
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "lodmunicipality",
+          "url": "https://www.facebook.com/LodMunicipality",
+          "by": "handle",
+          "mentions": 1,
+          "state": "DISCOVERED",
+          "verified_via": null,
+          "hint": "only_account_of_this_platform_on_the_official_site",
+          "why_not_verified": "linked from the official site, but the handle does not carry the publisher's name (may be a parent company / agency account)",
+          "already_registered": false
+        },
+        {
+          "platform": "instagram",
+          "handle": "lod.city",
+          "url": "https://www.instagram.com/lod.city/",
+          "by": "handle",
+          "mentions": 1,
+          "state": "DISCOVERED",
+          "verified_via": null,
+          "hint": "only_account_of_this_platform_on_the_official_site",
+          "why_not_verified": "linked from the official site, but the handle does not carry the publisher's name (may be a parent company / agency account)",
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 1,
+      "rejected": 0
+    },
+    {
+      "publisher": "מועצה אזורית מטה יהודה",
+      "host": "m-yehuda.org.il",
+      "kind": "source",
+      "type": "regional_council",
+      "region": "ירושלים והסביבה",
+      "venue_id": null,
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "matteyehuda",
+          "url": "https://www.facebook.com/MatteYehuda",
+          "by": "handle",
+          "mentions": 2,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        },
+        {
+          "platform": "instagram",
+          "handle": "matte__yehuda",
+          "url": "https://www.instagram.com/matte__yehuda/",
+          "by": "handle",
+          "mentions": 2,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 1,
+      "rejected": 0
+    },
+    {
+      "publisher": "רשת המתנ\"סים קריית גת",
+      "host": "matnaskg.org.il",
+      "kind": "source",
+      "type": "community_center_network",
+      "region": "השפלה והדרום",
+      "venue_id": null,
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "matnasqg",
+          "url": "https://www.facebook.com/matnasqg",
+          "by": "handle",
+          "mentions": 3,
+          "state": "DISCOVERED",
+          "verified_via": null,
+          "hint": "only_account_of_this_platform_on_the_official_site",
+          "why_not_verified": "linked from the official site, but the handle does not carry the publisher's name (may be a parent company / agency account)",
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 1,
+      "rejected": 0
+    },
+    {
+      "publisher": "עיריית צפת",
+      "host": "zefat.muni.il",
+      "kind": "source",
+      "type": "municipality",
+      "region": "הצפון והעמק",
+      "venue_id": null,
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "israel.zefat",
+          "url": "https://www.facebook.com/israel.zefat",
+          "by": "handle",
+          "mentions": 2,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 0,
+      "rejected": 0
+    },
+    {
+      "publisher": "פסיפס - נוף הגליל",
+      "host": "nof-hagalil.muni.il",
+      "kind": "source",
+      "type": "community_center_network",
+      "region": "הצפון והעמק",
+      "venue_id": null,
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "יחד-למען-החייל-נצרת-עילית-1183329768388660",
+          "url": "https://www.facebook.com/יחד-למען-החייל-נצרת-עילית-1183329768388660",
+          "by": "handle",
+          "mentions": 1,
+          "state": "DISCOVERED",
+          "verified_via": null,
+          "hint": null,
+          "why_not_verified": "2 facebook accounts on the site and this handle does not carry the publisher's name",
+          "already_registered": false
+        },
+        {
+          "platform": "facebook",
+          "handle": "nof.hagalil.city",
+          "url": "https://www.facebook.com/Nof.Hagalil.City",
+          "by": "handle",
+          "mentions": 1,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        },
+        {
+          "platform": "instagram",
+          "handle": "nof_hagalil",
+          "url": "https://www.instagram.com/nof_hagalil/",
+          "by": "handle",
+          "mentions": 1,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 0,
+      "rejected": 0
+    },
+    {
+      "publisher": "עיריית בת ים",
+      "host": "bat-yam.muni.il",
+      "kind": "source",
+      "type": "municipality",
+      "region": "גוש דן והמרכז",
+      "venue_id": null,
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "batyam.muni",
+          "url": "https://www.facebook.com/batyam.muni",
+          "by": "handle",
+          "mentions": 3,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        },
+        {
+          "platform": "instagram",
+          "handle": "batyam.municipality",
+          "url": "https://www.instagram.com/batyam.municipality/",
+          "by": "handle",
+          "mentions": 3,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 1,
+      "rejected": 0
+    },
+    {
+      "publisher": "מועצה מקומית שוהם (חמש)",
+      "host": "hamesh.co.il",
+      "kind": "source",
+      "type": "local_council",
+      "region": "השפלה והדרום",
+      "venue_id": null,
+      "http": 200,
+      "accounts": [
+        {
+          "platform": "facebook",
+          "handle": "hamesh.shoham",
+          "url": "https://www.facebook.com/hamesh.shoham",
+          "by": "handle",
+          "mentions": 1,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        },
+        {
+          "platform": "instagram",
+          "handle": "hamesh_shoham",
+          "url": "https://www.instagram.com/hamesh_shoham/",
+          "by": "handle",
+          "mentions": 1,
+          "state": "VERIFIED",
+          "verified_via": "official_site+handle_matches_publisher",
+          "hint": null,
+          "why_not_verified": null,
+          "already_registered": false
+        }
+      ],
+      "bioLinks": [],
+      "whatsapp": 4,
+      "rejected": 0
+    }
+  ]
+}

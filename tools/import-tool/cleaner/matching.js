@@ -79,6 +79,22 @@ async function findSimilarActivities(client, candidate, cache) {
     .slice(0, 8);
 }
 
+// mirror of _shared/matching.ts (2026-09-17): genre words are never identity; place + dates contradiction blocks URL identity
+const GENRE_WORDS = new Set(['תיאטרון', 'סיפור', 'סיפורים', 'הצגת', 'הצגה', 'הצגות', 'ילדים', 'לילדים', 'מופע', 'מופעי', 'סדנה', 'סדנת', 'סדנאות', 'שעת', 'מחזמר', 'לכל', 'המשפחה', 'משפחה', 'למשפחות', 'לגילאי', 'גילאי', 'לגיל', 'גיל', 'עד', 'עם', 'של', 'פעילות', 'חוג', 'בוקר', 'אחהצ', 'ערב', 'קונצרט', 'סרט', 'הקרנה', 'מפגש', 'חגיגה', 'פסטיבל', 'אירוע', 'חדש', 'חדשה', 'שנה', 'וחצי', 'חצי']);
+function distinctiveSharedWords(a, b) {
+  const pick = (t) => new Set(normalizeForMatch(t).split(' ').filter((w) => w.length > 1 && !GENRE_WORDS.has(w) && !/^\d+$/.test(w)));
+  const wa = pick(a), wb = pick(b); let n = 0;
+  wa.forEach((w) => { if (wb.has(w)) n++; });
+  return n;
+}
+function placeLabelsDisagree(a, b) {
+  // plene / defective spelling (ספריה = ספרייה, קרית = קריית) is the same word
+  const fold = (t) => normalizeForMatch(t).replace(/[׳״]/g, '').replace(/יי/g, 'י').replace(/וו/g, 'ו'); // + geresh / gershayim (מתנ״ס = מתנס)
+  const x = fold(a), y = fold(b);
+  if (!x || !y) return false;
+  return !(x === y || x.includes(y) || y.includes(x));
+}
+
 function computeConfidence(candidate, existing, thresholds) {
   const breakdown = {};
   breakdown.exact_url_match = candidate.pageUrl && existing.source_url && candidate.pageUrl === existing.source_url ? 1 : 0;
@@ -99,7 +115,12 @@ function computeConfidence(candidate, existing, thresholds) {
   } else breakdown.schedule_match = 0;
 
   let score;
-  const urlIdentity = breakdown.exact_url_match >= 1 && breakdown.name_overlap >= 0.5; // a shared listing page + same date is not identity
+  breakdown.distinctive_name = distinctiveSharedWords(candidate.name, existing.name);
+  const datesContradict = cDates.length > 0 && eDates.length > 0 && !cDates.some((d) => eDates.includes(d));
+  const placeContradicts = (candidate.venue_id && existing.venue_id) ? candidate.venue_id !== existing.venue_id : placeLabelsDisagree(candidate.location_name, existing.location_name);
+  breakdown.association_conflict = datesContradict && placeContradicts ? 1 : 0;
+  // a shared listing page + same date is not identity; neither is an overlap of genre words, nor a title whose place AND dates contradict
+  const urlIdentity = breakdown.exact_url_match >= 1 && breakdown.name_overlap >= 0.5 && breakdown.distinctive_name >= 1 && !breakdown.association_conflict;
   if (breakdown.fingerprint_match >= 1 || urlIdentity) score = 0.95;
   else if (breakdown.venue_match >= 1) {
     score = (breakdown.name_overlap * 0.3) + (breakdown.venue_match * 0.3) + (breakdown.schedule_match * 0.3) + (breakdown.city_match * 0.1);
@@ -121,4 +142,4 @@ async function bestMatch(client, candidate, thresholds, cache) {
   return best;
 }
 
-module.exports = { wordOverlapScore, haversineKm, getConfidenceThresholds, getExistingActivitiesForCity, findSimilarActivities, computeConfidence, bestMatch, mapExistingRow, candidateDates, existingDates };
+module.exports = { distinctiveSharedWords, wordOverlapScore, haversineKm, getConfidenceThresholds, getExistingActivitiesForCity, findSimilarActivities, computeConfidence, bestMatch, mapExistingRow, candidateDates, existingDates };

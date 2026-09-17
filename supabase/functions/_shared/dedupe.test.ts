@@ -4,7 +4,7 @@
 // must not defeat matching. Run with `npx deno test supabase/functions/_shared/`.
 
 import { assertEquals, assert } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { computeConfidence, computeEventFingerprint, computeFieldDiff, getConfidenceThresholds, type ExistingActivity } from "./matching.ts";
+import { computeConfidence, distinctiveSharedWords, hhmm, descriptionMateriallyDiffers, placeLabelChanged, computeEventFingerprint, computeFieldDiff, getConfidenceThresholds, type ExistingActivity } from "./matching.ts";
 
 const thresholds = getConfidenceThresholds({});
 const existingBase: ExistingActivity = {
@@ -117,4 +117,49 @@ Deno.test("enrichment-only diff (exact fingerprint re-detection): fills gaps fou
   assertEquals("price_amount" in known, false); // never proposes 30 -> 45 as "enrichment"
   assertEquals("description" in known, false);
   assertEquals(Object.keys(computeFieldDiff(candidate, existingBase, { enrichmentOnly: true })).sort(), ["address", "event_key"]);
+});
+
+// ---- wave 2 (2026-09-17): update ASSOCIATION. Production regression (Ra'anana story-theatre listing):
+// "הצב והארנב - תיאטרון סיפור" (9.11, אודיטוריום יד לבנים, 17:00) was queued as an UPDATE of another
+// "... - תיאטרון סיפור" show (10.10, מרכז קהילתי נווה זמר, 11:00): same listing URL + 0.5 overlap made
+// of genre words only. Approving it would have moved a real event to another venue, date and hour.
+Deno.test("update association: genre words on a shared listing are not identity; place + dates contradiction blocks URL identity", () => {
+  const th = getConfidenceThresholds({});
+  const listing = "https://tickets.example.muni.il/kids";
+  // deno-lint-ignore no-explicit-any
+  const existing: any = { id: "e1", name: "הארנב שמצא חבר - תיאטרון סיפור", source_url: listing, location_name: "מרכז קהילתי נווה זמר", city: "רעננה", lat: null, lng: null, venue_id: null, event_fingerprint: "fp-a", one_time_date: "2026-10-10", occurrences: [{ date: "2026-10-10", start_time: "11:00" }], recurring_days: [] };
+  const other = { name: "הצב והצפרדע - תיאטרון סיפור", city: "רעננה", pageUrl: listing, location_name: "אודיטוריום יד לבנים", venue_id: null, one_time_date: "2026-11-09", recurring_days: [], event_fingerprint: "fp-b" };
+  const c = computeConfidence(other, existing, th);
+  assertEquals(c.breakdown.exact_url_match, 1);
+  assertEquals(c.breakdown.distinctive_name, 0);
+  assert(c.score < th.needsReview, `different show must not even reach review as an update: ${c.score}`);
+
+  // the SAME show, a later performance at the same place: still the same event (occurrence model)
+  const later = { name: "הארנב שמצא חבר - תיאטרון סיפור", city: "רעננה", pageUrl: listing, location_name: "מרכז קהילתי נווה זמר", venue_id: null, one_time_date: "2026-11-14", recurring_days: [], event_fingerprint: "fp-c" };
+  assert(computeConfidence(later, existing, th).score >= th.duplicate);
+
+  // the same title at ANOTHER place on OTHER dates: a different event, never an update of this one
+  const elsewhere = { ...later, location_name: "ספריית כפר בתיה", one_time_date: "2026-12-01" };
+  const e = computeConfidence(elsewhere, existing, th);
+  assertEquals(e.breakdown.association_conflict, 1);
+  assert(e.score < th.duplicate, `place + dates contradict: ${e.score}`);
+
+  assertEquals(distinctiveSharedWords("סינדרלה - מחזמר לכל המשפחה", "סינדרלה - הצגת ילדים"), 1);
+  assertEquals(distinctiveSharedWords("שעת סיפור לגילאי 2-4", "הצגת ילדים לגילאי 2-4"), 0);
+});
+
+// ---- wave 2 (2026-09-17): UPDATE NOISE. 611 pending update rows in production; 172 start_time "changes"
+// were "17:00:00" vs "17:00", 194 descriptions were model rewordings, 37 place labels contained each other.
+Deno.test("update noise: time format, a reworded summary and a contained place label are not changes; real changes still surface", () => {
+  // deno-lint-ignore no-explicit-any
+  const ex: any = { id: "e1", name: "סיור במרכז המבקרים", name_source: null, description: "פארק המציע מגוון פעילויות ואטרקציות כולל קיר טיפוס, מכוניות מתנגשות ובריכה מותאמת לילדים.", category: "אטרקציה", min_age: null, max_age: null, price_type: null, price_amount: null, booking_requirement: null, source_url: "x", location_name: "ספריה", city: "רמת השרון", address: null, one_time_date: "2026-10-10", start_time: "17:00:00", end_time: "18:30:00", recurring_days: [], occurrences: [], has_image: true, event_key: "k" };
+  const same = { name: ex.name, description: "פארק המציע מגוון פעילויות ואטרקציות כמו קיר טיפוס, מכוניות מתנגשות ובריכה מותאמת לילדים.", location_name: "ספרייה רמת השרון", city: "רמת השרון", one_time_date: "2026-10-10", start_time: "17:00", end_time: "18:30" };
+  assertEquals(Object.keys(computeFieldDiff(same, ex)), []);
+  const changed = { ...same, start_time: "18:00", location_name: "אודיטוריום יד לבנים", description: "הרצאה למבוגרים על תולדות היישוב ומסלול הליכה לילי בהדרכת מורה דרך מוסמך." };
+  assertEquals(Object.keys(computeFieldDiff(changed, ex)).sort(), ["description", "location_name", "start_time"]);
+  // a description that FILLS a gap is information gain
+  assertEquals(Object.keys(computeFieldDiff({ ...same }, { ...ex, description: null })), ["description"]);
+  assertEquals(hhmm("9:05:00"), "09:05"); assertEquals(hhmm(null), null);
+  assertEquals(descriptionMateriallyDiffers("אותו טקסט בדיוק", "אותו טקסט בדיוק"), false);
+  assertEquals(placeLabelChanged("מתנ״ס", "מתנס"), false);
 });

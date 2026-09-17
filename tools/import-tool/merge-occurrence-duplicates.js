@@ -50,8 +50,21 @@ const t5 = (t) => (t ? String(t).slice(0, 5) : '');
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(a);
   }
+  // EXACT SAME OCCURRENCE (wave 2, 2026-09-17): members that also share the DATE are not "another edition" of
+  // anything - title + source + venue + date + hour is the definition of one performance (it is what
+  // event_fingerprint encodes; these twins escaped dedupe-fingerprint-activities.js only because their stored
+  // fingerprints were computed differently - one with a venue id, one with a city). They are split out of
+  // their group and classified HIGH on their own; the rest of the group is judged by the rules below as before.
+  const exactTwins = [];
+  for (const [key, g] of [...groups.entries()]) {
+    const byDate = new Map();
+    for (const a of g) { const d = a.activity_schedules[0].one_time_date; if (!byDate.has(d)) byDate.set(d, []); byDate.get(d).push(a); }
+    const keep = [];
+    for (const [d, members] of byDate) { if (members.length > 1) { exactTwins.push({ date: d, members }); keep.push(members[0]); } else keep.push(members[0]); }
+    groups.set(key, keep);
+  }
   const candidates = [...groups.values()].filter((g) => g.length > 1);
-  const classified = [];
+  const classified = exactTwins.map((t) => ({ cls: 'HIGH', why: `exact same occurrence: title + source + venue + date ${t.date} + hour`, keeper: t.members[0], losers: t.members.slice(1), dates: t.members.map(() => t.date), group: t.members }));
   let verified = 0;
   for (const g of candidates) {
     const dates = g.map((a) => a.activity_schedules[0].one_time_date);
@@ -122,7 +135,7 @@ const t5 = (t) => (t ? String(t).slice(0, 5) : '');
       const { error: incErr } = await client.from('incoming_activities').update({ status: 'rejected', existing_activity_id: keeper.id, reviewed_by: userId, reviewed_at: now, reject_reason: 'מועד נוסף של אותו אירוע - אוחד לפעילות ' + keeper.id }).eq('created_activity_id', loser.id);
       if (!incErr) incRepointed++;
       await client.from('incoming_activities').update({ existing_activity_id: keeper.id }).eq('existing_activity_id', loser.id);
-      await client.from('cleaner_cases').update({ status: 'archived', archive_reason: 'duplicate_of_existing_activity', resolution: { merged_into: keeper.id, by: 'merge-occurrence-duplicates' } }).eq('subject_id', loser.id).eq('status', 'open');
+      await client.from('cleaner_cases').update({ status: 'archived', archive_reason: 'duplicate_of_existing_activity', resolution: { outcome: 'archived', reason: 'duplicate_of_existing_activity', merged_into: keeper.id, by: 'merge-occurrence-duplicates', explanation: { missing: 'nothing - the subject itself was a duplicate', methods_tried: ['occurrence_merge'], methods_unavailable: [], evidence_found: { merged_into: keeper.id, rule: c.why }, why_insufficient: 'the activity was the same event as the keeper and was archived; its open issues continue on the keeper', external_limit: null, reopen_when: ['the merge is reverted (the archived activity is restored)'] } }, updated_at: new Date().toISOString() }).eq('subject_id', loser.id).eq('status', 'open');
       for (const t of ['favorites', 'planned_activities']) { const { error } = await client.from(t).update({ activity_id: keeper.id }).eq('activity_id', loser.id); if (error && !/duplicate|unique/i.test(error.message)) console.log(`  ${t} re-point skipped for ${loser.id}: ${error.message.slice(0, 60)}`); }
       const { error: archErr } = await client.from('activities').update({ status: 'archived', archive_reason: 'duplicate_of_existing_activity', archived_at: now }).eq('id', loser.id);
       if (archErr) { console.log('  archive failed', loser.id, archErr.message); continue; }
