@@ -12,6 +12,24 @@
     "clarifyArea": "📍 Where should we look?",
     "clarifyCityPlaceholder": "Enter a city..."
   },
+  "nearMe": {
+    "action": "What's near me?",
+    "loading": "Finding what's around you...",
+    "a11yLabel": "What's near me? Shows activities based on your current location, sorted by distance",
+    "explainer": {
+      "title": "📍 To find what's really nearby",
+      "body": "Turu needs access to your location to show nearby activities and sort them by distance from you.",
+      "confirm": "Allow location access",
+      "notNow": "Not now"
+    },
+    "errors": {
+      "denied": "You didn't allow location access. You can try again or choose a city.",
+      "blocked": "Location access is blocked in your device settings.",
+      "locationFailed": "We couldn't find your location. Try again or choose a city.",
+      "chooseCity": "Choose a city instead",
+      "openSettings": "Open settings"
+    }
+  },
   "recent": {
     "title": "🕐 Recent searches",
     "clearAllA11y": "Clear all recent searches",

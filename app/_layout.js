@@ -9,6 +9,7 @@ import { Fredoka_600SemiBold, Fredoka_700Bold } from '@expo-google-fonts/fredoka
 import { FrankRuhlLibre_600SemiBold, FrankRuhlLibre_700Bold } from '@expo-google-fonts/frank-ruhl-libre';
 import { colors } from '../constants/theme';
 import BottomNav from '../components/BottomNav';
+import ToastHost from '../components/ToastHost';
 import { completeOAuthRedirect } from '../lib/oauth';
 import { enforceNotBanned } from '../lib/checkBanned';
 import { recordLegalConsentIfNeeded } from '../lib/legal';
@@ -99,6 +100,9 @@ export default function RootLayout() {
           }}
         />
         <BottomNav />
+        {/* מרונדר פעם אחת, מעל BottomNav - lib/toast.js/showToast עובד מכל מסך/רכיב בלי prop-
+            drilling, וההודעה שורדת ניווט (לא נעלמת כי המסך שקרא לה התחלף). */}
+        <ToastHost />
       </View>
     </SafeAreaProvider>
   );

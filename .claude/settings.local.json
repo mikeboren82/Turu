@@ -87,7 +87,19 @@
       "Bash(node scripts/syntax-check.js \"app/activity/[id].js\")",
       "Bash(sed -i \"1146s/textAlign: d.textAlign },/textAlign: d.textAlign, flexShrink: 0 },/\" app/activities.js)",
       "Bash(sed -i \"627s/<Text style={styles.pageTitle}>/<Text style={styles.pageTitle} numberOfLines={1}>/\" app/activities.js)",
-      "Bash(node scripts/syntax-check.js app/activities.js)"
+      "Bash(node scripts/syntax-check.js app/activities.js)",
+      "Bash(git push *)",
+      "Bash(sed -i \"s/\\\\`🎚️ \\\\${t\\('activities.display.viewTitle'\\)}\\\\`/\\\\`⚙️ \\\\${t\\('activities.display.viewTitle'\\)}\\\\`/\" app/activities.js)",
+      "Bash(sed -i \"s/כברירת מחדל: 🎚️ + המילה/כברירת מחדל: ⚙️ + המילה/\" app/activities.js)",
+      "Bash(sed -i \"s/במקום ⚙️ בלבד, שנקרא כ\\\\\"הגדרות\\\\\" מעורפל/לבדו \\(בלי מילה\\) שנקרא כ\\\\\"הגדרות\\\\\" מעורפל/\" app/activities.js)",
+      "Bash(node scripts/syntax-check.js app/index.js app/activities.js lib/matchReasons.js components/ActivityCard.js)",
+      "Bash(node scripts/syntax-check.js app/index.js app/activities.js app/activity/\\\\[id\\\\].js lib/interactions.js lib/toast.js components/ToastHost.js app/_layout.js)",
+      "Bash(node scripts/i18n-scan.js app/index.js app/activities.js \"app/activity/[id].js\" lib/interactions.js lib/toast.js components/ToastHost.js app/_layout.js)",
+      "Bash(node --test tests/matchReasons.test.js)",
+      "Bash(node --test tests/actionFeedback.test.js)",
+      "Bash(node --test tests/)",
+      "Bash(node scripts/syntax-check.js app/index.js app/activities.js \"app/activity/[id].js\" lib/interactions.js lib/toast.js lib/matchReasons.js components/ToastHost.js components/ActivityCard.js components/ActivitiesMap.web.js app/_layout.js)",
+      "Bash(node scripts/i18n-scan.js app/index.js app/activities.js \"app/activity/[id].js\" lib/interactions.js lib/toast.js lib/matchReasons.js components/ToastHost.js components/ActivityCard.js components/ActivitiesMap.web.js app/_layout.js)"
     ]
   }
 }

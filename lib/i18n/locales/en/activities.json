@@ -3,7 +3,6 @@
     "title": "All activities",
     "count_one": "1 result",
     "count_other": "{{count}} results",
-    "discoverySubtitle": "Activities worth discovering ✨",
     "filterLabel": "Filters",
     "filterA11yWithCount_one": "Filters, 1 active filter",
     "filterA11yWithCount_other": "Filters, {{count}} active filters",
@@ -108,13 +107,17 @@
       "visited": "Mark as \"been here\"",
       "unvisited": "Unmark \"been here\"",
       "note": "Personal note"
+    },
+    "matchReasons": {
+      "ageMatchAll_one": "Matches your child's age",
+      "ageMatchAll_other": "Matches the ages of all selected children",
+      "openNow": "Open now",
+      "noRegistration": "No registration needed"
     }
   },
   "map": {
     "emptyOverlay": "The selected activities have no known location to show on the map",
-    "webOnlyTitle": "Map view is available in the mobile app",
-    "webLocatedCount_one": "1 activity with a known location is waiting for you on the map",
-    "webLocatedCount_other": "{{count}} activities with a known location are waiting for you on the map",
-    "noKnownLocation": "No known location for the selected activities"
+    "multipleAt_one": "1 activity at this spot",
+    "multipleAt_other": "{{count}} activities at this spot"
   }
 }

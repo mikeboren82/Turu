@@ -3,7 +3,6 @@
     "title": "כל הפעילויות",
     "count_one": "{{count}}",
     "count_other": "{{count}}",
-    "discoverySubtitle": "פעילויות שכדאי לגלות ✨",
     "filterLabel": "סינון",
     "filterA11yWithCount_other": "סינון, {{count}} סינונים פעילים",
     "filterSummaryCountOnly": "סינון +{{count}}",
@@ -106,12 +105,18 @@
       "visited": "סימון \"כבר הייתי כאן\"",
       "unvisited": "ביטול \"כבר הייתי כאן\"",
       "note": "הערה אישית"
+    },
+    "matchReasons": {
+      "ageMatchAll_one": "מתאים לגיל הילד/ה שנבחר/ה",
+      "ageMatchAll_two": "מתאים לגילים של שני הילדים",
+      "ageMatchAll_other": "מתאים לגילים של כל הילדים שנבחרו",
+      "openNow": "פתוח עכשיו",
+      "noRegistration": "ללא הרשמה מראש"
     }
   },
   "map": {
     "emptyOverlay": "לפעילויות שנבחרו אין מיקום ידוע להצגה על המפה",
-    "webOnlyTitle": "תצוגת מפה זמינה באפליקציה בנייד",
-    "webLocatedCount_other": "{{count}} פעילויות עם מיקום ידוע ממתינות לכם על המפה",
-    "noKnownLocation": "לא נמצא מיקום ידוע לפעילויות שנבחרו"
+    "multipleAt_one": "פעילות אחת במיקום הזה",
+    "multipleAt_other": "{{count}} פעילויות במיקום הזה"
   }
 }

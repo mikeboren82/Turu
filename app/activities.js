@@ -14,13 +14,14 @@ import LocationQuickPicker, { locationSummary } from '../components/LocationQuic
 import { ChevronDownIcon } from '../components/icons';
 import { colors, fonts, radii, spacing } from '../constants/theme';
 import { fetchApprovedActivities, formatSearchDistance, fetchSettlementCoords } from '../lib/activities';
-import { fetchUserActivityFlags, toggleFavorite, toggleVisited, toggleHidden, savePersonalNote, fetchAllPersonalNotes } from '../lib/interactions';
+import { fetchUserActivityFlags, toggleFavorite, toggleVisited, savePersonalNote, fetchAllPersonalNotes, toggleWithFeedback, hideActivityWithFeedback } from '../lib/interactions';
 import { fetchUserPreferences, saveExcludedCategories, saveExcludedCities, saveExcludedRegions } from '../lib/preferences';
 import { supabase } from '../lib/supabase';
 import { DEFAULT_FILTERS, CATEGORY_FILTER_OPTIONS } from '../constants/filterSchema';
 import { categorySummary } from '../lib/filterSummaries';
 import { rankActivitiesWithSmartRadius, countActiveFilters, normalizeFilters, getOpenNowInfo, haversineKm, locationWithDrivingTime } from '../lib/filterActivities';
 import { formatBenefitCardTag } from '../lib/benefits';
+import { buildMatchReasons } from '../lib/matchReasons';
 import { parseSmartSearchQuery, intentToFilters } from '../lib/smartSearch';
 import { t, useI18n, createStyles } from '../lib/i18n';
 import { formatKm } from '../lib/i18n/format';
@@ -75,9 +76,14 @@ function activitiesFilterSummary(filters) {
 export default function ActivitiesScreen() {
   const router = useRouter();
   const { t, locale } = useI18n();
-  const { homeFilters, homeCoords, openFilters, view, spontaneous } = useLocalSearchParams();
+  const { homeFilters, homeCoords, openFilters, view, spontaneous, nearMe, homeChildAges } = useLocalSearchParams();
   const [filters, setFilters] = useState(() => normalizeFilters(parseJson(homeFilters, {})));
   const [deviceCoords, setDeviceCoords] = useState(() => parseJson(homeCoords, null));
+  // גילאי הילדים *שנבחרו לחיפוש* בעמוד הבית (app/index.js: selectedChildAges, לא כל הילדים
+  // בפרופיל) - מגיע כפרמטר-route קטן בדיוק כמו homeFilters/homeCoords, אך ורק לצורך שורת-
+  // ההסבר "✓ מתאים לגילים..." (lib/matchReasons.js) - לא נוגע בשום פילטר/דירוג. הגעה ישירה
+  // לעמוד (בלי homeChildAges, למשל מהתפריט) -> [] -> ageMatchFact פשוט לא מציע הסבר-גיל.
+  const [childAges] = useState(() => parseJson(homeChildAges, []));
   // כשמגיעים דרך "סינון מתקדם" מהעמוד הראשי - פותחים ישר את הפאנל, אבל עדיין מציגים תוצאות
   // (בניגוד למודל הישן, הפאנל עכשיו inline מעל תוצאות חיות, לא חוסם אותן).
   const [sheetOpen, setSheetOpen] = useState(openFilters === 'true');
@@ -335,6 +341,15 @@ export default function ActivitiesScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // "📍 מה יש סביבי?" (app/index.js handleNearMePress/goNearMe) - GPS/הרשאה כבר טופלו בעמוד
+  // הבית לפני הניווט (homeFilters כבר מגיע עם location.mode:'current'+radiusKm:10, homeCoords
+  // עם הקואורדינטות שהתקבלו); כל מה שנשאר לעשות כאן זה sortMode:'distance' פעם אחת ב-mount,
+  // בדיוק כמו טיפול spontaneous/view למעלה - לא זרימת-הרשאה מקבילה.
+  useEffect(() => {
+    if (nearMe === 'true') setSortMode('distance');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // 🔎 חיפוש חופשי קומפקטי - אותו זרימת-הבהרה בדיוק כמו app/index.js (handleSmartSearch/
   // handleClarifyCity), רק שבמקום לנווט ל-/activities עם homeFilters (אנחנו כבר כאן), כותבים
   // ישירות ל-filters הקיים דרך applyFreeSearchIntent - "מעדכן את עמוד הפעילויות" כמו שהתבקש,
@@ -413,36 +428,24 @@ export default function ActivitiesScreen() {
     applyFreeSearchIntent(clarify.pendingIntent);
   };
 
-  const handleToggleFavorite = async (activityId) => {
+  // מועדפים/"כבר הייתי כאן"/הסתרה - הלוגיקה המשותפת (אופטימי+שחזור-בכשל+הודעה) עברה ל-
+  // lib/interactions.js (toggleWithFeedback/hideActivityWithFeedback), כדי שהיא תהיה זהה
+  // בדיוק כמו בעמוד הבית (app/index.js) - לא שני מימושים מקבילים.
+  const handleToggleFavorite = (activityId) => {
     if (!userId) return requireLogin();
     const next = !favoriteIds.has(activityId);
-    setFavoriteIds((prev) => { const s = new Set(prev); next ? s.add(activityId) : s.delete(activityId); return s; });
-    try {
-      await toggleFavorite(userId, activityId, next);
-    } catch {
-      setFavoriteIds((prev) => { const s = new Set(prev); next ? s.delete(activityId) : s.add(activityId); return s; });
-    }
+    toggleWithFeedback(setFavoriteIds, activityId, next, () => toggleFavorite(userId, activityId, next));
   };
 
-  const handleToggleVisited = async (activityId) => {
+  const handleToggleVisited = (activityId) => {
     if (!userId) return requireLogin();
     const next = !visitedIds.has(activityId);
-    setVisitedIds((prev) => { const s = new Set(prev); next ? s.add(activityId) : s.delete(activityId); return s; });
-    try {
-      await toggleVisited(userId, activityId, next);
-    } catch {
-      setVisitedIds((prev) => { const s = new Set(prev); next ? s.delete(activityId) : s.add(activityId); return s; });
-    }
+    toggleWithFeedback(setVisitedIds, activityId, next, () => toggleVisited(userId, activityId, next));
   };
 
-  const handleHide = async (activityId) => {
+  const handleHide = (activityId) => {
     if (!userId) return requireLogin();
-    setHiddenIds((prev) => new Set(prev).add(activityId));
-    try {
-      await toggleHidden(userId, activityId, true);
-    } catch {
-      setHiddenIds((prev) => { const s = new Set(prev); s.delete(activityId); return s; });
-    }
+    hideActivityWithFeedback(setHiddenIds, userId, activityId);
   };
 
   // 📝 הערה אישית ישירות מכרטיס הפעילות - אותו דפוס בדיוק כמו openNoteModal/saveNoteModal
@@ -534,11 +537,14 @@ export default function ActivitiesScreen() {
           visited: visitedIds.has(a.id),
           hasNote: notesByActivity.has(a.id),
           benefitTag: formatBenefitCardTag(a.benefits, benefitClubs),
-          spontaneousBadge: spontaneousActive ? buildSpontaneousBadge(a) : null,
+          // "✓ למה זה מתאים" - שורה אחת משותפת (לא שתי שורות-הסבר מקבילות על הכרטיס, ראו
+          // components/ActivityCard.js): ספונטני פעיל שומר את הניסוח הקיים שלו בדיוק
+          // (buildSpontaneousBadge, ללא שינוי), אחרת ההסבר הכללי (גיל+פתוח-עכשיו/ללא-הרשמה).
+          matchReason: spontaneousActive ? buildSpontaneousBadge(a) : buildMatchReasons(a, { childAges }),
         };
       }),
     // locale: {...a} מעתיק את ערכי ה-getters (ageRange/price/hours) - חישוב מחדש בהחלפת שפה.
-    [rankedResult, hiddenIds, favoriteIds, visitedIds, notesByActivity, benefitClubs, spontaneousActive, spontaneousCoords, searchOriginCoords, filters.location?.mode, locale]
+    [rankedResult, hiddenIds, favoriteIds, visitedIds, notesByActivity, benefitClubs, spontaneousActive, spontaneousCoords, searchOriginCoords, filters.location?.mode, locale, childAges]
   );
 
   // סעיף N בבקשה: "יש הבדל בין 'לא מצאנו מספיק תוצאות באזור' לבין 'הפילטרים מגבילים מאוד'" -
@@ -575,9 +581,6 @@ export default function ActivitiesScreen() {
   const hiddenCityCount = new Set([...excludedCities, ...(filters.excludeCity || [])]).size;
   const hiddenRegionCount = new Set([...excludedRegions, ...(filters.excludeRegion || [])]).size;
   const hiddenAreaCount = hiddenCityCount + hiddenRegionCount;
-  // Discovery Mode (סעיפים 1/3/10/19 בבקשה): אין פילטרים פעילים, אין חיפוש-חופשי, אין ספונטני -
-  // כותרת-המשנה מרגישה כמו הזמנה-לגלות, לא כמו ספירת-שורות של מסד-נתונים.
-  const isDiscoveryMode = activeCount === 0 && !filters.q?.trim() && !spontaneousActive;
 
   // 🪄 ספונטני - "אין משהו פתוח עכשיו" (סעיף 13 בבקשת השדרוג): openNowCount נגזר מ-scoreActivity
   // עצמו (getOpenNowInfo, לא סינון נפרד) - אם 0, מציגים הודעה + "נפתח בקרוב" אם יש מידע אמיתי,
@@ -619,14 +622,15 @@ export default function ActivitiesScreen() {
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Header showBack onMenuPress={() => {}} />
 
-        {/* כותרת = זהות קבועה ("כל הפעילויות") + ספירה קומפקטית צמודה (בקשת המשתמש 2026-09-16
-            השנייה: "the first real Activity card should appear as early as possible" - לא עוד
-            שורת-subtitle נפרדת, לא עוד List/Map כאן - הם עברו ל"תצוגה/מיון" ב-toolbar, ראו למטה). */}
+        {/* כותרת = זהות קבועה ("כל הפעילויות") + ספירה קומפקטית צמודה. בכוונה בלי אייקון/אמוג'י
+            ליד הכותרת (בקשת המשתמש: "clean/stable/functional/quiet", בניגוד לכותרות-section
+            המשחקיות בעמוד הבית) ובלי טקסט-הזמנה חלופי ("פעילויות שכדאי לגלות") - הספירה תמיד
+            מספר, גם ב-Discovery Mode; ה"הזמנה לגלות" כבר מגיעה מהכותרת הראשית עצמה + מהתוכן. */}
         <View style={styles.titleBlock}>
           <View style={styles.titleRow}>
             <Text style={styles.pageTitle} numberOfLines={1}>{t('activities.header.title')}</Text>
             <Text style={styles.titleCount} numberOfLines={1}>
-              {isDiscoveryMode ? t('activities.header.discoverySubtitle') : t('activities.header.count', { count: filteredActivities.length })}
+              {t('activities.header.count', { count: filteredActivities.length })}
             </Text>
           </View>
         </View>
@@ -650,9 +654,14 @@ export default function ActivitiesScreen() {
 
           {/* "תצוגה/מיון" - מאחד את "📍 לפי מרחק" (toggle בינארי) ואת "רשימה/מפה" (היה בשורת-
               הכותרת) לכפתור אחד קומפקטי; פותח sheet קטן (displaySheetOpen) עם שני radio-groups
-              (סעיף 9-10 בבקשה) במקום דרישה תמידית לשני controls נפרדים. שקט (⚙️ בלבד, בלי accent)
-              כברירת מחדל; מציג את המצב הלא-ברירת-מחדל בטקסט כשיש (אותו אימוג'י שכבר קיים ל-
-              "מרחק"/"מפה", אותו toolbarChipPrimaryActive שכבר קיים ל-active). סוגר את sheetOpen
+              (סעיף 9-10 בבקשה) במקום דרישה תמידית לשני controls נפרדים. כברירת מחדל: ⚙️ + המילה
+              "תצוגה" (מפתח viewTitle הקיים, לא מפתח חדש) - לא ⚙️ לבדו, שנקרא כ"הגדרות" מעורפל
+              (בקשת המשתמש: "a user should not have to guess"); בדקנו גם אימוג'י-סליידר (🎚️)
+              במקום ⚙️, אבל הוא עצמו נראה מטושטש/חד-גוני בדפדפן בפועל - הבעיה האמיתית לא הייתה
+              זהות האייקון אלא היעדר מילה לצידו, אז המילה עצמה פותרת את זה בלי לסכן עקביות-רינדור.
+              אותו פורמט אייקון+מילה בדיוק כמו שני האחים שלו (🎯 סינון/🔍 חיפוש), לא עוד היוצא-מן-
+              הכלל היחיד. מציג את המצב הלא-ברירת-מחדל בטקסט כשיש (אותו אימוג'י שכבר קיים ל"מרחק"/
+              "מפה", אותו toolbarChipPrimaryActive שכבר קיים ל-active). סוגר את sheetOpen
               (הפילטרים) אם פתוח - לעולם לא שני Modal-ים יחד. */}
           <Pressable
             style={[styles.toolbarChip, styles.toolbarChipCompact, (sortMode === 'distance' || viewMode === 'map') && styles.toolbarChipPrimaryActive]}
@@ -673,7 +682,7 @@ export default function ActivitiesScreen() {
                   ? t('activities.display.chipMap')
                   : sortMode === 'distance'
                     ? t('activities.display.chipDistance')
-                    : '⚙️'}
+                    : `⚙️ ${t('activities.display.viewTitle')}`}
             </Text>
           </Pressable>
 
@@ -744,6 +753,15 @@ export default function ActivitiesScreen() {
                 : t('activities.smartRadius.expandedTo15')}
             </Text>
           </View>
+        ) : null}
+
+        {/* הפרדה עדינה בין הבקרות לתוצאות (בקשת המשתמש: "the controls end here; the results
+            begin here" - whitespace + קו דק אחד, לא מיכל/רקע/כותרת חדשה). מוצג רק כשבאמת עומדים
+            להיות כרטיסים/מפה מתחתיו - לא מעל spinner, הודעת-שגיאה, מצב-ריק, או מצב "ספונטני
+            ושום דבר לא פתוח עכשיו" (גם הוא מוצג כמו מצב-ריק, ראו סעיף 20 בבקשה) - קו מרחף מעל
+            הודעת-ריק היה נראה כמו טעות, לא כמו מעבר. */}
+        {!loading && !loadError && filteredActivities.length > 0 && !(spontaneousActive && spontaneousOpenCount === 0) ? (
+          <View style={styles.resultsDivider} />
         ) : null}
 
         {loading ? (
@@ -1174,6 +1192,11 @@ const styles = createStyles((d) => ({
   // possible"). Filter מקבל flex:1 (התקציר שלו הכי ארוך, ראו activitiesFilterSummary) - Search/
   // תצוגה-ומיון בגודל-תוכן בלבד (toolbarChipCompact, לא flex:1 שווה כמו קודם).
   toolbarRow: { flexDirection: d.row, gap: 8, marginBottom: 10, zIndex: 15 },
+  // קו-הפרדה עדין בין הבקרות לתוצאות: 1px בצבע-הגבול הרגיל של המערכת (colors.border, אותו
+  // צבע שכבר משמש למסגרות toolbarChip/gateCard וכו') - בלי מסגרת/רקע/צל/תווית משלו. אין
+  // marginHorizontal - מיושר אוטומטית עם ריפוד-התוכן הרגיל (content.padding), לא full-bleed.
+  // marginVertical:spacing.md (14) משני הצדדים - "12-16px נשימה" מהבקשה, בערך אותו טוקן קיים.
+  resultsDivider: { height: 1, backgroundColor: colors.border, marginVertical: spacing.md },
   toolbarChip: {
     flexDirection: d.row, alignItems: 'center', justifyContent: 'center', gap: 5,
     borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card,

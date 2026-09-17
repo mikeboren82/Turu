@@ -28,7 +28,14 @@
     "showLess": "Show less",
     "ok": "OK",
     "yes": "Yes",
-    "no": "No"
+    "no": "No",
+    "undo": "Undo"
+  },
+  "toast": {
+    "activityHidden": "Activity hidden",
+    "hideFailed": "We couldn't hide this activity. Try again.",
+    "unhideFailed": "We couldn't undo hiding this activity. Try again.",
+    "actionFailed": "We couldn't save that change. Try again."
   },
   "states": {
     "loading": "Loading...",

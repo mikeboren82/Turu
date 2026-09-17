@@ -28,7 +28,7 @@ export default function ActivityCard({
   recommendedBy,
   requiresTicket = false,
   benefitTag = null,
-  spontaneousBadge = null,
+  matchReason = null,
   favorite = false,
   visited = false,
   hasNote = false,
@@ -119,11 +119,15 @@ export default function ActivityCard({
           </View>
           <View style={{ transform: [{ rotate: dir.forwardRotate }] }}><ChevronLeftIcon /></View>
         </View>
-        {/* 🪄 ספונטני פעיל בלבד (App/activities.js מעביר null אחרת) - "למה זה מופיע עכשיו":
-            פתוח-עכשיו/נפתח-בקרוב + דורש-הזמנה אם רלוונטי, רק מידע ידוע בפועל. */}
-        {spontaneousBadge ? (
-          <View style={styles.spontaneousBadgeRow}>
-            <Text style={styles.spontaneousBadgeText}>{spontaneousBadge}</Text>
+        {/* "✓ למה זה מתאים" - שורה משותפת אחת (lib/matchReasons.js), לא שתי שורות-הסבר
+            מקבילות: ספונטני פעיל מעביר את buildSpontaneousBadge (פתוח-עכשיו/נפתח-בקרוב +
+            דורש-הזמנה), אחרת buildMatchReasons (התאמת-גיל לילדים שנבחרו + פתוח-עכשיו/ללא-
+            הרשמה) - שני ה-caller-ים (app/index.js, app/activities.js) בוחרים איזה מהשניים
+            להזין ל-prop הזה, ה-Text כאן רק מציג מה שקיבל. null כשאין הסבר מבוסס - בלי שורה/
+            רווח ריק. */}
+        {matchReason ? (
+          <View style={styles.matchReasonRow}>
+            <Text style={styles.matchReasonText}>{matchReason}</Text>
           </View>
         ) : null}
       </View>
@@ -177,8 +181,8 @@ const styles = createStyles((d) => ({
     fontFamily: fonts.bold, fontSize: 10.5, color: colors.accent, backgroundColor: colors.accentTintLight,
     borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2, flexShrink: 1,
   },
-  spontaneousBadgeRow: {
+  matchReasonRow: {
     marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: colors.borderLight,
   },
-  spontaneousBadgeText: { fontFamily: fonts.semiBold, fontSize: 11.5, color: colors.accent, textAlign: d.textAlign },
+  matchReasonText: { fontFamily: fonts.semiBold, fontSize: 11.5, color: colors.accent, textAlign: d.textAlign },
 }));

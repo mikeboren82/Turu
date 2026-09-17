@@ -204,18 +204,22 @@ export default function ActivityScreen() {
 
   const requireLogin = () => { setShowRegisterPrompt(true); };
 
+  // כשל: שחזור המצב הקודם (כבר היה) + הודעה (חדש - בקשת המשתמש: "בכשל הסימון חוזר בלי הסבר").
+  // common.toast.actionFailed - אותו ניסוח בדיוק כמו בעמוד הבית/תוצאות (lib/interactions.js),
+  // דרך מנגנון-ההודעה הקיים של המסך הזה (showNotice) ולא Toast הגלובלי - showNotice כאן כבר
+  // משמש גם להצלחות/כשלים אחרים בעמוד (תמונות/דיווח/ניהול), לא כדאי שני מנגנונים על אותו מסך.
   const handleToggleFavorite = async () => {
     if (!userId) return requireLogin();
     const next = !favorite;
     setFavorite(next);
-    try { await toggleFavorite(userId, String(id), next); } catch { setFavorite(!next); }
+    try { await toggleFavorite(userId, String(id), next); } catch { setFavorite(!next); showNotice(t('common.toast.actionFailed')); }
   };
 
   const handleToggleVisited = async () => {
     if (!userId) return requireLogin();
     const next = !visited;
     setVisited(next);
-    try { await toggleVisited(userId, String(id), next); } catch { setVisited(!next); }
+    try { await toggleVisited(userId, String(id), next); } catch { setVisited(!next); showNotice(t('common.toast.actionFailed')); }
   };
 
   const handleToggleHidden = async () => {

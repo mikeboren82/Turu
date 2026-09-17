@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
-import { View, Text, ScrollView, Pressable, TextInput, ActivityIndicator, Image, Platform, useWindowDimensions } from 'react-native';
+import { View, Text, ScrollView, Pressable, TextInput, ActivityIndicator, Image, Platform, Linking, Modal, useWindowDimensions } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -25,8 +25,9 @@ import { childrenToDefaultAgeFilter, formatChildAge } from '../lib/children';
 import { parseSmartSearchQuery, intentToFilters } from '../lib/smartSearch';
 import { fetchApprovedActivities, formatDistance } from '../lib/activities';
 import { placeholderImageFor, PLACEHOLDER_IMAGES } from '../lib/placeholderImages';
-import { fetchUserActivityFlags, toggleFavorite, toggleVisited, toggleHidden, fetchAllPersonalNotes } from '../lib/interactions';
+import { fetchUserActivityFlags, toggleFavorite, toggleVisited, fetchAllPersonalNotes, toggleWithFeedback, hideActivityWithFeedback } from '../lib/interactions';
 import { formatBenefitCardTag } from '../lib/benefits';
+import { buildMatchReasons, selectedChildAges } from '../lib/matchReasons';
 import { colors, fonts, radii, spacing } from '../constants/theme';
 import { useI18n, createStyles, t } from '../lib/i18n';
 import { categoryLabel, compactLocationText, placeName } from '../lib/i18n/format';
@@ -451,6 +452,16 @@ export default function HomeScreen() {
   // נבחר - בלי לזרוק את המשתמש בחזרה למסך הבית (ראו handleWhereQuickClose למטה).
   const [allCategoriesOpen, setAllCategoriesOpen] = useState(false);
   const [pendingCategory, setPendingCategory] = useState(null);
+  // "📍 מה יש סביבי?" - preset נפרד מ-handleGo/filters.location: מכוון תמיד למיקום ה-GPS
+  // הנוכחי בפועל (לא city/filters.location שנבחרו קודם ב-guided search - סעיפים 7/15/22
+  // בבקשה), ולא נוגע ב-filters של עמוד הבית בכלל (setFilters לעולם לא נקרא כאן) - כך שחזרה
+  // ל-Home אחרי Near Me משאירה את הבחירות המודרכות בדיוק כפי שהיו. ה-explainer/permission/GPS
+  // logic חיים כאן (לא ב-app/activities.js כמו "⚡ עכשיו") כי אין להם auth gate ואין navigation
+  // קודם - כל הזרימה קורית לפני שמנווטים בכלל.
+  const [nearMeLoading, setNearMeLoading] = useState(false);
+  const [nearMeError, setNearMeError] = useState(''); // '' | i18n key
+  const [showNearMeExplainer, setShowNearMeExplainer] = useState(false);
+  const nearMeInFlightRef = useRef(false);
   const [userId, setUserId] = useState(null);
   const [hasSavedDefault, setHasSavedDefault] = useState(false);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
@@ -460,6 +471,10 @@ export default function HomeScreen() {
   const [visibleHomeFilters, setVisibleHomeFilters] = useState([]);
   const [children, setChildren] = useState([]);
   const [selectedChildIds, setSelectedChildIds] = useState(new Set());
+  // גילאי-בשנים של הילדים *שנבחרו* ל"למי מחפשים היום?" (לא כל children בפרופיל) - ל"✓ למה זה
+  // מתאים" (lib/matchReasons.js) בלבד: גם בקרוסלת ההמלצות כאן, וגם מועבר הלאה ל-/activities
+  // (homeChildAges למטה) כדי שאותה שורת-הסבר תעבוד גם שם. לא נוגע ב-filters.age (bands) הקיים.
+  const childAgesForSearch = useMemo(() => selectedChildAges(children, selectedChildIds), [children, selectedChildIds]);
   const [smartSearchText, setSmartSearchText] = useState('');
   const [smartSearchLoading, setSmartSearchLoading] = useState(false);
   const [smartSearchError, setSmartSearchError] = useState('');
@@ -849,6 +864,7 @@ export default function HomeScreen() {
       params: {
         homeFilters: JSON.stringify(goFilters),
         homeCoords: goCoords ? JSON.stringify(goCoords) : '',
+        homeChildAges: JSON.stringify(childAgesForSearch),
       },
     });
   };
@@ -859,6 +875,7 @@ export default function HomeScreen() {
       params: {
         homeFilters: JSON.stringify(filters),
         homeCoords: deviceCoords ? JSON.stringify(deviceCoords) : '',
+        homeChildAges: JSON.stringify(childAgesForSearch),
         openFilters: 'true',
       },
     });
@@ -874,10 +891,81 @@ export default function HomeScreen() {
       params: {
         homeFilters: JSON.stringify(filters),
         homeCoords: deviceCoords ? JSON.stringify(deviceCoords) : '',
+        homeChildAges: JSON.stringify(childAgesForSearch),
         spontaneous: 'true',
       },
     });
   };
+
+  // מבצע בפועל את בקשת ה-GPS (אחרי שההרשאה כבר קיימת, או שאושרה הרגע דרך המודל למטה) ומנווט
+  // ל-/activities. filters נבנה מ-DEFAULT_FILTERS נקי (לא filters של Home) עם location.mode:
+  // 'current' בלבד - קטגוריה/גיל/וכו' נשארים ריקים בכוונה ("ALL activity categories", סעיף 6).
+  // nearMe:'true' הוא ה-param היחיד שדורש קוד ב-activities.js (קובע sortMode:'distance' פעם
+  // אחת ב-mount, בדיוק כמו spontaneous/view) - location.mode:'current'+radiusKm:10 כבר עצמם
+  // גורמים ל-Smart Radius/דירוג-מרחק/matchesLocation הקיימים לפעול, בלי לגעת ב-lib/filterActivities.js.
+  const goNearMe = async () => {
+    if (nearMeInFlightRef.current) return;
+    nearMeInFlightRef.current = true;
+    setNearMeLoading(true);
+    setNearMeError('');
+    try {
+      const pos = await Location.getCurrentPositionAsync({});
+      const coords = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
+      const nearMeFilters = {
+        ...DEFAULT_FILTERS,
+        location: { ...DEFAULT_FILTERS.location, mode: 'current', radiusKm: 10 },
+      };
+      router.push({
+        pathname: '/activities',
+        params: {
+          homeFilters: JSON.stringify(nearMeFilters),
+          homeCoords: JSON.stringify(coords),
+          homeChildAges: JSON.stringify(childAgesForSearch),
+          nearMe: 'true',
+        },
+      });
+    } catch {
+      // הרשאה קיימת אבל איתור בפועל נכשל (GPS כבוי/timeout/וכו', סעיף 13) - לא מנווטים עם
+      // קואורדינטות מזויפות; שגיאה שקטה עם "נסו שוב"/"בחרו עיר במקום" (LocationQuickPicker הקיים).
+      setNearMeError('home.nearMe.errors.locationFailed');
+    } finally {
+      setNearMeLoading(false);
+      nearMeInFlightRef.current = false;
+    }
+  };
+
+  // לחיצה על "📍 מה יש סביבי?": בודק את מצב ההרשאה האמיתי (לא מבקש ישר) - סעיף 6/8/12.
+  // canAskAgain===false מפורש (לא falsy סתם) הוא היחיד שנחשב "חסום" - undefined (למשל בווב, ראו
+  // סעיף 26) לא נחשב חסום, כדי לא להציג "פתחו הגדרות" בטעות בפלטפורמה שלא תומכת בזה.
+  const handleNearMePress = async () => {
+    if (nearMeInFlightRef.current) return;
+    setNearMeError('');
+    const { status, canAskAgain } = await Location.getForegroundPermissionsAsync();
+    if (status === 'granted') {
+      await goNearMe();
+      return;
+    }
+    if (canAskAgain === false) {
+      setNearMeError('home.nearMe.errors.blocked');
+      return;
+    }
+    setShowNearMeExplainer(true);
+  };
+
+  // "אפשר גישה למיקום" במודל ההסבר: רק עכשיו מבקשים בפועל את הרשאת המערכת (סעיף 9) - אישור
+  // ממשיך אוטומטית ל-GPS+ניווט בלי לחייב לחיצה חוזרת על "מה יש סביבי?".
+  const confirmNearMePermission = async () => {
+    setShowNearMeExplainer(false);
+    const { status, canAskAgain } = await Location.requestForegroundPermissionsAsync();
+    if (status !== 'granted') {
+      setNearMeError(canAskAgain === false ? 'home.nearMe.errors.blocked' : 'home.nearMe.errors.denied');
+      return;
+    }
+    await goNearMe();
+  };
+
+  // "לא עכשיו": סוגר בלי שום השפעה - נשארים בעמוד הבית, בלי שגיאה/נג'וג (סעיף 10).
+  const dismissNearMeExplainer = () => setShowNearMeExplainer(false);
 
   // "מה עוד מעניין אתכם?" (discovery shortcuts) - SEE→TAP→RESULTS: אותו מנגנון ניווט/מסך-תוצאות
   // בדיוק כמו handleAdvancedFilters/handleGo למעלה (homeFilters+homeCoords ל-/activities), לא
@@ -891,6 +979,7 @@ export default function HomeScreen() {
       params: {
         homeFilters: JSON.stringify({ ...DEFAULT_FILTERS, category: [category], location: filters.location }),
         homeCoords: deviceCoords ? JSON.stringify(deviceCoords) : '',
+        homeChildAges: JSON.stringify(childAgesForSearch),
       },
     });
   };
@@ -945,7 +1034,7 @@ export default function HomeScreen() {
       // אחרת נופלים לבחירה המובנית הקיימת). ראו lib/smartSearch.js.
       fallbackCategory: filters.category?.length ? filters.category : null,
     });
-    const params = { homeFilters: JSON.stringify(builtFilters) };
+    const params = { homeFilters: JSON.stringify(builtFilters), homeChildAges: JSON.stringify(childAgesForSearch) };
     if (builtFilters.location.mode === 'address' && builtFilters.location.coords) {
       params.homeCoords = JSON.stringify({
         latitude: builtFilters.location.coords.lat, longitude: builtFilters.location.coords.lng,
@@ -1053,35 +1142,34 @@ export default function HomeScreen() {
         visited: recVisitedIds.has(a.id),
         hasNote: recNotesByActivity.has(a.id),
         benefitTag: formatBenefitCardTag(a.benefits, benefitClubs),
+        // "✓ למה זה מתאים" - אין מצב ספונטני בעמוד הבית (זה רק קישור אל /activities), אז תמיד
+        // buildMatchReasons; אותה פונקציה משותפת בדיוק כמו app/activities.js.
+        matchReason: buildMatchReasons(a, { childAges: childAgesForSearch }),
       }))
-  ), [recActivities, filters, deviceCoords, excludedCategories, benefitClubs, excludedCities, excludedRegions, recHiddenIds, recFavoriteIds, recVisitedIds, recNotesByActivity, locale]);
+  ), [recActivities, filters, deviceCoords, excludedCategories, benefitClubs, excludedCities, excludedRegions, recHiddenIds, recFavoriteIds, recVisitedIds, recNotesByActivity, locale, childAgesForSearch]);
 
   // 4 הפעילויות הראשונות מתוך recommendations - מוזנות לכרטיסים המטושטשים (LocationPromptCard/
   // LockedPreviewCard) כש-locationKnown===false. אותו מקור-נתונים בדיוק כמו הקרוסלה הרגילה -
   // undefined (recActivities עדיין בטעינה) מטופל בתוך BlurredActivityCard עצמו (fallback מדומה).
   const previewActivities = useMemo(() => recommendations.slice(0, 4), [recommendations]);
 
-  const handleToggleRecFavorite = async (activityId) => {
+  // אותה לוגיקה משותפת בדיוק כמו app/activities.js (lib/interactions.js) - התנהגות עקבית
+  // בשני המקומות שבהם הפעולות האלה מופיעות, לא שני מימושים מקבילים.
+  const handleToggleRecFavorite = (activityId) => {
     if (!userId) { setShowLoginPrompt(true); return; }
     const next = !recFavoriteIds.has(activityId);
-    setRecFavoriteIds((prev) => { const s = new Set(prev); next ? s.add(activityId) : s.delete(activityId); return s; });
-    try { await toggleFavorite(userId, activityId, next); }
-    catch { setRecFavoriteIds((prev) => { const s = new Set(prev); next ? s.delete(activityId) : s.add(activityId); return s; }); }
+    toggleWithFeedback(setRecFavoriteIds, activityId, next, () => toggleFavorite(userId, activityId, next));
   };
 
-  const handleToggleRecVisited = async (activityId) => {
+  const handleToggleRecVisited = (activityId) => {
     if (!userId) { setShowLoginPrompt(true); return; }
     const next = !recVisitedIds.has(activityId);
-    setRecVisitedIds((prev) => { const s = new Set(prev); next ? s.add(activityId) : s.delete(activityId); return s; });
-    try { await toggleVisited(userId, activityId, next); }
-    catch { setRecVisitedIds((prev) => { const s = new Set(prev); next ? s.delete(activityId) : s.add(activityId); return s; }); }
+    toggleWithFeedback(setRecVisitedIds, activityId, next, () => toggleVisited(userId, activityId, next));
   };
 
-  const handleHideRec = async (activityId) => {
+  const handleHideRec = (activityId) => {
     if (!userId) { setShowLoginPrompt(true); return; }
-    setRecHiddenIds((prev) => new Set(prev).add(activityId));
-    try { await toggleHidden(userId, activityId, true); }
-    catch { setRecHiddenIds((prev) => { const s = new Set(prev); s.delete(activityId); return s; }); }
+    hideActivityWithFeedback(setRecHiddenIds, userId, activityId);
   };
 
   // הרחבת-חיפוש מהירה למצב "לא מצאנו כלום" - רק פעולות אמיתיות: מגדילים רדיוס נסיעה קיים (אם
@@ -1156,14 +1244,81 @@ export default function HomeScreen() {
             (2026-09-16, בקשת המשתמש) - אותה sectionSubtitle בדיוק כמו שתי הכותרות האחרות, כדי
             שהמבנה יהיה זהה בשלושתן: עטיפה חיצונית (searchModuleHeaderWrap) נושאת את המרווח
             מעל/מתחת, שורת אייקון+כותרת פנימית (searchModuleTitleRow) בלי margin משלה - בדיוק כמו
-            sectionHeaderRow/sectionTitleRow למטה. */}
+            sectionHeaderRow/sectionTitleRow למטה.
+
+            "📍 מה יש סביבי?" (2026-09-16, בקשת המשתמש) - quick action קומפקטי על אותה שורה בדיוק
+            (searchModuleHeaderRow), בצד הנגדי לכותרת ב-RTL/LTR (d.row הופך אוטומטית - לא ordering
+            קשיח). בכוונה לא עוד CTA ראשי: pill דק, בלי מילוי/צל, מאותה משפחה חזותית כמו
+            LanguageSwitcher/saveDefaultLink הקיימים - לא שפת-עיצוב חדשה. titleBlock מקבל flex:1
+            כדי שכותרת+תת-כותרת ימשיכו לתפוס את רוב הרוחב והפעולה הקצרה לא "תדחוף"/תגרום ל-wrap. */}
         <View style={styles.searchModuleHeaderWrap}>
-          <View style={styles.searchModuleTitleRow}>
-            <Text style={styles.homeHeadingIcon}>🧭</Text>
-            <Text style={styles.searchModuleTitle}>{t('home.search.title')}</Text>
+          <View style={styles.searchModuleHeaderRow}>
+            <View style={styles.searchModuleTitleBlock}>
+              <View style={styles.searchModuleTitleRow}>
+                <Text style={styles.homeHeadingIcon}>🧭</Text>
+                <Text style={styles.searchModuleTitle}>{t('home.search.title')}</Text>
+              </View>
+              <Text style={styles.sectionSubtitle}>{t('home.search.subtitle')}</Text>
+            </View>
+            <Pressable
+              style={({ pressed }) => [styles.nearMeAction, pressed && styles.nearMeActionPressed]}
+              onPress={handleNearMePress}
+              disabled={nearMeLoading}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel={t('home.nearMe.a11yLabel')}
+            >
+              {nearMeLoading ? (
+                <ActivityIndicator size="small" color={colors.accent} />
+              ) : (
+                <Text style={styles.nearMeActionIcon}>📍</Text>
+              )}
+              <Text style={styles.nearMeActionText} numberOfLines={1}>
+                {nearMeLoading ? t('home.nearMe.loading') : t('home.nearMe.action')}
+              </Text>
+            </Pressable>
           </View>
-          <Text style={styles.sectionSubtitle}>{t('home.search.subtitle')}</Text>
+          {nearMeError ? (
+            <View style={styles.nearMeErrorRow}>
+              <Text style={styles.nearMeErrorText}>{t(nearMeError)}</Text>
+              <View style={styles.nearMeErrorActions}>
+                <Pressable onPress={handleNearMePress} hitSlop={8}>
+                  <Text style={styles.nearMeErrorLink}>{t('common.actions.retry')}</Text>
+                </Pressable>
+                <Text style={styles.nearMeErrorDot}>·</Text>
+                <Pressable onPress={() => setWhereQuickOpen(true)} hitSlop={8}>
+                  <Text style={styles.nearMeErrorLink}>{t('home.nearMe.errors.chooseCity')}</Text>
+                </Pressable>
+                {nearMeError === 'home.nearMe.errors.blocked' && Platform.OS !== 'web' ? (
+                  <>
+                    <Text style={styles.nearMeErrorDot}>·</Text>
+                    <Pressable onPress={() => Linking.openSettings()} hitSlop={8}>
+                      <Text style={styles.nearMeErrorLink}>{t('home.nearMe.errors.openSettings')}</Text>
+                    </Pressable>
+                  </>
+                ) : null}
+              </View>
+            </View>
+          ) : null}
         </View>
+
+        {/* מודל-הסבר לפני בקשת הרשאת המערכת (סעיף 8) - לא קופצת ישר בקשת הרשאה של המערכת בלי
+            הקשר. אותו דפוס Modal+Pressable-backdrop+כרטיס בדיוק כמו activities.js (gateBackdrop/
+            gateCard) ו-LoginRequiredModal, רק עם עיצוב/טקסט ייעודיים ל-Near Me - לא framework חדש. */}
+        <Modal visible={showNearMeExplainer} transparent animationType="fade" onRequestClose={dismissNearMeExplainer}>
+          <Pressable style={styles.nearMeModalBackdrop} onPress={dismissNearMeExplainer}>
+            <Pressable style={styles.nearMeModalCard} onPress={() => {}}>
+              <Text style={styles.nearMeModalTitle}>{t('home.nearMe.explainer.title')}</Text>
+              <Text style={styles.nearMeModalBody}>{t('home.nearMe.explainer.body')}</Text>
+              <Pressable style={styles.nearMeModalPrimaryBtn} onPress={confirmNearMePermission}>
+                <Text style={styles.nearMeModalPrimaryBtnText}>{t('home.nearMe.explainer.confirm')}</Text>
+              </Pressable>
+              <Pressable onPress={dismissNearMeExplainer} hitSlop={8}>
+                <Text style={styles.nearMeModalSecondaryText}>{t('home.nearMe.explainer.notNow')}</Text>
+              </Pressable>
+            </Pressable>
+          </Pressable>
+        </Modal>
 
         {/* כרטיס-חיפוש מאוחד (2026-09-16, סבב פישוט נוסף) - טופס אחד עם קלטים אופציונליים
             (טקסט חופשי, מה עושים, איפה נח לכם) ו-CTA יחיד (unifiedCtaButton למטה) - לא שני
@@ -1630,10 +1785,39 @@ const styles = createStyles((d) => ({
   // עצמו בלי margin משלו יותר - בדיוק כמו sectionTitleRow - כי תת-הכותרת (sectionSubtitle, עם
   // marginTop:2 משלה) יושבת אחריו בתוך אותה עטיפה, לא ה-row עצמו נוגע בכרטיס שמתחת.
   searchModuleHeaderWrap: { marginTop: spacing.xl, marginBottom: 12 },
+  // שורת-העל: כותרת+תת-כותרת (searchModuleTitleBlock, flex:1) מול "📍 מה יש סביבי?" בצד הנגדי -
+  // alignItems:'flex-start' כדי שה-pill יתיישר עם שורת האייקון+כותרת, לא יימתח לגובה שתי השורות.
+  searchModuleHeaderRow: { flexDirection: d.row, alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 },
+  searchModuleTitleBlock: { flex: 1, minWidth: 0 },
   searchModuleTitleRow: { flexDirection: d.row, alignItems: 'center', gap: 6 },
   searchModuleTitle: {
     fontFamily: fonts.extraBold, fontSize: 17, color: colors.textPrimary, textAlign: d.textAlign,
   },
+  // "📍 מה יש סביבי?" - quick action, לא CTA: pill דק (border, לא מילוי), בלי צל, מאותה משפחה
+  // חזותית כמו LanguageSwitcher/saveDefaultLink - visually secondary ל"מצאו פעילויות". flexShrink:0
+  // כדי שלא "ייקרס" כש-titleBlock לוחץ עליו ב-320px; הטקסט עצמו קצר מספיק כדי לא להזדקק ל-wrap.
+  nearMeAction: {
+    flexDirection: d.row, alignItems: 'center', gap: 4, flexShrink: 0,
+    backgroundColor: colors.card, borderWidth: 1, borderColor: colors.accentTintLight,
+    borderRadius: radii.pill, paddingHorizontal: 10, paddingVertical: 8, marginTop: 2,
+  },
+  nearMeActionPressed: { opacity: 0.6 },
+  nearMeActionIcon: { fontSize: 13 },
+  nearMeActionText: { fontFamily: fonts.bold, fontSize: 12.5, color: colors.accent },
+  nearMeErrorRow: { marginTop: 8 },
+  nearMeErrorText: { fontFamily: fonts.semiBold, fontSize: 12, color: colors.danger, textAlign: d.textAlign },
+  nearMeErrorActions: { flexDirection: d.row, alignItems: 'center', gap: 6, marginTop: 4 },
+  nearMeErrorLink: { fontFamily: fonts.bold, fontSize: 12, color: colors.accent },
+  nearMeErrorDot: { fontSize: 12, color: colors.textMuted },
+  // מודל-הסבר: אותם טוקנים בדיוק כמו LoginRequiredModal (colors.card/radii.xl/fonts.extraBold),
+  // כדי שהוא יראה כמו חלק מאותה "שפת מודלים" קיימת ולא רכיב חדש.
+  nearMeModalBackdrop: { flex: 1, backgroundColor: 'rgba(20,30,35,0.4)', justifyContent: 'center', padding: spacing.xl },
+  nearMeModalCard: { backgroundColor: colors.card, borderRadius: radii.xl, padding: spacing.xl, alignItems: 'center' },
+  nearMeModalTitle: { fontFamily: fonts.extraBold, fontSize: 17, color: colors.textPrimary, textAlign: 'center', marginBottom: 8 },
+  nearMeModalBody: { fontFamily: fonts.regular, fontSize: 13.5, color: colors.textSecondary, textAlign: 'center', lineHeight: 19, marginBottom: 18 },
+  nearMeModalPrimaryBtn: { backgroundColor: colors.accent, borderRadius: radii.pill, paddingVertical: 12, paddingHorizontal: 28 },
+  nearMeModalPrimaryBtnText: { fontFamily: fonts.bold, fontSize: 14, color: '#fff' },
+  nearMeModalSecondaryText: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.textSecondary, marginTop: 12 },
   // 🔎 כרטיס-חיפוש מאוחד: חיפוש חופשי + "או שנמצא לכם" + חיפוש מודרך - הכל בתוך משטח-white אחד
   // (לא שני כרטיסים). הכותרת עברה מחוץ לכרטיס (searchModuleTitle למעלה) - אין לו יותר marginTop
   // נשימה משלו, זה כבר מטופל על-ידי marginBottom של הכותרת. border/shadow עדינים (לא מסגרת
