@@ -10,7 +10,6 @@ import SkyBackground from '../components/SkyBackground';
 import LoginRequiredModal from '../components/LoginRequiredModal';
 import QuickPicker from '../components/QuickPicker';
 import LocationQuickPicker, { locationSummary } from '../components/LocationQuickPicker';
-import CityAutocomplete from '../components/CityAutocomplete';
 import ActivityCard from '../components/ActivityCard';
 import { ChevronLeftIcon } from '../components/icons';
 import {
@@ -22,7 +21,7 @@ import { whenSummary, listJoin } from '../lib/filterSummaries';
 import { supabase } from '../lib/supabase';
 import { fetchUserPreferences, saveDefaultHomeFilters } from '../lib/preferences';
 import { childrenToDefaultAgeFilter, formatChildAge } from '../lib/children';
-import { parseSmartSearchQuery, intentToFilters, needsAreaClarification, explicitCityLocation } from '../lib/smartSearch';
+import { parseSmartSearchQuery, intentToFilters, needsAreaClarification } from '../lib/smartSearch';
 import { fetchApprovedActivities, formatDistance } from '../lib/activities';
 import { placeholderImageFor, PLACEHOLDER_IMAGES } from '../lib/placeholderImages';
 import { fetchUserActivityFlags, toggleFavorite, toggleVisited, fetchAllPersonalNotes, toggleWithFeedback, hideActivityWithFeedback } from '../lib/interactions';
@@ -478,8 +477,8 @@ export default function HomeScreen() {
   const [smartSearchText, setSmartSearchText] = useState('');
   const [smartSearchLoading, setSmartSearchLoading] = useState(false);
   const [smartSearchError, setSmartSearchError] = useState('');
-  const [smartSearchClarify, setSmartSearchClarify] = useState(null); // { message, pendingIntent }
-  const [smartSearchClarifyCity, setSmartSearchClarifyCity] = useState('');
+  // חיפוש חופשי שממתין לבחירת מיקום בבורר הקנוני: { pendingIntent, mode: 'plain'|'street', prevLocation }
+  const [smartSearchClarify, setSmartSearchClarify] = useState(null);
   const [recentSearches, setRecentSearches] = useState([]);
   // חיפושים אחרונים כ-dropdown תלוי-פוקוס, לא section קבוע (בקשת המשתמש 2026-09-16 השנייה:
   // "כמו מנוע חיפוש מודרני" - נעלם/מופיע לפי פוקוס בשדה, לא toggle ידני). searchFocused נשלט
@@ -1025,12 +1024,12 @@ export default function HomeScreen() {
   // 🔎 חיפוש חכם - טקסט חופשי → Edge Function (ניתוח-שפה) → intentToFilters (טהור, קליינט,
   // lib/smartSearch.js) → אותו filters שכל שאר המסך כבר משתמש בו. שום דבר כאן לא מדלג על
   // rankActivities/applyFilters הקיימים ב-app/activities.js.
-  // explicitLocation: מיקום שהמשתמש בחר זה עתה בסבב-ההבהרה ("באיזה אזור לחפש?") - גובר על מיקום
-  // המסך, ועובר בערוץ המפורש (fallbackLocation), לא כעיר בתוך ה-intent של המודל.
-  const goToSmartSearchResults = (intent, explicitLocation = null) => {
+  const goToSmartSearchResults = (intent) => {
     const builtFilters = intentToFilters(intent, {
       children,
-      fallbackLocation: explicitLocation || (filters.location?.mode ? filters.location : null),
+      // מיקום המסך (WHERE / מה שנבחר זה עתה בבורר-ההבהרה / GPS / ברירת-מחדל) הוא מיקום מפורש -
+      // עובר בערוץ fallbackLocation, לא כעיר בתוך ה-intent של המודל.
+      fallbackLocation: filters.location?.mode ? filters.location : null,
       // כרטיס-חיפוש מאוחד (2026-09-16): בחירת "מה עושים?" המובנית לא נמחקת בשקט כשהטקסט עצמו
       // לא ציין קטגוריה - אותו דפוס עדיפות בדיוק כמו fallbackLocation למעלה (טקסט מפורש מנצח,
       // אחרת נופלים לבחירה המובנית הקיימת). ראו lib/smartSearch.js.
@@ -1041,6 +1040,11 @@ export default function HomeScreen() {
       params.homeCoords = JSON.stringify({
         latitude: builtFilters.location.coords.lat, longitude: builtFilters.location.coords.lng,
       });
+    } else if (deviceCoords) {
+      // כמו כל שאר הניווטים מהבית (handleAdvancedFilters/handleSpontaneous/navigateToCategoryResults):
+      // מסך התוצאות מקבל את נקודת ה-GPS רק מכאן, ובלעדיה "השתמשו במיקום שלי" בבורר לא היה מסנן לפי
+      // מרחק. בטוח ל"בלי מיקום": distanceScore/searchOriginCoords קוראים deviceCoords רק במצב 'current'.
+      params.homeCoords = JSON.stringify(deviceCoords);
     }
     setSmartSearchText('');
     setSmartSearchClarify(null);
@@ -1064,20 +1068,16 @@ export default function HomeScreen() {
     setSmartSearchLoading(true);
     try {
       const data = await parseSmartSearchQuery(text);
+      // חסר הקשר גאוגרפי → בורר-המיקום הקנוני ("איפה נוח לכם?" - אותו רכיב של WHERE, עם כל
+      // האפשרויות שלו כולל "בלי מיקום"), לא תיבה inline. prevLocation נשמר כדי שסגירה בלי בחירה
+      // תחזיר את מסך הבית בדיוק למצבו הקודם. 'street' = השרת ביקש עיר לרחוב שהוזכר; 'plain' = לא
+      // הוזכר מיקום בכלל ואין מיקום ידוע במסך (needsAreaClarification - "בלי מיקום" נחשב מיקום ידוע).
       if (data.needsClarification) {
-        // type 'city' - הודעת-השרת (עברית) מוחלפת במפתח מקומי; סוגים אחרים (אם יתווספו) מוצגים כמו שהם.
-        setSmartSearchClarify({
-          message: data.needsClarification.message,
-          messageKey: data.needsClarification.type === 'city' ? 'home.search.clarifyCity' : null,
-          pendingIntent: data.intent, mode: 'street',
-        });
+        setSmartSearchClarify({ pendingIntent: data.intent, mode: 'street', prevLocation: filters.location });
         return;
       }
-      // אין מיקום בכלל בחיפוש עצמו, ואין גם מיקום-ברירת-מחדל שמור - לא מנחשים ("אם אין מיקום...
-      // הצג שאלה קצרה: באיזה אזור לחפש"). כשיש street זה כבר מטופל למעלה (needsClarification
-      // משרת) - זה המקרה השני, "בכלל לא הוזכר מיקום".
       if (needsAreaClarification(data.intent, filters.location)) {
-        setSmartSearchClarify({ messageKey: 'home.search.clarifyArea', pendingIntent: data.intent, mode: 'plain' });
+        setSmartSearchClarify({ pendingIntent: data.intent, mode: 'plain', prevLocation: filters.location });
         return;
       }
       goToSmartSearchResults(data.intent);
@@ -1088,36 +1088,46 @@ export default function HomeScreen() {
     }
   };
 
-  // סבב-הבהרה: רחוב הוזכר בלי עיר - לא מנחשים, מבקשים עיר ואז ממשיכים בלי קריאת AI נוספת
-  // (ה-Edge Function מדלגת על Claude כש-cityOverride+pendingIntent מגיעים יחד).
-  const handleClarifyCity = async () => {
-    if (!smartSearchClarify || !smartSearchClarifyCity.trim()) return;
-    const city = smartSearchClarifyCity.trim();
-    // 'plain' - אין רחוב לגאוקד, בלי קריאת שרת נוספת. העיר שהמשתמש הקליד היא מיקום *מפורש*, ולכן
-    // עוברת בערוץ המפורש ולא מוזרקת ל-intent.location.city: שם היא נראתה כמו עיר שהמודל ניחש בלי
-    // ראיה בטקסט, הודחה לטקסט, ודרסה את החיפוש המקורי ("זהבה" + חולון → q:"חולון", בלי מיקום).
-    if (smartSearchClarify.mode === 'plain') {
-      setSmartSearchClarifyCity('');
-      goToSmartSearchResults(smartSearchClarify.pendingIntent, explicitCityLocation(city));
+  // "הציגו לי פעילויות" בבורר-המיקום של החיפוש הממתין. הבורר כבר כתב את הבחירה ל-filters.location
+  // (אותו state של WHERE), ומכאן ממשיכים את החיפוש שהמשתמש הקליד - אותה לוגיקה בדיוק כמו
+  // handleClarifyPickerClose במסך התוצאות:
+  //  - המיקום עובר בערוץ המפורש (fallbackLocation = filters.location, ב-goToSmartSearchResults) -
+  //    לא מוזרק ל-intent.location.city, שם הוא נראה כמו ניחוש-מודל ומודח לטקסט (a609e5b).
+  //  - 'street' + עיר: סבב-הבהרה לשרת עם cityOverride (גאוקודינג רחוב+עיר; העיר מסומנת
+  //    citySource:'user' ב-parseSmartSearchQuery). בחירה אחרת (אזור/GPS/בלי מיקום) - אין עיר לגאוקד,
+  //    מחפשים לפי מה שנבחר ומוותרים על הרחוב (לא מנחשים עיר).
+  //  - "בלי מיקום" (mode:'nationwide') הוא בחירה, לא "חסר": הוא לא יפתח את הבורר שוב.
+  const handleClarifyConfirm = async () => {
+    const clarify = smartSearchClarify;
+    const loc = filters.location;
+    if (!clarify || !loc?.mode) return;
+    if (clarify.mode === 'street' && loc.mode === 'city' && (loc.city || '').trim()) {
+      setSmartSearchError('');
+      setSmartSearchLoading(true);
+      try {
+        const data = await parseSmartSearchQuery(smartSearchText, { cityOverride: loc.city.trim(), pendingIntent: clarify.pendingIntent });
+        if (data.needsClarification) {
+          setSmartSearchError(t('home.search.errorLocation'));
+          setSmartSearchClarify(null);
+          return;
+        }
+        goToSmartSearchResults(data.intent);
+      } catch (err) {
+        setSmartSearchError(friendlySearchError(err, 'home.search.errorParseShort'));
+        setSmartSearchClarify(null);
+      } finally {
+        setSmartSearchLoading(false);
+      }
       return;
     }
-    setSmartSearchError('');
-    setSmartSearchLoading(true);
-    try {
-      const data = await parseSmartSearchQuery(smartSearchText, {
-        cityOverride: city, pendingIntent: smartSearchClarify.pendingIntent,
-      });
-      if (data.needsClarification) {
-        setSmartSearchError(t('home.search.errorLocation'));
-        return;
-      }
-      setSmartSearchClarifyCity('');
-      goToSmartSearchResults(data.intent);
-    } catch (err) {
-      setSmartSearchError(friendlySearchError(err, 'home.search.errorParseShort'));
-    } finally {
-      setSmartSearchLoading(false);
-    }
+    goToSmartSearchResults(clarify.pendingIntent);
+  };
+
+  // סגירה בלי "הציגו לי פעילויות" (רקע/חזרה) - זה *לא* "בלי מיקום": חוזרים למסך הבית, הטקסט
+  // שהוקלד נשאר בשדה, לא מנווטים, ומיקום המסך חוזר למה שהיה לפני שהבורר נפתח.
+  const handleClarifyDismiss = () => {
+    if (smartSearchClarify) setField('location', smartSearchClarify.prevLocation);
+    setSmartSearchClarify(null);
   };
 
   // כרטיס-חיפוש מאוחד (2026-09-16) - נקודת-כניסה אחת ל-CTA וגם ל-Enter מהמקלדת, בלי handler
@@ -1346,25 +1356,7 @@ export default function HomeScreen() {
 
           {smartSearchError ? <Text style={styles.smartSearchErrorText}>{smartSearchError}</Text> : null}
 
-          {smartSearchClarify ? (
-            <View style={styles.smartSearchClarifyBox}>
-              <Text style={styles.smartSearchClarifyText}>{smartSearchClarify.messageKey ? t(smartSearchClarify.messageKey) : smartSearchClarify.message}</Text>
-              <CityAutocomplete
-                inputStyle={styles.smartSearchClarifyInput}
-                placeholder={t('home.search.clarifyCityPlaceholder')}
-                value={smartSearchClarifyCity}
-                onChangeText={setSmartSearchClarifyCity}
-                onSubmitEditing={handleClarifyCity}
-              />
-              <Pressable
-                style={[styles.smartSearchClarifyBtn, (!smartSearchClarifyCity.trim() || smartSearchLoading) && styles.smartSearchBtnDisabled]}
-                onPress={handleClarifyCity}
-                disabled={!smartSearchClarifyCity.trim() || smartSearchLoading}
-              >
-                <Text style={styles.smartSearchBtnText}>{smartSearchLoading ? '...' : t('common.actions.continue')}</Text>
-              </Pressable>
-            </View>
-          ) : searchFocused && !smartSearchText.trim() && recentSearches.length > 0 ? (
+          {searchFocused && !smartSearchText.trim() && recentSearches.length > 0 ? (
             // dropdown תלוי-פוקוס (לא section קבוע יותר) - ראו הערה מלאה ליד searchFocused/
             // clearSearchBlurTimeout למעלה. יושב באותו מקום בדיוק בזרימה הרגילה, מתחת לשדה
             // החיפוש ובתוך אותו smartSearchCard - בלי overlay/position:absolute נפרד (אין
@@ -1592,6 +1584,18 @@ export default function HomeScreen() {
         onChange={(v) => setField('location', v)}
         onCoordsResolved={setDeviceCoords}
         onClose={handleWhereQuickCloseFromDiscovery}
+        deviceCoords={deviceCoords}
+      />
+      {/* חיפוש חופשי שחסר לו הקשר גאוגרפי - אותו רכיב בדיוק (לא עותק), אותו state (filters.location),
+          כמו ההבהרה המקבילה במסך התוצאות. onConfirm = "הציגו לי פעילויות" ממשיך את החיפוש; onClose
+          (רקע/חזרה) = ביטול בלי לנווט. מוסתר בזמן סבב-השרת של רחוב+עיר, כדי שלא יישלח פעמיים. */}
+      <LocationQuickPicker
+        visible={!!smartSearchClarify && !smartSearchLoading}
+        value={filters.location}
+        onChange={(v) => setField('location', v)}
+        onCoordsResolved={setDeviceCoords}
+        onConfirm={handleClarifyConfirm}
+        onClose={handleClarifyDismiss}
         deviceCoords={deviceCoords}
       />
       <LoginRequiredModal visible={showLoginPrompt} onClose={() => setShowLoginPrompt(false)} />
@@ -1851,16 +1855,6 @@ const styles = createStyles((d) => ({
   smartSearchBtnDisabled: { opacity: 0.5 },
   smartSearchBtnText: { fontFamily: fonts.bold, fontSize: 13.5, color: '#ffffff' },
   smartSearchErrorText: { fontFamily: fonts.semiBold, fontSize: 12, color: colors.danger, textAlign: 'center', marginTop: 10 },
-  smartSearchClarifyBox: { marginTop: 14, paddingTop: 14, borderTopWidth: 1, borderTopColor: colors.borderLight },
-  smartSearchClarifyText: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.textPrimary, textAlign: d.textAlign, marginBottom: 8 },
-  smartSearchClarifyInput: {
-    borderWidth: 1, borderColor: colors.border, borderRadius: radii.md, padding: 11,
-    fontFamily: fonts.regular, fontSize: 14, color: colors.textPrimary, backgroundColor: colors.bg,
-  },
-  smartSearchClarifyBtn: {
-    backgroundColor: colors.accent, borderRadius: radii.pill, paddingVertical: 12,
-    alignItems: 'center', marginTop: 10,
-  },
   // בלי borderTop/paddingTop משלו בכוונה (2026-09-15): קו-מפריד כאן היה נערם חזותית עם
   // searchOrDivider החדש שמתחתיו כשההיסטוריה מכווצת - מרווח בלבד מספיק, searchOrDivider הוא
   // המפריד המשמעותי היחיד בין חיפוש-חופשי לבחירה-מונחית.

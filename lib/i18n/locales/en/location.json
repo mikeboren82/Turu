@@ -10,17 +10,17 @@
     "cityPlaceholder": "Type a city or town...",
     "regionSelected": "Region: {{regions}}",
     "searchByRegion": "or search by region",
-    "nationwide": "Anywhere in Israel",
-    "nationwideSelected": "Anywhere in Israel ✓",
-    "nationwideA11y": "Anywhere in Israel - all activities, no location filter",
+    "nationwide": "No location",
+    "nationwideSelected": "No location ✓",
+    "nationwideA11y": "No location - search all of Israel with no location limit",
     "travelTitle": "How far are you willing to go?",
     "walkingTitle": "Walking distance",
     "walkingSubtitle": "Up to a 10-minute walk",
     "walkingHint": "Available when using your exact location",
     "drivingTitle": "By car",
-    "drivingSubtitle": "Up to a {{minutes}}-minute drive",
+    "drivingTimeTitle": "How long a drive works for you?",
     "minutesChip": "{{minutes}} min",
-    "anyDistance": "Distance doesn't matter",
+    "noTimeLimit": "No time limit",
     "cta": "Show me activities"
   }
 }

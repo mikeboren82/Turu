@@ -10,17 +10,17 @@
     "cityPlaceholder": "הקלידו עיר או יישוב...",
     "regionSelected": "אזור: {{regions}}",
     "searchByRegion": "או חפשו לפי אזור",
-    "nationwide": "בכל הארץ",
-    "nationwideSelected": "בכל הארץ ✓",
-    "nationwideA11y": "בכל הארץ - כל הפעילויות בלי סינון לפי מיקום",
+    "nationwide": "בלי מיקום",
+    "nationwideSelected": "בלי מיקום ✓",
+    "nationwideA11y": "בלי מיקום - חיפוש בכל הארץ, בלי הגבלה לפי מיקום",
     "travelTitle": "כמה רחוק מתאים לכם?",
     "walkingTitle": "במרחק הליכה",
     "walkingSubtitle": "עד 10 דקות הליכה",
     "walkingHint": "זמין כשמשתמשים במיקום מדויק",
     "drivingTitle": "בנסיעה",
-    "drivingSubtitle": "עד {{minutes}} דקות נסיעה",
+    "drivingTimeTitle": "כמה זמן מתאים לכם?",
     "minutesChip": "{{minutes}} דק'",
-    "anyDistance": "לא משנה לי המרחק",
+    "noTimeLimit": "ללא הגבלת זמן",
     "cta": "הציגו לי פעילויות"
   }
 }

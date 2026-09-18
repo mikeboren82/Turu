@@ -7,10 +7,7 @@
     "or": "או",
     "errorParse": "לא הצלחנו להבין את החיפוש, נסו לנסח אחרת",
     "errorParseShort": "לא הצלחנו להבין את החיפוש",
-    "errorLocation": "לא הצלחנו לזהות את המיקום, נסו לנסח אחרת",
-    "clarifyCity": "📍 באיזו עיר?",
-    "clarifyArea": "📍 באיזה אזור לחפש?",
-    "clarifyCityPlaceholder": "הזינו שם עיר..."
+    "errorLocation": "לא הצלחנו לזהות את המיקום, נסו לנסח אחרת"
   },
   "nearMe": {
     "action": "מה יש סביבי?",

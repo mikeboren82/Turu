@@ -7,10 +7,7 @@
     "or": "or",
     "errorParse": "We couldn't understand that search. Try wording it differently.",
     "errorParseShort": "We couldn't understand that search",
-    "errorLocation": "We couldn't find that location. Try wording it differently.",
-    "clarifyCity": "📍 Which city?",
-    "clarifyArea": "📍 Where should we look?",
-    "clarifyCityPlaceholder": "Enter a city..."
+    "errorLocation": "We couldn't find that location. Try wording it differently."
   },
   "nearMe": {
     "action": "What's near me?",

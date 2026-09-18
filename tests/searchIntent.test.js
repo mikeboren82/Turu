@@ -34,8 +34,13 @@ addHook(
 );
 
 const { hasGeographicCue, hasChildReferenceCue, resolveLocationIntent, normalizeSearchText } = require('../lib/searchIntent');
-const { intentToFilters, parseSmartSearchQuery, needsAreaClarification, explicitCityLocation } = require('../lib/smartSearch');
-const { applyFilters } = require('../lib/filterActivities');
+const { intentToFilters, parseSmartSearchQuery, needsAreaClarification } = require('../lib/smartSearch');
+const {
+  applyFilters, rankActivities, applyFiltersWithSmartRadius, locationWithDrivingTime, locationWithAnyDistance,
+  locationWithNoRestriction, travelSelection,
+} = require('../lib/filterActivities');
+const { DEFAULT_FILTERS, DEFAULT_PRECISE_RADIUS_KM } = require('../constants/filterSchema');
+const { requestCurrentPosition, applyCurrentPositionResult } = require('../lib/currentPosition');
 // אותו אובייקט-מודול בדיוק ש-lib/smartSearch.js קיבל (המפתח הוא ה-specifier שבתוך lib/).
 const supabaseStub = Module._cache['stub:./supabase'].exports;
 
@@ -512,21 +517,356 @@ test('K. explicit WHERE + conflicting text location: current behaviour preserved
 });
 
 // ---------------------------------------------------------------------------
-// אינטגרציית מסך הבית: "📍 באיזה אזור לחפש?" (רגרסיה שנמצאה בפרודקשן 2026-09-18).
-// הזרימה המלאה: טקסט → intent אמיתי של v19 → שער-ההבהרה של הבית → עיר שהמשתמש בחר →
-// handleClarifyCity (explicitCityLocation בערוץ fallbackLocation) → filters.
+// אינטגרציית מסך הבית: חיפוש חופשי בלי הקשר גאוגרפי → בורר-המיקום הקנוני (LocationQuickPicker).
+// הזרימה המלאה: טקסט → intent אמיתי של v19 → השער (needsAreaClarification) → הבחירה בבורר נכתבת
+// ל-filters.location (אותו state של WHERE) → handleClarifyConfirm → goToSmartSearchResults →
+// intentToFilters עם fallbackLocation = filters.location. המיקומים כאן נבנים *בדיוק* כמו שהבורר
+// בונה אותם (commitLocation → locationWithDrivingTime; "בלי מיקום" → locationWithNoRestriction).
 // ---------------------------------------------------------------------------
 
+const PICKED_NOTHING = { ...DEFAULT_FILTERS.location };
+// עיר שהוקלדה בבורר: commitLocation → travelMode ריק → locationWithDrivingTime(…, 15); צ'יפ דקות →
+// locationWithDrivingTime(value, N) - בדיוק כמו LocationQuickPicker.
+const pickCity = (city, minutes = 15) => locationWithDrivingTime({ ...PICKED_NOTHING, mode: 'city', city }, minutes);
+const pickGps = () => locationWithDrivingTime({ ...PICKED_NOTHING, mode: 'current' }, 15);
+const pickNoLocation = (prev = PICKED_NOTHING) => locationWithNoRestriction(prev);
+
 for (const [query, expectedQ] of [['זהבה', 'זהבה'], ['שלושת הדובים', 'שלושת הדובים'], ['ספר הג׳ונגל', 'ספר הג׳ונגל']]) {
-  test(`HOME CLARIFY: "${query}" + user-selected חולון -> q="${expectedQ}", location=חולון`, () => {
+  test(`HOME CLARIFY: "${query}" + picker city חולון -> q="${expectedQ}", location=חולון`, () => {
     const pending = prod(query);
-    assert.equal(needsAreaClarification(pending, null), true, 'fresh visitor with no location: Home asks for an area');
-    const filters = intentToFilters(pending, { children: [], fallbackLocation: explicitCityLocation('חולון') });
+    assert.equal(needsAreaClarification(pending, PICKED_NOTHING), true, 'unknown location: the canonical picker opens');
+    const filters = intentToFilters(pending, { children: [], fallbackLocation: pickCity('חולון') });
     assert.equal(filters.q, expectedQ, 'the original search text is preserved');
     assert.equal(filters.location.mode, 'city');
     assert.equal(filters.location.city, 'חולון', 'the user-selected city is the location, not text');
   });
 }
+
+for (const minutes of [15, 30, 45]) {
+  test(`PICKER A-C: "זהבה" + חולון + driving ${minutes} min -> q=זהבה, existing driving semantics kept`, () => {
+    const picked = pickCity('חולון', minutes);
+    const filters = intentToFilters(prod('זהבה'), { children: [], fallbackLocation: picked });
+    assert.equal(filters.q, 'זהבה');
+    assert.equal(filters.location.city, 'חולון');
+    assert.equal(filters.location.travelMode, 'driving');
+    assert.equal(filters.location.travelMinutes, minutes);
+    assert.deepEqual(filters.location, picked, 'the picker location passes through untouched (no parallel travel logic)');
+  });
+}
+
+test('PICKER D: "זהבה" + use my location -> q=זהבה, GPS mode kept', () => {
+  const filters = intentToFilters(prod('זהבה'), { children: [], fallbackLocation: pickGps() });
+  assert.equal(filters.q, 'זהבה');
+  assert.equal(filters.location.mode, 'current');
+});
+
+for (const [query, expectedQ] of [['זהבה', 'זהבה'], ['שלושת הדובים', 'שלושת הדובים'], ['ספר הג׳ונגל', 'ספר הג׳ונגל']]) {
+  test(`PICKER E-G: "${query}" + בלי מיקום -> q preserved, explicit nationwide, no geographic reference`, () => {
+    const filters = intentToFilters(prod(query), { children: [], fallbackLocation: pickNoLocation() });
+    assert.equal(filters.q, expectedQ);
+    assert.equal(filters.location.mode, 'nationwide');
+    assert.equal(filters.location.city, '');
+    assert.deepEqual(filters.location.region, []);
+    assert.equal(filters.location.coords, null);
+    assert.equal(filters.location.radiusKm, null);
+    assert.equal('travelMode' in filters.location, false, 'no walking/driving without an origin');
+  });
+}
+
+test('PICKER E: "זהבה" + בלי מיקום finds the Goldilocks shows in every city (no geographic restriction)', () => {
+  const filters = intentToFilters(prod('זהבה'), { children: [], fallbackLocation: pickNoLocation() });
+  assert.deepEqual(search(filters), ['1', '2'], 'תל אביב and רעננה both included');
+});
+
+test('NO LOOP: after choosing בלי מיקום the gate does not reopen the picker (unknown != explicit no-location)', () => {
+  assert.equal(needsAreaClarification(prod('זהבה'), PICKED_NOTHING), true, 'unknown → ask');
+  assert.equal(needsAreaClarification(prod('זהבה'), pickNoLocation()), false, 'explicit no-location → proceed');
+  assert.equal(needsAreaClarification(prod('שלושת הדובים'), pickNoLocation()), false);
+});
+
+test('NO LOCATION replaces stale geography completely (saved city / GPS / previous region are not reused)', () => {
+  for (const prev of [pickCity('חיפה', 45), pickGps(), { ...PICKED_NOTHING, mode: 'region', region: ['השרון'] }]) {
+    const loc = pickNoLocation(prev);
+    assert.equal(loc.mode, 'nationwide');
+    assert.equal(loc.city, '');
+    assert.deepEqual(loc.region, []);
+    assert.equal(loc.coords, null);
+    assert.equal('travelMode' in loc, false);
+  }
+});
+
+test('RESULTS EDIT: בלי מיקום removes only geography - category/age/date filters are preserved', () => {
+  const before = { ...DEFAULT_FILTERS, q: '', category: ['הצגה'], age: ['4-6'], when: { options: ['weekend'], date: null }, location: pickCity('רעננה') };
+  const after = { ...before, location: pickNoLocation(before.location) }; // FiltersSheet: onChange('location', v)
+  assert.deepEqual(after.category, ['הצגה']);
+  assert.deepEqual(after.age, ['4-6']);
+  assert.deepEqual(after.when, { options: ['weekend'], date: null });
+  assert.equal(after.location.mode, 'nationwide');
+  // category+age still filter; the city no longer does: both shows (תל אביב + רעננה) qualify by location
+  const loc = applyFilters(CATALOG, { ...DEFAULT_FILTERS, category: ['הצגה'], location: after.location }, null, [], [], [], []).map((a) => a.id);
+  assert.deepEqual(loc, ['1', '2']);
+});
+
+test('NATIONWIDE RANKING: no hidden GPS origin - device coords do not change the order, and it is deterministic', () => {
+  const near = { id: 'near', title: 'הצגה א', category: 'הצגה', city: 'חולון', region: 'גוש דן והמרכז', lat: 32.01, lng: 34.78 };
+  const far = { id: 'far', title: 'הצגה ב', category: 'הצגה', city: 'אילת', region: 'הדרום והנגב', lat: 29.55, lng: 34.95 };
+  const acts = [far, near];
+  const filters = { ...DEFAULT_FILTERS, location: pickNoLocation() };
+  const gps = { latitude: 32.0, longitude: 34.77 }; // right next to "near"
+  const withGps = rankActivities(acts, filters, gps, [], [], [], null, null, []).map((a) => a.id);
+  const without = rankActivities(acts, filters, null, [], [], [], null, null, []).map((a) => a.id);
+  assert.deepEqual(withGps, without, 'GPS does not pull nearby activities up when the user chose no location');
+  assert.deepEqual(rankActivities(acts, filters, gps, [], [], [], null, null, []).map((a) => a.id), withGps, 'stable across calls');
+});
+
+test('EXISTING CONTEXT: a location in the text itself never opens the picker ("זהבה ליד חיפה", "פעילויות בחיפה")', () => {
+  assert.equal(needsAreaClarification(prod('זהבה ליד חיפה'), PICKED_NOTHING), false);
+  assert.equal(needsAreaClarification(prod('פעילויות בחיפה'), PICKED_NOTHING), false);
+});
+
+// ---------------------------------------------------------------------------
+// סעיף "כמה רחוק" בבורר: "לא משנה לי המרחק" (travelMode 'any') מול נסיעה בלי זמן מפורש.
+// A = נסיעה בלי דקות (לחיצה חוזרת על הצ'יפ שנבחר: travelMode 'driving', travelMinutes null).
+// G = "לא משנה לי המרחק" / "ללא הגבלת זמן" (locationWithAnyDistance).
+// ---------------------------------------------------------------------------
+
+const HAIFA = { lat: 32.794, lng: 34.9896 };
+const TRAVEL_CATALOG = [
+  { id: 'h1', title: 'הצגה בחיפה', category: 'הצגה', city: 'חיפה', region: 'חיפה והקריות', lat: 32.795, lng: 34.99 },
+  { id: 'h2', title: 'סדנה בחיפה', category: 'סדנה', city: 'חיפה', region: 'חיפה והקריות', lat: 32.8, lng: 34.98 },
+  { id: 'ka', title: 'פארק בקריית אתא', category: 'פארק', city: 'קריית אתא', region: 'חיפה והקריות', lat: 32.806, lng: 35.106 }, // ~11 ק"מ
+  { id: 'ta', title: 'מוזיאון בתל אביב', category: 'מוזיאון', city: 'תל אביב', region: 'גוש דן והמרכז', lat: 32.08, lng: 34.78 }, // ~80 ק"מ
+];
+const ids = (list) => list.map((a) => a.id).sort();
+const withLocation = (location) => ({ ...DEFAULT_FILTERS, location });
+const drivingNoTime = (loc) => ({ ...locationWithDrivingTime(loc, 30), travelMinutes: null }); // A
+const noTimeLimit = (loc) => locationWithAnyDistance(locationWithDrivingTime(loc, 30)); // G
+
+test('TRAVEL A vs G (city חיפה): same filtering, ranking and Smart Radius - they differ only in label state', () => {
+  const a = drivingNoTime({ ...PICKED_NOTHING, mode: 'city', city: 'חיפה' });
+  const g = noTimeLimit({ ...PICKED_NOTHING, mode: 'city', city: 'חיפה' });
+  assert.deepEqual([a.mode, a.city, a.travelMode, a.travelMinutes, a.radiusKm], ['city', 'חיפה', 'driving', null, null]);
+  assert.deepEqual([g.mode, g.city, g.travelMode, g.travelMinutes, g.radiusKm], ['city', 'חיפה', 'any', 30, null]);
+  assert.deepEqual(ids(applyFilters(TRAVEL_CATALOG, withLocation(a), null, [], [], [], [])), ['h1', 'h2']);
+  assert.deepEqual(ids(applyFilters(TRAVEL_CATALOG, withLocation(g), null, [], [], [], [])), ['h1', 'h2']);
+  const rank = (loc) => rankActivities(TRAVEL_CATALOG, withLocation(loc), null, [], [], [], null, HAIFA, []).map((x) => x.id);
+  assert.deepEqual(rank(a), rank(g));
+  const radius = (loc) => applyFiltersWithSmartRadius(TRAVEL_CATALOG, withLocation(loc), null, [], [], [], HAIFA, []);
+  assert.deepEqual(ids(radius(a).activities), ids(radius(g).activities));
+  assert.equal(radius(a).radiusExpanded, radius(g).radiusExpanded);
+});
+
+test('TRAVEL A vs G (my location): NOT equivalent - driving keeps a 10 km radius, "no time limit" removes it', () => {
+  const gps = { latitude: HAIFA.lat, longitude: HAIFA.lng };
+  const a = drivingNoTime({ ...PICKED_NOTHING, mode: 'current' });
+  const g = noTimeLimit({ ...PICKED_NOTHING, mode: 'current' });
+  assert.equal(a.radiusKm, DEFAULT_PRECISE_RADIUS_KM);
+  assert.equal(g.radiusKm, null);
+  assert.deepEqual(ids(applyFilters(TRAVEL_CATALOG, withLocation(a), gps, [], [], [], [])), ['h1', 'h2'], 'within 10 km only');
+  assert.deepEqual(ids(applyFilters(TRAVEL_CATALOG, withLocation(g), gps, [], [], [], [])), ['h1', 'h2', 'ka', 'ta'], 'no distance limit');
+  // Smart Radius: A widens to 15 km (adds קריית אתא) but never reaches תל אביב; G has nothing to widen.
+  const origin = HAIFA;
+  assert.deepEqual(ids(applyFiltersWithSmartRadius(TRAVEL_CATALOG, withLocation(a), gps, [], [], [], origin, []).activities), ['h1', 'h2', 'ka']);
+  // G keeps the origin: everything, nearest first.
+  const ranked = rankActivities(TRAVEL_CATALOG, withLocation(g), gps, [], [], [], null, origin, []).map((x) => x.id);
+  assert.equal(ranked[ranked.length - 1], 'ta', 'farthest ranks last - the origin still orders results');
+});
+
+test('TRAVEL B-D: 15/30/45 min are display-only - each applies the same precise radius (existing semantics)', () => {
+  for (const minutes of [15, 30, 45]) {
+    const loc = locationWithDrivingTime({ ...PICKED_NOTHING, mode: 'current' }, minutes);
+    assert.equal(loc.travelMode, 'driving');
+    assert.equal(loc.travelMinutes, minutes);
+    assert.equal(loc.radiusKm, DEFAULT_PRECISE_RADIUS_KM);
+  }
+});
+
+test('TRAVEL SELECTION: one source of truth for what the picker shows as selected', () => {
+  const city = { ...PICKED_NOTHING, mode: 'city', city: 'חיפה' };
+  assert.deepEqual(travelSelection(locationWithDrivingTime(city, 30)), { walking: false, driving: true, minutes: 30, noTimeLimit: false });
+  assert.deepEqual(travelSelection(noTimeLimit(city)), { walking: false, driving: true, minutes: null, noTimeLimit: true }, 'no-time-limit lives in the driving row; stale 30 is not shown');
+  assert.deepEqual(travelSelection(drivingNoTime(city)), { walking: false, driving: true, minutes: null, noTimeLimit: false });
+  const walking = { ...locationWithDrivingTime({ ...PICKED_NOTHING, mode: 'current' }, 45), travelMode: 'walking', radiusKm: 0.75 };
+  assert.deepEqual(travelSelection(walking), { walking: true, driving: false, minutes: null, noTimeLimit: false }, 'remembered 45 is not shown while walking');
+  const none = { walking: false, driving: false, minutes: null, noTimeLimit: false };
+  assert.deepEqual(travelSelection(PICKED_NOTHING), none, 'unknown location: no travel selection');
+  assert.deepEqual(travelSelection(pickNoLocation(locationWithDrivingTime(city, 30))), none, 'no location: no travel selection');
+});
+
+test('TRAVEL J: בלי מיקום drops every travel field - no stale restriction and no origin', () => {
+  for (const prev of [pickCity('חיפה', 30), noTimeLimit({ ...PICKED_NOTHING, mode: 'current' }), { ...pickGps(), travelMode: 'walking', radiusKm: 0.75 }]) {
+    const loc = pickNoLocation(prev);
+    assert.equal('travelMode' in loc, false);
+    assert.equal('travelMinutes' in loc, false, 'a previous 30 min cannot come back later');
+    assert.equal(loc.radiusKm, null);
+    assert.equal(loc.coords, null);
+    assert.deepEqual(ids(applyFilters(TRAVEL_CATALOG, withLocation(loc), { latitude: HAIFA.lat, longitude: HAIFA.lng }, [], [], [], [])), ['h1', 'h2', 'ka', 'ta']);
+    assert.equal(applyFiltersWithSmartRadius(TRAVEL_CATALOG, withLocation(loc), null, [], [], [], null, []).radiusExpanded, null);
+  }
+});
+
+test('TRAVEL K: בלי מיקום → חיפה starts from the normal default (driving 15), not the old 30', () => {
+  const nationwide = pickNoLocation(pickCity('חיפה', 30));
+  const typed = { ...nationwide, mode: 'city', city: 'חיפה' };
+  assert.equal(typed.travelMode, undefined, 'nothing to restore - the picker applies its first-time default');
+  const picked = locationWithDrivingTime(typed, 15); // commitLocation: travelMode undefined → driving 15
+  assert.deepEqual(travelSelection(picked), { walking: false, driving: true, minutes: 15, noTimeLimit: false });
+});
+
+test('SMART SEARCH: "זהבה" + חולון + no time limit keeps q and the origin city', () => {
+  const picked = noTimeLimit({ ...PICKED_NOTHING, mode: 'city', city: 'חולון' });
+  const filters = intentToFilters(prod('זהבה'), { children: [], fallbackLocation: picked });
+  assert.equal(filters.q, 'זהבה');
+  assert.equal(filters.location.city, 'חולון');
+  assert.equal(filters.location.travelMode, 'any');
+});
+
+// ---------------------------------------------------------------------------
+// "השתמשו במיקום שלי": 'current' נשמר רק אחרי הרשאה + מיקום שמיש של *הבקשה הזו*.
+// אותו רצף בדיוק כמו useCurrentLocation ב-LocationQuickPicker: requestCurrentPosition →
+// applyCurrentPositionResult → (commitLocation: travelMode ריק → נסיעה 15).
+// ---------------------------------------------------------------------------
+
+const fakeLocation = ({ status = 'granted', canAskAgain, permissionThrows = false, position, positionThrows = false, hang = false } = {}) => {
+  const calls = { permission: 0, position: 0 };
+  return {
+    calls,
+    requestForegroundPermissionsAsync: async () => {
+      calls.permission += 1;
+      if (permissionThrows) throw new Error('permission request failed');
+      return { status, canAskAgain };
+    },
+    getCurrentPositionAsync: () => {
+      calls.position += 1;
+      if (hang) return new Promise(() => {});
+      if (positionThrows) return Promise.reject(new Error('location unavailable'));
+      return Promise.resolve(position ?? { coords: { latitude: HAIFA.lat, longitude: HAIFA.lng } });
+    },
+  };
+};
+// הבורר: תוצאה → מיקום (כישלון = אותו אובייקט בדיוק) → ברירת-המחדל של commitLocation
+const tapMyLocation = async (prev, api, opts) => {
+  const result = await requestCurrentPosition(api, opts);
+  const next = applyCurrentPositionResult(prev, result);
+  const location = result.ok && next.location.travelMode === undefined ? locationWithDrivingTime(next.location, 15) : next.location;
+  return { result, location, coords: next.coords };
+};
+const FAILURES = {
+  denied: () => fakeLocation({ status: 'denied' }),
+  blocked: () => fakeLocation({ status: 'denied', canAskAgain: false }),
+  permissionRequestFails: () => fakeLocation({ permissionThrows: true }),
+  positionFails: () => fakeLocation({ positionThrows: true }),
+  unusableCoords: () => fakeLocation({ position: { coords: { latitude: NaN, longitude: 34.9 } } }),
+  outOfRangeCoords: () => fakeLocation({ position: { coords: { latitude: 190, longitude: 34.9 } } }),
+  noCoords: () => fakeLocation({ position: {} }),
+};
+
+test('GPS A: no location + permission denied -> nothing committed, "denied" feedback, no position lookup', async () => {
+  const api = fakeLocation({ status: 'denied' });
+  const { result, location, coords } = await tapMyLocation(PICKED_NOTHING, api);
+  assert.deepEqual(result, { ok: false, error: 'denied' });
+  assert.equal(location, PICKED_NOTHING, 'the very same location object - untouched');
+  assert.equal(location.mode, null, 'still UNKNOWN - not current, not nationwide');
+  assert.equal(coords, null);
+  assert.equal(api.calls.position, 0, 'permission alone is never treated as success');
+});
+
+test('GPS A: permanently blocked permission reports "blocked" (Open Settings on native), still no state change', async () => {
+  const { result, location } = await tapMyLocation(PICKED_NOTHING, fakeLocation({ status: 'denied', canAskAgain: false }));
+  assert.deepEqual(result, { ok: false, error: 'blocked' });
+  assert.equal(location.mode, null);
+});
+
+test('GPS B: permission granted but the position lookup fails -> nothing committed', async () => {
+  const { result, location, coords } = await tapMyLocation(PICKED_NOTHING, fakeLocation({ positionThrows: true }));
+  assert.deepEqual(result, { ok: false, error: 'locationFailed' });
+  assert.equal(location.mode, null);
+  assert.equal(coords, null);
+});
+
+test('GPS B: a lookup that never returns times out instead of leaving the picker "locating" forever', async () => {
+  const { result, location } = await tapMyLocation(PICKED_NOTHING, fakeLocation({ hang: true }), { timeoutMs: 20 });
+  assert.deepEqual(result, { ok: false, error: 'locationFailed' });
+  assert.equal(location.mode, null);
+});
+
+test('GPS B: every failure kind leaves UNKNOWN unknown (never current, never nationwide)', async () => {
+  for (const [kind, make] of Object.entries(FAILURES)) {
+    const { result, location } = await tapMyLocation(PICKED_NOTHING, make());
+    assert.equal(result.ok, false, kind);
+    assert.equal(location, PICKED_NOTHING, `${kind}: untouched`);
+  }
+});
+
+test('GPS C: permission + valid position -> current mode, the fresh coordinates, the existing driving default', async () => {
+  const { result, location, coords } = await tapMyLocation(PICKED_NOTHING, fakeLocation());
+  assert.equal(result.ok, true);
+  assert.deepEqual(coords, { latitude: HAIFA.lat, longitude: HAIFA.lng });
+  assert.equal(location.mode, 'current');
+  assert.equal(location.travelMode, 'driving');
+  assert.equal(location.travelMinutes, 15);
+  assert.equal(location.radiusKm, DEFAULT_PRECISE_RADIUS_KM);
+});
+
+test('GPS D: existing city חיפה + failed attempt -> חיפה (and its travel choice) preserved exactly', async () => {
+  const haifa = pickCity('חיפה', 30);
+  for (const make of Object.values(FAILURES)) {
+    const { location } = await tapMyLocation(haifa, make());
+    assert.equal(location, haifa);
+    assert.deepEqual([location.mode, location.city, location.travelMinutes], ['city', 'חיפה', 30]);
+  }
+});
+
+test('GPS D: explicit בלי מיקום + failed attempt stays nationwide; a failure never CREATES nationwide', async () => {
+  const nationwide = pickNoLocation();
+  assert.equal((await tapMyLocation(nationwide, fakeLocation({ status: 'denied' }))).location, nationwide);
+  assert.notEqual((await tapMyLocation(PICKED_NOTHING, fakeLocation({ status: 'denied' }))).location.mode, 'nationwide');
+});
+
+test('GPS E: old coordinates in memory do not turn a failed NEW attempt into a success', async () => {
+  const earlier = await tapMyLocation(pickCity('חיפה'), fakeLocation()); // an earlier success this session
+  assert.ok(earlier.coords, 'old coordinates exist');
+  const afterCity = pickCity('נתניה'); // the user later moved to a city
+  const retry = await tapMyLocation(afterCity, fakeLocation({ positionThrows: true }));
+  assert.equal(retry.result.ok, false);
+  assert.equal(retry.coords, null, 'the failed attempt yields no coordinates of its own');
+  assert.equal(retry.location, afterCity, 'not switched back to "my location" on the strength of the old fix');
+});
+
+test('GPS F-H: "זהבה" + GPS denied keeps q pending; then חולון or בלי מיקום completes it without retyping', async () => {
+  const pending = prod('זהבה');
+  assert.equal(needsAreaClarification(pending, PICKED_NOTHING), true);
+  const { location: afterDenied } = await tapMyLocation(PICKED_NOTHING, fakeLocation({ status: 'denied' }));
+  assert.equal(needsAreaClarification(pending, afterDenied), true, 'F: still no location - the picker stays open, nothing to confirm yet');
+  // G
+  const withCity = intentToFilters(pending, { children: [], fallbackLocation: pickCity('חולון', 15) });
+  assert.deepEqual([withCity.q, withCity.location.mode, withCity.location.city], ['זהבה', 'city', 'חולון']);
+  // H
+  const nationwide = intentToFilters(pending, { children: [], fallbackLocation: pickNoLocation(afterDenied) });
+  assert.deepEqual([nationwide.q, nationwide.location.mode], ['זהבה', 'nationwide']);
+});
+
+test('GPS I: "זהבה" + GPS success -> q kept, current mode, and the origin really drives distance filtering', async () => {
+  const { location, coords } = await tapMyLocation(PICKED_NOTHING, fakeLocation());
+  const filters = intentToFilters(prod('זהבה'), { children: [], fallbackLocation: location });
+  assert.equal(filters.q, 'זהבה');
+  assert.equal(filters.location.mode, 'current');
+  // the coordinates Results receives (homeCoords) filter by distance: Tel Aviv (~80 km) is out
+  assert.deepEqual(ids(applyFilters(TRAVEL_CATALOG, withLocation(filters.location), coords, [], [], [], [])), ['h1', 'h2']);
+});
+
+test('GPS J: "my location" is only ever committed together with usable fresh coordinates', async () => {
+  for (const prev of [PICKED_NOTHING, pickCity('חיפה'), pickNoLocation(), { ...PICKED_NOTHING, mode: 'region', region: ['השרון'] }]) {
+    for (const make of Object.values(FAILURES)) {
+      const { location, coords } = await tapMyLocation(prev, make());
+      assert.equal(location.mode === 'current', false, 'no failure can produce current mode');
+      assert.equal(coords, null);
+    }
+    const ok = await tapMyLocation(prev, fakeLocation());
+    assert.equal(ok.location.mode, 'current');
+    assert.ok(Number.isFinite(ok.coords.latitude) && Number.isFinite(ok.coords.longitude));
+  }
+});
 
 test('HOME CLARIFY: why the channel matters - injecting the chosen city into the MODEL intent loses the text', () => {
   // ההתנהגות הישנה של handleClarifyCity (מתועדת כדי שלא תחזור): העיר נראית כמו ניחוש-מודל ומודחת.
