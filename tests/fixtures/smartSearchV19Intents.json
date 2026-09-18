@@ -1,0 +1,343 @@
+{
+ "_source": "smart_search_logs.parsed_intent, smart-search v19, production 2026-09-18 04:56 UTC (verbatim)",
+ "intents": {
+  "זהבה": {
+   "age": null,
+   "amenityHints": [],
+   "benefitsHint": null,
+   "category": null,
+   "categoryEvidence": null,
+   "categoryRejectedReason": null,
+   "childNameMentioned": "זהבה",
+   "durationHint": null,
+   "location": {
+    "city": null,
+    "coords": null,
+    "geocodeFailed": false,
+    "region": null,
+    "regionSource": null,
+    "relation": null,
+    "street": null
+   },
+   "placeTypeHint": null,
+   "priceHint": null,
+   "residualQuery": null,
+   "timeRange": null,
+   "vagueIntent": [],
+   "when": {
+    "date": null,
+    "option": null
+   }
+  },
+  "שלושת הדובים": {
+   "age": null,
+   "amenityHints": [],
+   "benefitsHint": null,
+   "category": null,
+   "categoryEvidence": null,
+   "categoryRejectedReason": null,
+   "childNameMentioned": null,
+   "durationHint": null,
+   "location": {
+    "city": null,
+    "coords": null,
+    "geocodeFailed": false,
+    "region": null,
+    "regionSource": null,
+    "relation": null,
+    "street": null
+   },
+   "placeTypeHint": null,
+   "priceHint": null,
+   "residualQuery": "שלושת הדובים",
+   "timeRange": null,
+   "vagueIntent": [],
+   "when": {
+    "date": null,
+    "option": null
+   }
+  },
+  "זהבה ליד חיפה": {
+   "age": null,
+   "amenityHints": [],
+   "benefitsHint": null,
+   "category": null,
+   "categoryEvidence": null,
+   "categoryRejectedReason": null,
+   "childNameMentioned": null,
+   "durationHint": null,
+   "location": {
+    "city": "חיפה",
+    "coords": null,
+    "geocodeFailed": false,
+    "region": null,
+    "regionSource": null,
+    "relation": null,
+    "street": null
+   },
+   "placeTypeHint": null,
+   "priceHint": null,
+   "residualQuery": "זהבה",
+   "timeRange": null,
+   "vagueIntent": [],
+   "when": {
+    "date": null,
+    "option": null
+   }
+  },
+  "פיטר פן ליד נתניה": {
+   "age": null,
+   "amenityHints": [],
+   "benefitsHint": null,
+   "category": null,
+   "categoryEvidence": null,
+   "categoryRejectedReason": null,
+   "childNameMentioned": null,
+   "durationHint": null,
+   "location": {
+    "city": "נתניה",
+    "coords": null,
+    "geocodeFailed": false,
+    "region": null,
+    "regionSource": null,
+    "relation": null,
+    "street": null
+   },
+   "placeTypeHint": null,
+   "priceHint": null,
+   "residualQuery": "פיטר פן",
+   "timeRange": null,
+   "vagueIntent": [],
+   "when": {
+    "date": null,
+    "option": null
+   }
+  },
+  "קרקס בחיפה": {
+   "age": null,
+   "amenityHints": [],
+   "benefitsHint": null,
+   "category": null,
+   "categoryEvidence": null,
+   "categoryRejectedReason": null,
+   "childNameMentioned": null,
+   "durationHint": null,
+   "location": {
+    "city": "חיפה",
+    "coords": null,
+    "geocodeFailed": false,
+    "region": null,
+    "regionSource": null,
+    "relation": null,
+    "street": null
+   },
+   "placeTypeHint": null,
+   "priceHint": null,
+   "residualQuery": "קרקס",
+   "timeRange": null,
+   "vagueIntent": [],
+   "when": {
+    "date": null,
+    "option": null
+   }
+  },
+  "קטיף ליד חדרה": {
+   "age": null,
+   "amenityHints": [],
+   "benefitsHint": null,
+   "category": "חווה",
+   "categoryEvidence": "קטיף",
+   "categoryRejectedReason": null,
+   "childNameMentioned": null,
+   "durationHint": null,
+   "location": {
+    "city": "חדרה",
+    "coords": null,
+    "geocodeFailed": false,
+    "region": null,
+    "regionSource": null,
+    "relation": null,
+    "street": null
+   },
+   "placeTypeHint": null,
+   "priceHint": null,
+   "residualQuery": null,
+   "timeRange": null,
+   "vagueIntent": [],
+   "when": {
+    "date": null,
+    "option": null
+   }
+  },
+  "ג'ימבורי בנתניה": {
+   "age": null,
+   "amenityHints": [],
+   "benefitsHint": null,
+   "category": "ג'ימבורי",
+   "categoryEvidence": "ג'ימבורי",
+   "categoryRejectedReason": null,
+   "childNameMentioned": null,
+   "durationHint": null,
+   "location": {
+    "city": "נתניה",
+    "coords": null,
+    "geocodeFailed": false,
+    "region": null,
+    "regionSource": null,
+    "relation": null,
+    "street": null
+   },
+   "placeTypeHint": null,
+   "priceHint": null,
+   "residualQuery": null,
+   "timeRange": null,
+   "vagueIntent": [],
+   "when": {
+    "date": null,
+    "option": null
+   }
+  },
+  "מוזיאון בירושלים": {
+   "age": null,
+   "amenityHints": [],
+   "benefitsHint": null,
+   "category": "מוזיאון לילדים",
+   "categoryEvidence": "מוזיאון",
+   "categoryRejectedReason": null,
+   "childNameMentioned": null,
+   "durationHint": null,
+   "location": {
+    "city": "ירושלים",
+    "coords": null,
+    "geocodeFailed": false,
+    "region": null,
+    "regionSource": null,
+    "relation": null,
+    "street": null
+   },
+   "placeTypeHint": null,
+   "priceHint": null,
+   "residualQuery": null,
+   "timeRange": null,
+   "vagueIntent": [],
+   "when": {
+    "date": null,
+    "option": null
+   }
+  },
+  "חיות ליד נתניה": {
+   "age": null,
+   "amenityHints": [],
+   "benefitsHint": null,
+   "category": "בעלי חיים",
+   "categoryEvidence": "חיות",
+   "categoryRejectedReason": null,
+   "childNameMentioned": null,
+   "durationHint": null,
+   "location": {
+    "city": "נתניה",
+    "coords": null,
+    "geocodeFailed": false,
+    "region": null,
+    "regionSource": null,
+    "relation": null,
+    "street": null
+   },
+   "placeTypeHint": null,
+   "priceHint": null,
+   "residualQuery": null,
+   "timeRange": null,
+   "vagueIntent": [],
+   "when": {
+    "date": null,
+    "option": null
+   }
+  },
+  "פעילויות בחיפה": {
+   "age": null,
+   "amenityHints": [],
+   "benefitsHint": null,
+   "category": null,
+   "categoryEvidence": null,
+   "categoryRejectedReason": null,
+   "childNameMentioned": null,
+   "durationHint": null,
+   "location": {
+    "city": "חיפה",
+    "coords": null,
+    "geocodeFailed": false,
+    "region": null,
+    "regionSource": null,
+    "relation": null,
+    "street": null
+   },
+   "placeTypeHint": null,
+   "priceHint": null,
+   "residualQuery": null,
+   "timeRange": null,
+   "vagueIntent": [],
+   "when": {
+    "date": null,
+    "option": null
+   }
+  },
+  "משהו כיף בחיפה": {
+   "age": null,
+   "amenityHints": [],
+   "benefitsHint": null,
+   "category": null,
+   "categoryEvidence": null,
+   "categoryRejectedReason": null,
+   "childNameMentioned": null,
+   "durationHint": null,
+   "location": {
+    "city": "חיפה",
+    "coords": null,
+    "geocodeFailed": false,
+    "region": null,
+    "regionSource": null,
+    "relation": null,
+    "street": null
+   },
+   "placeTypeHint": null,
+   "priceHint": null,
+   "residualQuery": null,
+   "timeRange": null,
+   "vagueIntent": [
+    "כיף"
+   ],
+   "when": {
+    "date": null,
+    "option": null
+   }
+  },
+  "ספר הג׳ונגל": {
+   "age": null,
+   "amenityHints": [],
+   "benefitsHint": null,
+   "category": null,
+   "categoryEvidence": null,
+   "categoryRejectedReason": null,
+   "childNameMentioned": null,
+   "durationHint": null,
+   "location": {
+    "city": null,
+    "coords": null,
+    "geocodeFailed": false,
+    "region": null,
+    "regionSource": null,
+    "relation": null,
+    "street": null
+   },
+   "placeTypeHint": null,
+   "priceHint": null,
+   "residualQuery": "ספר הג׳ונגל",
+   "timeRange": null,
+   "vagueIntent": [],
+   "when": {
+    "date": null,
+    "option": null
+   }
+  }
+ }
+}

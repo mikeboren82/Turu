@@ -33,7 +33,7 @@ addHook(
   { exts: ['.js'], matcher: (f) => f.startsWith(path.join(ROOT, 'lib')) || f.startsWith(path.join(ROOT, 'constants')) },
 );
 
-const { hasGeographicCue, resolveLocationIntent, deriveTextQuery, normalizeSearchText } = require('../lib/searchIntent');
+const { hasGeographicCue, hasChildReferenceCue, resolveLocationIntent, normalizeSearchText } = require('../lib/searchIntent');
 const { intentToFilters, parseSmartSearchQuery } = require('../lib/smartSearch');
 const { applyFilters } = require('../lib/filterActivities');
 // אותו אובייקט-מודול בדיוק ש-lib/smartSearch.js קיבל (המפתח הוא ה-specifier שבתוך lib/).
@@ -381,6 +381,134 @@ test('old server during rollout: vagueIntent fallback still recovers "הצגה �
   // אין מפתח residualQuery → חוזה ישן → כלל ה-fallback פעיל (אותה התנהגות כמו לפני השינוי).
   const intent = intentOf({ category: 'הצגה', vagueIntent: ['זהבה'], rawQuery: 'הצגה זהבה' });
   assert.equal(intentToFilters(intent, {}).q, 'זהבה');
+});
+
+// ---------------------------------------------------------------------------
+// פילטרים אפקטיביים (2026-09-18, רגרסיית פרודקשן v19): שדה שהמנתח מילא אינו בהכרח פילטר.
+// כל ה-intent-ים כאן מילה-במילה מ-smart_search_logs (tests/fixtures/smartSearchV19Intents.json).
+// ---------------------------------------------------------------------------
+
+const V19 = require('./fixtures/smartSearchV19Intents.json').intents;
+const REAL_SETTLEMENTS = new Set(['חיפה', 'נתניה', 'חדרה', 'ירושלים']);
+// בדיוק מה ש-parseSmartSearchQuery מוסיף: rawQuery + cityVerified (כאן מאומת מול יישובים אמיתיים).
+function prod(query) {
+  const it = V19[query];
+  assert.ok(it, `missing production fixture for "${query}"`);
+  const city = it.location.city;
+  return { ...it, rawQuery: query, location: { ...it.location, cityVerified: !!city && REAL_SETTLEMENTS.has(city) } };
+}
+function yearsAgo(n) {
+  const d = new Date();
+  d.setFullYear(d.getFullYear() - n);
+  d.setMonth(d.getMonth() - 1);
+  return d.toISOString().slice(0, 10);
+}
+
+test('A. PRODUCTION REGRESSION: "זהבה" with childNameMentioned and no such child -> q=זהבה, not the whole catalog', () => {
+  const filters = intentToFilters(prod('זהבה'), { children: [] });
+  assert.equal(filters.q, 'זהבה');
+  assert.equal(filters.location.mode, null);
+  assert.deepEqual(filters.category, []);
+  assert.deepEqual(filters.age, []);
+  assert.deepEqual(search(filters), ['1', '2'], 'the Goldilocks shows, not all 4 catalog items');
+});
+
+test('A2. same regression for a logged-in parent whose children have other names (profile ages still apply)', () => {
+  const children = [{ name: 'נועם', birthdate: yearsAgo(5) }];
+  const filters = intentToFilters(prod('זהבה'), { children });
+  assert.equal(filters.q, 'זהבה', 'an unresolved name must not swallow the text');
+  assert.deepEqual(filters.age, ['4-6'], 'existing default: all profile children ages, unchanged');
+});
+
+test('B. REAL RESOLVED CHILD: a mentioned name that matches a profile child keeps existing personalization', () => {
+  const children = [{ name: 'נועם', birthdate: yearsAgo(5) }, { name: 'דנה', birthdate: yearsAgo(11) }];
+  const intent = { ...prod('זהבה'), childNameMentioned: 'נועם', rawQuery: 'משהו לנועם' };
+  const filters = intentToFilters(intent, { children });
+  assert.deepEqual(filters.age, ['4-6'], "only Noam's age band - the existing resolveAge behaviour");
+  assert.equal(filters.q, '', 'a resolved child IS an effective filter, so the raw query is not forced into q');
+});
+
+test('C. UNKNOWN HUMAN NAME: a bare name that is no profile child is searched as text', () => {
+  const intent = { ...prod('זהבה'), childNameMentioned: 'פיטר', rawQuery: 'פיטר' };
+  assert.equal(intentToFilters(intent, { children: [{ name: 'נועם', birthdate: yearsAgo(5) }] }).q, 'פיטר');
+});
+
+test('C2. an explicit age that maps to no band is not an effective filter either (same class of bug)', () => {
+  // ageRangeToBands מחזיר null לגיל שנופל בין ה-bands השלמים (1.5 - בין "0-1" ל-"2-3").
+  const intent = { ...prod('זהבה'), childNameMentioned: null, age: { min: 1.5, max: 1.5 } };
+  const filters = intentToFilters(intent, { children: [] });
+  assert.equal(filters.q, 'זהבה');
+  assert.deepEqual(filters.age, []);
+});
+
+test('C3. an explicit age that DOES resolve is still an effective filter (no over-correction)', () => {
+  const intent = { ...prod('זהבה'), childNameMentioned: null, age: { min: 5, max: 5 }, rawQuery: 'לילד בן 5' };
+  const filters = intentToFilters(intent, { children: [] });
+  assert.deepEqual(filters.age, ['4-6']);
+  assert.equal(filters.q, '');
+});
+
+// הבאים הם פלט אמיתי של פרומפט v19 בהערכה אופליין (אותו מודל/temperature, אותו sanitizeIntent),
+// ממופים לצורת ה-intent של השרת בדיוק כפי ש-index.ts עושה (resolveDateLabel דטרמיניסטי).
+test('C4. "זהבה מחר": unresolved name next to a REAL filter (date) still survives as text', () => {
+  // v19: childName:"זהבה", dateLabel:"tomorrow". לפני התיקון התאריך "נחשב מבנה" והשם נבלע לגמרי.
+  const intent = { ...prod('זהבה'), when: { option: 'tomorrow', date: '2026-09-19' }, rawQuery: 'זהבה מחר' };
+  const filters = intentToFilters(intent, { children: [] });
+  assert.equal(filters.q, 'זהבה');
+  assert.deepEqual(filters.when.options, ['tomorrow']);
+});
+
+test('C5. "משהו לדנה": a child reference for a child NOT in the profile does not become a text search', () => {
+  // v19: childName:"דנה", vagueIntent:["משהו כללי"]. "לדנה" = עבור ילדה (אורח/ת בלי פרופיל), לא חיפוש המילה.
+  const intent = { ...prod('זהבה'), childNameMentioned: 'דנה', vagueIntent: ['משהו כללי'], rawQuery: 'משהו לדנה' };
+  const filters = intentToFilters(intent, { children: [] });
+  assert.equal(filters.q, '', 'no q="דנה" - that would return almost nothing');
+});
+
+test('child-reference cue: "לX"/"עם X"/"בשביל X" are references, a bare or unrelated name is not', () => {
+  assert.equal(hasChildReferenceCue('משהו לדנה', 'דנה'), true);
+  assert.equal(hasChildReferenceCue('פארק עם אבישי', 'אבישי'), true);
+  assert.equal(hasChildReferenceCue('משהו בשביל נועם', 'נועם'), true);
+  assert.equal(hasChildReferenceCue('זהבה', 'זהבה'), false);
+  assert.equal(hasChildReferenceCue('זהבה מחר', 'זהבה'), false);
+  assert.equal(hasChildReferenceCue('הזהבה של אבא', 'זהבה'), false, 'boundary-aware, ה is not a reference');
+});
+
+const V19_EXPECT = [
+  // [query, q, location city, category]
+  ['שלושת הדובים', 'שלושת הדובים', null, []],
+  ['זהבה ליד חיפה', 'זהבה', 'חיפה', []],
+  ['פיטר פן ליד נתניה', 'פיטר פן', 'נתניה', []],
+  ['קרקס בחיפה', 'קרקס', 'חיפה', []],
+  ['קטיף ליד חדרה', '', 'חדרה', ['חווה']],
+  ["ג'ימבורי בנתניה", '', 'נתניה', ["ג'ימבורי"]],
+  ['מוזיאון בירושלים', '', 'ירושלים', ['מוזיאון לילדים']],
+  ['חיות ליד נתניה', '', 'נתניה', ['בעלי חיים']],
+  ['פעילויות בחיפה', '', 'חיפה', []],
+  ['משהו כיף בחיפה', '', 'חיפה', []],
+  ['ספר הג׳ונגל', 'ספר הג׳ונגל', null, []],
+];
+for (const [query, q, city, category] of V19_EXPECT) {
+  test(`D-I. production v19 "${query}" -> q=${JSON.stringify(q)} city=${city} category=${JSON.stringify(category)}`, () => {
+    const filters = intentToFilters(prod(query), { children: [] });
+    assert.equal(filters.q, q, 'residual_query stays preferred; never the whole raw query for mixed queries');
+    assert.equal(filters.location.city || null, city);
+    assert.deepEqual(filters.category, category);
+  });
+}
+
+test('J. explicit WHAT + text-inferred category: current precedence preserved (known follow-up)', () => {
+  const filters = intentToFilters(prod("ג'ימבורי בנתניה"), { fallbackCategory: ['בעלי חיים'] });
+  assert.deepEqual(filters.category, ["ג'ימבורי"], 'inferred, evidence-backed category still wins - NOT changed here');
+  const noInference = intentToFilters(prod('זהבה'), { fallbackCategory: ['בעלי חיים'] });
+  assert.deepEqual(noInference.category, ['בעלי חיים']);
+  assert.equal(noInference.q, 'זהבה');
+});
+
+test('K. explicit WHERE + conflicting text location: current behaviour preserved (conflict UX deferred)', () => {
+  const filters = intentToFilters(prod('זהבה ליד חיפה'), { fallbackLocation: { mode: 'city', city: 'נתניה', region: [], radiusKm: null, coords: null } });
+  assert.equal(filters.location.city, 'חיפה');
+  assert.equal(filters.q, 'זהבה');
 });
 
 // ---------------------------------------------------------------------------
