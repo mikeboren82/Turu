@@ -15,7 +15,7 @@
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import Anthropic from 'npm:@anthropic-ai/sdk@0.32';
-import { CATEGORY_VALUES, ARCHIVE_CATEGORIES, REGION_VALUES } from '../_shared/extraction.ts';
+import { WEEKDAY_LABEL_TO_DOW, buildSystemPrompt, parseJsonObject, sanitizeIntent } from '../_shared/smartSearchIntent.ts';
 import { geocodeAddress } from '../_shared/geocoding.ts';
 import { matchRegionAlias } from '../_shared/regionAliases.ts';
 
@@ -28,60 +28,7 @@ function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } });
 }
 
-// זהה לגזירת CATEGORY_FILTER_OPTIONS ב-constants/filterSchema.js (אותו מקור-אמת,
-// categoryValues.json, רק שני runtimes נפרדים) - קטגוריות-ארכיון ו"אחר" אינן יעד-חיפוש תקין.
-const SEARCHABLE_CATEGORIES = CATEGORY_VALUES.filter((c) => !ARCHIVE_CATEGORIES.includes(c) && c !== 'אחר');
 
-// ימי השבוע - כולם, לא רק שישי/שבת (נמצא בבדיקה: "פעילות ביום שלישי הבא" נפל בשקט ל-null כי
-// רק שני ימים היו נתמכים - המשתמש ציין יום מפורש, אסור להשמיט את זה, ראו עקרון "אל תמציא/
-// תשמיט" בסעיף 24). WEEKDAY_LABEL_TO_DOW למטה ממפה כל אחד ל-getDay() (0=ראשון...6=שבת).
-const WEEKDAY_LABEL_TO_DOW: Record<string, number> = {
-  this_sunday: 0, this_monday: 1, this_tuesday: 2, this_wednesday: 3,
-  this_thursday: 4, this_friday: 5, this_saturday: 6,
-};
-const DATE_LABELS = [
-  'today', 'tomorrow', 'day_after_tomorrow',
-  ...Object.keys(WEEKDAY_LABEL_TO_DOW),
-  'weekend', 'this_week', 'in_days', 'specific_date', null,
-] as const;
-const AMENITY_HINTS = ['ממוזג', 'מקורה', 'חניה', 'שירותים', 'נגיש לכיסא גלגלים', 'מתאים לעגלה'];
-const PRICE_HINTS = ['free', 'cheap', null];
-const DURATION_HINTS = ['short', 'long', null];
-const PLACE_TYPE_HINTS = ['indoor', 'outdoor', null];
-const BENEFITS_HINTS = ['any', 'mine', null];
-
-function buildSystemPrompt(todayISO: string, todayHebrewDay: string): string {
-  return `אתה עוזר שמנתח בקשת חיפוש בעברית טבעית של הורה שמחפש פעילות לילדים, והופך אותה לאובייקט JSON מובנה. אתה *לא* בוחר פעילויות בעצמך ולא ממציא מידע - אתה רק מבין את הכוונה של המשתמש.
-
-היום הוא ${todayISO} (יום ${todayHebrewDay}). זה חשוב לצורך סיווג ביטויי-זמן יחסיים - אבל אתה *לא* מחשב תאריך מדויק בעצמך, רק מסווג לאחת הקטגוריות הקבועות למטה (הקוד שקורא אותך יחשב את התאריך המדויק).
-
-החזר אובייקט JSON יחיד עם השדות הבאים בדיוק (null לכל שדה שלא הוזכר או לא ברור - לעולם אל תנחש/תמציא):
-
-- category: הקטגוריה המתאימה ביותר מהרשימה הבאה בדיוק, אחרת null: ${JSON.stringify(SEARCHABLE_CATEGORIES)}
-  חשוב: קטגוריה יכולה להופיע צמודה לשם עיר/יישוב *בלי* מילת-יחס כמו "ב-"/"באזור" ביניהן - "גן שעשועים צורן" הוא category:"גן שעשועים" + location.city:"צורן" (לא ביטוי אחד בלתי-ניתן-לפירוק, ולא שם ספציפי של מקום). אותו דבר ל"משחקייה רעננה", "חוג ציור חיפה" וכו' - שם היישוב בסוף המשפט, בלי חיבור מפורש, הוא עדיין location.city, לא חלק מהקטגוריה.
-  הבקשה יכולה להגיע גם באנגלית (האפליקציה דו-לשונית) - תמיד החזר את הערכים הקנוניים בעברית מהרשימה (וגם שם עיר בעברית). מילון למונחים שנוטים להתבלבל: "playground" = "גן שעשועים" (מתקני חוץ); "play center"/"indoor playground"/"soft play" = "משחקייה"; "kids' gym"/"gymboree" = "ג'ימבורי"; "class"/"after-school class" = "חוג"; "day camp" = "קייטנה"; "show" = "הצגה".
-- location: אובייקט עם:
-  - city: שם עיר/יישוב מפורש שהוזכר (למשל "תל אביב"), אחרת null
-  - street: שם רחוב אם הוזכר (בלי "רחוב"/"ברחוב", רק השם עצמו, למשל "הרצל"), אחרת null
-  - region: אם הוזכר אזור רחב (לא עיר ספציפית) שמתאים בדיוק לאחד מהערכים הבאים, אחרת null: ${JSON.stringify(REGION_VALUES)}
-    חשוב: המשתמש כותב אזורים בקיצור/בדיבור - החזר תמיד את הערך הקנוני המדויק מהרשימה, לא את מה שנכתב. למשל: "בשרון"/"אזור השרון" → "השרון"; "גוש דן"/"במרכז"/"מרכז הארץ" → "גוש דן והמרכז"; "בצפון"/"בגליל"/"בגולן" → "הצפון והגליל"; "בדרום"/"בנגב"/"בערבה" → "הדרום והנגב"; "בשפלה" → "השפלה"; "בעמקים"/"עמק יזרעאל" → "עמק יזרעאל והעמקים"; "בקריות"/"אזור חיפה" → "חיפה והקריות"; "אזור ירושלים" → "ירושלים והסביבה"; "ביו״ש"/"בשומרון"/"בבנימין" → "יו\\"ש והבנימין". שם עיר לבדה (חיפה, ירושלים, נתניה) הוא city, לא region.
-  - relation: "exact" אם המשתמש התכוון לרחוב עצמו (למשל "ברחוב הרצל"), "nearby" אם התכוון לאזור מסביב (למשל "ליד רחוב הרצל", "באזור הרצל"), אחרת null. רלוונטי רק כש-street לא null.
-- date_label: בדיוק אחד מהערכים הבאים לפי מה שהמשתמש התכוון, אחרת null:
-  "today" (היום/עכשיו) | "tomorrow" (מחר) | "day_after_tomorrow" (מחרתיים/בעוד יומיים) | "this_sunday"/"this_monday"/"this_tuesday"/"this_wednesday"/"this_thursday"/"this_friday"/"this_saturday" (המשתמש ציין יום בשבוע מפורש - "ביום שלישי", "שישי", "השבת הקרובה" - תמיד היום הקרוב הבא מהיום) | "weekend" (סוף השבוע, בלי יום ספציפי) | "this_week" (השבוע) | "in_days" (ביטוי כמו "בעוד 3 ימים" - גם למלא days_offset) | "specific_date" (המשתמש נתן תאריך מפורש כמו "ב-15 לחודש" - גם למלא explicit_date)
-- days_offset: מספר ימים קדימה מהיום, רק אם date_label הוא "in_days", אחרת null
-- explicit_date: תאריך בפורמט YYYY-MM-DD, רק אם date_label הוא "specific_date" והמשתמש נתן תאריך מפורש וחד-משמעי, אחרת null
-- time_range: אובייקט {start:"HH:MM", end:"HH:MM"} אם המשתמש ציין זמן ביום (גם מרומז - "בבוקר"→06:00-12:00, "צהריים"→12:00-15:00, "אחר הצהריים"→15:00-18:00, "בערב"→18:00-23:00, "אחרי הגן"→בדרך כלל 15:00-18:00, "יש לנו שעה"→null, זה לא מידע על שעה ספציפית), אחרת null
-- age: אובייקט {min, max} (מספרים, שנים) אם המשתמש ציין גיל מפורש למשל "לילד בן 5" → {min:5,max:5}, "לגילאי 3 עד 6" → {min:3,max:6}, אחרת null
-- child_name_mentioned: אם המשתמש הזכיר שם פרטי של ילד/ה (למשל "עם אבישי", "לדנה"), החזר את השם עצמו כמחרוזת, אחרת null
-- price_hint: "free" אם המשתמש ביקש בפירוש בחינם, "cheap" אם ביקש זול, אחרת null
-- duration_hint: "short" אם ביקש משהו קצר/"יש לנו רק שעה", "long" אם ביקש ארוך, אחרת null
-- place_type_hint: "indoor" אם המשתמש ביקש *במפורש* בתוך מבנה/מקורה (למשל "משהו סגור", "בבית"), "outdoor" אם ביקש *במפורש* בחוץ/בטבע, אחרת null. חשוב: אל תסיק את זה מסוג הפעילות עצמו (למשל "משחקייה" לא אומרת indoor, "ממוזג" לא אומר indoor, "לייזר טאג"/"קרטינג" לא אומר indoor למרות שרוב המקומות מהסוג הזה בפועל נמצאים במבנה) - רק אם המשתמש ממש אמר את זה על המקום במפורש, לא כי זה נשמע סביר לסוג הפעילות.
-- amenity_hints: מערך תגיות מתוך הרשימה הבאה בלבד (רק אם התבקשו בפירוש): ${JSON.stringify(AMENITY_HINTS)}
-- benefits_hint: "any" אם המשתמש ביקש *במפורש* פעילויות עם הטבה/הנחה כלשהי (למשל "פעילויות עם הנחה"), "mine" אם ביקש *במפורש* רק הטבות שיש לו/שהוא זכאי להן (למשל "פעילויות שיש לי עליהן הטבה"), אחרת null. חשוב: זו דרישת-סינון קשיחה, לא רמז-דירוג - אל תמלא את זה סתם כי יש למשתמש מועדון כלשהו, רק אם ביקש הטבות באופן מפורש.
-- vague_intent: מערך מחרוזות חופשי לכוונות שלא ניתנות למיפוי לשדה קונקרטי (למשל "רגוע", "משהו שיעייף אותו", "מיוחד", "כיפי") - נשמר לצורך תיעוד בלבד, לא משפיע על החיפוש
-
-החזר אך ורק אובייקט JSON תקני, בלי טקסט נוסף לפני/אחרי, בלי markdown code fences.`;
-}
 
 function toIsraelISODate(d: Date): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' }).format(d);
@@ -130,43 +77,7 @@ function resolveDateLabel(
   }
 }
 
-function parseJsonObject(raw: string): Record<string, unknown> {
-  const match = raw.match(/\{[\s\S]*\}/);
-  if (!match) throw new Error('המודל לא החזיר JSON תקני');
-  return JSON.parse(match[0]);
-}
 
-// ולידציה הגנתית - כל ערך לא-ברשימה נמחק (אותו עיקרון בדיוק כמו sanitizeCandidate ב-scan-source).
-// deno-lint-ignore no-explicit-any
-function sanitizeIntent(raw: any) {
-  const inList = (val: unknown, list: readonly (string | null)[]) => (list.includes(val as string) ? (val as string) : null);
-  const category = typeof raw.category === 'string' && SEARCHABLE_CATEGORIES.includes(raw.category) ? raw.category : null;
-  const loc = raw.location || {};
-  const location = {
-    city: typeof loc.city === 'string' && loc.city.trim() ? loc.city.trim() : null,
-    street: typeof loc.street === 'string' && loc.street.trim() ? loc.street.trim() : null,
-    region: typeof loc.region === 'string' && REGION_VALUES.includes(loc.region) ? loc.region : null,
-    relation: loc.relation === 'exact' || loc.relation === 'nearby' ? loc.relation : null,
-  };
-  const dateLabel = inList(raw.date_label, DATE_LABELS);
-  const daysOffset = typeof raw.days_offset === 'number' ? raw.days_offset : null;
-  const explicitDate = typeof raw.explicit_date === 'string' ? raw.explicit_date : null;
-  const timeRange = raw.time_range && typeof raw.time_range.start === 'string' && typeof raw.time_range.end === 'string'
-    && /^\d{2}:\d{2}$/.test(raw.time_range.start) && /^\d{2}:\d{2}$/.test(raw.time_range.end)
-    ? { start: raw.time_range.start, end: raw.time_range.end } : null;
-  const age = raw.age && typeof raw.age.min === 'number' && typeof raw.age.max === 'number'
-    && raw.age.min >= 0 && raw.age.max <= 18 && raw.age.min <= raw.age.max
-    ? { min: raw.age.min, max: raw.age.max } : null;
-  const childName = typeof raw.child_name_mentioned === 'string' && raw.child_name_mentioned.trim() ? raw.child_name_mentioned.trim() : null;
-  const priceHint = inList(raw.price_hint, PRICE_HINTS);
-  const durationHint = inList(raw.duration_hint, DURATION_HINTS);
-  const placeTypeHint = inList(raw.place_type_hint, PLACE_TYPE_HINTS);
-  const amenityHints = Array.isArray(raw.amenity_hints) ? raw.amenity_hints.filter((v: unknown) => AMENITY_HINTS.includes(v as string)) : [];
-  const benefitsHint = inList(raw.benefits_hint, BENEFITS_HINTS);
-  const vagueIntent = Array.isArray(raw.vague_intent) ? raw.vague_intent.filter((v: unknown) => typeof v === 'string').slice(0, 5) : [];
-
-  return { category, location, dateLabel, daysOffset, explicitDate, timeRange, age, childName, priceHint, durationHint, placeTypeHint, amenityHints, benefitsHint, vagueIntent };
-}
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS_HEADERS });
@@ -239,7 +150,7 @@ Deno.serve(async (req: Request) => {
         messages: [{ role: 'user', content: query }],
       });
       const raw = message.content.map((b) => (b.type === 'text' ? b.text : '')).join('');
-      parsed = sanitizeIntent(parseJsonObject(raw));
+      parsed = sanitizeIntent(parseJsonObject(raw), query);
       // רשת-ביטחון דטרמיניסטית (ראו _shared/regionAliases.ts): המודל התבקש להחזיר ערך קנוני מדויק
       // מ-REGION_VALUES, ו-sanitizeIntent מוחק בשקט כל דבר אחר - כך "פינות חי בשרון" יכול היה לצאת
       // בלי שום מיקום. רק כשאין גם עיר וגם אזור מנסים למפות כינוי מוכר ("בשרון", "גוש דן", "ביו״ש")
@@ -275,6 +186,10 @@ Deno.serve(async (req: Request) => {
 
     const intent = {
       category: parsed.category,
+      // ראיה/סיבת-דחייה לקטגוריה מוסקת (smartSearchIntent.ts#validateCategoryEvidence) - נשמר ב-
+      // smart_search_logs.parsed_intent למדידה; הקליינט לא צריך אותם, הקטגוריה כבר מסוננת כאן.
+      categoryEvidence: parsed.categoryEvidence ?? null,
+      categoryRejectedReason: parsed.categoryRejectedReason ?? null,
       location: {
         city: parsed.location.city, region: parsed.location.region,
         street: parsed.location.street, relation: parsed.location.relation,
@@ -292,6 +207,7 @@ Deno.serve(async (req: Request) => {
       placeTypeHint: parsed.placeTypeHint,
       amenityHints: parsed.amenityHints,
       benefitsHint: parsed.benefitsHint,
+      residualQuery: parsed.residualQuery ?? null,
       vagueIntent: parsed.vagueIntent,
     };
 
