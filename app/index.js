@@ -22,7 +22,7 @@ import { whenSummary, listJoin } from '../lib/filterSummaries';
 import { supabase } from '../lib/supabase';
 import { fetchUserPreferences, saveDefaultHomeFilters } from '../lib/preferences';
 import { childrenToDefaultAgeFilter, formatChildAge } from '../lib/children';
-import { parseSmartSearchQuery, intentToFilters } from '../lib/smartSearch';
+import { parseSmartSearchQuery, intentToFilters, needsAreaClarification, explicitCityLocation } from '../lib/smartSearch';
 import { fetchApprovedActivities, formatDistance } from '../lib/activities';
 import { placeholderImageFor, PLACEHOLDER_IMAGES } from '../lib/placeholderImages';
 import { fetchUserActivityFlags, toggleFavorite, toggleVisited, fetchAllPersonalNotes, toggleWithFeedback, hideActivityWithFeedback } from '../lib/interactions';
@@ -1025,10 +1025,12 @@ export default function HomeScreen() {
   // 🔎 חיפוש חכם - טקסט חופשי → Edge Function (ניתוח-שפה) → intentToFilters (טהור, קליינט,
   // lib/smartSearch.js) → אותו filters שכל שאר המסך כבר משתמש בו. שום דבר כאן לא מדלג על
   // rankActivities/applyFilters הקיימים ב-app/activities.js.
-  const goToSmartSearchResults = (intent) => {
+  // explicitLocation: מיקום שהמשתמש בחר זה עתה בסבב-ההבהרה ("באיזה אזור לחפש?") - גובר על מיקום
+  // המסך, ועובר בערוץ המפורש (fallbackLocation), לא כעיר בתוך ה-intent של המודל.
+  const goToSmartSearchResults = (intent, explicitLocation = null) => {
     const builtFilters = intentToFilters(intent, {
       children,
-      fallbackLocation: filters.location?.mode ? filters.location : null,
+      fallbackLocation: explicitLocation || (filters.location?.mode ? filters.location : null),
       // כרטיס-חיפוש מאוחד (2026-09-16): בחירת "מה עושים?" המובנית לא נמחקת בשקט כשהטקסט עצמו
       // לא ציין קטגוריה - אותו דפוס עדיפות בדיוק כמו fallbackLocation למעלה (טקסט מפורש מנצח,
       // אחרת נופלים לבחירה המובנית הקיימת). ראו lib/smartSearch.js.
@@ -1074,9 +1076,7 @@ export default function HomeScreen() {
       // אין מיקום בכלל בחיפוש עצמו, ואין גם מיקום-ברירת-מחדל שמור - לא מנחשים ("אם אין מיקום...
       // הצג שאלה קצרה: באיזה אזור לחפש"). כשיש street זה כבר מטופל למעלה (needsClarification
       // משרת) - זה המקרה השני, "בכלל לא הוזכר מיקום".
-      const loc = data.intent.location;
-      const hasAnyLocation = !!(loc.city || loc.region || loc.street || loc.coords);
-      if (!hasAnyLocation && !filters.location?.mode) {
+      if (needsAreaClarification(data.intent, filters.location)) {
         setSmartSearchClarify({ messageKey: 'home.search.clarifyArea', pendingIntent: data.intent, mode: 'plain' });
         return;
       }
@@ -1093,10 +1093,12 @@ export default function HomeScreen() {
   const handleClarifyCity = async () => {
     if (!smartSearchClarify || !smartSearchClarifyCity.trim()) return;
     const city = smartSearchClarifyCity.trim();
-    // 'plain' - אין רחוב לגאוקד, רק ממלאים עיר ישירות בקליינט, בלי קריאת שרת נוספת.
+    // 'plain' - אין רחוב לגאוקד, בלי קריאת שרת נוספת. העיר שהמשתמש הקליד היא מיקום *מפורש*, ולכן
+    // עוברת בערוץ המפורש ולא מוזרקת ל-intent.location.city: שם היא נראתה כמו עיר שהמודל ניחש בלי
+    // ראיה בטקסט, הודחה לטקסט, ודרסה את החיפוש המקורי ("זהבה" + חולון → q:"חולון", בלי מיקום).
     if (smartSearchClarify.mode === 'plain') {
       setSmartSearchClarifyCity('');
-      goToSmartSearchResults({ ...smartSearchClarify.pendingIntent, location: { ...smartSearchClarify.pendingIntent.location, city } });
+      goToSmartSearchResults(smartSearchClarify.pendingIntent, explicitCityLocation(city));
       return;
     }
     setSmartSearchError('');

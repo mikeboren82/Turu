@@ -34,7 +34,7 @@ addHook(
 );
 
 const { hasGeographicCue, hasChildReferenceCue, resolveLocationIntent, normalizeSearchText } = require('../lib/searchIntent');
-const { intentToFilters, parseSmartSearchQuery } = require('../lib/smartSearch');
+const { intentToFilters, parseSmartSearchQuery, needsAreaClarification, explicitCityLocation } = require('../lib/smartSearch');
 const { applyFilters } = require('../lib/filterActivities');
 // אותו אובייקט-מודול בדיוק ש-lib/smartSearch.js קיבל (המפתח הוא ה-specifier שבתוך lib/).
 const supabaseStub = Module._cache['stub:./supabase'].exports;
@@ -509,6 +509,77 @@ test('K. explicit WHERE + conflicting text location: current behaviour preserved
   const filters = intentToFilters(prod('זהבה ליד חיפה'), { fallbackLocation: { mode: 'city', city: 'נתניה', region: [], radiusKm: null, coords: null } });
   assert.equal(filters.location.city, 'חיפה');
   assert.equal(filters.q, 'זהבה');
+});
+
+// ---------------------------------------------------------------------------
+// אינטגרציית מסך הבית: "📍 באיזה אזור לחפש?" (רגרסיה שנמצאה בפרודקשן 2026-09-18).
+// הזרימה המלאה: טקסט → intent אמיתי של v19 → שער-ההבהרה של הבית → עיר שהמשתמש בחר →
+// handleClarifyCity (explicitCityLocation בערוץ fallbackLocation) → filters.
+// ---------------------------------------------------------------------------
+
+for (const [query, expectedQ] of [['זהבה', 'זהבה'], ['שלושת הדובים', 'שלושת הדובים'], ['ספר הג׳ונגל', 'ספר הג׳ונגל']]) {
+  test(`HOME CLARIFY: "${query}" + user-selected חולון -> q="${expectedQ}", location=חולון`, () => {
+    const pending = prod(query);
+    assert.equal(needsAreaClarification(pending, null), true, 'fresh visitor with no location: Home asks for an area');
+    const filters = intentToFilters(pending, { children: [], fallbackLocation: explicitCityLocation('חולון') });
+    assert.equal(filters.q, expectedQ, 'the original search text is preserved');
+    assert.equal(filters.location.mode, 'city');
+    assert.equal(filters.location.city, 'חולון', 'the user-selected city is the location, not text');
+  });
+}
+
+test('HOME CLARIFY: why the channel matters - injecting the chosen city into the MODEL intent loses the text', () => {
+  // ההתנהגות הישנה של handleClarifyCity (מתועדת כדי שלא תחזור): העיר נראית כמו ניחוש-מודל ומודחת.
+  const pending = prod('זהבה');
+  const old = intentToFilters({ ...pending, location: { ...pending.location, city: 'חולון' } }, { children: [] });
+  assert.equal(old.q, 'חולון');
+  assert.equal(old.location.mode, null);
+});
+
+test('PROVENANCE: a model-inferred unverified city without geographic wording is still demoted', () => {
+  const inferred = intentOf({ location: { city: 'זהבה', cityVerified: false }, rawQuery: 'זהבה' });
+  const filters = intentToFilters(inferred, {});
+  assert.equal(filters.location.mode, null);
+  assert.equal(filters.q, 'זהבה');
+});
+
+test('PROVENANCE: the same unverified city is kept when it came from the user (citySource:user)', () => {
+  const fromUser = intentOf({ location: { city: 'זהבה', cityVerified: false, citySource: 'user' }, rawQuery: 'זהבה' });
+  assert.equal(intentToFilters(fromUser, {}).location.city, 'זהבה', 'provenance, not verification, decides here');
+});
+
+test('PROVENANCE: explicit WHERE chosen before the search is authoritative and skips the area question', () => {
+  const where = { mode: 'city', city: 'נתניה', region: [], radiusKm: null, coords: null };
+  assert.equal(needsAreaClarification(prod('זהבה'), where), false);
+  const filters = intentToFilters(prod('זהבה'), { children: [], fallbackLocation: where });
+  assert.equal(filters.location.city, 'נתניה');
+  assert.equal(filters.q, 'זהבה');
+});
+
+test('PROVENANCE: GPS/current location also skips the area question (existing semantics)', () => {
+  assert.equal(needsAreaClarification(prod('זהבה'), { mode: 'current', radiusKm: 10 }), false);
+  assert.equal(needsAreaClarification(prod('זהבה ליד חיפה'), null), false, 'a location in the text itself never asks');
+});
+
+test('STREET CLARIFY: a user-typed city returned via cityOverride is user-sourced - never re-verified or demoted', async () => {
+  // "משחקייה ברחוב הרצל" → השרת ביקש עיר → המשתמש הקליד "רמת אביב" (לא יישוב בטבלת settlements).
+  const serverIntent = intentOf({ category: 'משחקייה', location: { city: 'רמת אביב', street: 'הרצל', relation: 'exact', coords: { lat: 32.11, lng: 34.8 } } });
+  const calls = stubSupabase({ intent: serverIntent, settlementRows: [] });
+  const { intent } = await parseSmartSearchQuery('משחקייה ברחוב הרצל', { cityOverride: 'רמת אביב', pendingIntent: {} });
+  assert.equal(calls.settlementQueries, 0, 'no verification for a user-provided city');
+  assert.equal(intent.location.citySource, 'user');
+  const filters = intentToFilters(intent, {});
+  assert.equal(filters.location.mode, 'address', 'the geocoded street is kept, not dropped');
+  assert.equal(filters.q, '');
+});
+
+test('STREET CLARIFY: a city the model returns that is NOT the override stays model-sourced (checked as usual)', async () => {
+  // שם ייחודי: verifyCityInCatalog שומר cache ברמת-המודול, ו"זהבה" נבדק בבדיקה מאוחרת יותר.
+  const calls = stubSupabase({ intent: intentOf({ location: { city: 'דובילנד' } }), settlementRows: [] });
+  const { intent } = await parseSmartSearchQuery('דובילנד', { cityOverride: 'חולון', pendingIntent: {} });
+  assert.equal(intent.location.citySource, undefined);
+  assert.equal(calls.settlementQueries, 1);
+  assert.equal(intentToFilters(intent, {}).location.mode, null, 'still demoted');
 });
 
 // ---------------------------------------------------------------------------
