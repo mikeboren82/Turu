@@ -616,11 +616,12 @@ export default function HomeScreen() {
     }
   };
 
+  // בחירה מחיפושים אחרונים רק ממלאת את שדה החיפוש - לא מריצה חיפוש. המשתמש יכול עוד לשנות את
+  // הטקסט/מה עושים/איפה, והחיפוש מתבצע רק בלחיצה על "מצאו פעילויות" (או Enter), כמו הקלדה רגילה.
   const handleRecentSearchPress = (q) => {
     clearSearchBlurTimeout();
     setSearchFocused(false);
     setSmartSearchText(q);
-    handleSmartSearch(q);
   };
 
   const handleRemoveRecentSearch = (q) => {

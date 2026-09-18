@@ -30,7 +30,7 @@
   "recent": {
     "title": "🕐 Recent searches",
     "clearAllA11y": "Clear all recent searches",
-    "searchAgainA11y": "Search again: {{query}}",
+    "searchAgainA11y": "Fill the search box with: {{query}}",
     "removeA11y": "Remove recent search: {{query}}"
   },
   "guided": {

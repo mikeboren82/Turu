@@ -30,7 +30,7 @@
   "recent": {
     "title": "🕐 חיפושים אחרונים",
     "clearAllA11y": "נקה את כל החיפושים האחרונים",
-    "searchAgainA11y": "חפש שוב: {{query}}",
+    "searchAgainA11y": "מילוי שדה החיפוש: {{query}}",
     "removeA11y": "מחק חיפוש אחרון: {{query}}"
   },
   "guided": {
