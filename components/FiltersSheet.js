@@ -5,6 +5,7 @@ import {
   FILTER_SCHEMA, WHEN_OPTIONS, HOUR_OPTIONS, DEFAULT_FILTERS,
 } from '../constants/filterSchema';
 import { countForKey } from '../lib/filterActivities';
+import { chipsSelectionLabels, whenSelectionLabels, firstValuePlusN } from '../lib/filterSummaries';
 import { colors, fonts, radii, spacing } from '../constants/theme';
 import { ChevronDownIcon, ChevronLeftIcon } from './icons';
 import LocationQuickPicker, { locationSummary } from './LocationQuickPicker';
@@ -42,13 +43,22 @@ function ChipsGrid({ options, value, multiple, onChange }) {
   );
 }
 
-// סקשן "מיקום" (2026-09-16, בקשת המשתמש): לא עוד UI מקומי משלו (היה כאן LocationSection נפרד עם
-// GPS+רדיוס+עיר+צ'יפי-אזור מרובי-בחירה) - לחיצה על השורה פותחת את *אותו* LocationQuickPicker בדיוק
-// שעמוד הבית ("איפה נח לכם?") ועמוד הפרופיל משתמשים בו: מקור-אמת אחד לבחירת מיקום/מרחק/"בכל הארץ".
-// מודל הנתונים (location.region כמערך) לא השתנה - רק ה-UI אוחד; ראו ההערה ליד selectRegion שם.
-function LocationRowValue({ value }) {
-  if (!value?.mode) return null;
-  return <Text style={styles.locationValueText} numberOfLines={1}>{locationSummary(value)}</Text>;
+// תקציר-בחירה מכווץ אחיד לכל שורת-פילטר (2026-09-19, בקשת המשתמש: "Every collapsed filter row
+// should immediately show the user's current selection(s)... one consistent summary pattern
+// across ALL filter rows") - מנגנון יחיד (לא שבעה מימושים נפרדים), לפי section.type:
+//   - 'location': locationSummary הקיימת (components/LocationQuickPicker.js) כבר מחזירה מחרוזת
+//     שלמה-אחת (כולל "בכל הארץ"/כמה-אזורים-מחוברים-בפסיק) - נקראת ישירות, לא דרך firstValuePlusN
+//     (location הוא תמיד ערך-מחויב-בודד, countForKey מחזיר 0/1 בלבד, לא N בחירות עצמאיות).
+//   - 'when': whenSelectionLabels (lib/filterSummaries.js) משלבת day+hour לרשימת-תוויות אחת,
+//     תואמת בדיוק את countForKey('when') המשולב.
+//   - 'chips': chipsSelectionLabels ממפה את הבחירה (בסדר-הבחירה) ל-labels המפוענחים כבר על
+//     section.options עצמו (FILTER_SCHEMA) - אין טבלת-תרגום כפולה.
+// שלושתם מסתיימים ב-firstValuePlusN: "VALUE" (1) | "VALUE +N" (2+) | null (0, בלי תקציר-מומצא).
+function selectionSummaryFor(section, filters) {
+  if (section.type === 'location') return filters.location?.mode ? locationSummary(filters.location) : null;
+  if (section.type === 'when') return firstValuePlusN(whenSelectionLabels(filters.when, filters.hour));
+  if (section.type === 'chips') return firstValuePlusN(chipsSelectionLabels(filters[section.key], section.options));
+  return null;
 }
 
 function toHHMM(date) {
@@ -202,6 +212,7 @@ export default function FiltersSheet({
       {sections.map((section) => {
         const isOpen = openKeys.has(section.key);
         const count = countForKey(filters, section.key);
+        const summary = selectionSummaryFor(section, filters);
         return (
           <View key={section.key} style={styles.section}>
             <View style={styles.sectionHeader}>
@@ -212,11 +223,24 @@ export default function FiltersSheet({
                 accessibilityState={section.key === 'location' ? undefined : { expanded: isOpen }}
                 accessibilityLabel={count > 0 ? t('filters.sheet.a11y.sectionWithCount', { title: section.title, count }) : section.title}
               >
-                <Text style={styles.sectionIcon}>{section.icon}</Text>
-                <Text style={styles.sectionTitle}>{section.title}</Text>
-                {count > 0 && (
-                  <View style={styles.countBadge}><Text style={styles.countBadgeText}>{count}</Text></View>
-                )}
+                {/* קבוצה מוגנת-רוחב (icon+title+badge, flexShrink:0 מפורש - "Be explicit with
+                    layout rather than relying on accidental flex-direction behavior") - לעולם לא
+                    נדחסת ע"י תקציר-הבחירה שלצידה. sectionSelectionSummary (למטה) הוא היחיד עם
+                    flex:1 בשורה הזו, אז הוא זה שסופג/מקצר את עצמו כשאין מספיק מקום, לא הכותרת. */}
+                <View style={styles.sectionHeaderLabel}>
+                  <Text style={styles.sectionIcon}>{section.icon}</Text>
+                  <Text style={styles.sectionTitle}>{section.title}</Text>
+                  {count > 0 && (
+                    <View style={styles.countBadge}><Text style={styles.countBadgeText}>{count}</Text></View>
+                  )}
+                </View>
+                {/* תקציר-הבחירה המכווץ (ראו selectionSummaryFor למעלה) - על אותה שורה פיזית
+                    בדיוק כמו הכותרת/בד"ד (לא שורה נפרדת מתחת, כמו LocationRowValue הישן שהוסר) -
+                    numberOfLines=1 + flex:1/minWidth:0 (על sectionSelectionSummary עצמו) מבטיחים
+                    קיצוץ-בשלוש-נקודות במקום גלישה לשורה שנייה/דחיסת שאר השורה. */}
+                {summary ? (
+                  <Text style={styles.sectionSelectionSummary} numberOfLines={1}>{summary}</Text>
+                ) : null}
               </Pressable>
               <View style={styles.sectionHeaderRight}>
                 {count > 0 && (
@@ -237,7 +261,6 @@ export default function FiltersSheet({
               </View>
             </View>
 
-            {section.type === 'location' ? <LocationRowValue value={filters.location} /> : null}
             {isOpen && (
               <View style={styles.sectionBody}>
                 {section.type === 'when' && (
@@ -319,14 +342,39 @@ const styles = createStyles((d) => ({
   clearAllText: { fontFamily: fonts.bold, fontSize: 12.5, color: colors.danger },
 
   section: { backgroundColor: colors.bg, borderRadius: radii.md, borderWidth: 1, borderColor: colors.borderLight, marginBottom: 8, overflow: 'hidden' },
-  sectionHeader: { flexDirection: d.row, alignItems: 'center', justifyContent: 'space-between', padding: 13 },
-  sectionHeaderLeft: { flex: 1, flexDirection: d.row, alignItems: 'center', gap: 8 },
+  // gap:8 (חדש) - כשsectionHeaderLeft (flex:1) מכיל תקציר-בחירה ארוך (sectionSelectionSummary,
+  // flex:1 גם הוא) שמתקצר/נחתך, בלי gap כאן הוא היה יכול להתמתח עד ממש הפיקסל הראשון של
+  // sectionHeaderRight (נקה/שברון) - "..." של הקיצוץ נדבק ישירות ל"נקה" בלי שום רווח. gap (לא
+  // margin) בכוונה - לא-כיווני מטבעו (תמיד "בין" הילדים לאורך הציר הראשי, ללא קשר לכיוון-שורה),
+  // עקבי עם gap הקיים כבר על sectionHeaderLeft/sectionHeaderRight עצמם באותה שורה בדיוק, ולא
+  // marginStart/End (לא בשימוש בשום מקום אחר בקוד-בסיס הזה - האפליקציה מכבה forceRTL ומטפלת
+  // בכיוון ידנית דרך d.row, ראו app/_layout.js). על שורות בלי תקציר (רוב הזמן) אין שינוי-נראה-
+  // לעין בכלל - כבר היה שם המון רווח-סרק טבעי בין תוכן-קצר לשברון.
+  sectionHeader: { flexDirection: d.row, alignItems: 'center', justifyContent: 'space-between', padding: 13, gap: 8 },
+  // minWidth:0 (חדש) - חייב על flex:1 מקונן (Yoga/web ברירת-מחדל: flex-item לא מתכווץ מתחת
+  // לרוחב-התוכן-הטבעי שלו בלי זה) כדי ש-sectionHeaderLeft באמת יוכל להצטמצם כש-sectionHeaderRight
+  // (הבד"ד/נקה/שברון) תופס את המקום שלו - אחרת תקציר-הבחירה החדש (sectionSelectionSummary,
+  // למטה) לא היה מקבל הזדמנות להתכווץ/להיחתך בכלל, גם עם numberOfLines=1 עליו.
+  sectionHeaderLeft: { flex: 1, minWidth: 0, flexDirection: d.row, alignItems: 'center', gap: 8 },
+  // קבוצה מוגנת (icon+title+badge) - flexShrink:0 מפורש: "Be explicit with layout rather than
+  // relying on accidental flex-direction behavior" (בקשת המשתמש). לעולם לא נדחסת/מקוצצת ע"י
+  // תקציר-הבחירה שלצידה (sectionSelectionSummary, למטה) - היא היחידה שסופגת מחסור-מקום.
+  sectionHeaderLabel: { flexDirection: d.row, alignItems: 'center', gap: 8, flexShrink: 0 },
   sectionHeaderRight: { flexDirection: d.row, alignItems: 'center', gap: 14 },
   sectionClearText: { fontFamily: fonts.bold, fontSize: 12, color: colors.danger },
   sectionIcon: { fontSize: 15 },
   sectionTitle: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.textPrimary },
   countBadge: { backgroundColor: colors.accent, borderRadius: 10, minWidth: 20, height: 20, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 5 },
   countBadgeText: { fontFamily: fonts.bold, fontSize: 11, color: '#fff' },
+  // תקציר-הבחירה המכווץ (2026-09-19, בקשת המשתמש: "Every collapsed filter row should immediately
+  // show the user's current selection(s)... on THE SAME ROW... single-line truncation / ellipsis
+  // if necessary") - flex:1/minWidth:0 (לא sectionHeaderLabel, ראו שם) הוא היחיד בשורה שסופג
+  // מקום-נותר/מתכווץ; numberOfLines=1 על ה-Text עצמו (ה-JSX) עושה את הקיצוץ-בפועל. אותם טוקנים
+  // בדיוק שהיו על locationValueText הישן (שהוסר - התקציר היה שורה נפרדת מתחת, עכשיו inline כאן),
+  // כדי שהמראה החזותי (צבע/גופן/גודל) יישאר זהה, רק המיקום השתנה מתחת-לשורה לתוך-השורה.
+  sectionSelectionSummary: {
+    flex: 1, minWidth: 0, fontFamily: fonts.semiBold, fontSize: 12.5, color: colors.accent, textAlign: d.textAlign,
+  },
   sectionBody: { paddingHorizontal: 13, paddingBottom: 13 },
   excludeSectionTitleRow: { flexDirection: d.row, alignItems: 'center', gap: 8, padding: 13, paddingBottom: 6 },
   excludeRow: {
@@ -334,9 +382,6 @@ const styles = createStyles((d) => ({
     paddingHorizontal: 13, paddingVertical: 11,
   },
   excludeRowText: { fontFamily: fonts.semiBold, fontSize: 13, color: colors.textPrimary, textAlign: d.textAlign },
-  // הערך הנוכחי של "מיקום" מוצג מתחת לכותרת-השורה (אין לו accordion להיפתח אליו - הלחיצה פותחת
-  // את LocationQuickPicker), באותם טוקנים כמו chipText כדי שייקרא כחלק מהשורה ולא כטקסט זר.
-  locationValueText: { fontFamily: fonts.semiBold, fontSize: 12.5, color: colors.accent, textAlign: d.textAlign, paddingHorizontal: 13, paddingBottom: 12, marginTop: -6 },
 
   chipsWrap: { flexDirection: d.row, flexWrap: 'wrap', gap: 8 },
   chip: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: radii.pill, paddingVertical: 8, paddingHorizontal: 13 },

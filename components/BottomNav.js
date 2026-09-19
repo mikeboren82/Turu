@@ -41,12 +41,23 @@ export default function BottomNav() {
     return () => { cancelled = true; sub.subscription.unsubscribe(); };
   }, []);
 
+  // תיקון-באג שאותר בביקורת הארכיטקטונית, אומת ישירות בדפדפן, והורחב לאחר בדיקה ממוקדת (ראו
+  // ההערה המלאה ב-lib/homeSession.js) - כל הלחיצות ניווטו במקור עם router.push, שעל <Stack>
+  // רגיל (לא <Tabs>, ראו app/_layout.js) תמיד דוחף מופע-מסך חדש למחסנית, גם כש-הוא כבר קיים
+  // בה. תוקן תחילה רק ל-"בית" (נמדד: ספירת מופעי-Home ב-DOM גדלה בלי-גבול), אבל בדיקה ממוקדת
+  // הראתה שאותה בעיה בדיוק קיימת גם ב"פעילויות" (מופעים מצטברים + fetchApprovedActivities רץ
+  // מחדש בכל מופע-חדש, נמדד 9→10→11→13 קריאות-רשת) וב"פרופיל" (מופעים מצטברים, כולל מנוי-
+  // auth עצמאי לכל Header שלא מתבטל) - לא "עקביות ארכיטקטונית גרידא", אותו class-של-באג מדיד.
+  // router.dismissTo (POP_TO) הוא הפעולה הנכונה לכל היעדים: סורק אחורה על פני המחסנית לחיפוש
+  // מסך קיים בשם הזה, ואם נמצא - חותך את המחסנית עד אליו ומחזיר את אותו route-instance בדיוק
+  // (לא remount, ה-state הפנימי נשמר). אם לא נמצא (deep-link ישיר) - מחליף את המסך הנוכחי,
+  // בלי להשאיר מחסנית-יתומה.
   const handlePress = (item) => {
     if (item.requiresAuth && !session) {
       setShowLoginPrompt(true);
       return;
     }
-    router.push(item.path);
+    router.dismissTo(item.path);
   };
 
   return (

@@ -1,18 +1,24 @@
 {
   "search": {
     "title": "Where are we off to today?",
-    "subtitle": "Search for anything, or pick what suits you",
     "placeholder": "Haifa playground tomorrow",
     "cta": "Find activities",
+    "ctaFree": "Search activities",
+    "modeGuided": "Quick picks",
+    "modeFree": "Free search",
+    "freeLabel": "Search in your own words",
     "or": "or",
     "errorParse": "We couldn't understand that search. Try wording it differently.",
     "errorParseShort": "We couldn't understand that search",
-    "errorLocation": "We couldn't find that location. Try wording it differently."
+    "errorLocation": "We couldn't find that location. Try wording it differently.",
+    "distancePrompt": "How close?"
   },
   "nearMe": {
-    "action": "What's near me?",
+    "label": "What's nearby?",
+    "radarLabel": "What's around me?",
+    "radarHelper": "Tap to discover",
     "loading": "Finding what's around you...",
-    "a11yLabel": "What's near me? Shows activities based on your current location, sorted by distance",
+    "a11yLabel": "What's around me? - shows activities based on your current location, sorted by distance",
     "explainer": {
       "title": "📍 To find what's really nearby",
       "body": "Turu needs access to your location to show nearby activities and sort them by distance from you.",
@@ -60,12 +66,7 @@
     "spontaneous": "⚡ What's open near me now?"
   },
   "recs": {
-    "titleInCity": "Ideas for today in {{place}}",
-    "titleNearPlace": "Ideas for today near {{place}}",
-    "titleDefault": "Activities near you today",
-    "subtitleNoLocation": "Great things to do today, right in your area",
-    "subtitlePersonalized": "Great things to do nearby, matched to your kids' ages",
-    "subtitleDefault": "Great things to do in your area today",
+    "title": "Worth discovering",
     "loadError": "We couldn't load recommendations right now",
     "emptyTitle": "We hopped all over the area and found nothing that fits exactly 🦘",
     "widenDistance": "Widen the travel distance",
@@ -80,7 +81,6 @@
   },
   "discovery": {
     "title": "What else might you enjoy?",
-    "subtitle": "Jump straight to activities you might love",
     "allCategories": "All categories →",
     "tiles": {
       "nature": "Nature & hikes",

@@ -1,3 +1,22 @@
+// ⛔ ARCHIVED (2026-09-19, תיקון-באג שאותר בביקורת הארכיטקטונית: "app/home2.js is a live Expo
+// Router route... reachable at /home2... it is a frozen visual reference, not a real product
+// path... it has already drifted from current behavior [no smart-radius]... We do not want /home2
+// to remain part of the product") - הועבר מ-app/home2.js (שם היה route חי, נגיש דרך expo-router
+// file-based routing) לכאן, כדי להסיר אותו לצמיתות מנתיבי-הניווט של המוצר בלי לאבד את התוכן -
+// אותו דפוס-שימור בדיוק כמו components/_archived/SunMascot.js (קובץ עצמאי ומוכן-לקריאה, לא רק
+// תיעוד - הוא *לא* מסך פעיל, לא מיובא/מנווט משום מקום). אין כוונה להחזיר אותו כמסך-preview
+// לשימוש חוזר (סעיף 5 בבקשה: "It is being retired, not maintained") - אם תרצה לשחזר אותו כ-route
+// זמנית, יש להחזיר את הקובץ ל-app/ ולתקן את נתיבי-ה-import בחזרה ליחסית-מ-app/ (עלו רמה אחת
+// פחות מכאן: '../components/X'→היה, כאן '../X'; '../lib/X'/'../constants/X'→כאן '../../lib/X'/
+// '../../constants/X').
+//
+// שאר ההערה המקורית (2026-09-20, בקשת המשתמש: "שמור את המסך הנוכחי כמסך הבית 2") - תמונת-מצב
+// מדויקת של app/index.js כפי שהיה ממש לפני סבב-העיצוב "TURU home reference mockup": Header+
+// כותרת+NearMeRadar עצמאי (עם קשת-הטקסט "מה קורה סביבי?")+כרטיס-חיפוש דו-מצבי עם searchModeRow
+// כ-tabs בתוכו. app/index.js עצמו המשיך להתפתח מאז (הרדאר עבר לשורת-הירו המרכזית, searchMode
+// מתחיל null, נוספה הפרדת-carousel/homeLocation) - שני הקבצים כבר לא זהים, וזה בסדר: זה בדיוק
+// התפקיד של תמונת-מצב קפואה.
+
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { View, Text, ScrollView, Pressable, TextInput, ActivityIndicator, Image, Platform, Linking, Modal, useWindowDimensions, Animated, Easing } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -5,37 +24,32 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Location from 'expo-location';
 import Svg, { Circle, Polygon, Polyline, Line, Path, G, Defs, Text as SvgText, TextPath } from 'react-native-svg';
-import Header from '../components/Header';
-import SkyBackground from '../components/SkyBackground';
-import LoginRequiredModal from '../components/LoginRequiredModal';
-import QuickPicker from '../components/QuickPicker';
-import LocationQuickPicker, { locationSummary } from '../components/LocationQuickPicker';
-import ActivityCard from '../components/ActivityCard';
-import { ChevronLeftIcon, LocationPinIcon } from '../components/icons';
+import Header from '../Header';
+import SkyBackground from '../SkyBackground';
+import LoginRequiredModal from '../LoginRequiredModal';
+import QuickPicker from '../QuickPicker';
+import LocationQuickPicker, { locationSummary } from '../LocationQuickPicker';
+import ActivityCard from '../ActivityCard';
+import { ChevronLeftIcon, LocationPinIcon } from '../icons';
 import {
   CATEGORY_FILTER_OPTIONS, DEFAULT_FILTERS, FILTER_SCHEMA,
   PRICE_OPTIONS, PLACE_TYPE_OPTIONS, BOOKING_OPTIONS, DURATION_OPTIONS, AMENITY_COMFORT_OPTIONS,
-} from '../constants/filterSchema';
-import { normalizeFilters, rankActivitiesWithSmartRadius } from '../lib/filterActivities';
-import { whenSummary, listJoin } from '../lib/filterSummaries';
-import { supabase } from '../lib/supabase';
-import { fetchUserPreferences, saveDefaultHomeFilters } from '../lib/preferences';
-import { childrenToDefaultAgeFilter, formatChildAge } from '../lib/children';
-import { parseSmartSearchQuery, intentToFilters, needsAreaClarification } from '../lib/smartSearch';
-import { requestCurrentPosition, CURRENT_POSITION_ERROR_KEYS } from '../lib/currentPosition';
-import { fetchApprovedActivities, formatDistance, fetchSettlementCoords } from '../lib/activities';
-import { placeholderImageFor, PLACEHOLDER_IMAGES } from '../lib/placeholderImages';
-import { fetchUserActivityFlags, toggleFavorite, toggleVisited, fetchAllPersonalNotes, toggleWithFeedback, hideActivityWithFeedback } from '../lib/interactions';
-import { formatBenefitCardTag } from '../lib/benefits';
-import { buildMatchReasons, selectedChildAges } from '../lib/matchReasons';
-import { shouldApplyHomeDefaults, buildCarouselFilters, resolveCommittedHomeLocation } from '../lib/homeSession';
-import { colors, fonts, radii, spacing } from '../constants/theme';
-import { useI18n, createStyles, t } from '../lib/i18n';
-import { categoryLabel, compactLocationText } from '../lib/i18n/format';
-
-// המסך הראשי - יש מסך-בית אחד בלבד (בקשת המשתמש 2026-09-12: "יש למחוק את מסך הבית 2, מעכשיו
-// יש רק מסך בית אחד"). קודם לכן היו שני מסכי-בית מקבילים (app/index.js ו-app/home2.js) שמוזגו
-// יחד לקובץ הזה בשלב קודם, ואז home2.js נמחק לגמרי - זה כל הסיפור, אין יותר מסך שני.
+} from '../../constants/filterSchema';
+import { normalizeFilters, rankActivities } from '../../lib/filterActivities';
+import { whenSummary, listJoin } from '../../lib/filterSummaries';
+import { supabase } from '../../lib/supabase';
+import { fetchUserPreferences, saveDefaultHomeFilters } from '../../lib/preferences';
+import { childrenToDefaultAgeFilter, formatChildAge } from '../../lib/children';
+import { parseSmartSearchQuery, intentToFilters, needsAreaClarification } from '../../lib/smartSearch';
+import { requestCurrentPosition, CURRENT_POSITION_ERROR_KEYS } from '../../lib/currentPosition';
+import { fetchApprovedActivities, formatDistance } from '../../lib/activities';
+import { placeholderImageFor, PLACEHOLDER_IMAGES } from '../../lib/placeholderImages';
+import { fetchUserActivityFlags, toggleFavorite, toggleVisited, fetchAllPersonalNotes, toggleWithFeedback, hideActivityWithFeedback } from '../../lib/interactions';
+import { formatBenefitCardTag } from '../../lib/benefits';
+import { buildMatchReasons, selectedChildAges } from '../../lib/matchReasons';
+import { colors, fonts, radii, spacing } from '../../constants/theme';
+import { useI18n, createStyles, t } from '../../lib/i18n';
+import { categoryLabel, compactLocationText } from '../../lib/i18n/format';
 
 const RECOMMENDATIONS_LIMIT = 8;
 
@@ -59,7 +73,7 @@ const DISCOVERY_TILES = [
   { id: 'crafts', emoji: '🎨', category: 'יצירה' }, // i18n-ignore
 ];
 
-// תמונות-fallback לכרטיסי ה"נעול" כש-carouselLocationKnown===false, כשלפעילות עצמה אין imageUrl/
+// תמונות-fallback לכרטיסי ה"נעול" כש-locationKnown===false, כשלפעילות עצמה אין imageUrl/
 // placeholderGroup תואם (או שהפעילות עדיין לא נטענה) - אותן 4 תמונות JPG אמיתיות שכבר קיימות
 // בפרויקט (lib/placeholderImages.js, assets/placeholders/) ומשמשות בכל האפליקציה ל"אין תמונה",
 // לא asset חדש. מסתובבות לפי אינדקס כדי שהקרוסלה לא תיראה כמו אותה תמונה 4 פעמים.
@@ -190,34 +204,15 @@ const RADAR_DOTS = [
   { angle: 152, r: RADAR_R_ORBIT_OUTER - 5 },
   { angle: 255, r: RADAR_R_ORBIT_OUTER + 1 },
 ];
-// שינוי-פרמטר יחיד בכוונה (RADAR_SVG_W בלבד), לא recompute של כל רדיוס-פנימי בנפרד: viewBox
-// נשאר "0 0 180 <גובה>" בדיוק כמו תמיד, אז שינוי ה-width בלבד מגדיל/מקטין את כל התוכן הפנימי
-// (דיסקית/הילה/טבעות/נקודות/פין) פרופורציונלית ובאופן אחיד, בלי לגעת באף קבוע-רדיוס/זווית
-// בנפרד - מבטל כליל סיכון ל"קליפינג" או הזזת-נקודות שהיה נובע מהגדלת/הקטנת-רדיוסים ידנית.
-// 158 (היה 170) - בקשת המשתמש: "תקטין מעט את הכפתור המרכזי... שמור על אותן פרופורציות" - פרמטר
-// יחיד (ראו ההערה למעלה) אז כל הגיאומטריה הפנימית (דיסקית/הילה/טבעות/נקודות) מתכווצת פרופורציונלית
-// יחד, בלי שינוי ביחסים הפנימיים. קוטר-האורביט החיצוני בפועל = 158*(134/180) ≈ 117.6px.
-const RADAR_SVG_W = 158;
-const RADAR_SVG_H = 160;
-// גובה-קנבס קומפקטי (2026-09-20, בקשת המשתמש: הרדאר עצמו הוא הגיבור המרכזי בשורת-הירו החדשה,
-// בלי קשת-הטקסט "מה קורה סביבי?" סביבו - שלוש התוויות הסמוכות (חיפוש חופשי/בחירה מהירה + כיתוב-
-// מרחק מתחת) כבר מספרות את הסיפור). מרכז אנכי חדש (RADAR_COMPACT_CY) ממורכז סביב האורביט בלבד,
-// בלי לגעת בקבועי-הגיאומטריה המקוריים (RADAR_CX/CY וכו') - כל התוכן הלא-טקסטואלי עובר ב-<G
-// transform> אחד בזמן-רינדור, לא סט-קבועים כפול.
-const RADAR_COMPACT_CY = RADAR_R_ORBIT_OUTER + 6;
-const RADAR_COMPACT_H = RADAR_COMPACT_CY * 2;
+const RADAR_SVG_W = 148;
+const RADAR_SVG_H = 140;
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 // pulse עדין-אחד-בכל-פעם (לא הבזק/סיבוב) בזמן איתור GPS - טבעת-אורביט "נושמת" החוצה ומתפוגגת,
 // לופ איטי (1.7s) כל עוד loading===true; מפסיק/מתאפס לגמרי כש-loading הופך false (לא ממשיך
 // "לרפרף" ברקע). useNativeDriver:false כי מונפשים r/opacity של צורת-SVG (לא transform/opacity
 // של View רגיל - הדרייבר הנייטיבי לא תומך ב-r).
-// showLabel (2026-09-20, בקשת המשתמש: "TURU home reference mockup") - false בשורת-הירו החדשה:
-// מדלג על ה-Defs/Path/TextPath של קשת-הטקסט לגמרי (לא רק מסתיר ב-opacity:0 - חוסך גם את
-// ה-canvas הגבוה יותר שהיא דרשה), ומרכז את שאר התוכן (טבעות/נקודות/הילה/דיסקית/פין) אנכית
-// מחדש דרך <G transform> יחיד סביב RADAR_COMPACT_CY. אין שינוי בקבועי-הגיאומטריה המשותפים
-// עצמם - showLabel רק בוחר איזה cy/canvas-height להשתמש בהם.
-function NearMeRadar({ loading, color, showLabel = true }) {
+function NearMeRadar({ loading, color }) {
   const pulse = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     if (!loading) { pulse.setValue(0); return undefined; }
@@ -229,11 +224,17 @@ function NearMeRadar({ loading, color, showLabel = true }) {
   }, [loading, pulse]);
   const pulseRadius = pulse.interpolate({ inputRange: [0, 1], outputRange: [RADAR_R_ORBIT_OUTER, RADAR_R_ORBIT_OUTER + 16] });
   const pulseOpacity = pulse.interpolate({ inputRange: [0, 1], outputRange: [0.4, 0] });
-  const svgHeight = showLabel ? RADAR_SVG_H : RADAR_SVG_W * (RADAR_COMPACT_H / 180);
-  const recenter = showLabel ? undefined : `translate(0, ${RADAR_COMPACT_CY - RADAR_CY})`;
 
-  const dial = (
-    <G transform={recenter}>
+  return (
+    // דקורטיבי-בלבד: הכפתור המכיל (Pressable) כבר accessibilityLabel אחד ל-screen reader - הטקסט/
+    // נקודות/טבעות כאן לא אמורים להיחשף כאלמנטים נפרדים משלהם. importantForAccessibility/
+    // accessibilityElementsHidden חייבים לשבת על ה-View העוטף (nearMeRadarWrap, ב-JSX החיצוני) -
+    // לא כאן על <Svg> עצמו: ב-react-native-web הם props לא-מוכרים שדולפים ל-DOM כ-attributes
+    // לא-חוקיים (console warnings) על <svg> גולמי, בניגוד ל-View אמיתי שכן יודע לפרש אותם.
+    <Svg width={RADAR_SVG_W} height={RADAR_SVG_H} viewBox="0 0 180 170" pointerEvents="none">
+      <Defs>
+        <Path id="nearMeRadarTextPath" d={RADAR_TEXT_ARC_PATH} fill="none" />
+      </Defs>
       {loading ? <AnimatedCircle cx={RADAR_CX} cy={RADAR_CY} r={pulseRadius} fill="none" stroke={color} strokeWidth={1.5} opacity={pulseOpacity} /> : null}
       <Circle cx={RADAR_CX} cy={RADAR_CY} r={RADAR_R_ORBIT_OUTER} fill="none" stroke={color} strokeWidth={1.3} opacity={0.18} />
       <Circle cx={RADAR_CX} cy={RADAR_CY} r={RADAR_R_ORBIT_INNER} fill="none" stroke={color} strokeWidth={2} opacity={0.32} />
@@ -250,29 +251,11 @@ function NearMeRadar({ loading, color, showLabel = true }) {
       <G transform={`translate(${RADAR_CX - 16}, ${RADAR_CY - 16})`}>
         <LocationPinIcon size={32} color="#ffffff" />
       </G>
-    </G>
-  );
-
-  return (
-    // דקורטיבי-בלבד: הכפתור המכיל (Pressable) כבר accessibilityLabel אחד ל-screen reader - הטקסט/
-    // נקודות/טבעות כאן לא אמורים להיחשף כאלמנטים נפרדים משלהם. importantForAccessibility/
-    // accessibilityElementsHidden חייבים לשבת על ה-View העוטף (nearMeRadarWrap, ב-JSX החיצוני) -
-    // לא כאן על <Svg> עצמו: ב-react-native-web הם props לא-מוכרים שדולפים ל-DOM כ-attributes
-    // לא-חוקיים (console warnings) על <svg> גולמי, בניגוד ל-View אמיתי שכן יודע לפרש אותם.
-    <Svg width={RADAR_SVG_W} height={svgHeight} viewBox={`0 0 180 ${showLabel ? 170 : RADAR_COMPACT_H}`} pointerEvents="none">
-      {showLabel ? (
-        <>
-          <Defs>
-            <Path id="nearMeRadarTextPath" d={RADAR_TEXT_ARC_PATH} fill="none" />
-          </Defs>
-          {dial}
-          <SvgText fill={color} fontSize={16} fontFamily={fonts.semiBold} textAnchor="middle">
-            <TextPath href="#nearMeRadarTextPath" startOffset="50%">
-              {t('home.nearMe.radarLabel')}
-            </TextPath>
-          </SvgText>
-        </>
-      ) : dial}
+      <SvgText fill={color} fontSize={16} fontFamily={fonts.semiBold} textAnchor="middle">
+        <TextPath href="#nearMeRadarTextPath" startOffset="50%">
+          {t('home.nearMe.radarLabel')}
+        </TextPath>
+      </SvgText>
     </Svg>
   );
 }
@@ -320,16 +303,6 @@ function CompactFilterField({ f, onPress }) {
 // רק העטיפה החזותית שונה. chevron (ChevronLeftIcon, components/icons.js) חוזר הפעם: בשורה
 // במלוא-הרוחב האייקון הצבוע+הטקסט כבר לא מספיקים כרמז-לחיצה יחיד כמו בפקד הקומפקטי הקודם -
 // אותה קונבנציית "השורה הזו פותחת בורר" כמו ב-app/profile.js/FiltersSheet.js.
-// 2026-09-20 (סבב-עידון חזותי שלישי, "TURU home reference mockup" סעיף 7) - נבנה מחדש מ-JSX
-// אחיד-RTL (d.row, chip צבוע-קטן+ערך יחד בצד-הקריאה, chevron בקצה השני) למבנה שלוש-עמודות
-// פיזי-מוחלט (flexDirection:'row' רגיל, לא d.row): [אייקון גדול בקצה הפיזי-שמאלי] - [עמודת-
-// כותרת+ערך, flex:1, טקסט מיושר-ימין] - [chevron בקצה הפיזי-ימני]. זו דרישה מפורשת ומכוונת של
-// ה-mockup, שונה מכל שאר הרכיבים בקובץ הזה (שם RTL-אוטומטי תמיד נכון) - "Do not let RTL
-// automatic layout reverse these visual positions. Explicitly control the layout if necessary."
-// f.title (חדש, קבוע - "מה עושים?"/"איפה?") מוצג תמיד עכשיו מעל f.subtitle (הערך בפועל/ה"ריק"
-// המעודכן) - שתי שורות, לא עוד שורה-יחידה שמתחלפת. ה-chip הצבוע-קטן (compactFieldIconChip,
-// 15px) הוחלף באמוג'י גדול חשוף (guidedIntentEmoji, בלי רקע) - תואם את ה-mockup, שם האייקונים
-// מוצגים "as-is" בלי chip צבוע מסביבם.
 function GuidedIntentSegment({ f }) {
   return (
     <Pressable
@@ -339,9 +312,10 @@ function GuidedIntentSegment({ f }) {
       accessibilityLabel={t('home.guided.a11yLabel', { label: f.label, value: f.a11yValue || f.subtitle })}
       accessibilityHint={f.a11yHint}
     >
-      <Image source={f.decorIcon} style={styles.guidedIntentIconImage} resizeMode="contain" />
       <View style={styles.guidedIntentSegmentMain}>
-        <Text style={styles.guidedIntentTitle} numberOfLines={1}>{f.title}</Text>
+        <View style={[styles.compactFieldIconChip, { backgroundColor: f.tint }]}>
+          <Text style={styles.compactFieldEmoji}>{f.decorEmoji}</Text>
+        </View>
         <Text
           style={[styles.guidedIntentValue, f.active && styles.compactFieldValueActive]}
           numberOfLines={1}
@@ -351,24 +325,22 @@ function GuidedIntentSegment({ f }) {
         </Text>
       </View>
       <View style={styles.guidedIntentChevron}>
-        <ChevronLeftIcon size={14} color={colors.textMuted} />
+        <ChevronLeftIcon size={12} color={colors.textMuted} />
       </View>
     </Pressable>
   );
 }
 
-// שתי שורות זו-מתחת-לזו, כל אחת שדה-בחירה מעוגל ונפרד בפני עצמו (2026-09-20, סבב-עידון שישי,
-// בקשת המשתמש: "should visually read as TWO separate rounded selection fields... DO NOT use
-// only a horizontal divider between two compressed rows" - היה בעבר משטח-אחד עם guidedIntentDivider
-// דק ביניהן, שונה עכשיו: guidedIntentControl הוא רק מרווח (gap) בין שני GuidedIntentSegment
-// עצמאיים, וכל GuidedIntentSegment נושא רקע/מסגרת/radius משלו - ראו הסטיילים למטה). סדר תצוגה:
-// מה עושים קודם, איפה נח לכם אחריו (בקשת המשתמש - סדר-הקריאה האנכי, לא סדר ה-array שנשאר
-// [where, category] מסיבות היסטוריות של הפריסה האופקית הקודמת).
+// שתי שורות זו-מתחת-לזו בתוך משטח אחד (guidedIntentControl), לא שני controls נפרדים - קו
+// דק (guidedIntentDivider) ביניהן במקום "·" הקודם, כדי שיקראו כקבוצה אחת. סדר תצוגה: מה עושים
+// קודם, איפה נח לכם אחריו (בקשת המשתמש - סדר-הקריאה האנכי, לא סדר ה-array שנשאר [where, category]
+// מסיבות היסטוריות של הפריסה האופקית הקודמת).
 function GuidedSearchIntentControl({ fields }) {
   const [where, category] = fields;
   return (
     <View style={styles.guidedIntentControl}>
       <GuidedIntentSegment f={category} />
+      <View style={styles.guidedIntentDivider} />
       <GuidedIntentSegment f={where} />
     </View>
   );
@@ -467,7 +439,7 @@ function LockedCardBody() {
 }
 
 // כרטיס-פעילות מטושטש: תמונה אמיתית (activity.imageUrl/placeholderGroup מ-recommendations, אותו
-// מקור בדיוק שמזין את הקרוסלה הרגילה כש-carouselLocationKnown===true - ראו recommendations useMemo למעלה,
+// מקור בדיוק שמזין את הקרוסלה הרגילה כש-locationKnown===true - ראו recommendations useMemo למעלה,
 // ובלי fetch חדש) עם blurRadius אמיתי של React Native Image, לא ציור/simulation. תוכן הכרטיס
 // (כותרת/עיר) לעולם לא נחשף - הגוף מציג רק placeholder מנוקד (LockedCardBody).
 function BlurredActivityCard({ activity, index, icon, overlay }) {
@@ -480,7 +452,7 @@ function BlurredActivityCard({ activity, index, icon, overlay }) {
   );
 }
 
-// כרטיס 1 בקרוסלה כש-carouselLocationKnown===false: אותו BlurredActivityCard בדיוק כמו כרטיסים 2+ (תמונה
+// כרטיס 1 בקרוסלה כש-locationKnown===false: אותו BlurredActivityCard בדיוק כמו כרטיסים 2+ (תמונה
 // אמיתית+blurRadius מאחורי הכל), עם overlay קריא וחד (לא מטושטש) עליו - לא prompt נפרד מעל
 // הקרוסלה. שתי הפעולות פותחות את אותו LocationQuickPicker/GPS בדיוק כמו "איפה נח לכם?"
 // (openLocationPicker/setWhereQuickOpen - מקור-אמת יחיד, לא flow-geolocation נפרד וגם לא modal
@@ -535,7 +507,7 @@ function GrassFooter({ width }) {
   return (
     <View style={[styles.grassFooter, { width, height }]} pointerEvents="none">
       <Image
-        source={require('../assets/grass-footer.png')}
+        source={require('../../assets/grass-footer.png')}
         style={{ width, height }}
         resizeMode="stretch"
       />
@@ -548,7 +520,7 @@ function GrassFooter({ width }) {
   );
 }
 
-export default function HomeScreen() {
+export default function Home2Screen() {
   const router = useRouter();
   const { t, locale } = useI18n();
   const { width: windowWidth } = useWindowDimensions();
@@ -556,60 +528,8 @@ export default function HomeScreen() {
   // (CONTENT_MAX_WIDTH, styles.content) עבור GrassFooter, כדי שהאיור ימשיך לכסות בדיוק את רוחב
   // התוכן שמעליו, לא את המסך המלא שמעבר לו בדסקטופ.
   const contentWidth = Math.min(windowWidth, CONTENT_MAX_WIDTH);
-  // 2026-09-20 (סבב-עידון חזותי שלישי, בקשת המשתמש: "On smaller screens: slightly reduce
-  // side-action typography/icon size if necessary, preserve touch targets... prevent Hebrew
-  // labels from wrapping") - שני הפעולות הצדדיות (heroRow) גדלו משמעותית בסבב הזה, ומתחת ל-360px
-  // (למשל 320×568, בדיקת-רוחב מפורשת בבקשה - סעיף 11) "בחירה מהירה" בגודל המלא כמעט נוגעת בקצה
-  // המסך. heroCompact מקטין מעט טיפוגרפיה/אייקון של הפעולות הצדדיות בלבד באותם מסכים צרים - לא
-  // נוגע ברדאר/בכרטיס/בכותרת, ולא בהתנהגות כלשהי (numberOfLines={1} כבר מנע גלישה-לשתי-שורות
-  // מלכתחילה, זה רק שוליים בטוחים יותר בפועל).
-  const heroCompact = windowWidth < 360;
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
   const [deviceCoords, setDeviceCoords] = useState(null);
-  // 🏠 homeLocation - "מיקום מחויב" (2026-09-19, תיקון-באג שאותר בביקורת הארכיטקטונית: "the
-  // discovery carousel currently ranks using the same `filters` object used by Quick Choice...
-  // opening Quick Choice and changing category/location before pressing 'מצאו פעילויות' must not
-  // re-rank the carousel"). נפרד לגמרי מ-filters.location (הטיוטה החיה של "איפה?" ב"בחירה
-  // מהירה") - מתעדכן רק בשתי נקודות מפורשות: (א) פתרון-מיקום ראשוני כש-homeLocation עדיין null
-  // (GPS/עיר-אורח/ברירת-מחדל שמורה, או הבחירה הראשונה של המשתמש עצמו כשעדיין אין שום מיקום ידוע -
-  // ראו resolveCommittedHomeLocation, lib/homeSession.js: prevHomeLocation||candidateLocation,
-  // לא דורסת מיקום-מחויב קיים), (ב) commit מפורש בכל פעולת-חיפוש/ניווט אמיתית (handleGo/
-  // goToSmartSearchResults/navigateToCategoryResults למטה - "כשלוחצים על 'מצאו פעילויות', החיפוש
-  // מתבצע כרגיל", כולל commit של המיקום שנבחר). ראו buildCarouselFilters למטה לשימוש בפועל.
-  const [homeLocation, setHomeLocation] = useState(null);
-  // 🚗 Smart Radius Expansion עבור קרוסלת-ההמלצות (2026-09-20, בקשת המשתמש: "בקרוסלה, כשאני
-  // בוחר ינוב לדוגמא... זה לא מראה לי אפשרויות בצורן או כפר יונה, למרות שהם עומדים בקריטריונים" -
-  // אומת ישירות מול ה-DB: "ינוב" עצמו מתאים ל-2 פעילויות בלבד (התאמת-שם-עיר מדויקת), אבל 187
-  // פעילויות נמצאות בפועל בטווח 10 ק"מ מינוב (כפר יונה/קדימה-צורן כלולות, כ-2/4.85 ק"מ בהתאמה) -
-  // כלומר יש כאן פער-עקביות אמיתי, לא "התנהגות מכוונת": app/activities.js כבר פותר בדיוק את זה
-  // (settlementCoords/searchOriginCoords/rankActivitiesWithSmartRadius, ראו שם) לעמוד-התוצאות
-  // המלא, אבל קרוסלת-עמוד-הבית (recommendations, למטה) קראה עד עכשיו ל-rankActivities הפשוט
-  // עם originCoords:null קבוע - בלי הרחבה גיאוגרפית בכלל במצב 'city'. אותו state+effect בדיוק
-  // כמו app/activities.js (לא מימוש-כפול - reuse מלא של fetchSettlementCoords/
-  // rankActivitiesWithSmartRadius הקיימים). תלוי ב-homeLocation (לא filters.location) - אותו
-  // תיקון-הפרדה בדיוק (ראו ההערה ליד homeLocation למעלה).
-  const [settlementCoords, setSettlementCoords] = useState(null);
-  useEffect(() => {
-    let cancelled = false;
-    if (homeLocation?.mode !== 'city' || !homeLocation?.city) {
-      setSettlementCoords(null);
-      return undefined;
-    }
-    fetchSettlementCoords(homeLocation.city).then((coords) => {
-      if (!cancelled) setSettlementCoords(coords);
-    });
-    return () => { cancelled = true; };
-  }, [homeLocation?.mode, homeLocation?.city]);
-  // אותו מקור-אמת בדיוק כמו app/activities.js (searchOriginCoords) - 'current'/'address' כבר יש
-  // להם קואורדינטות קיימות, 'city' משתמש ב-settlementCoords שנפתר למעלה. homeLocation (לא
-  // filters.location) - ראו ההערה המלאה ליד homeLocation למעלה.
-  const searchOriginCoords = useMemo(() => {
-    const mode = homeLocation?.mode;
-    if (mode === 'current') return deviceCoords ? { lat: deviceCoords.latitude, lng: deviceCoords.longitude } : null;
-    if (mode === 'address') return homeLocation.coords || null;
-    if (mode === 'city') return settlementCoords;
-    return null;
-  }, [homeLocation?.mode, homeLocation?.coords, deviceCoords, settlementCoords]);
   const [categoryQuickOpen, setCategoryQuickOpen] = useState(false);
   const [whereQuickOpen, setWhereQuickOpen] = useState(false);
   // "מה עוד מעניין אתכם?" (discovery shortcuts) - allCategoriesOpen פותח את אותו QuickPicker
@@ -652,24 +572,17 @@ export default function HomeScreen() {
   // progressive disclosure - מצב אחד גלוי בכל רגע, לא עוד "או" בין טקסט-חופשי לבחירה-מונחית).
   // state מקומי-בלבד (לא AsyncStorage/DB) בכוונה - סעיף 21 בבקשה: "the simplest existing state
   // mechanism appropriate for Home, no permanent account-level persistence just for this". נשרד
-  // ברירת-מחדל null (2026-09-20, "change the DEFAULT BEHAVIOR and information hierarchy" - בקשת
-  // המשתמש המפורשת: "neither side mode should be selected... no search mode active... no expanded
-  // search panel... The Home screen should feel clean") - מבטלת שוב את הסבב הקודם ('guided'
-  // כברירת-מחדל, שבעצמו ביטל את ה-"INTENTIONAL DEVIATION #2" המקורי). חוזרים בפועל ל-null/אף-
-  // מצב-לא-נבחר שהיה כאן במקור - שלישי-בשורה בהיפוך-כיוון הזה, לא ניחוש: כל פעם לפי בקשה מפורשת
-  // אחרונה. "שווה לגלות"/הקרוסלה תחתיו לא תלויים ב-state הזה כלל (ראו ה-JSX למטה - מחוץ ל-
-  // {searchMode ? ... : null}) - נשארים גלויים תמיד, גם כברירת-מחדל.
-  const [searchMode, setSearchMode] = useState(null);
-  // מעבר מצב הוא presentation-בלבד (HIDE != DELETE) - לא נוגע ב-filters.category/filters.location
-  // (WHAT/WHERE) ולא ב-smartSearchText; שניהם ממשיכים לחיות ב-state כרגיל, רק לא מוצגים כשהמצב
-  // השני פעיל. reset ל-searchFocused כן קורה כאן - בלי זה, לחיצה חוזרת על "חיפוש חופשי" הייתה
-  // עלולה להראות מיד dropdown-היסטוריה "תקוע" מ-focus ישן על שדה שכבר לא existed.
-  // toggle-לסגירה (חדש, 2026-09-20) - בקשת המשתמש: "Tap the active mode again → collapses...
-  // Home screen returns to the clean DEFAULT state" - לחיצה על המצב הפעיל כרגע מחזירה ל-null
-  // (לא no-op כמו קודם); לחיצה על המצב השני תמיד מחליפה ישירות (אף פעם לא שני הפאנלים יחד -
-  // כבר היה נכון קודם, כי זה set ישיר ל-mode הנלחץ, לא toggle תלוי-מצב-קודם).
+  // באופן טבעי חזרה מ-/activities דרך כפתור-החזרה של Header (router.back() אל אותו מופע-Component
+  // עדיין mounted בתוך ה-Stack) - לא נדרש קוד נוסף. כניסה טרייה לעמוד הבית (router.push('/') מ-
+  // סרגל-הניווט התחתון) יוצרת מופע-Component חדש ומתחילה מברירת-המחדל 'guided', כמבוקש במפורש
+  // (סעיף 21: "New/default Home experience can still begin on בחירה מהירה").
+  const [searchMode, setSearchMode] = useState('guided');
+  // מעבר מצב הוא presentation-בלבד (סעיף 20/22 בבקשה: HIDE != DELETE) - לא נוגע ב-filters.category/
+  // filters.location (WHAT/WHERE) ולא ב-smartSearchText; שניהם ממשיכים לחיות ב-state כרגיל, רק
+  // לא מוצגים כשהמצב השני פעיל. reset ל-searchFocused כן קורה כאן - בלי זה, לחיצה חוזרת על "חיפוש
+  // חופשי" הייתה עלולה להראות מיד dropdown-היסטוריה "תקוע" מ-focus ישן על שדה שכבר לא existed.
   const switchSearchMode = (mode) => {
-    setSearchMode((prev) => (prev === mode ? null : mode));
+    setSearchMode(mode);
     setSearchFocused(false);
   };
   const [smartSearchText, setSmartSearchText] = useState('');
@@ -755,16 +668,9 @@ export default function HomeScreen() {
           const pos = await Location.getCurrentPositionAsync({});
           if (!cancelled) {
             setDeviceCoords({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
-            setFilters((prev) => {
-              if (prev.location?.mode) return prev;
-              const next = { ...prev.location, mode: 'current', radiusKm: prev.location.radiusKm || 10 };
-              // homeLocation (ראו ההערה המלאה ליד ה-state למעלה) - "פתרון-מיקום ראשוני", לא
-              // עריכת-טיוטה: resolveCommittedHomeLocation לא דורסת אם כבר יש מיקום-מחויב (לא
-              // אמור לקרות כאן בפועל, ה-effect רץ פעם אחת ב-mount, אבל אותה הגנה בכל זאת - עקביות
-              // עם שתי הקריאות האחרות ל-resolveCommittedHomeLocation).
-              setHomeLocation((prevHome) => resolveCommittedHomeLocation(prevHome, next));
-              return { ...prev, location: next };
-            });
+            setFilters((prev) => (prev.location?.mode
+              ? prev
+              : { ...prev, location: { ...prev.location, mode: 'current', radiusKm: prev.location.radiusKm || 10 } }));
           }
           return;
         }
@@ -775,12 +681,7 @@ export default function HomeScreen() {
       try {
         const saved = JSON.parse(raw);
         if (saved?.mode === 'city' && saved.city) {
-          setFilters((prev) => {
-            if (prev.location?.mode) return prev;
-            const next = { ...prev.location, ...saved };
-            setHomeLocation((prevHome) => resolveCommittedHomeLocation(prevHome, next));
-            return { ...prev, location: next };
-          });
+          setFilters((prev) => (prev.location?.mode ? prev : { ...prev, location: { ...prev.location, ...saved } }));
         }
       } catch { /* ערך פגום - מתעלמים */ }
     })();
@@ -846,29 +747,10 @@ export default function HomeScreen() {
     searchInputRef.current?.focus();
   };
 
-  // homeDefaultsInitializedRef (2026-09-19, תיקון-באג שאותר בביקורת הארכיטקטונית) - "האם כבר
-  // אתחלנו את ברירות-המחדל השמורות ב-session הזה של Home פעם אחת". ref (לא state - לא אמור
-  // להשפיע על רינדור בעצמו) שחי לכל אורך חיי המופע הזה של HomeScreen: false פעם אחת ב-mount,
-  // true לצמיתות אחרי הפעם הראשונה שה-focus effect למטה הצליח לטעון prefs בפועל (גם אם לא היה
-  // default_home_filters/ילדים לטעון בפועל - "ניסינו" נחשב "אתחלנו", ראו shouldApplyHomeDefaults
-  // ב-lib/homeSession.js). בלי זה: חזרה למיקוד (למשל Back ממסך-תוצאות) הייתה טוענת מחדש את
-  // ברירת-המחדל השמורה ודורסת בחירה מפורשת שהמשתמש כבר עשה ב"בחירה מהירה" באותו session (לדוגמה
-  // שינה מיקום מ-ינוב לנתניה, חיפש, לחץ Back - וה-effect היה מחזיר את זה לינוב). לא הושבת ה-
-  // effect כולו (ראו ההערה המלאה למטה על מה שכן ממשיך להתרענן בכל מיקוד).
-  const homeDefaultsInitializedRef = useRef(false);
-
   // useFocusEffect (לא useEffect רגיל) - בדיוק כמו app/profile.js - כדי שכל המעברים בין מצבים
   // (התחברות/התנתקות/הוספת-הסרת ילד ב-/profile) ישתקפו נכון בכניסה הבאה למסך הבית, לא רק
   // ב-mount הראשוני. כשאין session בכלל - מאפסים ל"לא מחובר" (חשוב: בלי זה, משתמש שמתנתק
-  // עדיין היה רואה את המצב האישי הישן עד רענון ידני) - זו לא "דריסת בחירה מפורשת", זו שיקוף-אמת
-  // של מצב-התחברות, אז לא מוגנת ע"י homeDefaultsInitializedRef (ראו ההערה שם).
-  //
-  // הפרדה בין "מתרענן בכל מיקוד" (session/flags/notes/children/excludedCategories/
-  // excludedCities/excludedRegions/benefitClubs/visibleHomeFilters/hasSavedDefault - כולם נתוני-
-  // שרת שאין להם UI לעריכה-מיידית בתוך Home עצמו, אז אין להם את בעיית-הדריסה בכלל) לבין "מאתחל
-  // רק פעם אחת למופע-Home" (filters מ-defaultHomeFilters, selectedChildIds="כל הילדים",
-  // filters.age מגילאי-הילדים - שלושתם *כן* ניתנים לעריכה מפורשת ב-Home: "בחירה מהירה"/toggleChild)
-  // - מוגנים ע"י shouldApplyHomeDefaults(homeDefaultsInitializedRef.current), lib/homeSession.js.
+  // עדיין היה רואה את המצב האישי הישן עד רענון ידני).
   useFocusEffect(
     useCallback(() => {
       let cancelled = false;
@@ -897,8 +779,11 @@ export default function HomeScreen() {
             fetchAllPersonalNotes(session.user.id),
           ]);
           if (cancelled) return;
-          // מתרענן בכל מיקוד - נתוני-שרת בלי UI-עריכה מיידית ב-Home (ראו ההערה המלאה למעלה).
           setVisibleHomeFilters(prefs.visibleHomeFilters);
+          if (prefs.defaultHomeFilters) {
+            setFilters(normalizeFilters(prefs.defaultHomeFilters));
+            setHasSavedDefault(true);
+          }
           setExcludedCategories(prefs.excludedCategories);
           setExcludedCities(prefs.excludedCities);
           setExcludedRegions(prefs.excludedRegions);
@@ -909,36 +794,19 @@ export default function HomeScreen() {
           setRecNotes(notes);
           const kids = prefs.children || [];
           setChildren(kids);
-          // מאתחל-פעם-אחת-בלבד - filters/selectedChildIds ניתנים לעריכה מפורשת ב-Home עצמו
-          // ("בחירה מהירה"/toggleChild), אז דריסתם בכל מיקוד הייתה מוחקת בחירה פעילה (ראו
-          // ההערה המלאה ליד homeDefaultsInitializedRef למעלה).
-          if (shouldApplyHomeDefaults(homeDefaultsInitializedRef.current)) {
-            if (prefs.defaultHomeFilters) {
-              const normalized = normalizeFilters(prefs.defaultHomeFilters);
-              setFilters(normalized);
-              setHasSavedDefault(true);
-              // homeLocation (ראו ההערה המלאה ליד ה-state) - ברירת-המחדל השמורה נחשבת גם היא
-              // "פתרון-מיקום ראשוני" לקרוסלה, לא רק ל"בחירה מהירה" - עדיין לא דורסת מיקום-מחויב
-              // קיים (resolveCommittedHomeLocation), ליתר-ביטחון אם homeLocation כבר נפתר קודם
-              // (למשל ע"י bootstrap-effect ה-GPS) באותו mount.
-              setHomeLocation((prevHome) => resolveCommittedHomeLocation(prevHome, normalized.location));
-            }
-            // ברירת מחדל: כל הילדים "נבחרים" ל"למי מחפשים היום?" - תואם בדיוק את מה שכבר קרה
-            // בשקט עד היום (childrenToDefaultAgeFilter על כל הילדים), רק עכשיו זה גם ה-UI.
-            setSelectedChildIds(new Set(kids.map((c) => c.id)));
-            // גיל ברירת המחדל מגיע מגילאי הילדים (מחושב טרי מתאריך לידה - ראו lib/children.js),
-            // לא מ-default_home_filters.age שעלול "לקפוא" בערך ישן - גובר עליו כשיש ילדים.
-            // עדיין state מקומי בלבד: שינוי הגיל בחיפוש בודד לא נשמר בחזרה לפרופיל - setField
-            // רגיל, לא כותב ל-DB.
-            const ageDefaults = childrenToDefaultAgeFilter(kids);
-            if (ageDefaults.length > 0) {
-              setFilters((prev) => ({ ...prev, age: ageDefaults }));
-            }
-            homeDefaultsInitializedRef.current = true;
+          // ברירת מחדל: כל הילדים "נבחרים" ל"למי מחפשים היום?" - תואם בדיוק את מה שכבר קרה
+          // בשקט עד היום (childrenToDefaultAgeFilter על כל הילדים), רק עכשיו זה גם ה-UI.
+          setSelectedChildIds(new Set(kids.map((c) => c.id)));
+          // גיל ברירת המחדל מגיע מגילאי הילדים (מחושב טרי מתאריך לידה - ראו lib/children.js),
+          // לא מ-default_home_filters.age שעלול "לקפוא" בערך ישן - גובר עליו כשיש ילדים.
+          // עדיין state מקומי בלבד: שינוי הגיל בחיפוש בודד לא נשמר בחזרה לפרופיל - setField
+          // רגיל, לא כותב ל-DB.
+          const ageDefaults = childrenToDefaultAgeFilter(kids);
+          if (ageDefaults.length > 0) {
+            setFilters((prev) => ({ ...prev, age: ageDefaults }));
           }
         } catch {
-          // אם טעינת ההעדפות נכשלת, פשוט ממשיכים עם ברירת המחדל הרגילה - homeDefaultsInitializedRef
-          // נשאר false (לא "אתחלנו" בפועל), כך שהזדמנות-אתחול עתידית (מיקוד הבא שיצליח) עדיין פתוחה.
+          // אם טעינת ההעדפות נכשלת, פשוט ממשיכים עם ברירת המחדל הרגילה
         }
       })();
       return () => { cancelled = true; };
@@ -950,32 +818,26 @@ export default function HomeScreen() {
   // הבית הרגיל בלי שום שינוי.
   const isPersonalized = !!userId && children.length > 0;
 
-  // locationKnown - "האם יש מיקום ידוע *כרגע*, כולל טיוטה לא-מוגשת ב'בחירה מהירה'". מוגדר אך
-  // ורק לפי filters.location.mode - אותו source-of-truth שכבר משמש את "איפה נוח לכם?" (סעיף 13
-  // בבקשה: לא state נפרד) - ולא לפי account status: guest יכול להיות עם location ידוע (GPS/עיר
-  // שמורה), מחובר יכול להיות בלי (סעיף 2). 'region' לא נחשב "ידוע" מספיק - זה בחירה גסה (7
-  // אזורי-ארץ), לא "רעיונות ליד" אמיתיים; לא ניתן לבחירה מהמסך הזה בלאו הכי.
-  // שימוש: navigateToCategoryResults/handleDiscoveryTilePress/handleAllCategoriesSelect (למטה) -
-  // אלה כולם פעולות-ניווט מפורשות ("SEE→TAP→RESULTS"), לא הקרוסלה - לחיצה על shortcut-גילוי היא
-  // עצמה כבר "הגשה" מיידית, אז שימוש בטיוטה החיה כאן הוא נכון ומכוון, לא אותה בעיה כמו הקרוסלה.
+  // "✨ רעיונות להיום" - locationKnown קובע האם מציגים את הקרוסלה כ"קרוב אליכם" (מסונן/מדורג
+  // לפי מיקום אמיתי) או את onboarding-prompt במקומה. מוגדר אך ורק לפי filters.location.mode -
+  // אותו source-of-truth שכבר משמש את "איפה נוח לכם?" (סעיף 13 בבקשה: לא state נפרד) - ולא לפי
+  // account status: guest יכול להיות עם location ידוע (GPS/עיר שמורה), מחובר יכול להיות בלי
+  // (סעיף 2). 'region' לא נחשב "ידוע" מספיק לצורך הקרוסלה - זה בחירה גסה (7 אזורי-ארץ), לא
+  // "רעיונות ליד" אמיתיים; לא ניתן לבחירה מהמסך הזה בלאו הכי.
   const locationKnown = filters.location?.mode === 'current' || filters.location?.mode === 'city' || filters.location?.mode === 'address';
 
-  // carouselLocationKnown (חדש, 2026-09-19, תיקון-באג שאותר בביקורת הארכיטקטונית) - "✨ שווה
-  // לגלות" (הקרוסלה, למטה) חייבת שער נפרד מ-locationKnown: אותו שער בדיוק (מבוסס filters.location
-  // הטיוטה) היה גורם ל-guest בלי מיקום ידוע לראות את הקרוסלה "נפתחת" (עוברת מכרטיסי-Preview
-  // מטושטשים לקרוסלה אמיתית) ברגע שבחר עיר ב"בחירה מהירה", עוד *לפני* לחיצה על "מצאו פעילויות" -
-  // אותה בעיית "טיוטה מדליפה לקרוסלה" בדיוק, רק כ-flip של שער-תצוגה במקום שינוי-דירוג. מבוסס
-  // homeLocation (המיקום *המחויב*, ראו ההערה המלאה ליד ה-state) - נשאר false (מציג את כרטיסי-
-  // ה-Preview המטושטשים) עד commit אמיתי: פתרון-מיקום ראשוני (bootstrap/ברירת-מחדל שמורה/הבחירה
-  // הראשונה שהמשתמש עצמו עושה כשעדיין אין מיקום ידוע כלל) או הגשת-חיפוש מפורשת.
-  const carouselLocationKnown = homeLocation?.mode === 'current' || homeLocation?.mode === 'city' || homeLocation?.mode === 'address';
-
   // מקור-אמת יחיד לפתיחת בחירת-מיקום: אותה פונקציה בדיוק עבור צ'יפ "איפה נח לכם?" למעלה וכרטיסי
-  // ה-Preview ב"✨ שווה לגלות היום" כש-carouselLocationKnown===false (סעיף 8/9/27 בבקשה) - לא
-  // flow geolocation נפרד (כך שהיה קודם ב-handleUseLocationForRecommendations שהוסר) ולא modal
-  // חדש. אותו LocationQuickPicker משותף (whereQuickOpen, ראו ה-JSX למטה) - ה-onChange שלו הוא
-  // שקובע homeLocation דרך resolveCommittedHomeLocation, לא הפונקציה הזו עצמה.
+  // ה-Preview ב"✨ שווה לגלות היום" כש-locationKnown===false (סעיף 8/9/27 בבקשה) - לא flow
+  // geolocation נפרד (כך שהיה קודם ב-handleUseLocationForRecommendations שהוסר) ולא modal חדש.
   const openLocationPicker = () => setWhereQuickOpen(true);
+
+  // כותרת הקרוסלה (2026-09-18, בקשת המשתמש: "✨ שווה לגלות היום" - במפורש, לא "...לידכם" ולא
+  // משתנה-מיקום כמו בעבר). הכותרת קודם השתנתה לפי עיר/כתובת נבחרת ("רעיונות להיום ב<עיר>" /
+  // "...ליד <עיר>") - זה בדיוק ה"FIND"-framing שביקשנו להבדיל ממנו: הקרוסלה היא DISCOVERY
+  // (הצעות של Turu), לא תוצאה של בחירת-מיקום של המשתמש. הכותרת קבועה עכשיו בכל מצב; locationKnown
+  // עדיין קובע *מה מוצג בתוכה* (כרטיסים אמיתיים מול preview מטושטש, ראו recCarouselWrap למטה) -
+  // זה לא השתנה, רק המסגור המילולי מעליה. (תת-הכותרת שהייתה כאן הוסרה 2026-09-19, בקשת המשתמש.)
+  const recHeaderTitle = t('home.recs.title');
 
   const toggleChild = (childId) => {
     setSelectedChildIds((prev) => {
@@ -989,17 +851,6 @@ export default function HomeScreen() {
 
   const setField = (key, value) => setFilters((prev) => ({ ...prev, [key]: value }));
   const clearAllFilters = () => setFilters(DEFAULT_FILTERS);
-
-  // onChange משותף לשני מופעי ה-LocationQuickPicker (WHERE ב"בחירה מהירה"/כרטיס-Preview נעול,
-  // והבהרת-מיקום של חיפוש חופשי, ראו ה-JSX למטה) - תמיד מעדכן את הטיוטה (filters.location, כרגיל),
-  // ו*בנוסף* "פותר" את homeLocation דרך resolveCommittedHomeLocation (lib/homeSession.js) אם הוא
-  // עדיין null: "פתרון-מיקום ראשוני" (המשתמש עדיין לא היה לו מיקום ידוע כלל - למשל לחיצה על
-  // כרטיס-Preview נעול) מחויב מיד; עריכת-טיוטה *אחרי* שכבר יש מיקום-מחויב לא נוגעת בו (ראו
-  // ההערה המלאה ליד homeLocation) - זה בדיוק מה ש-prevHome||v עושה.
-  const handleLocationFieldChange = (v) => {
-    setField('location', v);
-    setHomeLocation((prevHome) => resolveCommittedHomeLocation(prevHome, v));
-  };
 
   const showDefaultNotice = (text) => {
     setDefaultNotice(text);
@@ -1039,42 +890,27 @@ export default function HomeScreen() {
   // writingDirection ידניים) - 'row' רגיל מתנהג כמו LTR-layout, אז הפריט הראשון במערך יושב
   // משמאל. לכן "where" (איפה?) ראשון -> משמאל, "category" (מה עושים?) שני -> מימין - זו הדרישה
   // (WHAT מימין, WHERE משמאל ב-RTL), לא הפוך.
-  // title (2026-09-20, סבב-עידון חזותי שלישי - "TURU home reference mockup") - כותרת-שורה קבועה
-  // וקצרה (בדיוק כמו ב-mockup: "מה עושים?"/"איפה?"), מוצגת עכשיו תמיד ליד ה-value (ראו
-  // GuidedIntentSegment למעלה) - לא עוד f.label הארוך (whereLabel="איפה נח לכם?"), שנשאר כפי
-  // שהיה ומוזן עדיין רק ל-accessibilityLabel (a11yHint/a11yValue nan/label לא נגעו). subtitle
-  // (value-line) גם עודכן: ה"ריק" של WHERE עכשיו t('home.guided.whereA11yEmpty')="בחרו מיקום"
-  // (היה domain.location.compact.where="איפה?", אותה מחרוזת כמו הכותרת החדשה - היה יוצא כפילות
-  // חזותית "איפה? / איפה?"); ה"ריק" של קטגוריה עכשיו t('domain.summary.all')="כל הקטגוריות"
-  // (היה home.guided.whatEmpty="מה עושים?", אותה בעיה). שני המפתחות האלה כבר היו קיימים ומוזנים
-  // בפועל ל-a11yValue באותו מקום בדיוק - זה רק חושף אותם גם חזותית, לא לוגיקה חדשה.
   const PRIMARY_FILTERS = [
     {
-      key: 'where', label: t('home.guided.whereLabel'), title: t('domain.location.compact.where'),
-      subtitle: hasChosenLocation ? compactLocationText(filters.location) : t('home.guided.whereA11yEmpty'),
+      key: 'where', label: t('home.guided.whereLabel'),
+      subtitle: hasChosenLocation ? compactLocationText(filters.location) : t('domain.location.compact.where'),
       // a11yValue: התיאור המלא (locationSummary המשותף, לא הגרסה הקומפקטית) - compactLocationLabel
       // כבר לא מאבד מידע סמנטי בפועל, אבל אין סיבה לא לתת ל-screen reader את הניסוח המלא ביותר
       // הקיים כשזה כבר מחושב בכל מקרה.
       a11yValue: hasChosenLocation ? locationSummary(filters.location) : t('home.guided.whereA11yEmpty'),
       a11yHint: t('home.guided.whereHint'),
       active: hasChosenLocation,
-      // decorIcon (חדש) - אייקון-PNG אמיתי מ-assets/ (בקשת המשתמש: "יש אייקון של בית - להחליף
-      // באיפה") - מוצג בפועל ב-GuidedIntentSegment. decorEmoji (🏡) נשאר בכוונה - עדיין מוזן
-      // ל-CompactFilterField (הפקד-הישן, מאחורי SHOW_UNIFIED_GUIDED_SEARCH - לא מוצג כרגע, אבל
-      // לא שבור), לא כפילות-מיותרת.
-      decorIcon: require('../assets/house-tree.png'), decorEmoji: '🏡', tint: '#e2f5e7', onPress: openLocationPicker,
+      decorEmoji: '🏡', tint: '#e2f5e7', onPress: openLocationPicker,
     },
     {
-      key: 'category', label: t('home.guided.whatLabel'), title: t('home.guided.whatEmpty'),
-      subtitle: hasSelectedCategory ? compactCategoryLabel(filters.category) : t('domain.summary.all'),
+      key: 'category', label: t('home.guided.whatLabel'),
+      subtitle: compactCategoryLabel(filters.category),
       // a11yValue: כשהתצוגה מכווצת ל-"N סוגי פעילויות" (2+), ה-screen reader עדיין מקבל את
       // הרשימה המלאה של הקטגוריות הנבחרות בפועל - לא רק את המספר.
       a11yValue: filters.category.length > 0 ? listJoin(filters.category.map(categoryLabel)) : t('domain.summary.all'),
       a11yHint: t('home.guided.whatHint'),
       active: hasSelectedCategory,
-      // decorIcon (חדש) - אייקון-PNG אמיתי (בקשת המשתמש: "יש אייקון של ג'ירפה - להחליף במה
-      // עושים"). decorEmoji (🦒) נשאר לאותה סיבה כמו למעלה (CompactFilterField).
-      decorIcon: require('../assets/giraffe.png'), decorEmoji: '🦒', tint: '#fdf3d9', onPress: () => setCategoryQuickOpen(true),
+      decorEmoji: '🌟', tint: '#fdf3d9', onPress: () => setCategoryQuickOpen(true),
     },
   ];
 
@@ -1099,12 +935,6 @@ export default function HomeScreen() {
       setDeviceCoords(goCoords);
       setFilters(goFilters);
     }
-
-    // homeLocation - commit מפורש (ראו ההערה המלאה ליד ה-state): "מצאו פעילויות" הוא בדיוק
-    // הרגע שבו טיוטת "בחירה מהירה" (goFilters.location, בין אם הייתה כבר ב-filters ובין אם
-    // נפתרה הרגע דרך GPS למעלה) הופכת ל"מיקום מחויב" חדש עבור קרוסלת-הגילוי - לא guard, דריסה
-    // ישירה (זו פעולת-הגשה מפורשת, לא עדכון-רקע).
-    setHomeLocation(goFilters.location);
 
     router.push({
       pathname: '/activities',
@@ -1168,16 +998,9 @@ export default function HomeScreen() {
         setNearMeError(CURRENT_POSITION_ERROR_KEYS[result.error]);
         return;
       }
-      // radiusKm: null (היה 10, 2026-09-20 "CENTRAL RADAR update") - "מה קרוב?" הוא shortcut-
-      // גילוי ("הכי קרוב אליי עכשיו"), לא בורר-רדיוס: matchesLocation (lib/filterActivities.js)
-      // מתעלם לגמרי ממרחק כש-radiusKm הוא null/undefined (אותה טכניקה כמו locationWithNoTravelPreference
-      // ב-LocationQuickPicker), אז כל הפעילויות המאושרות זכאיות - בלי לפסול תוצאה רחוקה בטעות
-      // רק כי היא מעבר ל-10/15 ק"מ. app/activities.js (nearMe==='true') הוא זה שממיין לפי מרחק
-      // וחותך ל-50 הקרובות ביותר בפועל (ראו sortedActivities שם) - "50 תוצאות" הוא תקרת-כמות,
-      // לא רדיוס גיאוגרפי חדש.
       const nearMeFilters = {
         ...DEFAULT_FILTERS,
-        location: { ...DEFAULT_FILTERS.location, mode: 'current', radiusKm: null },
+        location: { ...DEFAULT_FILTERS.location, mode: 'current', radiusKm: 10 },
       };
       router.push({
         pathname: '/activities',
@@ -1234,10 +1057,6 @@ export default function HomeScreen() {
   // הפילטרים (גיל/מחיר/וכו') מתאפסים בכוונה - זה shortcut ל"גלו קטגוריה", לא המשך של שאר
   // הבחירות שאולי כבר קיימות ב-filters.
   const navigateToCategoryResults = (category) => {
-    // homeLocation - commit מפורש (ראו ההערה המלאה ליד ה-state): לחיצה על shortcut-גילוי היא
-    // עצמה פעולת-הגשה (נכנסים ישר לתוצאות), אז filters.location הנוכחי (תמיד truthy כאן - שני
-    // הקוראים בודקים locationKnown קודם) הופך למיקום-מחויב עבור הקרוסלה, בדיוק כמו handleGo.
-    setHomeLocation(filters.location);
     router.push({
       pathname: '/activities',
       params: {
@@ -1311,11 +1130,6 @@ export default function HomeScreen() {
       // מרחק. בטוח ל"בלי מיקום": distanceScore/searchOriginCoords קוראים deviceCoords רק במצב 'current'.
       params.homeCoords = JSON.stringify(deviceCoords);
     }
-    // homeLocation - commit מפורש (ראו ההערה המלאה ליד ה-state): חיפוש-חכם מוגש הוא גם-כן פעולת-
-    // הגשה, בדיוק כמו handleGo/navigateToCategoryResults. builtFilters.location (לא filters.location
-    // הטיוטה) - המיקום *בפועל* שישמש את החיפוש הזה (למשל עיר שזוהתה מהטקסט החופשי עצמו), לא
-    // בהכרח זהה לערך שעדיין יושב ב"איפה?" הבלתי-מוגש.
-    setHomeLocation(builtFilters.location);
     setSmartSearchText('');
     setSmartSearchClarify(null);
     router.push({ pathname: '/activities', params });
@@ -1419,29 +1233,8 @@ export default function HomeScreen() {
   // --- ✨ המלצות מותאמות (קרוסלה אופקית) ---
   const recNotesByActivity = useMemo(() => new Map(recNotes.map((n) => [n.activity_id, n.note])), [recNotes]);
 
-  // carouselFilters (חדש, 2026-09-19, תיקון-באג שאותר בביקורת הארכיטקטונית: "the discovery
-  // carousel currently ranks using the same `filters` object used by Quick Choice... opening
-  // Quick Choice and changing category/location before pressing 'מצאו פעילויות' must not
-  // re-rank the carousel") - buildCarouselFilters (lib/homeSession.js) מפריד את קלט-הדירוג של
-  // הקרוסלה מהטיוטה החיה: category תמיד [] (לא "קרוסלת-מוזיאונים זמנית" רק כי זה מה שנבחר עכשיו
-  // ב"מה עושים?" הבלתי-מוגש), location מגיע מ-homeLocation (המיקום *המחויב*, לא filters.location
-  // הטיוטה - ראו ההערה המלאה ליד ה-state). שאר השדות (age/when/hour/וכו') ממשיכים לבוא מ-filters
-  // כרגיל - הם לא ניתנים לעריכה מיידית מתוך Home (ראו ההערה המלאה ב-lib/homeSession.js).
-  const carouselFilters = useMemo(
-    () => buildCarouselFilters(filters, homeLocation, DEFAULT_FILTERS.location),
-    [filters, homeLocation]
-  );
-
-  // rankActivitiesWithSmartRadius (היה rankActivities הפשוט) - ראו ההערה המלאה ליד
-  // settlementCoords/searchOriginCoords למעלה: מוסיף בדיוק את שלב-ההרחבה שהיה חסר (10/15 ק"מ
-  // מ-searchOriginCoords כשיש פחות מ-10 תוצאות בהתאמת-שם-עיר ראשונית), אותו מנגנון-קיים-ומאומת
-  // בדיוק כמו app/activities.js - לא לוגיקת-הרחבה חדשה. מחזירה אובייקט {activities, resultCount,
-  // radiusExpanded, effectiveRadiusKm} ולא מערך ישירות - `.activities` בלבד נחוץ כאן (הקרוסלה לא
-  // מציגה חיווי "הורחב הרדיוס", בניגוד לעמוד-התוצאות המלא). carouselFilters (לא filters הטיוטה) -
-  // ראו ההערה המלאה למעלה.
   const recommendations = useMemo(() => (
-    rankActivitiesWithSmartRadius(recActivities, carouselFilters, deviceCoords, excludedCategories, benefitClubs, excludedCities, null, searchOriginCoords, excludedRegions)
-      .activities
+    rankActivities(recActivities, filters, deviceCoords, excludedCategories, benefitClubs, excludedCities, null, null, excludedRegions)
       .filter((a) => !recHiddenIds.has(a.id))
       .slice(0, RECOMMENDATIONS_LIMIT)
       .map((a) => ({
@@ -1455,10 +1248,10 @@ export default function HomeScreen() {
         // buildMatchReasons; אותה פונקציה משותפת בדיוק כמו app/activities.js.
         matchReason: buildMatchReasons(a, { childAges: childAgesForSearch }),
       }))
-  ), [recActivities, carouselFilters, deviceCoords, excludedCategories, benefitClubs, excludedCities, excludedRegions, searchOriginCoords, recHiddenIds, recFavoriteIds, recVisitedIds, recNotesByActivity, locale, childAgesForSearch]);
+  ), [recActivities, filters, deviceCoords, excludedCategories, benefitClubs, excludedCities, excludedRegions, recHiddenIds, recFavoriteIds, recVisitedIds, recNotesByActivity, locale, childAgesForSearch]);
 
   // 4 הפעילויות הראשונות מתוך recommendations - מוזנות לכרטיסים המטושטשים (LocationPromptCard/
-  // LockedPreviewCard) כש-carouselLocationKnown===false. אותו מקור-נתונים בדיוק כמו הקרוסלה הרגילה -
+  // LockedPreviewCard) כש-locationKnown===false. אותו מקור-נתונים בדיוק כמו הקרוסלה הרגילה -
   // undefined (recActivities עדיין בטעינה) מטופל בתוך BlurredActivityCard עצמו (fallback מדומה).
   const previewActivities = useMemo(() => recommendations.slice(0, 4), [recommendations]);
 
@@ -1528,24 +1321,68 @@ export default function HomeScreen() {
       {smartSearchLoading || locatingForSearch ? (
         <ActivityIndicator color="#ffffff" size="small" />
       ) : (
-        // חץ (2026-09-20, סבב-עידון רביעי - בקשת המשתמש: "צריך להיות בדיוק הפוך, מימין לשמאל,
-        // וצריך להיות אחרי המשפט, לא לפני") - היה קודם ← אחרי-הטקסט-פיזית-בקצה-הימני (כיוון "→",
-        // שקורא כ"לפני" הטקסט כשסורקים RTL - התחלה=ימין). עכשיו הפוך: החץ עצמו מצביע ← (כיוון-
-        // הקריאה בעברית) והוא פיזית בקצה השמאלי - "אחרי" הטקסט בסדר-הקריאה (שמתחיל בימין, איפה
-        // שהטקסט יושב עכשיו). View פיזי (flexDirection:'row', לא d.row) עם שני Text נפרדים, בסדר
-        // [חץ, טקסט] - כך החץ תמיד פיזית-משמאל והטקסט תמיד פיזית-מימין, בכל שפה/כיוון.
-        <View style={styles.smartSearchBtnRow}>
-          <Text style={styles.smartSearchBtnArrow}>←</Text>
-          <Text style={styles.smartSearchBtnText}>{t(searchMode === 'free' ? 'home.search.ctaFree' : 'home.search.cta')}</Text>
-        </View>
+        <Text style={styles.smartSearchBtnText}>{t(searchMode === 'free' ? 'home.search.ctaFree' : 'home.search.cta')}</Text>
       )}
     </Pressable>
   );
 
-  // מה שהיה כאן nearMeStandaloneAction (בקר-רדאר עצמאי, מעל כרטיס-החיפוש) פורק ושולב ישירות
-  // בתוך heroRow ב-JSX הראשי למטה (2026-09-20, "TURU home reference mockup" - הרדאר עכשיו עמודת-
-  // המרכז של שורה תלת-חלקית, לא בלוק נפרד מעליה) - כל הלוגיקה (handleNearMePress/nearMeLoading/
-  // nearMeError/nearMePressIn/Out) עדיין בשימוש-חוזר מלא ובלי שום שינוי, רק ה-JSX-מארז זז.
+  // "📍 מה קורה סביבי?" - TURU ORBIT (2026-09-20, סבב-עידון שני: "לא עוד מכשיר-רדאר/מטרה, אובייקט
+  // מותג ידידותי") - פעולה ראשית עצמאית, מחוץ לכרטיס-החיפוש. לוגיקה מלאה בשימוש חוזר
+  // (handleNearMePress/nearMeLoading/nearMeError, goNearMe/confirmNearMePermission למעלה) - בלי
+  // שום שינוי בהרשאה/GPS/ניווט/מיון-מרחק; רק העיצוב (NearMeRadar) ו-JSX סביבו זזו/השתנו.
+  // "לחצו לגלות" הוסר לגמרי (סעיף 1 בבקשה) ולא הוחלף בטקסט הנחיה אחר - האובייקט עצמו (דיסקית
+  // צבועה+אייקון-מיקום לבן+ordinary Pressable) כבר מתקשר "לחיץ" בלי מילים. טקסט-הסטטוס בזמן
+  // טעינה (t('home.nearMe.loading')) נשאר - זו לא הנחיה ("איך להשתמש"), אלא משוב-מצב ("קורה
+  // עכשיו משהו") בזמן שה-GPS יכול לקחת עד 20 שניות (lib/currentPosition.js). Animated.View+
+  // scale (nearMePressScale, מוגדר למעלה) - "very subtle tactile response" (סעיף 10) - עוטף רק
+  // את הרדאר עצמו, לא את שורת-הטקסט מתחתיו.
+  const nearMeStandaloneAction = (
+    <View style={styles.nearMeStandaloneWrap}>
+      <Pressable
+        style={({ pressed }) => [styles.nearMeStandalone, pressed && styles.nearMeStandalonePressed]}
+        onPress={handleNearMePress}
+        onPressIn={nearMePressIn}
+        onPressOut={nearMePressOut}
+        disabled={nearMeLoading}
+        accessibilityRole="button"
+        accessibilityLabel={t('home.nearMe.a11yLabel')}
+        accessibilityState={{ disabled: nearMeLoading, busy: nearMeLoading }}
+      >
+        <Animated.View
+          style={[styles.nearMeRadarWrap, { transform: [{ scale: nearMePressScale }] }]}
+          importantForAccessibility="no-hide-descendants"
+          accessibilityElementsHidden
+        >
+          <NearMeRadar loading={nearMeLoading} color={colors.accent} />
+        </Animated.View>
+        {nearMeLoading ? (
+          <Text style={styles.nearMeStandaloneText}>{t('home.nearMe.loading')}</Text>
+        ) : null}
+      </Pressable>
+      {nearMeError ? (
+        <View style={styles.nearMeErrorRow}>
+          <Text style={styles.nearMeErrorText}>{t(nearMeError)}</Text>
+          <View style={styles.nearMeErrorActions}>
+            <Pressable onPress={handleNearMePress} hitSlop={8}>
+              <Text style={styles.nearMeErrorLink}>{t('common.actions.retry')}</Text>
+            </Pressable>
+            <Text style={styles.nearMeErrorDot}>·</Text>
+            <Pressable onPress={() => setWhereQuickOpen(true)} hitSlop={8}>
+              <Text style={styles.nearMeErrorLink}>{t('home.nearMe.errors.chooseCity')}</Text>
+            </Pressable>
+            {nearMeError === 'home.nearMe.errors.blocked' && Platform.OS !== 'web' ? (
+              <>
+                <Text style={styles.nearMeErrorDot}>·</Text>
+                <Pressable onPress={() => Linking.openSettings()} hitSlop={8}>
+                  <Text style={styles.nearMeErrorLink}>{t('home.nearMe.errors.openSettings')}</Text>
+                </Pressable>
+              </>
+            ) : null}
+          </View>
+        </View>
+      ) : null}
+    </View>
+  );
 
   // מודל-הסבר לפני בקשת הרשאת המערכת (סעיף 11/8) - לא קופצת ישר בקשת הרשאה של המערכת בלי הקשר.
   // אותו דפוס Modal+Pressable-backdrop+כרטיס בדיוק כמו activities.js (gateBackdrop/gateCard)
@@ -1579,173 +1416,53 @@ export default function HomeScreen() {
       >
         <Header onMenuPress={() => {}} />
 
-        {/* 🧭 "לאן קופצים היום?" - כותרת-העל של כל מודול החיפוש, מחוץ לכרטיס עצמו. סדר-הילדים
-            (2026-09-20, סבב-עידון רביעי, בקשת המשתמש: "האימוג'י שלו צריך להיות בתחילת המשפט") -
-            אייקון קודם, טקסט אחריו ב-JSX: ש-d.row (row-reverse בעברית) ממקם את הילד-הראשון
-            (האייקון) בקצה הפיזי-הימני, שהוא תחילת סדר-הקריאה בעברית - "בתחילת המשפט" כפשוטו
-            (זה חזרה למבנה שהיה לפני סבב-עידון קודם, שהניח בטעות שה-mockup רצה את הסדר ההפוך).
-            justifyContent:'center' (חדש) על searchModuleTitleRow עצמו - "צריך להיות בדיוק
-            באמצע": בלי זה הזוג אייקון+טקסט היה נדחף לקצה-ה-flex-start של השורה (רוחב-מלא, ראו
-            searchModuleHeaderWrap - View עמודה רגיל, הילד שלו נמתח לרוחב מלא כברירת-מחדל), לא
-            ממורכז ביחס לתוכן שמתחתיו. בלי תת-כותרת (בקשת המשתמש הישנה: הוסרו שלוש תתי-הכותרות
-            בעמוד הבית) - עטיפה חיצונית (searchModuleHeaderWrap) עדיין נושאת את המרווח מעל/מתחת
-            לשורה עצמה. */}
+        {/* 🧭 "לאן קופצים היום?" - כותרת-העל של כל מודול החיפוש, מחוץ לכרטיס עצמו. האייקון חלק
+            ממערכת כותרות-section אחידה בעמוד הבית (ראו homeHeadingIcon/sectionTitleRow). בלי
+            תת-כותרת (בקשת המשתמש: הוסרו שלוש תתי-הכותרות בעמוד הבית) - עטיפה חיצונית
+            (searchModuleHeaderWrap) עדיין נושאת את המרווח מעל/מתחת לשורה עצמה. */}
         <View style={styles.searchModuleHeaderWrap}>
           <View style={styles.searchModuleTitleRow}>
+            <Text style={styles.homeHeadingIcon}>🧭</Text>
             <Text style={styles.searchModuleTitle}>{t('home.search.title')}</Text>
           </View>
-          {/* קו-מבטא כתום קטן (2026-09-20, "typography and section-heading refinement" - בקשת
-              המשתמש: "add a very small decorative accent line underneath... NOT a full underline...
-              use the existing TURU orange/golden accent color from the logo"). #FF9101 נדגם בפועל
-              מפיקסלי-הקישוטים הכתומים בתוך assets/turu-logo.png עצמו (rgb(255,145,1), לא ניחוש) -
-              אין טוקן-כתום קיים ב-theme.js שמייצג את זה (coral/coralStrong משמשים כבר למפה/מועדפים,
-              גוון שונה). alignSelf:'center' - עמודת-האב (searchModuleHeaderWrap) לא ממרכזת ילדים
-              כברירת-מחדל. */}
-          <View style={styles.heroTitleAccent} />
         </View>
 
-        {/* שורת-הירו התלת-חלקית (2026-09-20, "TURU home reference mockup" - מחליפה לגמרי את
-            nearMeStandaloneAction+searchModeRow הנפרדים הקודמים ב-structure אחד: חיפוש חופשי |
-            רדאר+כיתוב-מרחק | בחירה מהירה). ראו heroRow בסטיילים למעלה להסבר המלא על טכניקת
-            שתי-העמודות-הצדדיות-שוות-flex שמבטיחה מירכוז גיאומטרי אמיתי של הרדאר (סעיף 11 בבקשה),
-            ועל heroSideCol/heroSideAction ל"secondary actions orbiting the central radar" (סעיף
-            4, "INTENTIONAL DEVIATION #1" - קטנות/משניות בכוונה, לא pill/card מתחרה). כל לוגיקת-
-            ה-GPS/הרשאה/שגיאה (handleNearMePress/nearMePressIn/Out/nearMeLoading/nearMeError,
-            goNearMe/confirmNearMePermission למעלה) בשימוש-חוזר מלא בלי שום שינוי - רק ה-JSX/
-            עיצוב-סביב זזו. switchSearchMode (למעלה) גם בשימוש-חוזר מלא - עכשיו נקרא משתי הפעולות
-            הצדדיות במקום מ-searchModeRow הישן שהוסר. */}
-        <View style={styles.heroRow}>
-          <View style={styles.heroSideCol}>
-            <Pressable
-              style={({ pressed }) => [
-                styles.heroSideAction,
-                // דהייה (עודכן 2026-09-20, "change the DEFAULT BEHAVIOR" - בקשת המשתמש: "בחירה
-                // מהירה וחיפוש חופשי צריכים להיות שניהם דהויים בהתחלה אם הם לא נבחרו, רק מי
-                // שנבחר נראה רגיל") - היה מותנה ב-searchMode truthy (כך ששניהם נשארו מלאים
-                // במצב-ברירת-המחדל הישן); עכשיו דהוי בכל מצב שהוא *לא* הפעיל, כולל null.
-                searchMode !== 'free' && styles.heroSideActionFaded,
-                pressed && styles.heroSideActionPressed,
-              ]}
-              onPress={() => switchSearchMode('free')}
-              hitSlop={8}
-              accessibilityRole="radio"
-              accessibilityState={{ checked: searchMode === 'free' }}
-              accessibilityLabel={t('home.search.modeFree')}
-            >
-              <View style={[styles.heroSideActionIconWrap, heroCompact && styles.heroSideActionIconWrapCompact, searchMode === 'free' && styles.heroSideActionIconWrapActive]}>
-                <Image
-                  source={require('../assets/magnifier.png')}
-                  style={[styles.heroSideActionIconImage, heroCompact && styles.heroSideActionIconImageCompact]}
-                  resizeMode="contain"
-                />
-              </View>
-              <Text style={[styles.heroSideActionText, heroCompact && styles.heroSideActionTextCompact, searchMode === 'free' && styles.heroSideActionTextActive]} numberOfLines={1}>
-                {t('home.search.modeFree')}
-              </Text>
-              {searchMode === 'free' ? <View style={styles.heroSideActionActiveDot} /> : null}
-            </Pressable>
-          </View>
-
-          <View style={styles.heroCenterCol}>
-            <Pressable
-              style={({ pressed }) => [styles.nearMeStandalone, pressed && styles.nearMeStandalonePressed]}
-              onPress={handleNearMePress}
-              onPressIn={nearMePressIn}
-              onPressOut={nearMePressOut}
-              disabled={nearMeLoading}
-              accessibilityRole="button"
-              accessibilityLabel={t('home.nearMe.a11yLabel')}
-              accessibilityState={{ disabled: nearMeLoading, busy: nearMeLoading }}
-            >
-              <Animated.View
-                style={[styles.nearMeRadarWrapCompact, { transform: [{ scale: nearMePressScale }] }]}
-                importantForAccessibility="no-hide-descendants"
-                accessibilityElementsHidden
-              >
-                <NearMeRadar loading={nearMeLoading} color={colors.accent} showLabel={false} />
-              </Animated.View>
-              {/* "מה קרוב?" - nearMeLabelText עצמאי (לא עוד heroSideActionText משותף, ראו שם:
-                  2026-09-20 "תגדיל את בחירה מהירה וחיפוש חופשי... ותקטין מעט... את הכיתוב מה
-                  קרוב" - הפרדנו סטייל כדי שכל אחד יוכל לזוז לכיוון הפוך). בלי active-dot/faded
-                  (זו לא "בחירת מצב" - לחיצה מנווטת ישירות, ראו goNearMe למטה). בתוך אותו Pressable
-                  כמו הרדאר עצמו - כל האזור (רדאר+טקסט) הוא יעד-לחיצה אחד. מוצג רק כש-searchMode
-                  ===null - נעלם כש-panel צדדי פתוח, חוזר במצב ברירת-המחדל הנקי. */}
-              {!searchMode ? (
-                <Text style={[styles.nearMeLabelText, heroCompact && styles.nearMeLabelTextCompact]} numberOfLines={1}>
-                  {t('home.nearMe.label')}
-                </Text>
-              ) : null}
-            </Pressable>
-            {/* כיתוב-מרחק/רדיוס (למשל "עד 15 דק' ממני") לא חוזר כאן - "מה קרוב?" למעלה הוא
-                התווית הקבועה היחידה מתחת לרדאר (בקשת המשתמש: "אל תוסיפו עוד כיתוב-מרחק מתחת
-                ל'מה קרוב?'"). goNearMe עודכן (2026-09-20, סבב "CENTRAL RADAR update"): radiusKm
-                עובר null במקום 10 - "מה קרוב?" הוא shortcut-גילוי ("הכי קרוב אליי"), לא בורר-טווח;
-                matchesLocation (lib/filterActivities.js) מתעלם ממרחק כשradiusKm הוא null (אותה
-                טכניקה בדיוק כמו locationWithNoTravelPreference) אז כל הפעילויות המאושרות זכאיות,
-                ו-app/activities.js הוא זה שממיין-לפי-מרחק+חותך ל-50 הקרובות ביותר בפועל (ראו
-                sortedActivities שם) - "50" הוא תקרת-תוצאות, לא רדיוס גיאוגרפי. */}
-            {nearMeError ? (
-              <View style={styles.nearMeErrorRow}>
-                <Text style={styles.nearMeErrorText}>{t(nearMeError)}</Text>
-                <View style={styles.nearMeErrorActions}>
-                  <Pressable onPress={handleNearMePress} hitSlop={8}>
-                    <Text style={styles.nearMeErrorLink}>{t('common.actions.retry')}</Text>
-                  </Pressable>
-                  <Text style={styles.nearMeErrorDot}>·</Text>
-                  <Pressable onPress={() => setWhereQuickOpen(true)} hitSlop={8}>
-                    <Text style={styles.nearMeErrorLink}>{t('home.nearMe.errors.chooseCity')}</Text>
-                  </Pressable>
-                  {nearMeError === 'home.nearMe.errors.blocked' && Platform.OS !== 'web' ? (
-                    <>
-                      <Text style={styles.nearMeErrorDot}>·</Text>
-                      <Pressable onPress={() => Linking.openSettings()} hitSlop={8}>
-                        <Text style={styles.nearMeErrorLink}>{t('home.nearMe.errors.openSettings')}</Text>
-                      </Pressable>
-                    </>
-                  ) : null}
-                </View>
-              </View>
-            ) : null}
-          </View>
-
-          <View style={styles.heroSideCol}>
-            <Pressable
-              style={({ pressed }) => [
-                styles.heroSideAction,
-                // דהייה - ראו ההערה המלאה ליד הפעולה הצדדית השנייה (heroSideAction הראשון
-                // למעלה, "חיפוש חופשי") לאותו שינוי בדיוק (סימטרי לשתי הפעולות).
-                searchMode !== 'guided' && styles.heroSideActionFaded,
-                pressed && styles.heroSideActionPressed,
-              ]}
-              onPress={() => switchSearchMode('guided')}
-              hitSlop={8}
-              accessibilityRole="radio"
-              accessibilityState={{ checked: searchMode === 'guided' }}
-              accessibilityLabel={t('home.search.modeGuided')}
-            >
-              <View style={[styles.heroSideActionIconWrap, heroCompact && styles.heroSideActionIconWrapCompact, searchMode === 'guided' && styles.heroSideActionIconWrapActive]}>
-                <Image
-                  source={require('../assets/sparkles.png')}
-                  style={[styles.heroSideActionIconImage, heroCompact && styles.heroSideActionIconImageCompact]}
-                  resizeMode="contain"
-                />
-              </View>
-              <Text style={[styles.heroSideActionText, heroCompact && styles.heroSideActionTextCompact, searchMode === 'guided' && styles.heroSideActionTextActive]} numberOfLines={1}>
-                {t('home.search.modeGuided')}
-              </Text>
-              {searchMode === 'guided' ? <View style={styles.heroSideActionActiveDot} /> : null}
-            </Pressable>
-          </View>
-        </View>
+        {/* "📍 פעילויות לידי" (2026-09-19, בקשת המשתמש: שלושה מסלולים ברורים - FIND/QUICK-PICK/
+            DESCRIBE - וה-FIND הוא הפעולה הבולטת הראשונה, מחוץ לכרטיס-החיפוש לגמרי, לא עוד quick
+            action משני בתוכו). ראו nearMeStandaloneAction למעלה - אותה לוגיקה קיימת בדיוק. */}
+        {nearMeStandaloneAction}
 
         {/* כרטיס-חיפוש דו-מצבי (2026-09-19, בקשת המשתמש: "ONE USER INTENTION = ONE CLEAR PATH" -
-            progressive disclosure). מוצג רק כש-searchMode !== null (2026-09-20, "TURU home
-            reference mockup" סעיף 5/6/7 - "INTENTIONAL DEVIATION #2": במצב ההתחלתי אף מצב לא
-            נבחר, ואין כרטיס/פאנל מוצג כלל, עד בחירה מפורשת בשורת-הירו מעל). בורר-המצב עצמו
-            (searchModeRow הישן) הוסר מכאן - הבחירה עכשיו קורית אך ורק בשתי הפעולות הצדדיות
-            בשורת-הירו. ה-CTA (unifiedCtaButton) עדיין יחיד ותמיד באותו מיקום יחסי (תחתית הכרטיס).*/}
-        {searchMode ? (
+            progressive disclosure במקום טקסט-חופשי+"או"+WHAT/WHERE גלויים בו-זמנית). searchMode
+            קובע איזה תוכן מוצג בתוך אותו משטח-white אחד (לא שני כרטיסים) - searchModeSelector
+            הוא ה"או" החדש, קומפקטי ומפורש יותר מקו-מפריד. ה-CTA (unifiedCtaButton) תמיד יחיד
+            ותמיד באותו מיקום יחסי (תחתית הכרטיס) - לא קופץ בין המצבים. */}
         <View style={styles.smartSearchCard}>
+          <View style={styles.searchModeRow} accessibilityRole="tablist">
+            <Pressable
+              style={[styles.searchModeTab, searchMode === 'guided' && styles.searchModeTabActive]}
+              onPress={() => switchSearchMode('guided')}
+              accessibilityRole="radio"
+              accessibilityState={{ checked: searchMode === 'guided' }}
+            >
+              <Text style={styles.searchModeTabIcon}>✨</Text>
+              <Text style={[styles.searchModeTabText, searchMode === 'guided' && styles.searchModeTabTextActive]} numberOfLines={1}>
+                {t('home.search.modeGuided')}
+              </Text>
+            </Pressable>
+            <Pressable
+              style={[styles.searchModeTab, searchMode === 'free' && styles.searchModeTabActive]}
+              onPress={() => switchSearchMode('free')}
+              accessibilityRole="radio"
+              accessibilityState={{ checked: searchMode === 'free' }}
+            >
+              <Text style={styles.searchModeTabIcon}>🔎</Text>
+              <Text style={[styles.searchModeTabText, searchMode === 'free' && styles.searchModeTabTextActive]} numberOfLines={1}>
+                {t('home.search.modeFree')}
+              </Text>
+            </Pressable>
+          </View>
+
           {searchMode === 'free' ? (
             <>
               <Text style={styles.searchFreeLabel}>{t('home.search.freeLabel')}</Text>
@@ -1825,7 +1542,6 @@ export default function HomeScreen() {
           {searchMode !== 'free' ? extraFiltersBlock : null}
           {unifiedCtaButton}
         </View>
-        ) : null}
 
         {userId ? (
           <Pressable style={styles.saveDefaultLink} onPress={handleSaveAsDefault} disabled={savingDefault} hitSlop={8}>
@@ -1852,16 +1568,25 @@ export default function HomeScreen() {
             עצמה נשארה שם, רק הכניסה אליה זזה. הציטוט התדמיתי עבר ל"עלינו" (app/about.js) -
             עמוד הבית ממוקד בפעולה, לא בסיפור המותג. */}
 
-        {/* קרוסלת-הגילוי האופקית: כרטיס גדול + "הצצה" לכרטיס הבא, לא גריד. carouselLocationKnown
-            (לא locationKnown - ראו ההערה המלאה ליד ה-state, תיקון-הפרדה מטיוטת "בחירה מהירה")
-            קובע רק מה מוצג בתוכה: כרטיסי-Preview עם פעילויות אמיתיות מהמאגר (recommendations, אותו מקור-
-            נתונים בדיוק כמו הקרוסלה הרגילה) אבל מטושטשות (BlurView), כשאין מיקום, אחרת הקרוסלה
-            הרגילה הלא-מטושטשת. הכותרת ("✨ שווה לגלות") הוסרה (2026-09-19, בקשת המשתמש: "תמחק
-            את 'שווה לגלות'... רק את הכותרת") - recSectionHeaderRow/recSectionTitle/recHeaderTitle
-            הוסרו איתה; recCarouselWrap.marginTop למטה שומר על מרווח סביר במקום המרווח+הכותרת
-            שהיו כאן קודם. */}
+        {/* ✨ שווה לגלות היום - קרוסלה אופקית: כרטיס גדול + "הצצה" לכרטיס הבא, לא גריד. section
+            אחד קבוע (כותרת קבועה, לא תלוית-מיקום - סעיף 14 בבקשה: זו הצעה יזומה מטעם Turu
+            (DISCOVERY), לא תוצאה של "לידי"/FIND) - locationKnown קובע רק מה מוצג *בתוכו*:
+            כרטיסי-Preview עם פעילויות אמיתיות מהמאגר (recommendations, אותו מקור-נתונים בדיוק כמו
+            הקרוסלה הרגילה) אבל מטושטשות (BlurView), כשאין מיקום, אחרת הקרוסלה הרגילה הלא-מטושטשת. */}
+        <View style={styles.sectionHeaderRow}>
+          <View style={styles.sectionTitleRow}>
+            <Text style={styles.homeHeadingIcon}>✨</Text>
+            <Text style={styles.sectionTitle}>{recHeaderTitle}</Text>
+          </View>
+        </View>
+
+        {/* recCarouselWrap (שלוש כותרות-ה-section זהות) - marginBottom קבוע כאן, זהה בכל חמשת
+            המצבים האפשריים (carousel/loading/error/ריק), כדי שהמרווח מעל "💡 מה עוד מעניין
+            אתכם?" יצא זהה למרווח מעל "✨ שווה לגלות היום" (זה שמגיע מ-smartSearchCard.marginBottom
+            למעלה) - בלי ה-wrapper הזה כל branch היה תורם מרווח-סיום שונה משלו (recRow: רק
+            paddingBottom:6, emptyRecState: 8, recErrorText: 20). */}
         <View style={styles.recCarouselWrap}>
-          {!carouselLocationKnown ? (
+          {!locationKnown ? (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.recRow}>
               <LocationPromptCard onPress={openLocationPicker} activity={previewActivities[0]} />
               {[1, 2, 3].map((i) => (
@@ -1904,6 +1629,7 @@ export default function HomeScreen() {
             המשתמש). לא selected state קבוע - לחיצה היא navigation, לא בחירת-filter. */}
         <View style={styles.sectionHeaderRow}>
           <View style={styles.sectionTitleRow}>
+            <Text style={styles.homeHeadingIcon}>💡</Text>
             <Text style={styles.sectionTitle}>{t('home.discovery.title')}</Text>
           </View>
         </View>
@@ -1925,12 +1651,6 @@ export default function HomeScreen() {
           <Text style={styles.allCategoriesLinkText}>{t('home.discovery.allCategories')}</Text>
         </Pressable>
 
-        {/* קישור-מעבר ל"מסך הבית 2" הוסר (2026-09-19, תיקון-באג שאותר בביקורת הארכיטקטונית:
-            "/home2 is a live Expo Router route... reachable... not a real product path... We do
-            not want /home2 to remain part of the product") - app/home2.js עצמו הועבר (byte-for-
-            byte, לא נמחק) ל-components/_archived/home2.js, אותו דפוס-שימור בדיוק כמו
-            components/_archived/SunMascot.js - קובץ מחוץ ל-app/ אינו route של expo-router
-            (file-based routing), אז /home2 כבר לא נגיש כלל, לא רק "בלי לינק גלוי". */}
         <GrassFooter width={contentWidth} />
       </ScrollView>
 
@@ -1962,7 +1682,7 @@ export default function HomeScreen() {
       <LocationQuickPicker
         visible={whereQuickOpen}
         value={filters.location}
-        onChange={handleLocationFieldChange}
+        onChange={(v) => setField('location', v)}
         onCoordsResolved={setDeviceCoords}
         onClose={handleWhereQuickCloseFromDiscovery}
         deviceCoords={deviceCoords}
@@ -1973,7 +1693,7 @@ export default function HomeScreen() {
       <LocationQuickPicker
         visible={!!smartSearchClarify && !smartSearchLoading}
         value={filters.location}
-        onChange={handleLocationFieldChange}
+        onChange={(v) => setField('location', v)}
         onCoordsResolved={setDeviceCoords}
         onConfirm={handleClarifyConfirm}
         onClose={handleClarifyDismiss}
@@ -2041,63 +1761,35 @@ const styles = createStyles((d) => ({
   compactFieldValue: { flexShrink: 1, minWidth: 0, fontFamily: fonts.semiBold, fontSize: 13.5, color: colors.textSecondary, textAlign: d.textAlign },
   compactFieldValueActive: { fontFamily: fonts.bold, color: colors.accent },
 
-  // GuidedSearchIntentControl (2026-09-20, סבב-עידון שישי, בקשת המשתמש: "should visually read
-  // as TWO separate rounded selection fields... DO NOT use only a horizontal divider" - guidedIntentControl
-  // עצמו כבר לא נושא bg/border/radius משלו, רק gap בין שני GuidedIntentSegment עצמאיים - כל אחד
-  // מהם עכשיו שדה מעוגל ונפרד בזכות עצמו (ראו guidedIntentSegment למטה).
-  // marginHorizontal:-6 (חדש) - בקשת המשתמש: "שני הפילטרים... יותר ארוכים לצדדים" - מרחיב את
-  // שתי שורות מה-עושים/איפה מעט מעבר לריפוד הרגיל של smartSearchCard (16), בלי לגעת בכפתור
-  // "מצאו פעילויות" שמתחת (נשאר ברוחב-התוכן הרגיל של הכרטיס).
-  guidedIntentControl: { gap: 8, marginBottom: 14, marginHorizontal: -6 },
-  // כל שורה - שדה-בחירה מעוגל עצמאי (לא עוד משטח-אחד+חוצץ-דק) - bg/border/radius עכשיו כאן,
-  // לא ב-guidedIntentControl. flexDirection:'row' פיזי (לא d.row) - ראו ההערה המלאה ליד
-  // GuidedIntentSegment למעלה: [אייקון][עמודת-טקסט flex:1][chevron], בסדר-JSX הזה בדיוק, כך
-  // שהאייקון תמיד פיזית-משמאל וה-chevron תמיד פיזית-מימין בלי קשר לכיוון-הקריאה. paddingHorizontal
-  // 16 כדי שיתאים לשדה-בעל-מסגרת אמיתי, לא רק שורה בתוך קופסה חיצונית. גובה הוקטן שוב (48, היה
-  // 60/68/76; paddingVertical 6, היה 8/11/14) - בקשת המשתמש: "פחות גבוהות... ויותר ארוכות" +
-  // "החלק הלבן... צריך להיות כולו יותר קטן, פרופורציונלית, ביחס לכפתורים [הצדדיים]".
-  // backgroundColor: colors.card/#fff (חזרה מ-colors.bg שנוסה בסבב קודם) - בקשת המשתמש: "תוריד
-  // את הצבע ברקע של הקוביות... שהפס הקטן מסביב ישאר אבל בפנים יהיה צבע לבן לגמרי כמו הרקע" -
-  // לבן זהה בדיוק לרקע smartSearchCard החיצוני (שגם הוא colors.card), רק ה-border (borderLight)
-  // ממשיך לתחום את השורה חזותית.
-  // paddingVertical:4/minHeight:42 (היה 6/48) + paddingHorizontal:10 (היה 14) - בקשת המשתמש:
-  // "יותר דחוסים מלמעלה אבל יותר ארוכים לצדדים" - עוד סבב באותו כיוון שכבר אושר (ראו ההערה
-  // למעלה), יחד עם guidedIntentControl.marginHorizontal:-6 להרחבה הפיזית.
+  // GuidedSearchIntentControl (2026-09-16, סבב שני: חזרה ל-two full-width rows במקום שורה
+  // אופקית אחת - בקשת המשתמש, ראו ההערה המלאה ליד הפונקציה עצמה). משטח אחד: bg/border/radius
+  // יחידים, קלילים יותר משדה החיפוש החופשי (smartSearchInputWrap למטה - bg שם colors.bg +
+  // border colors.border, כאן card+borderLight - "not styled like a text input"). radii.lg
+  // (לא radii.pill כמו קודם) - pill על קופסה בגובה שתי-שורות היה יוצא כמו קפסולה, לא כרטיס-רשימה.
+  guidedIntentControl: {
+    backgroundColor: colors.card, borderWidth: 1, borderColor: colors.borderLight,
+    borderRadius: radii.lg, marginBottom: 18, overflow: 'hidden',
+  },
+  // שורה במלוא הרוחב (בלי flexShrink/maxWidth כמו הפקד הקומפקטי הישן) - justifyContent:
+  // 'space-between' עם flexDirection:'row-reverse' דוחף את קבוצת אייקון+טקסט (guidedIntentSegmentMain)
+  // לקצה ימין (תחילת-קריאה ב-RTL) ואת ה-chevron לקצה שמאל (כיוון-קריאה-הבא), אותה קונבנציה
+  // בדיוק כמו שורות "פותח בורר" ב-app/profile.js/FiltersSheet.js.
   guidedIntentSegment: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: colors.card, borderWidth: 1, borderColor: colors.borderLight, borderRadius: radii.lg,
-    paddingVertical: 4, paddingHorizontal: 10, minHeight: 42,
+    flexDirection: d.row, alignItems: 'center', justifyContent: 'space-between',
+    paddingVertical: 13, paddingHorizontal: 14, minHeight: 46,
   },
-  // Image אמיתי (assets/giraffe.png / assets/house-tree.png, היה אמוג'י-Text 🦒/🏡). בלי chip
-  // צבוע מסביב, תמיד בקצה הפיזי-שמאלי (ראו ההערה המלאה למעלה). 42px (היה 36/30) - בקשת המשתמש:
-  // "תגדיל עוד את האייקונים של הג'ירפה והבית".
-  // 46x46 (היה 42x42) - בקשת המשתמש: "האימוג'י מולם צריך להיות קצת יותר גדול" (יחד עם הקטנת
-  // הטקסט לצדו, ראו guidedIntentTitle/guidedIntentValue למטה).
-  guidedIntentIconImage: { width: 46, height: 46, flexShrink: 0 },
-  // gap: 0 (היה 3) - בקשת המשתמש: "'מה עושים' ו'הכל' צריכים להיות יותר צמודים... כנ"ל 'איפה'/
-  // 'ינוב'" - חל על שתי השורות (guidedIntentTitle/Value משותפים לשתיהן, לא סטייל נפרד לכל שורה).
   guidedIntentSegmentMain: {
-    flex: 1, minWidth: 0, gap: 0,
+    flexDirection: d.row, alignItems: 'center', gap: 8, flex: 1, minWidth: 0,
   },
-  // ChevronLeftIcon מצביע שמאלה = "קדימה/פותח בורר" בעברית; באנגלית מסתובב ימינה. המיקום שלו
-  // בשורה (פיזית-ימני, ראו guidedIntentSegment) לא קשור לכיוון שהוא מצביע אליו. paddingLeft קטן
-  // ("comfortable padding around it... don't let it compete with the text") - מרווח נוסף מהטקסט
-  // מעבר ל-gap הכללי של השורה.
-  guidedIntentChevron: { transform: [{ rotate: d.forwardRotate }], flexShrink: 0, paddingLeft: 2 },
-  // כותרת-שורה קבועה (guidedIntentTitle) + ערך (guidedIntentValue) - שתי שורות מוערמות בתוך
-  // guidedIntentSegmentMain, שתיהן מיושרות d.textAlign (ימין בעברית - "צמודות" ל-chevron
-  // הפיזי-ימני, ראו ה-mockup). בקשת המשתמש (spec מדויק): כותרת ~21px/700/lineHeight 25, ערך
-  // ~16px/400/lineHeight 21 - fontFamily נשאר turu (fonts.bold/fonts.regular - אותם קבצי-גופן
-  // קיימים, לא גופן חדש), רק מידות/משקל/line-height/מרווח שונו בהתאם למפרט.
-  // 18/21 (היה 19/23) - בקשת המשתמש: "'מה עושים' פונט מעט קטן יותר... כנ"ל 'איפה'" - עוד הקטנה
-  // קלה, נוסף לגיבוב-כיווני "דחיפה למטה" (יחד עם lineHeight המצומצם - ראו guidedIntentSegmentMain
-  // gap:0 - התווית כולה יורדת ומתקרבת לערך שמתחתיה).
-  guidedIntentTitle: { fontFamily: fonts.bold, fontSize: 18, lineHeight: 21, color: colors.textPrimary, textAlign: d.textAlign },
-  // #8A9097 (היה colors.textSecondary/#59656d) - בקשת המשתמש: hex מדויק לצבע הערך המשני
-  // ("כל הקטגוריות"/"עד 15 דק' ממני"), שונה מטוקן-האפור הכללי הקיים.
-  // 15.5/18 (היה 14.5/19) - בקשת המשתמש: "'הכל' פונט מעט גדול יותר... כנ"ל 'ינוב'" - lineHeight
-  // גם ירד קמעה (19→18) כך שהערך "עולה למעלה" ומתקרב לכותרת שמעליו (gap:0 ב-guidedIntentSegmentMain).
-  guidedIntentValue: { minWidth: 0, fontFamily: fonts.regular, fontSize: 15.5, lineHeight: 18, color: '#8A9097', textAlign: d.textAlign },
+  // ChevronLeftIcon מצביע שמאלה = "קדימה/פותח בורר" בעברית; באנגלית מסתובב ימינה.
+  guidedIntentChevron: { transform: [{ rotate: d.forwardRotate }] },
+  // קו דק בין שתי השורות - לא "·" בין שני segments יותר (הפריסה כבר לא אופקית) - מפריד עדין,
+  // לא heavy divider (בקשת המשתמש: "Do not use a strong divider").
+  guidedIntentDivider: { height: 1, backgroundColor: colors.borderLight },
+  // flex:1 (לא flexShrink כמו בפקד הקומפקטי הישן) - השורה עכשיו במלוא-הרוחב, אז לערך יש הרבה
+  // יותר מקום; numberOfLines/ellipsizeMode ב-GuidedIntentSegment עדיין המוצא-האחרון לערכים
+  // ארוכים במיוחד, לא כיווץ-טיפוגרפיה.
+  guidedIntentValue: { flex: 1, minWidth: 0, fontFamily: fonts.semiBold, fontSize: 13.5, color: colors.textSecondary, textAlign: d.textAlign },
   personalCard: {
     backgroundColor: colors.card, borderRadius: radii.xl, borderWidth: 1, borderColor: colors.borderLight,
     padding: 16, marginBottom: 18,
@@ -2183,131 +1875,32 @@ const styles = createStyles((d) => ({
   saveDefaultText: { fontFamily: fonts.semiBold, fontSize: 12.5, color: colors.accent },
   defaultNoticeText: { fontFamily: fonts.semiBold, fontSize: 12, color: colors.greenStrong, textAlign: 'center', marginBottom: 10 },
   // "לאן קופצים היום?" - כותרת-העל של כל מודול החיפוש (מחוץ לכרטיס, ראו ה-JSX), לא רק של החיפוש
-  // החופשי בתוכו. marginTop/marginBottom - סבב-עידון אחד-עשר, בקשת המשתמש: "גבוה יותר לכיוון
-  // הלוגו [מרווח קטן יותר מעל]. המרווח בין הלוגו למשפט צריך להיות שווה למרווח בין המשפט לכפתור
-  // הגדול". לא 10/10 סימטרי בקוד - קובץ turu-logo.png עצמו נושא כמה px של שוליים-שקופים בתחתית
-  // התמונה (לא נגוע כאן, זה ה-asset עצמו), אז marginTop קטן יותר (4, לא 10) מפצה על זה כדי
-  // שהמרווח *החזותי* בפועל (לא רק הערך ב-style) יצא שווה למרווח שמתחת לכותרת - נמדד ואומת
-  // בדפדפן (16px משני הצדדים), לא רק חושב.
-  searchModuleHeaderWrap: { marginTop: 4, marginBottom: 10 },
-  // justifyContent:'center' - בלעדיו View-עמודה רגיל (searchModuleHeaderWrap) נותן לילד שלו
-  // רוחב-מלא כברירת-מחדל, וללא justifyContent מפורש הטקסט היה נדחף לקצה-ה-flex-start של השורה,
-  // לא ממורכז.
-  searchModuleTitleRow: { flexDirection: d.row, alignItems: 'center', justifyContent: 'center', gap: 8 },
-  // 26px (היה 24) - סבב "hero area visual refinement" (2026-09-19, בקשת המשתמש: "approximately
-  // 25-27px... Make this feel like the main question of the screen... visually stronger than the
-  // current implementation"). extraBold=800/textPrimary=#121c23 (navy-כהה, לא #000 טהור) כבר
-  // תאמו את הבקשה - לא נגעו בהם. lineHeight:31 (היה 29) - שומר על אותו יחס קומפקטי-אך-נוח
-  // (1.19, היה 1.208) יחסית לגודל-הפונט החדש.
+  // החופשי בתוכו. עטיפה חיצונית (searchModuleHeaderWrap) נושאת marginTop/marginBottom - בדיוק
+  // אותו מבנה כמו sectionHeaderRow למטה (שלוש הכותרות "בדיוק אותו דבר") - spacing.xl תואם את
+  // marginBottom של nearMeStandaloneWrap שמתחת, כדי שהמרווח מעל כותרת "✨ שווה לגלות היום" ייצא
+  // זהה. searchModuleTitleRow (אייקון 🧭+הכותרת) בלי margin משלו - בדיוק כמו sectionTitleRow.
+  // בלי תת-כותרת (בקשת המשתמש) - "📍 פעילויות לידי" עבר להיות פעולה עצמאית מתחת לשורה הזו (ראו
+  // nearMeStandaloneWrap למטה), לא pill בתוך smartSearchCard יותר.
+  searchModuleHeaderWrap: { marginTop: spacing.xl, marginBottom: 12 },
+  searchModuleTitleRow: { flexDirection: d.row, alignItems: 'center', gap: 6 },
   searchModuleTitle: {
-    fontFamily: fonts.extraBold, fontSize: 26, lineHeight: 31, color: colors.textPrimary, textAlign: d.textAlign,
+    fontFamily: fonts.extraBold, fontSize: 17, color: colors.textPrimary, textAlign: d.textAlign,
   },
-  // heroTitleAccent (חדש) - "קו-מבטא" כתום קטן מתחת לכותרת הראשית בלבד (לא sectionTitle/
-  // recSectionTitle למטה - "The small orange accent belongs ONLY to the main hero title").
-  // #FF9101 נדגם בפועל מ-assets/turu-logo.png (ראו הערה ב-JSX למעלה). 27x3, borderRadius:1.5 -
-  // "NOT a full underline... short centered decorative stroke", בתוך הטווח המבוקש (24-30 רוחב,
-  // ~3 גובה). marginTop:8 - "approximately 7-9px below the text".
-  heroTitleAccent: {
-    width: 27, height: 3, borderRadius: 1.5, backgroundColor: '#FF9101', alignSelf: 'center', marginTop: 8,
-  },
-  // שורת-הירו התלת-חלקית - flexDirection:'row' פיזי (לא d.row) בכוונה, כמו recRow למטה:
-  // האפליקציה מכבה forceRTL לגמרי (app/_layout.js), אז 'row' תמיד ממקם את הילד הראשון בקצה
-  // הפיזי-שמאלי - חיפוש חופשי משמאל, בחירה מהירה מימין, בסדר-JSX תואם.
-  // heroSideCol.flex:1 (חזרה, סבב "hero area visual refinement" 2026-09-19) - בקשת המשתמש
-  // המפורשת: "the radar must be geometrically centered in the viewport... Use a layout that
-  // guarantees radar center X = viewport/content center X... Hebrew label lengths are unequal -
-  // do not let text width push the radar sideways". justifyContent:'space-evenly' הקודם (סבב
-  // קודם) לא הבטיח את זה מתמטית (שתי התוויות שונות ברוחבן) - הוסר. שתי עמודות-הצד עכשיו flex:1
-  // שוות-רוחב-מוחלט (לא תלויות-תוכן) עם alignItems:'center' פנימי, כך שעמודת-המרכז (heroCenterCol,
-  // ברוחב-תוכן טבעי) יושבת תמיד בדיוק במרכז הגיאומטרי של השורה - בלי קשר לאורך "חיפוש חופשי"
-  // מול "בחירה מהירה".
-  // marginBottom:8 - מרווח בין שורת-הירו (כולל "מה קרוב?") לכרטיס-הפילטרים הלבן שמתחתיה.
-  // paddingHorizontal:8 - "3 הכפתורים... דחוסים בצדדים, אבל לשמור על הפרופורציות" (סבב קודם).
-  heroRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 8, paddingHorizontal: 8 },
-  // paddingTop ממקם את אייקון+תווית הפעולה הצדדית בערך מול מרכז דיסקית הרדאר - כך הן מרגישות
-  // כמו "secondary actions orbiting the central radar", לא שורה תלושה שיושבת סתם למעלה. כויל
-  // מול הגובה-הקומפקטי הנוכחי (~114px, ראו RADAR_SVG_W למעלה) בבדיקה חזותית ב-browser.
-  // flex:1 - ראו ההערה המלאה ב-heroRow למעלה (מירכוז-גיאומטרי אמיתי של הרדאר).
-  heroSideCol: { flex: 1, alignItems: 'center', paddingTop: 22 },
-  // לא pill/card (סעיף 4, "INTENTIONAL DEVIATION #1" - "NOT large pills, NOT cards, NOT
-  // competing with the radar visually") - רק אייקון+טקסט, minHeight נדיב ל-touch target נוח.
-  // paddingHorizontal:0/minWidth הוסרו (היו 6/64) - עם justifyContent:'space-evenly' על heroRow
-  // (למעלה, בקשת המשתמש: "4 מרווחים שווים בדיוק") רוחב-התוכן של שלושת האיברים ביחד כבר כמעט
-  // ממלא את כל רוחב-השורה ב-375px; כל ריפוד נוסף כאן היה גורם ל"גלישה שלילית" (0 מרווחים אמיתיים
-  // במקום 4 שווים) - ראו heroSideActionText/heroCenterCol למטה לאותה סיבה בדיוק.
-  heroSideAction: { alignItems: 'center', gap: 5, paddingVertical: 8, paddingHorizontal: 0, minHeight: 60, justifyContent: 'center' },
-  heroSideActionPressed: { opacity: 0.7 },
-  // דהייה עדינה לפעולה-הצדדית שלא נבחרה - 0.7 (היה 0.45), סבב "hero area visual refinement"
-  // (2026-09-19, בקשת המשתמש המפורשת: "Do NOT gray them out so strongly that they appear
-  // disabled... Inactive ≠ unavailable... especially important for 'חיפוש חופשי', which currently
-  // looks slightly too disabled when inactive"). עדיין קצת פחות בולט מהמצב הפעיל (שמקבל גם צבע-
-  // accent על הטקסט וגם heroSideActionIconWrapActive למטה), רק לא "כבוי".
-  heroSideActionFaded: { opacity: 0.7 },
-  // heroSideActionIconWrap - עכשיו "צ'יפ" עגול-רך מאחורי האייקון (52x52, לא רק גובה-יישור כמו
-  // קודם), סבב "hero area visual refinement" (2026-09-19, בקשת המשתמש: "The side icons should
-  // feel like actual buttons/actions even before the user reads the text... give the icon more
-  // visual presence... they should not look like tiny decorative icons floating beside the
-  // radar"). accentTintLight - אותו טוקן-רקע-עדין הקיים כבר בכפתור "🎯 מסונן" וכו', לא צבע חדש.
-  // עדיין קטן משמעותית מהרדאר (52px מול ~158px) - "not as large as the radar" (סעיף 7 בבקשה).
-  heroSideActionIconWrap: {
-    width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center',
-    backgroundColor: colors.accentTintLight,
-  },
-  // heroSideActionIconWrapCompact (<360px, יחד עם heroCompact הקיים) - צ'יפ מעט קטן יותר, אותו
-  // יחס בערך (44/52≈0.846) כמו heroSideActionIconImageCompact למטה (25/35≈0.714 - לא זהה בכוונה,
-  // האייקון-הפנימי מתכווץ יותר מהצ'יפ-הרקע כדי שישאר "אוויר" נוח סביבו גם במסך הצר ביותר).
-  heroSideActionIconWrapCompact: { width: 44, height: 44, borderRadius: 22 },
-  // heroSideActionIconWrapActive - כשמצב זה נבחר בפועל (searchMode==='free'/'guided'), הצ'יפ
-  // עובר לטון-accent חזק יותר (accentTint, לא רק accentTintLight) - משוב-בחירה נוסף מעבר לצבע-
-  // הטקסט/הנקודה הקיימים, לא מחליף אותם.
-  heroSideActionIconWrapActive: { backgroundColor: colors.accentTint },
-  // assets/magnifier.png ו-assets/sparkles.png - Image אמיתי במקום אמוג'י-Text (🔎/✨ הקודמים).
-  // אין color דינמי (accent כשפעיל) על האייקונים האלה עצמם - תמונת-PNG לא ניתנת לצביעה - אבל
-  // התווית מתחתיהם (heroSideActionTextActive) והנקודה הפעילה (heroSideActionActiveDot) עדיין
-  // מספקות את משוב-המצב. 38px (היה 34, 2026-09-20 "תגדיל את בחירה מהירה וחיפוש חופשי... וגם
-  // את האייקונים שלהם") - יחס icon/text נשמר (38/18≈2.11, היה 34/16≈2.13) כדי "לשמור על אותן
-  // פרופורציות" כמבוקש.
-  // 35 (היה 38) - צעד קטן, יחד עם heroRow.paddingHorizontal החדש: השורה כבר מילאה 100% מהרוחב
-  // הזמין ב-375px בלי שום "רווח-סרק" (ראו ההערה ב-heroSideAction למעלה: "כל ריפוד נוסף כאן היה
-  // גורם לגלישה שלילית") - אי אפשר להוסיף ריפוד-דוחס-לצדדים בלי לפנות מקום קודם. הקטנה אחידה
-  // וקטנה (לא פרופורציה-שונה בין אייקון לטקסט) שומרת על "הפרופורציות" שהמשתמש ביקש לשמר.
-  heroSideActionIconImage: { width: 35, height: 35 },
-  // heroCompact (<360px, ראו ההערה המלאה ליד ה-state) - מקטין רק את שתי הפעולות הצדדיות, לא נוגע
-  // ברדאר/בכרטיס/בכותרת. 25px (היה 22) - אותו יחס-הקטנה בערך משומר מול הגרסה הרגילה (25/12.5=2,
-  // היה 22/11=2).
-  heroSideActionIconImageCompact: { width: 25, height: 25 },
-  // 18px/bold (היה 16px) - בקשת המשתמש: "תגדיל את בחירה מהירה וחיפוש חופשי".
-  heroSideActionText: { fontFamily: fonts.bold, fontSize: 16.5, color: colors.textSecondary, textAlign: 'center' },
-  heroSideActionTextCompact: { fontSize: 12.5 },
-  heroSideActionTextActive: { color: colors.accent },
-  // "a small teal active-underline shown in the mockup's active example state" (סעיף 4) - סימון
-  // נוסף מעבר לצבע-הטקסט בלבד, כי אמוג'י ✨ עצמו לא ניתן לצביעה. מעט גדול יותר (18x2.5, היה 14x2)
-  // כדי להישאר פרופורציונלי לטקסט המוגדל.
-  heroSideActionActiveDot: { width: 18, height: 2.5, borderRadius: 1.5, backgroundColor: colors.accent, marginTop: 3 },
-  heroCenterCol: { alignItems: 'center' },
-  // "📍 מה קורה סביבי?" - TURU ORBIT, עכשיו עמודת-המרכז של heroRow (showLabel=false, בלי קשת-
-  // הטקסט - שלוש התוויות הסמוכות כבר מספרות את הסיפור). הצבע - colors.accent הקיים (ראו ההערה
-  // המלאה ליד NearMeRadar למעלה: זהו טוקן-הצבע הקיים שכבר מייצג את הכחול-טורקיז של האות ת'
-  // הראשונה בלוגו, לא הכתום).
-  // gap:1 (היה 6) - בקשת המשתמש: "'מה קרוב' מתחת לכפתור הראשי צריך להיות יותר גבוה" - התווית
-  // צמודה יותר לרדאר מעליה (nearMeRadarWrapCompact כבר כולל padding משלו בגובה 121).
-  nearMeStandalone: { alignItems: 'center', gap: 1 },
+  // "📍 מה קורה סביבי?" - TURU ORBIT (2026-09-20, סבב-עידון שני: "distinctive signature element"
+  // אבל "friendly, not a radar/targeting instrument"). alignItems:'center' - בקר-אורביט אחד
+  // ממורכז, לא כפתור שנמתח לרוחב הכרטיס. הצבע - colors.accent הקיים (ראו ההערה המלאה ליד
+  // NearMeRadar למעלה: זהו טוקן-הצבע הקיים שכבר מייצג את הכחול-טורקיז של האות ת' הראשונה
+  // בלוגו, לא הכתום). marginBottom קטן יותר מהגרסה הקודמת (8→6) - הסרת "לחצו לגלות" כבר חוסכת
+  // גובה, אז אין צורך גם ב-marginBottom נדיב יותר.
+  nearMeStandaloneWrap: { alignItems: 'center', marginBottom: 6 },
+  nearMeStandalone: { alignItems: 'center' },
   nearMeStandalonePressed: { opacity: 0.85 },
-  // גובה קומפקטי (RADAR_COMPACT_H, ראו הגדרות NearMeRadar למעלה - showLabel=false) - לא עוד
-  // RADAR_SVG_H שהיה כולל שוליים לקשת-הטקסט שכבר לא מוצגת כאן. 158x112 (היה 170x121, בקשת
-  // המשתמש: "תקטין מעט את הכפתור המרכזי") - תואם את RADAR_SVG_W: svgHeight בפועל =
-  // RADAR_SVG_W * (RADAR_COMPACT_H/180) = 158*(128/180) ≈ 112.4.
-  nearMeRadarWrapCompact: { width: 158, height: 112, alignItems: 'center', justifyContent: 'center' },
-  // nearMeLabelText/Compact - "מה קרוב?" עצמאי מ-heroSideActionText (ראו ההערה ב-JSX). 17px
-  // (היה 14) - סבב "hero area visual refinement" (2026-09-19, בקשת המשתמש: "מה קרוב?" -
-  // approximately 17-18px, bold - the center label should be slightly stronger because it
-  // belongs to the primary action", "17-18px" > צדדיות ה-16.5px). אותו fontFamily/color בדיוק
-  // כמו heroSideActionText כדי שהבולטות-החזותית תישאר עקבית (רק הגודל שונה, מעט גדול יותר).
-  nearMeLabelText: { fontFamily: fonts.bold, fontSize: 17, color: colors.textSecondary, textAlign: 'center' },
-  nearMeLabelTextCompact: { fontSize: 13 },
-  // מרוכז (לא d.textAlign) - יושב ישירות מתחת לרדאר, בתוך heroCenterCol הממורכז בעצמו. כיתוב-
-  // מרחק (heroDistanceRow/heroDistanceText) הוסר סופית (2026-09-20, סבב-עידון עשירי, בקשת
-  // המשתמש: "להוריד את 'עד 15 דקות' מתחת לכפתור המרכזי").
+  // גודל = בדיוק RADAR_SVG_W/H (148x140, ראו הגדרות NearMeRadar למעלה) - לא ניחוש נפרד.
+  nearMeRadarWrap: { width: 148, height: 140, alignItems: 'center', justifyContent: 'center' },
+  // טקסט-סטטוס בזמן טעינה בלבד ("מחפשים מה יש סביבכם...") - לא "לחצו לגלות" (הוסר, סעיף 1
+  // בבקשה) ולא טקסט-הנחיה חדש; זה משוב-מצב, לא הוראת-שימוש.
+  nearMeStandaloneText: { fontFamily: fonts.semiBold, fontSize: 12.5, color: colors.textSecondary, marginTop: 4 },
+  // מרוכז (לא d.textAlign) - יושב מתחת לכפתור מלא-הרוחב הממורכז מבחינה חזותית.
   nearMeErrorRow: { marginTop: 8, alignItems: 'center' },
   nearMeErrorText: { fontFamily: fonts.semiBold, fontSize: 12, color: colors.danger, textAlign: 'center' },
   nearMeErrorActions: { flexDirection: d.row, alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 4 },
@@ -2322,33 +1915,37 @@ const styles = createStyles((d) => ({
   nearMeModalPrimaryBtn: { backgroundColor: colors.accent, borderRadius: radii.pill, paddingVertical: 12, paddingHorizontal: 28 },
   nearMeModalPrimaryBtnText: { fontFamily: fonts.bold, fontSize: 14, color: '#fff' },
   nearMeModalSecondaryText: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.textSecondary, marginTop: 12 },
-  // כרטיס-חיפוש דו-מצבי: משטח-white אחד (לא שני כרטיסים), מוצג רק כש-searchMode !== null (ראו
-  // ה-JSX - הבחירה עצמה עברה לגמרי ל-heroRow מעל). הכותרת עצמה מחוץ לכרטיס (searchModuleTitle
-  // למעלה). border/shadow עדינים (לא מסגרת accent עבה) כדי שהכרטיס יתבלוט בעדינות בלי להרגיש כבד.
-  // padding/borderRadius/marginTop/shadow הוגדלו בסבב-העידון השלישי (בקשת המשתמש: "feels too
-  // compressed and generic... should feel like a substantial floating search module") - עדיין
-  // "לא גבוה מיותר", רק נדיב יותר. marginTop קטן מפריד אותו מכיתוב-המרחק בלי לגעת בו (heroRow/
-  // heroDistanceRow עצמם, שנשארו ללא שינוי-מבני).
-  // marginHorizontal:-10 (חדש, סבב-עידון תשיעי, בקשת המשתמש: "החלון... צריך להיות יותר רחב,
-  // מתוח לצדדים... ולרקע הלבן... לתת עוד קצת אורך") - הכרטיס "דולף" מעט מעבר לריפוד הרגיל של
-  // content (spacing.xl=22 בכל צד, ראו styles.content למטה), בלי לגעת בריפוד הגלובלי הזה עצמו
-  // (שממשיך לשמש את הכותרת/שורת-הירו מעליו) - רק הכרטיס הזה מתרחב מעט לצדדים.
-  // padding 16/borderRadius 22 (היה 22/26) - בקשת המשתמש: "החלק הלבן... צריך להיות כולו יותר
-  // קטן, פרופורציונלית, ביחס לכפתורים [הצדדיים]" - לא רק השורות/הכפתור בפנים (guidedIntentSegment/
-  // smartSearchBtn למטה), גם המעטפת החיצונית עצמה מתכווצת מעט בהתאם. marginTop/marginBottom/
-  // marginHorizontal לא נגעו - אלה מיקום/מרווחים-מהעמוד, לא הפרופורציה הפנימית של הכרטיס עצמו.
-  // marginBottom: 0 (היה 16) - בקשת המשתמש: "2 הכותרות... צריך שהן יהיו בדיוק באמצע בין מה
-  // שמעליהן לבין מה שמתחתיהן". נמדד בפועל בדפדפן: ה-padding הפנימי של הכרטיס עצמו (16, למטה)
-  // כבר תורם 16px גלויים מתחת ל-CTA לפני שמגיעים לקצה-הכרטיס - marginBottom נוסף מעליו היה
-  // מכפיל את המרווח ("above") הרבה מעבר ל-"below" (sectionHeaderRow.marginBottom, ראו שם).
-  // הריפוד הפנימי (16) נשאר המקור היחיד למרווח-הבסיס כאן, ו-sectionHeaderRow תואם אותו בדיוק.
+  // 🔎 כרטיס-חיפוש דו-מצבי: משטח-white אחד (לא שני כרטיסים), searchModeRow בראשו קובע איזה
+  // תוכן מוצג בתוכו (searchMode). הכותרת עצמה מחוץ לכרטיס (searchModuleTitle למעלה) - אין לו
+  // יותר marginTop נשימה משלו, זה כבר מטופל על-ידי marginBottom של הכותרת. border/shadow עדינים
+  // (לא מסגרת accent עבה) כדי שהכרטיס יתבלוט בעדינות בלי להרגיש כבד.
   smartSearchCard: {
     backgroundColor: colors.card, borderWidth: 1, borderColor: colors.accentTintLight,
-    // marginTop:2 (היה 6) - חלק מאותה בקשה (heroRow.marginBottom למעלה) - עוד צמצום-מרווח קטן
-    // בין שורת-הירו לכרטיס-הפילטרים.
-    borderRadius: 22, padding: 16, marginHorizontal: -10, marginTop: 2, marginBottom: 0,
-    shadowColor: colors.accent, shadowOpacity: 0.1, shadowRadius: 18, shadowOffset: { width: 0, height: 6 }, elevation: 3,
+    borderRadius: radii.xl, padding: spacing.lg, marginBottom: 22,
+    shadowColor: colors.accent, shadowOpacity: 0.08, shadowRadius: 14, shadowOffset: { width: 0, height: 5 }, elevation: 2,
   },
+  // בורר-מצב (2026-09-19, בקשת המשתמש: מחליף את מפריד "או" הישן) - segmented control קומפקטי
+  // אחד, לא שני כפתורי-CTA מתחרים: משטח-רקע יחיד (colors.bg, כמו smartSearchInputWrap) עם שני
+  // טאבים פנימיים; הטאב הפעיל מקבל מילוי-כרטיס+צל עדין (מרים אותו מעל הרקע), הלא-פעיל נשאר
+  // שקוף על אותו רקע - הבדל-עומק, לא רק צבע. flexDirection: d.row (לא d.rowReverse) - אותה
+  // מוסכמה כבר קיימת ב-displaySheetRow (app/activities.js) לזוג-אפשרויות RTL: הראשון במערך
+  // (guided, ברירת-המחדל) יושב מימין - המקום שקוראי עברית סורקים ראשון. accessibilityRole="radio"
+  // + checked - אותו דפוס נגישות קיים בדיוק כמו displaySheetOption, לא המצאה חדשה.
+  searchModeRow: {
+    flexDirection: d.row, backgroundColor: colors.bg, borderRadius: radii.pill,
+    padding: 3, marginBottom: 16, gap: 2,
+  },
+  searchModeTab: {
+    flex: 1, flexDirection: d.row, alignItems: 'center', justifyContent: 'center', gap: 5,
+    minHeight: 40, paddingVertical: 9, borderRadius: radii.pill,
+  },
+  searchModeTabActive: {
+    backgroundColor: colors.card, shadowColor: colors.ink, shadowOpacity: 0.08, shadowRadius: 4,
+    shadowOffset: { width: 0, height: 1 }, elevation: 1,
+  },
+  searchModeTabIcon: { fontSize: 13 },
+  searchModeTabText: { fontFamily: fonts.bold, fontSize: 12.5, color: colors.textSecondary },
+  searchModeTabTextActive: { color: colors.accent },
   // "חפשו במילים שלכם" - תווית-כוונה קטנה מעל שדה הטקסט, קיימת רק במצב "חיפוש חופשי" (מלמדת
   // "אפשר סתם לתאר מה שרוצים", בלי לחזור על "או בחרו" הישן שכבר לא רלוונטי - הבורר עצמו מעליה
   // כבר עשה את הבחירה בין המצבים).
@@ -2366,20 +1963,13 @@ const styles = createStyles((d) => ({
     flex: 1, paddingVertical: 12,
     fontFamily: fonts.regular, fontSize: 14, color: colors.textPrimary, textAlign: d.textAlign, writingDirection: d.writingDirection,
   },
-  // paddingVertical 12 (היה 18) - בקשת המשתמש: "כפתור 'מצאו פעילויות' צריך להיות יותר נמוך
-  // (פרופורציה, לא מיקום)" + "החלק הלבן... כולו יותר קטן ביחס לכפתורים [הצדדיים]".
-  // colors.accent (חזרה מ-'#006786' המותאם-אישית מהסבב הקודם) - בקשת המשתמש המפורשת: "הצבע של
-  // הכפתור 'מצאו פעילויות' צריך להיות בדיוק אותו צבע כמו הכפתור המרכזי [הרדאר]" - הרדאר משתמש
-  // ב-colors.accent (ראו NearMeRadar למעלה בקובץ), אז חזרה לאותו טוקן בדיוק כאן, לא גוון קרוב.
   smartSearchBtn: {
-    backgroundColor: colors.accent, borderRadius: radii.pill, paddingHorizontal: 22,
+    backgroundColor: colors.accent, borderRadius: radii.pill, paddingHorizontal: 20,
     alignItems: 'center', justifyContent: 'center',
   },
-  smartSearchBtnFullWidth: { width: '100%', paddingVertical: 12 },
+  smartSearchBtnFullWidth: { width: '100%', paddingVertical: 13 },
   smartSearchBtnDisabled: { opacity: 0.5 },
-  smartSearchBtnRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 },
-  smartSearchBtnText: { fontFamily: fonts.bold, fontSize: 16, color: '#ffffff' },
-  smartSearchBtnArrow: { fontSize: 17, fontFamily: fonts.bold, color: '#ffffff' },
+  smartSearchBtnText: { fontFamily: fonts.bold, fontSize: 13.5, color: '#ffffff' },
   smartSearchErrorText: { fontFamily: fonts.semiBold, fontSize: 12, color: colors.danger, textAlign: 'center', marginTop: 10 },
   // חיפושים אחרונים כ-dropdown תלוי-פוקוס (2026-09-16, סבב שני) - יושב באותו מקום-JSX בדיוק
   // כמו קודם (מתחת לשדה, בתוך אותו smartSearchCard), רק בלי accordion ידני (recentSearchesOpen
@@ -2403,27 +1993,21 @@ const styles = createStyles((d) => ({
   recentSearchText: { flex: 1, minWidth: 0, fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, textAlign: d.textAlign },
   recentSearchDelete: { fontSize: 16, color: colors.textMuted, paddingHorizontal: 4, fontFamily: fonts.regular },
 
-  // marginTop:0/marginBottom:16 - עכשיו משמש רק את "💡 מה עוד מעניין אתכם?" (2026-09-20,
-  // "typography and section-heading refinement": "שווה לגלות" קיבל recSectionHeaderRow/
-  // recSectionTitle נפרדים למטה, כדי לא לשנות בטעות את הכותרת הזו - "preserve everything else").
-  // מעל "מה עוד מעניין אתכם?" - recCarouselWrap.marginBottom (16, ראו שם) עדיין תואם בדיוק,
-  // אז המרווח הסימטרי 16/16 סביב הכותרת הזו נשאר בדיוק כפי שהיה.
-  sectionHeaderRow: { marginTop: 0, marginBottom: 16 },
-  // שורת-כותרת ממורכזת (עדיין משמשת רק את "מה עוד מעניין אתכם?" - ראו לעיל). האימוג'י (✨/💡)
-  // שהיה כאן הוסר מה-JSX (בקשת המשתמש: "להוריד לכולם את האימוג'י") - homeHeadingIcon שהיה
-  // משרת אותו נמחק, לא בשימוש יותר.
-  sectionTitleRow: { flexDirection: d.row, alignItems: 'center', justifyContent: 'center', gap: 6 },
-  sectionTitle: { fontFamily: fonts.extraBold, fontSize: 24, color: colors.textPrimary, textAlign: d.textAlign },
+  sectionHeaderRow: { marginBottom: 12 },
+  // שורת-כותרת עם אייקון סמנטי (🧭/✨/💡) - חלק ממערכת כותרות-section אחידה בעמוד הבית (ראו גם
+  // searchModuleTitleRow למעלה): row-reverse+gap+alignItems:'center' זהים בשלושתם כך שהאייקון
+  // תמיד יושב באותו מקום/גודל/יישור ביחס לטקסט, בלי קשר לגודל הפונט של הכותרת עצמה.
+  sectionTitleRow: { flexDirection: d.row, alignItems: 'center', gap: 6 },
+  sectionTitle: { fontFamily: fonts.extraBold, fontSize: 17, color: colors.textPrimary, textAlign: d.textAlign },
+  // גודל אחיד לאייקון בכל שלוש כותרות ה-section (searchModuleTitle/sectionTitle גם משתמשות
+  // באותו fontSize:17 אחרי האיחוד - ראו searchModuleTitleRow למעלה - אז זה כבר לא רק "פיצוי" על
+  // הבדל גודל, אלא עקביות מלאה: אותו אייקון, אותו גודל, בכל שלוש הכותרות).
+  homeHeadingIcon: { fontSize: 15 },
 
-  // recCarouselWrap - marginTop:20 (חדש, 2026-09-19, "תמחק את 'שווה לגלות'... רק את הכותרת") -
-  // recSectionHeaderRow/recSectionTitle (הכותרת עצמה, שתרמה 22 מעליה+14 מתחתיה סביב שורת-טקסט)
-  // הוסרו לגמרי; 20 שומר מרווח סביר-בודד בין smartSearchCard/heroRow לקרוסלה במקומם, בלי טקסט.
-  // marginBottom:16 (ללא שינוי) - ראו ההערה ליד ה-JSX למעלה: המרווח האחיד לפני "💡 מה עוד מעניין
-  // אתכם?" יושב כאן, לא בתוך recRow/emptyRecState/recErrorText עצמם (שממשיכים לשרת את התפקיד
-  // הפנימי-להם - ריווח מתחת לצללי הכרטיסים בגלילה, לא ריווח בין-סקשנים). 16 - תואם בדיוק את
-  // sectionHeaderRow.marginBottom (16, ראו שם) כך שהמרווח מעל/מתחת "💡 מה עוד מעניין אתכם?" יוצא
-  // שווה בדיוק, לא רק "בערך" (בקשת המשתמש, סבב שני).
-  recCarouselWrap: { marginTop: 20, marginBottom: 16 },
+  // marginBottom קבוע - ראו ההערה ליד ה-JSX (recCarouselWrap) למעלה: המרווח האחיד לפני "💡 מה
+  // עוד מעניין אתכם?" יושב כאן, לא בתוך recRow/emptyRecState/recErrorText עצמם (שממשיכים לשרת
+  // את התפקיד הפנימי-להם - ריווח מתחת לצללי הכרטיסים בגלילה, לא ריווח בין-סקשנים).
+  recCarouselWrap: { marginBottom: 16 },
 
   // row רגיל (לא row-reverse) בכוונה - ה-אפליקציה מכבה forceRTL לגמרי (app/_layout.js), אז אין
   // anchor-גלילה מה-RTL האמיתי ו-offset=0 תמיד מציג את הקצה הפיזי-שמאלי של התוכן - row-reverse

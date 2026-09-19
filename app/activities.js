@@ -242,11 +242,22 @@ export default function ActivitiesScreen() {
     // שכבר בתוקף - כך שפתיחה חוזרת של הפיקר מציגה תמיד את המצב האמיתי, בלי כפילויות.
     setHideDraft([...new Set([...excludedCategories, ...(filters.excludeCategory || [])])]);
     setSaveAsDefault(false);
+    // setSheetOpen(false) (חדש) - באג אמיתי שדווח ואומת: QuickPicker (כאן) ו-FiltersSheet's Modal
+    // (sheetOpen) הם שני <Modal> נפרדים, אחים ברמת ה-JSX (לא מקוננים זה-בתוך-זה, בניגוד ל-
+    // LocationQuickPicker שכבר בתוך ה-Modal של הסינון) - ב-react-native-web הפורטל של כל Modal
+    // נצמד ל-document.body בסדר-ה-mount, שקבוע לפי סדר-ה-JSX (QuickPicker כאן מוצהר *לפני* ה-
+    // Modal של הסינון עצמו), לא לפי מי נפתח אחרון. כשה-sheet נשאר פתוח, ה-QuickPicker אמנם נפתח
+    // בפועל (state מתעדכן, ה-DOM שלו קיים!) אבל תמיד *מתחת* לפורטל של ה-sheet - בלתי-נראה ובלתי-
+    // לחיץ לגמרי (נבדק/אומת ב-devtools: elementFromPoint על השורה מחזיר את ה-sheet, לא את הפיקר).
+    // סוגרים את ה-sheet לפני פתיחת הפיקר כדי שרק Modal אחד יהיה גלוי בכל רגע נתון - חוזר לפתוח
+    // אותו ב-handleConfirmHide למטה כשהפיקר נסגר, כדי לשמר את זרימת "עדיין בתוך עריכת הפילטרים".
+    setSheetOpen(false);
     setHideCategoriesModalOpen(true);
   };
 
   const handleConfirmHide = async () => {
     setHideCategoriesModalOpen(false);
+    setSheetOpen(true);
     setField('excludeCategory', hideDraft);
     if (!saveAsDefault) return;
     if (!userId) {
@@ -268,11 +279,15 @@ export default function ActivitiesScreen() {
       cities: [...new Set([...excludedCities, ...(filters.excludeCity || [])])],
     });
     setSaveCityAsDefault(false);
+    // setSheetOpen(false) - אותו באג/תיקון בדיוק כמו openHideCategoriesModal למעלה (ראו ההערה
+    // המלאה שם): ExcludeAreasPicker הוא גם Modal-אח נפרד ל-sheet, לא מקונן בתוכו.
+    setSheetOpen(false);
     setHideLocationsModalOpen(true);
   };
 
   const handleConfirmHideCities = async () => {
     setHideLocationsModalOpen(false);
+    setSheetOpen(true);
     setField('excludeCity', hideAreasDraft.cities);
     setField('excludeRegion', hideAreasDraft.regions);
     if (!saveCityAsDefault) return;
