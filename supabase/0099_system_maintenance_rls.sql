@@ -1,3 +1,16 @@
+-- ============================================================================
+-- ⚠️  STATUS: NOT APPLIED TO PRODUCTION. DO NOT APPLY WITHOUT A DEDICATED
+--     RLS/SECURITY REVIEW AND EXPLICIT OWNER APPROVAL.
+--
+--     This migration changes the RLS AUTHORIZATION SURFACE of public.activities
+--     and public.activity_schedules (widens who may UPDATE/INSERT/DELETE rows -
+--     see can_maintain_activity() below). It is committed to source control for
+--     review/history visibility only.
+--
+--     Committing or merging this file into any branch is NOT approval to run
+--     it. Applying it requires a separate, dedicated RLS/security review.
+-- ============================================================================
+--
 -- 0099 - CLEANER system-maintenance semantics + first-class CITY_NOT_CANONICAL case (2026-09-19).
 --
 -- 1. Authorization. activities_update allowed only `created_by = auth.uid() or is_admin()`. The Cleaner
