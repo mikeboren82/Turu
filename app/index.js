@@ -24,7 +24,9 @@ import { supabase } from '../lib/supabase';
 import { fetchUserPreferences, saveDefaultHomeFilters } from '../lib/preferences';
 import { childrenToDefaultAgeFilter, formatChildAge } from '../lib/children';
 import { parseSmartSearchQuery, intentToFilters, needsAreaClarification } from '../lib/smartSearch';
-import { requestCurrentPosition, CURRENT_POSITION_ERROR_KEYS } from '../lib/currentPosition';
+import {
+  requestCurrentPosition, CURRENT_POSITION_ERROR_KEYS, checkNearMePermission, requestNearMePermission,
+} from '../lib/currentPosition';
 import { fetchApprovedActivities, formatDistance, fetchSettlementCoords } from '../lib/activities';
 import { fetchUserActivityFlags, toggleFavorite, toggleVisited, fetchAllPersonalNotes, toggleWithFeedback, hideActivityWithFeedback } from '../lib/interactions';
 import { formatBenefitCardTag } from '../lib/benefits';
@@ -888,17 +890,18 @@ export default function HomeScreen() {
   };
 
   // לחיצה על "📍 מה יש סביבי?": בודק את מצב ההרשאה האמיתי (לא מבקש ישר) - סעיף 6/8/12.
-  // canAskAgain===false מפורש (לא falsy סתם) הוא היחיד שנחשב "חסום" - undefined (למשל בווב, ראו
-  // סעיף 26) לא נחשב חסום, כדי לא להציג "פתחו הגדרות" בטעות בפלטפורמה שלא תומכת בזה.
+  // checkNearMePermission (lib/currentPosition.js, Home Refactor Phase 2C) - אותה הבחנה בדיוק
+  // כמו קודם: canAskAgain===false מפורש (לא falsy סתם) הוא היחיד שנחשב "חסום" - undefined (למשל
+  // בווב, ראו סעיף 26) לא נחשב חסום, כדי לא להציג "פתחו הגדרות" בטעות בפלטפורמה שלא תומכת בזה.
   const handleNearMePress = async () => {
     if (nearMeInFlightRef.current) return;
     setNearMeError('');
-    const { status, canAskAgain } = await Location.getForegroundPermissionsAsync();
-    if (status === 'granted') {
+    const permission = await checkNearMePermission(Location);
+    if (permission.status === 'granted') {
       await goNearMe();
       return;
     }
-    if (canAskAgain === false) {
+    if (permission.status === 'blocked') {
       setNearMeError('home.nearMe.errors.blocked');
       return;
     }
@@ -906,12 +909,13 @@ export default function HomeScreen() {
   };
 
   // "אפשר גישה למיקום" במודל ההסבר: רק עכשיו מבקשים בפועל את הרשאת המערכת (סעיף 9) - אישור
-  // ממשיך אוטומטית ל-GPS+ניווט בלי לחייב לחיצה חוזרת על "מה יש סביבי?".
+  // ממשיך אוטומטית ל-GPS+ניווט בלי לחייב לחיצה חוזרת על "מה יש סביבי?". requestNearMePermission
+  // (lib/currentPosition.js, Home Refactor Phase 2C) - אותה הבחנה בדיוק כמו קודם.
   const confirmNearMePermission = async () => {
     setShowNearMeExplainer(false);
-    const { status, canAskAgain } = await Location.requestForegroundPermissionsAsync();
-    if (status !== 'granted') {
-      setNearMeError(canAskAgain === false ? 'home.nearMe.errors.blocked' : 'home.nearMe.errors.denied');
+    const permission = await requestNearMePermission(Location);
+    if (permission.status !== 'granted') {
+      setNearMeError(permission.status === 'blocked' ? 'home.nearMe.errors.blocked' : 'home.nearMe.errors.denied');
       return;
     }
     await goNearMe();
