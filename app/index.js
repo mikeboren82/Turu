@@ -18,7 +18,7 @@ import {
   CATEGORY_FILTER_OPTIONS, DEFAULT_FILTERS, FILTER_SCHEMA,
   PRICE_OPTIONS, PLACE_TYPE_OPTIONS, BOOKING_OPTIONS, DURATION_OPTIONS, AMENITY_COMFORT_OPTIONS,
 } from '../constants/filterSchema';
-import { normalizeFilters, rankActivitiesWithSmartRadius } from '../lib/filterActivities';
+import { normalizeFilters } from '../lib/filterActivities';
 import { whenSummary, listJoin } from '../lib/filterSummaries';
 import { supabase } from '../lib/supabase';
 import { fetchUserPreferences, saveDefaultHomeFilters } from '../lib/preferences';
@@ -27,10 +27,10 @@ import { parseSmartSearchQuery, intentToFilters, needsAreaClarification } from '
 import {
   requestCurrentPosition, CURRENT_POSITION_ERROR_KEYS, checkNearMePermission, requestNearMePermission,
 } from '../lib/currentPosition';
-import { fetchApprovedActivities, formatDistance, fetchSettlementCoords } from '../lib/activities';
+import { fetchApprovedActivities, fetchSettlementCoords } from '../lib/activities';
 import { fetchUserActivityFlags, toggleFavorite, toggleVisited, fetchAllPersonalNotes, toggleWithFeedback, hideActivityWithFeedback } from '../lib/interactions';
-import { formatBenefitCardTag } from '../lib/benefits';
-import { buildMatchReasons, selectedChildAges } from '../lib/matchReasons';
+import { selectedChildAges } from '../lib/matchReasons';
+import { buildHomeDiscoveryCandidates } from '../lib/homeDiscovery';
 import {
   shouldApplyHomeDefaults, buildCarouselFilters, resolveCommittedHomeLocation,
   buildResultsParams, resolveSmartSearchCoords,
@@ -1134,23 +1134,22 @@ export default function HomeScreen() {
   // radiusExpanded, effectiveRadiusKm} ולא מערך ישירות - `.activities` בלבד נחוץ כאן (הקרוסלה לא
   // מציגה חיווי "הורחב הרדיוס", בניגוד לעמוד-התוצאות המלא). carouselFilters (לא filters הטיוטה) -
   // ראו ההערה המלאה למעלה.
-  const recommendations = useMemo(() => (
-    rankActivitiesWithSmartRadius(recActivities, carouselFilters, deviceCoords, excludedCategories, benefitClubs, excludedCities, null, searchOriginCoords, excludedRegions)
-      .activities
-      .filter((a) => !recHiddenIds.has(a.id))
-      .slice(0, RECOMMENDATIONS_LIMIT)
-      .map((a) => ({
-        ...a,
-        distance: formatDistance(a, deviceCoords),
-        favorite: recFavoriteIds.has(a.id),
-        visited: recVisitedIds.has(a.id),
-        hasNote: recNotesByActivity.has(a.id),
-        benefitTag: formatBenefitCardTag(a.benefits, benefitClubs),
-        // "✓ למה זה מתאים" - אין מצב ספונטני בעמוד הבית (זה רק קישור אל /activities), אז תמיד
-        // buildMatchReasons; אותה פונקציה משותפת בדיוק כמו app/activities.js.
-        matchReason: buildMatchReasons(a, { childAges: childAgesForSearch }),
-      }))
-  ), [recActivities, carouselFilters, deviceCoords, excludedCategories, benefitClubs, excludedCities, excludedRegions, searchOriginCoords, recHiddenIds, recFavoriteIds, recVisitedIds, recNotesByActivity, locale, childAgesForSearch]);
+  const recommendations = useMemo(() => buildHomeDiscoveryCandidates({
+    activities: recActivities,
+    filters: carouselFilters,
+    deviceCoords,
+    excludedCategories,
+    benefitClubs,
+    excludedCities,
+    originCoords: searchOriginCoords,
+    excludedRegions,
+    hiddenIds: recHiddenIds,
+    favoriteIds: recFavoriteIds,
+    visitedIds: recVisitedIds,
+    notesByActivity: recNotesByActivity,
+    childAges: childAgesForSearch,
+    limit: RECOMMENDATIONS_LIMIT,
+  }), [recActivities, carouselFilters, deviceCoords, excludedCategories, benefitClubs, excludedCities, excludedRegions, searchOriginCoords, recHiddenIds, recFavoriteIds, recVisitedIds, recNotesByActivity, locale, childAgesForSearch]);
 
   // 4 הפעילויות הראשונות מתוך recommendations - מוזנות לכרטיסים המטושטשים (LocationPromptCard/
   // LockedPreviewCard) כש-carouselLocationKnown===false. אותו מקור-נתונים בדיוק כמו הקרוסלה הרגילה -
