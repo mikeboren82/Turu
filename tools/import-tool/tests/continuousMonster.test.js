@@ -85,3 +85,11 @@ test('discovery: a region bbox ignores a settlement carrying the wrong region la
   assert.ok(b[2] < 32.3, 'north edge stays with the region: ' + b[2]); assert.ok(b[0] > 32.0);
   assert.equal(regionBbox(pts.slice(0, 2), 'r'), null, 'fewer than 3 centroids -> no box');
 });
+
+test('discovery: a registry row is INACTIVE, below the trust bar, carries OSM provenance + verification in existing columns only', () => {
+  const { registryRow } = require('../lib/sourceDiscovery');
+  const r = registryRow({ name: 'x', website: 'https://x.example', publisher_type: 'community_center', region: 'r', categories: ['c'], osm: 'node/1', family: 'community_center', verify: { summary: 'HTTP 200, 1000 Hebrew chars' } }, 'batch-1');
+  assert.equal(r.is_active, false); assert.equal(r.is_trusted, false); assert.ok(r.source_trust_score < 70);
+  assert.ok(r.disabled_reason.includes('OSM node/1')); assert.ok(r.disabled_reason.includes('HTTP 200')); assert.equal(r.type, 'html', 'sources_type_check allows html | sitemap | other'); assert.equal(r.discovery_batch, 'batch-1');
+  assert.ok(!('notes' in r), 'public.sources has no notes column (first pilot cycle failed all 20 inserts on it)');
+});

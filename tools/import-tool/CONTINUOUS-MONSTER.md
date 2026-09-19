@@ -200,10 +200,28 @@ Approved by the owner on 2026-09-19 (see the brief): deploy the service-area pre
 - Activated 2026-09-19 20:42 local, exactly as audited: `schtasks /Create /TN "TuRu Monster" /SC MINUTE /MO 60 /TR "cmd.exe /c C:\Users\mbore\turu-continuous-monster\tools\import-tool\monster.cmd" /F` (runs as user mbore, repeat every 1 h, first run 21:42). On the same activation: `schtasks /Change /TN "TuRu Cleaner pilot" /DISABLE` → verified `Disabled`. Only one Cleaner scheduling path remains (the Monster's hourly `cleaner.js --max=40`).
 
 ## D. observed pilot cycles
-__CYCLES__
+**Scheduler note (found during observation).** The first scheduled run (21:42) did not fire: the laptop was on battery and a task created by `schtasks` defaults to "do not start on batteries" (the legacy Cleaner pilot task had the same silent gap). Fixed on the same task with `Set-ScheduledTask` (AllowStartIfOnBatteries, DontStopIfGoingOnBatteries, StartWhenAvailable, MultipleInstances=IgnoreNew, execution limit 3 h); command, cadence and user unchanged. Cycle 1 was then started through the scheduler (`schtasks /Run`, 21:49:53); cycle 2 is the first fully natural run (22:42).
+
+| | Cycle 1 (scheduler-started) | Cycle 2 (natural) |
+|---|---|---|
+| Start / end (local) | 21:49:54 → 22:35:57 (46 min) | 22:42:02 → 22:42:05 (3 s) |
+| Jobs selected | relay, cleaner, coverage, discovery, cadence (dry), reprobe (report) — all 6 due on a first run | none due (relay 6 h, Cleaner 1 h, weekly/monthly jobs) → heartbeat only |
+| Relay job (13 min) | 6 sources, 14 page scans, 14 success / 0 failed, 30 pages, 18 AI calls, 52 new candidates, 23 updates, 22 auto-published, 0 outside service area, 5 zero-yield scans | — |
+| Durable pg_cron scans in the same window | 16 scans / 16 sources: 10 ok, 6 failed (fast fetch errors), 21 AI calls, 44 new, 2 duplicates avoided in-scan, 0 outside | 0 |
+| Cleaner job (7.4 min) | 1 run: 40 inspected, 9 resolved (5 coords, 5 addresses, 2 regions, 1 image, 1 venue link), 2 archived (expired before resolution), 4 policy holds, 0 write_denied, 0 errors, 0 reopened; 173 new cases discovered (the relay's fresh candidates) | — |
+| Review rows created in window | 130 (22 approved, 60 new, 22 needs_review, 26 duplicate) | 0 |
+| Coverage job | 8 s → `coverage-report-2026-09-19.json` | — |
+| Discovery job (23 min) | 63 Overpass queries / 9 regions, 394 elements, 10 outside service area (dropped), 49 ambiguous (kept, flagged), 192 known hosts, 26 scrapable → 20 selected; **0 registered: every insert failed** (`notes` is not a column of `sources`, then `sources_type_check` rejected `type=generic_html`). Both fixed in `lib/sourceDiscovery.js` (verification lives in `disabled_reason`, `type=html`), locked by a test; the same 20 verified candidates were then registered INACTIVE from the saved report (`register-discovery-candidates.js`, no new queries) | — |
+| Cadence job | dry run only: plan written, 0 frequencies changed | — |
+| Re-probe job (2 min) | 30 probed, report only, 0 applied (adds e.g. עיריית עפולה as reachable) | — |
+| write_denied | 0 | 0 |
+| Overlap | none (lock taken 21:49:54, released 22:35:57; the 22:42 run found no lock) | none |
+| Task result | 0 | 0 |
+
+**Actual scan volume** (E): 98 scans in the 24 h ending 22:36 (84 pg_cron + 14 relay), 174 AI calls — higher than the 28/day seen the day before because the 72 h wave of sources last scanned on 09-16 evening came due (20 + 30 + 16 scans in the 17:00–19:59 UTC ticks). Frequencies unchanged (expected long-run average 38 scans/day + relay); the cadence plan was not applied. Relay strategy rows are unchanged by the pilot (14 rows: 10 active + 4 inactive, all last updated ≤ 09-17).
 
 ## E. cadence
-The 60 scans/day plan was NOT applied; `sources.scan_frequency_hours` unchanged (expected 38.1 scans/day; the scheduled cadence job only writes `source-cadence-<date>-dryrun.json`). Actual pilot volume: see D and the heartbeat.
+The 60 scans/day plan was NOT applied (the cycle's cadence job ran as a dry run and changed nothing); `sources.scan_frequency_hours` unchanged (expected 38.1 scans/day; the scheduled cadence job only writes `source-cadence-<date>-dryrun.json`). Actual pilot volume: see D and the heartbeat.
 
 ## F. re-probe — 9 proposals NOT applied (kept as proposals in `reprobe-sources-2026-09-19.json`)
 | Source | Why paused | Local probe | History (all scans / ok / new+updated / auto-approved / last ok) | Reachability vs ingestibility |
@@ -231,7 +249,7 @@ Blocked (`outside_service_area`) since deploy: see D (0 in the verification scan
 Pilot host = the admin laptop (user mbore, Windows Task Scheduler), explicitly PILOT INFRASTRUCTURE: no cycle runs while the laptop is off, asleep or the user is logged out; the durable tier (pg_cron scanning + expiry) is unaffected by that. Telemetry to collect for the host recommendation: per-cycle runtime, relay share, Cleaner throughput, missed cycles (gaps in `monster_state.lastCycle`).
 
 ## J. git
-Phase D changes committed locally on `continuous-monster` (see the commit list below); nothing pushed; MAIN untouched (its uncommitted UI work unchanged).
+Phase D commits on `continuous-monster`: `b4ba4c7` (activation, cohort, cadence job dry-run) + the follow-up commit (cycle reporter, discovery registry fix, first-cycle metrics `monster-cycle-2026-09-19-first.json`); nothing pushed; MAIN untouched (its uncommitted UI work unchanged). Durable pilot data for later sessions: `logs/monster.log`, `automation_settings.monster_state`, `monster-status.json`, `node monster-cycle-report.js [--since]` → `logs/monster-cycle-<ts>.json`.
 
 ## K. remaining approvals
 1. Cadence plan (38 → 60 scans/day, ≈ +55 % AI calls) — pending telemetry.

@@ -43,8 +43,9 @@ function regionBbox(settlements, region, pad = 0.05) {
   const lats = pts.map((s) => s.lat), lngs = pts.map((s) => s.lng);
   return [pct(lats, 0.05) - pad, pct(lngs, 0.05) - pad, pct(lats, 0.95) + pad, pct(lngs, 0.95) + pad];
 }
-// registry row for an INACTIVE candidate (a person activates it in the admin) - trust below the auto-approve bar
+// registry row for an INACTIVE candidate (a person activates it in the admin) - trust below the auto-approve bar.
+// Only columns that exist on public.sources (there is no notes column - the verification summary lives in disabled_reason)
 function registryRow(c, batch) {
-  return { name: c.name, seed_url: c.website, type: 'generic_html', source_kind: 'website', publisher_type: c.publisher_type, publisher_name: c.name, region: c.region || null, categories: c.categories, scan_frequency_hours: 168, priority: 3, source_trust_score: 50, is_trusted: false, is_active: false, strategy: 'generic_html', health_status: 'healthy', disabled_reason: `discovery_candidate: OSM ${c.osm} (${c.family}) - activate after review`, discovery_batch: batch, notes: `discovered by discover-sources-osm.js from OpenStreetMap ${c.osm}; verification: ${c.verify ? c.verify.summary : 'n/a'}` };
+  return { name: c.name, seed_url: c.website, type: 'html', source_kind: 'website', publisher_type: c.publisher_type, publisher_name: c.name, region: c.region || null, categories: c.categories, scan_frequency_hours: 168, priority: 3, source_trust_score: 50, is_trusted: false, is_active: false, strategy: 'generic_html', health_status: 'healthy', disabled_reason: `discovery_candidate: OSM ${c.osm} (${c.family}) - activate after review | verification: ${c.verify ? c.verify.summary : 'n/a'}`, discovery_batch: batch };
 }
 module.exports = { TAG_QUERIES, overpassQuery, candidateFromElement, dedupeCandidates, regionBbox, registryRow, hostOf };
