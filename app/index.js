@@ -1,17 +1,19 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
-import { View, Text, ScrollView, Pressable, TextInput, ActivityIndicator, Image, Platform, Linking, Modal, useWindowDimensions, Animated, Easing } from 'react-native';
+import { View, Text, ScrollView, Pressable, TextInput, ActivityIndicator, Image, Platform, Linking, Modal, useWindowDimensions, Animated } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
 import * as Location from 'expo-location';
-import Svg, { Circle, Polygon, Polyline, Line, Path, G, Defs, Text as SvgText, TextPath } from 'react-native-svg';
+import Svg, { Circle, Polyline, Line } from 'react-native-svg';
 import Header from '../components/Header';
 import SkyBackground from '../components/SkyBackground';
 import LoginRequiredModal from '../components/LoginRequiredModal';
 import QuickPicker from '../components/QuickPicker';
 import LocationQuickPicker, { locationSummary } from '../components/LocationQuickPicker';
 import ActivityCard from '../components/ActivityCard';
-import { ChevronLeftIcon, LocationPinIcon } from '../components/icons';
+import { ChevronLeftIcon } from '../components/icons';
+import HomeHero from '../components/HomeHero';
+import { LocationPromptCard, LockedPreviewCard } from '../components/LockedPreviewCard';
+import GrassFooter from '../components/GrassFooter';
 import {
   CATEGORY_FILTER_OPTIONS, DEFAULT_FILTERS, FILTER_SCHEMA,
   PRICE_OPTIONS, PLACE_TYPE_OPTIONS, BOOKING_OPTIONS, DURATION_OPTIONS, AMENITY_COMFORT_OPTIONS,
@@ -24,7 +26,6 @@ import { childrenToDefaultAgeFilter, formatChildAge } from '../lib/children';
 import { parseSmartSearchQuery, intentToFilters, needsAreaClarification } from '../lib/smartSearch';
 import { requestCurrentPosition, CURRENT_POSITION_ERROR_KEYS } from '../lib/currentPosition';
 import { fetchApprovedActivities, formatDistance, fetchSettlementCoords } from '../lib/activities';
-import { placeholderImageFor, PLACEHOLDER_IMAGES } from '../lib/placeholderImages';
 import { fetchUserActivityFlags, toggleFavorite, toggleVisited, fetchAllPersonalNotes, toggleWithFeedback, hideActivityWithFeedback } from '../lib/interactions';
 import { formatBenefitCardTag } from '../lib/benefits';
 import { buildMatchReasons, selectedChildAges } from '../lib/matchReasons';
@@ -59,12 +60,6 @@ const DISCOVERY_TILES = [
   { id: 'crafts', emoji: '🎨', category: 'יצירה' }, // i18n-ignore
 ];
 
-// תמונות-fallback לכרטיסי ה"נעול" כש-carouselLocationKnown===false, כשלפעילות עצמה אין imageUrl/
-// placeholderGroup תואם (או שהפעילות עדיין לא נטענה) - אותן 4 תמונות JPG אמיתיות שכבר קיימות
-// בפרויקט (lib/placeholderImages.js, assets/placeholders/) ומשמשות בכל האפליקציה ל"אין תמונה",
-// לא asset חדש. מסתובבות לפי אינדקס כדי שהקרוסלה לא תיראה כמו אותה תמונה 4 פעמים.
-const PREVIEW_FALLBACK_IMAGES = Object.values(PLACEHOLDER_IMAGES);
-
 // שורת שלד-כרטיס בזמן טעינת ההמלצות - בלי טקסט "טוען...", רק מלבנים אפורים בגובה/רוחב של
 // ActivityCard אמיתי כדי שהקרוסלה לא "קופצת" כשהנתונים מגיעים.
 function SkeletonCard() {
@@ -90,9 +85,6 @@ const RECENT_SEARCHES_MAX = 5;
 // בכלל - יש לו כבר default_home_filters אמיתי ב-DB (saveDefaultHomeFilters), שני מקורות-אמת
 // יריבים לאותו דבר היו רק מבלבלים.
 const GUEST_HOME_LOCATION_KEY = 'turu_guest_home_location';
-
-// יחס הרוחב/גובה של איור הדשא (assets/grass-footer.png).
-const GRASS_ASPECT_RATIO = 939 / 148;
 
 // לכל מפתח פילטר "ניתן-להוספה" (מה שהמשתמש הפעיל בעמוד האישי, ראו app/profile.js) - איך
 // לתקצר את הערך הנוכחי שלו לטקסט קצר בקישור העדין במסך הראשי.
@@ -149,130 +141,6 @@ function SearchIcon({ size = 18, color = colors.textMuted }) {
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
       <Circle cx="11" cy="11" r="7" />
       <Line x1="21" y1="21" x2="16.65" y2="16.65" />
-    </Svg>
-  );
-}
-
-// --- 📍 NearMeRadar (2026-09-19/20, בקשת המשתמש: "TURU ORBIT / DISCOVERY BUTTON", לא מכשיר-
-// רדאר) - סבב-עידון שני אחרי משוב: "נראה כמו מכשיר-רדאר/מטרה, המרכז הכהה שולט מדי, הטבעות
-// הדקות מרגישות טכניות, הטקסט קטן/מנותק, 'לחצו לגלות' מיותר, הסימונים נראים כמו מד/שמש, אייקון-
-// המיקום קטן מדי". גיאומטריה קבועה (לא magic numbers ב-JSX): דיסקית מרכזית (RADAR_R_CIRCLE,
-// קוטר 76px - בתוך הטווח 72-84 מהבקשה, קטן מהגרסה הקודמת), הילה-אור רכה מסביבה (RADAR_R_HALO -
-// לא עוד טבעת-קו, ממלאת ומקשרת בעדינות בין הדיסקית לאורביט), ושתי "שכבות-אורביט" משמעותיות
-// בלבד (לא כמה טבעות-רדאר זהות): הפנימית קצת יותר נוכחת, החיצונית עדינה מאוד - קוטר-אורביט
-// מלא 116px (בתוך 110-125 מהבקשה). בלי סימוני-טיק בכלל (הוסרו לגמרי - נראו כמו מד/שמש). 2-3
-// "נקודות-גילוי" זעירות באורביט, בזוויות/רדיוסים לא-סימטריים בכוונה (לא רשת מכנית - "playful
-// asymmetry" מהלוגו). קשת-הטקסט ("מה קורה סביבי?", TextPath אמיתי) גדולה וקרובה יותר לאורביט -
-// חלק מהאובייקט, לא כיתוב צף. הצבע: colors.accent הקיים בלבד - אותו טוקן שכבר מייצג את הכחול-
-// טורקיז של האות ת' הראשונה בלוגו (אומת מול פיקסלי הלוגו בפועל, לא ניחוש/הערכה) - לא צבע כהה
-// גנרי, לא גרדיאנט אקראי.
-const RADAR_CX = 90;
-const RADAR_CY = 90;
-const RADAR_R_CIRCLE = 38; // קוטר 76px
-const RADAR_R_HALO = 47; // הילה רכה (fill, לא stroke) - "קשר חזק יותר בין המרכז לאורביט"
-const RADAR_R_ORBIT_INNER = 51;
-const RADAR_R_ORBIT_OUTER = 58; // קוטר-אורביט מלא 116px
-const RADAR_R_TEXT = 73;
-const RADAR_TEXT_HALF_ANGLE = 58; // קשת רחבה (116°) - אותיות גדולות בלי להידחס
-const radarPoint = (r, angleDeg) => {
-  const rad = (angleDeg * Math.PI) / 180;
-  return { x: RADAR_CX + r * Math.cos(rad), y: RADAR_CY - r * Math.sin(rad) };
-};
-// קשת הטקסט - מ-(180-(90-חצי-זווית))° (שמאל) ל-(90-חצי-זווית)° (ימין), עוברת דרך 90° (למעלה,
-// האפקס) - "0 1" (large-arc=0, sweep=1) מצייר את הקשת הקצרה שמתקפלת כלפי מעלה.
-const radarTextArcStart = radarPoint(RADAR_R_TEXT, 180 - (90 - RADAR_TEXT_HALF_ANGLE));
-const radarTextArcEnd = radarPoint(RADAR_R_TEXT, 90 - RADAR_TEXT_HALF_ANGLE);
-const RADAR_TEXT_ARC_PATH = `M ${radarTextArcStart.x} ${radarTextArcStart.y} A ${RADAR_R_TEXT} ${RADAR_R_TEXT} 0 0 1 ${radarTextArcEnd.x} ${radarTextArcEnd.y}`;
-// "נקודות-גילוי" - 3 בלבד, זוויות ורדיוסים לא-אחידים בכוונה (לא רשת-מכשיר), בחצי-הכדור התחתון/
-// צדדים כדי לא להתנגש עם קשת-הטקסט שמעל (שמתחילה סביב 148°/32°).
-const RADAR_DOTS = [
-  { angle: 20, r: RADAR_R_ORBIT_OUTER + 3 },
-  { angle: 152, r: RADAR_R_ORBIT_OUTER - 5 },
-  { angle: 255, r: RADAR_R_ORBIT_OUTER + 1 },
-];
-// שינוי-פרמטר יחיד בכוונה (RADAR_SVG_W בלבד), לא recompute של כל רדיוס-פנימי בנפרד: viewBox
-// נשאר "0 0 180 <גובה>" בדיוק כמו תמיד, אז שינוי ה-width בלבד מגדיל/מקטין את כל התוכן הפנימי
-// (דיסקית/הילה/טבעות/נקודות/פין) פרופורציונלית ובאופן אחיד, בלי לגעת באף קבוע-רדיוס/זווית
-// בנפרד - מבטל כליל סיכון ל"קליפינג" או הזזת-נקודות שהיה נובע מהגדלת/הקטנת-רדיוסים ידנית.
-// 158 (היה 170) - בקשת המשתמש: "תקטין מעט את הכפתור המרכזי... שמור על אותן פרופורציות" - פרמטר
-// יחיד (ראו ההערה למעלה) אז כל הגיאומטריה הפנימית (דיסקית/הילה/טבעות/נקודות) מתכווצת פרופורציונלית
-// יחד, בלי שינוי ביחסים הפנימיים. קוטר-האורביט החיצוני בפועל = 158*(134/180) ≈ 117.6px.
-const RADAR_SVG_W = 158;
-const RADAR_SVG_H = 160;
-// גובה-קנבס קומפקטי (2026-09-20, בקשת המשתמש: הרדאר עצמו הוא הגיבור המרכזי בשורת-הירו החדשה,
-// בלי קשת-הטקסט "מה קורה סביבי?" סביבו - שלוש התוויות הסמוכות (חיפוש חופשי/בחירה מהירה + כיתוב-
-// מרחק מתחת) כבר מספרות את הסיפור). מרכז אנכי חדש (RADAR_COMPACT_CY) ממורכז סביב האורביט בלבד,
-// בלי לגעת בקבועי-הגיאומטריה המקוריים (RADAR_CX/CY וכו') - כל התוכן הלא-טקסטואלי עובר ב-<G
-// transform> אחד בזמן-רינדור, לא סט-קבועים כפול.
-const RADAR_COMPACT_CY = RADAR_R_ORBIT_OUTER + 6;
-const RADAR_COMPACT_H = RADAR_COMPACT_CY * 2;
-const AnimatedCircle = Animated.createAnimatedComponent(Circle);
-
-// pulse עדין-אחד-בכל-פעם (לא הבזק/סיבוב) בזמן איתור GPS - טבעת-אורביט "נושמת" החוצה ומתפוגגת,
-// לופ איטי (1.7s) כל עוד loading===true; מפסיק/מתאפס לגמרי כש-loading הופך false (לא ממשיך
-// "לרפרף" ברקע). useNativeDriver:false כי מונפשים r/opacity של צורת-SVG (לא transform/opacity
-// של View רגיל - הדרייבר הנייטיבי לא תומך ב-r).
-// showLabel (2026-09-20, בקשת המשתמש: "TURU home reference mockup") - false בשורת-הירו החדשה:
-// מדלג על ה-Defs/Path/TextPath של קשת-הטקסט לגמרי (לא רק מסתיר ב-opacity:0 - חוסך גם את
-// ה-canvas הגבוה יותר שהיא דרשה), ומרכז את שאר התוכן (טבעות/נקודות/הילה/דיסקית/פין) אנכית
-// מחדש דרך <G transform> יחיד סביב RADAR_COMPACT_CY. אין שינוי בקבועי-הגיאומטריה המשותפים
-// עצמם - showLabel רק בוחר איזה cy/canvas-height להשתמש בהם.
-function NearMeRadar({ loading, color, showLabel = true }) {
-  const pulse = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    if (!loading) { pulse.setValue(0); return undefined; }
-    const loop = Animated.loop(
-      Animated.timing(pulse, { toValue: 1, duration: 1700, easing: Easing.out(Easing.ease), useNativeDriver: false })
-    );
-    loop.start();
-    return () => { loop.stop(); pulse.setValue(0); };
-  }, [loading, pulse]);
-  const pulseRadius = pulse.interpolate({ inputRange: [0, 1], outputRange: [RADAR_R_ORBIT_OUTER, RADAR_R_ORBIT_OUTER + 16] });
-  const pulseOpacity = pulse.interpolate({ inputRange: [0, 1], outputRange: [0.4, 0] });
-  const svgHeight = showLabel ? RADAR_SVG_H : RADAR_SVG_W * (RADAR_COMPACT_H / 180);
-  const recenter = showLabel ? undefined : `translate(0, ${RADAR_COMPACT_CY - RADAR_CY})`;
-
-  const dial = (
-    <G transform={recenter}>
-      {loading ? <AnimatedCircle cx={RADAR_CX} cy={RADAR_CY} r={pulseRadius} fill="none" stroke={color} strokeWidth={1.5} opacity={pulseOpacity} /> : null}
-      <Circle cx={RADAR_CX} cy={RADAR_CY} r={RADAR_R_ORBIT_OUTER} fill="none" stroke={color} strokeWidth={1.3} opacity={0.18} />
-      <Circle cx={RADAR_CX} cy={RADAR_CY} r={RADAR_R_ORBIT_INNER} fill="none" stroke={color} strokeWidth={2} opacity={0.32} />
-      {RADAR_DOTS.map((dot, i) => {
-        const p = radarPoint(dot.r, dot.angle);
-        return <Circle key={i} cx={p.x} cy={p.y} r={2.6} fill={color} opacity={0.55} />;
-      })}
-      <Circle cx={RADAR_CX} cy={RADAR_CY} r={RADAR_R_HALO} fill={color} opacity={0.13} />
-      <Circle cx={RADAR_CX} cy={RADAR_CY} r={RADAR_R_CIRCLE} fill={color} />
-      {/* אותו LocationPinIcon בדיוק כמו בכל שאר האפליקציה (למשל LocationQuickPicker) - לא צורת-פין
-          חדשה מצוירת ידנית, רק גדול יותר (32, היה 24 - "too small relative to the disc"). נשאר
-          מוצג גם בזמן טעינה (סעיף 10 בבקשה: "animate the ORBIT rather than replacing the
-          component" - לא מוחלף ב-spinner, ה-pulse מסביב הוא סימון-הטעינה היחיד). */}
-      <G transform={`translate(${RADAR_CX - 16}, ${RADAR_CY - 16})`}>
-        <LocationPinIcon size={32} color="#ffffff" />
-      </G>
-    </G>
-  );
-
-  return (
-    // דקורטיבי-בלבד: הכפתור המכיל (Pressable) כבר accessibilityLabel אחד ל-screen reader - הטקסט/
-    // נקודות/טבעות כאן לא אמורים להיחשף כאלמנטים נפרדים משלהם. importantForAccessibility/
-    // accessibilityElementsHidden חייבים לשבת על ה-View העוטף (nearMeRadarWrap, ב-JSX החיצוני) -
-    // לא כאן על <Svg> עצמו: ב-react-native-web הם props לא-מוכרים שדולפים ל-DOM כ-attributes
-    // לא-חוקיים (console warnings) על <svg> גולמי, בניגוד ל-View אמיתי שכן יודע לפרש אותם.
-    <Svg width={RADAR_SVG_W} height={svgHeight} viewBox={`0 0 180 ${showLabel ? 170 : RADAR_COMPACT_H}`} pointerEvents="none">
-      {showLabel ? (
-        <>
-          <Defs>
-            <Path id="nearMeRadarTextPath" d={RADAR_TEXT_ARC_PATH} fill="none" />
-          </Defs>
-          {dial}
-          <SvgText fill={color} fontSize={16} fontFamily={fonts.semiBold} textAnchor="middle">
-            <TextPath href="#nearMeRadarTextPath" startOffset="50%">
-              {t('home.nearMe.radarLabel')}
-            </TextPath>
-          </SvgText>
-        </>
-      ) : dial}
     </Svg>
   );
 }
@@ -405,145 +273,6 @@ function PersonalPicker({ kids, selectedChildIds, onToggleChild, bare }) {
         })}
       </View>
       <Text style={styles.personalHint}>{t('home.personal.hint')}</Text>
-    </View>
-  );
-}
-
-// בוחר תמונה אמיתית עבור כרטיס מטושטש - אותה היררכיה בדיוק כמו ActivityCard.js (imageUrl →
-// placeholderImageFor(placeholderGroup)), עם תמונת-branding אמיתית כ-fallback אחרון (במקום
-// gradient מצויר) - כדי שתמיד יהיה <Image> אמיתי להפעיל עליו blurRadius, גם לפני
-// שהפעילויות האמיתיות נטענות (recActivities עדיין ב-recLoading) - אין רגע של skeleton.
-function sourceForLockedCard(activity, index) {
-  if (activity?.imageUrl) return { uri: activity.imageUrl };
-  const ph = activity?.placeholderGroup ? placeholderImageFor(activity.placeholderGroup) : null;
-  if (ph) return ph;
-  return PREVIEW_FALLBACK_IMAGES[index % PREVIEW_FALLBACK_IMAGES.length];
-}
-
-// עוצמת הטשטוש - blurRadius, פרופ' מובנה של RN Image (לא simulation/צורות מצוירות). נבדק ואומת
-// גם ב-Expo Web: react-native-web מיישם blurRadius כ-CSS filter:blur() אמיתי על אלמנט ה-DOM שבו
-// הוא בפועל מצייר את התמונה (getComputedStyle על אותו אלמנט מחזיר בפועל "blur(5px)" כש-5 - יחס
-// 1:1) - לא על ה-<img> הנגיש-בלבד/מוסתר ש-RN Web גם מרנדר בנפרד (ל-onLoad/accessibility), שם
-// ה-filter תמיד 'none' וזה תקין - שווה לזכור כשבודקים בדפדפן, כדי לא להסיק בטעות ש-blurRadius "לא
-// עובד" מבדיקה על האלמנט הלא-נכון. כלומר blurRadius לבדו מספיק בכל הפלטפורמות, בלי workaround
-// נוסף. הורד מ-6 ל-5 (2026-09-16, בקשת המשתמש: "עוד טיפה פחות מטושטש") - עדיין digestible-בלבד
-// (אין תוכן קריא בכוונה), רק מעט פחות אגרסיבי.
-const BLUR_RADIUS = 5;
-
-// תמונת הכרטיס המטושטש - <Image> אמיתי עם blurRadius אמיתי (ראו הערה מעל). resizeMode="cover"
-// ממלא את הפריים לגמרי (לא contain+letterbox כמו ב-ActivityCard הרגיל - כאן ממילא הכל מטושטש,
-// אין צורך לשמר את הדמות המלאה של איור ה-placeholder). veil לבן-עדין מעל (לא "שוטף" את התמונה -
-// עדיין רואים גוונים/צורות מבעד לו).
-function LockedCardImage({ activity, index, icon }) {
-  return (
-    <View style={styles.lockedCardImageWrap}>
-      <Image
-        source={sourceForLockedCard(activity, index)}
-        resizeMode="cover"
-        blurRadius={BLUR_RADIUS}
-        style={styles.lockedCardImagePhoto}
-      />
-      <View pointerEvents="none" style={styles.lockedCardVeil} />
-      {icon ? (
-        <View pointerEvents="none" style={styles.lockedCardImageIconBadge}>
-          <View style={styles.lockedCardIconCircle}>
-            <Text style={styles.lockedCardLockIconReal}>{icon}</Text>
-          </View>
-        </View>
-      ) : null}
-    </View>
-  );
-}
-
-// "גוף" הכרטיס המטושטש - קווים מנוקדים ("••••") לא פסי-skeleton מלאים: נקרא כ"מידע מוסתר
-// בכוונה" (redacted), לא כ"טוען" - בלי shimmer/אנימציה, בלי טקסט/מיקום אמיתי של הפעילות.
-function LockedCardBody() {
-  return (
-    <View style={styles.lockedCardBody}>
-      <Text style={styles.lockedCardRedactedTitle} numberOfLines={1}>{'••••••• ••••'}</Text>
-      <Text style={styles.lockedCardRedactedMeta} numberOfLines={1}>{'•••• ••'}</Text>
-    </View>
-  );
-}
-
-// כרטיס-פעילות מטושטש: תמונה אמיתית (activity.imageUrl/placeholderGroup מ-recommendations, אותו
-// מקור בדיוק שמזין את הקרוסלה הרגילה כש-carouselLocationKnown===true - ראו recommendations useMemo למעלה,
-// ובלי fetch חדש) עם blurRadius אמיתי של React Native Image, לא ציור/simulation. תוכן הכרטיס
-// (כותרת/עיר) לעולם לא נחשף - הגוף מציג רק placeholder מנוקד (LockedCardBody).
-function BlurredActivityCard({ activity, index, icon, overlay }) {
-  return (
-    <View style={styles.lockedCardOuter}>
-      <LockedCardImage activity={activity} index={index} icon={overlay ? null : icon} />
-      <LockedCardBody />
-      {overlay}
-    </View>
-  );
-}
-
-// כרטיס 1 בקרוסלה כש-carouselLocationKnown===false: אותו BlurredActivityCard בדיוק כמו כרטיסים 2+ (תמונה
-// אמיתית+blurRadius מאחורי הכל), עם overlay קריא וחד (לא מטושטש) עליו - לא prompt נפרד מעל
-// הקרוסלה. שתי הפעולות פותחות את אותו LocationQuickPicker/GPS בדיוק כמו "איפה נח לכם?"
-// (openLocationPicker/setWhereQuickOpen - מקור-אמת יחיד, לא flow-geolocation נפרד וגם לא modal
-// חדש).
-function LocationPromptCard({ onPress, activity }) {
-  const { t } = useI18n();
-  return (
-    <BlurredActivityCard
-      index={0}
-      activity={activity}
-      overlay={
-        <View pointerEvents="box-none" style={styles.lockedCardOverlayWrap}>
-          <View style={styles.lockedCardOverlay}>
-            <Text style={styles.lockedCardOverlayIcon}>📍</Text>
-            <Text style={styles.lockedCardOverlayTitle}>{t('home.locked.title')}</Text>
-            <Text style={styles.lockedCardOverlaySubtitle}>{t('home.locked.subtitle')}</Text>
-            <Pressable style={styles.lockedCardOverlayBtn} onPress={onPress}>
-              <Text style={styles.lockedCardOverlayBtnText}>{t('home.locked.useMyLocation')}</Text>
-            </Pressable>
-            <Pressable onPress={onPress} hitSlop={8}>
-              <Text style={styles.lockedCardOverlaySecondary}>{t('home.locked.chooseCity')}</Text>
-            </Pressable>
-          </View>
-        </View>
-      }
-    />
-  );
-}
-
-// כרטיסים 2+ - אותו BlurredActivityCard כמו כרטיס 1, בלי overlay-טופס (רק 🔒 עדין על התמונה) - לא
-// חוזרים על הפרומפט/הכפתורים, כל הכרטיס לחיץ ופותח את אותו picker.
-function LockedPreviewCard({ index, onPress, activity }) {
-  const { t } = useI18n();
-  return (
-    <Pressable
-      style={({ pressed }) => [pressed && styles.itemPressed]}
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={t('home.locked.previewA11y')}
-    >
-      <BlurredActivityCard index={index} activity={activity} icon="🔒" />
-    </Pressable>
-  );
-}
-
-// רוחב/גובה מחושבים במספרים מוחלטים (לא aspectRatio על ה-View + '100%' על ה-Image) - השילוב
-// הזה ידוע כבעייתי ב-Yoga על אנדרואיד (נצפה בפועל: התמונה נחתכה/הוצגה רק בחלק מהרוחב על מכשיר
-// אמיתי, למרות שברשת זה עבד מושלם) - width/height מפורשים בפיקסלים על שני האלמנטים עוקפים את
-// זה לגמרי, בלי תלות בחישוב פנימי של aspectRatio+percent.
-function GrassFooter({ width }) {
-  const height = width / GRASS_ASPECT_RATIO;
-  return (
-    <View style={[styles.grassFooter, { width, height }]} pointerEvents="none">
-      <Image
-        source={require('../assets/grass-footer.png')}
-        style={{ width, height }}
-        resizeMode="stretch"
-      />
-      <LinearGradient
-        colors={[colors.bg, colors.bg, 'transparent']}
-        locations={[0, 0.05, 0.42]}
-        style={[styles.grassFooterFade, { width, height }]}
-      />
     </View>
   );
 }
@@ -1579,164 +1308,27 @@ export default function HomeScreen() {
       >
         <Header onMenuPress={() => {}} />
 
-        {/* 🧭 "לאן קופצים היום?" - כותרת-העל של כל מודול החיפוש, מחוץ לכרטיס עצמו. סדר-הילדים
-            (2026-09-20, סבב-עידון רביעי, בקשת המשתמש: "האימוג'י שלו צריך להיות בתחילת המשפט") -
-            אייקון קודם, טקסט אחריו ב-JSX: ש-d.row (row-reverse בעברית) ממקם את הילד-הראשון
-            (האייקון) בקצה הפיזי-הימני, שהוא תחילת סדר-הקריאה בעברית - "בתחילת המשפט" כפשוטו
-            (זה חזרה למבנה שהיה לפני סבב-עידון קודם, שהניח בטעות שה-mockup רצה את הסדר ההפוך).
-            justifyContent:'center' (חדש) על searchModuleTitleRow עצמו - "צריך להיות בדיוק
-            באמצע": בלי זה הזוג אייקון+טקסט היה נדחף לקצה-ה-flex-start של השורה (רוחב-מלא, ראו
-            searchModuleHeaderWrap - View עמודה רגיל, הילד שלו נמתח לרוחב מלא כברירת-מחדל), לא
-            ממורכז ביחס לתוכן שמתחתיו. בלי תת-כותרת (בקשת המשתמש הישנה: הוסרו שלוש תתי-הכותרות
-            בעמוד הבית) - עטיפה חיצונית (searchModuleHeaderWrap) עדיין נושאת את המרווח מעל/מתחת
-            לשורה עצמה. */}
-        <View style={styles.searchModuleHeaderWrap}>
-          <View style={styles.searchModuleTitleRow}>
-            <Text style={styles.searchModuleTitle}>{t('home.search.title')}</Text>
-          </View>
-          {/* קו-מבטא כתום קטן (2026-09-20, "typography and section-heading refinement" - בקשת
-              המשתמש: "add a very small decorative accent line underneath... NOT a full underline...
-              use the existing TURU orange/golden accent color from the logo"). #FF9101 נדגם בפועל
-              מפיקסלי-הקישוטים הכתומים בתוך assets/turu-logo.png עצמו (rgb(255,145,1), לא ניחוש) -
-              אין טוקן-כתום קיים ב-theme.js שמייצג את זה (coral/coralStrong משמשים כבר למפה/מועדפים,
-              גוון שונה). alignSelf:'center' - עמודת-האב (searchModuleHeaderWrap) לא ממרכזת ילדים
-              כברירת-מחדל. */}
-          <View style={styles.heroTitleAccent} />
-        </View>
-
-        {/* שורת-הירו התלת-חלקית (2026-09-20, "TURU home reference mockup" - מחליפה לגמרי את
-            nearMeStandaloneAction+searchModeRow הנפרדים הקודמים ב-structure אחד: חיפוש חופשי |
-            רדאר+כיתוב-מרחק | בחירה מהירה). ראו heroRow בסטיילים למעלה להסבר המלא על טכניקת
-            שתי-העמודות-הצדדיות-שוות-flex שמבטיחה מירכוז גיאומטרי אמיתי של הרדאר (סעיף 11 בבקשה),
-            ועל heroSideCol/heroSideAction ל"secondary actions orbiting the central radar" (סעיף
-            4, "INTENTIONAL DEVIATION #1" - קטנות/משניות בכוונה, לא pill/card מתחרה). כל לוגיקת-
-            ה-GPS/הרשאה/שגיאה (handleNearMePress/nearMePressIn/Out/nearMeLoading/nearMeError,
-            goNearMe/confirmNearMePermission למעלה) בשימוש-חוזר מלא בלי שום שינוי - רק ה-JSX/
-            עיצוב-סביב זזו. switchSearchMode (למעלה) גם בשימוש-חוזר מלא - עכשיו נקרא משתי הפעולות
-            הצדדיות במקום מ-searchModeRow הישן שהוסר. */}
-        <View style={styles.heroRow}>
-          <View style={styles.heroSideCol}>
-            <Pressable
-              style={({ pressed }) => [
-                styles.heroSideAction,
-                // דהייה (עודכן 2026-09-20, "change the DEFAULT BEHAVIOR" - בקשת המשתמש: "בחירה
-                // מהירה וחיפוש חופשי צריכים להיות שניהם דהויים בהתחלה אם הם לא נבחרו, רק מי
-                // שנבחר נראה רגיל") - היה מותנה ב-searchMode truthy (כך ששניהם נשארו מלאים
-                // במצב-ברירת-המחדל הישן); עכשיו דהוי בכל מצב שהוא *לא* הפעיל, כולל null.
-                searchMode !== 'free' && styles.heroSideActionFaded,
-                pressed && styles.heroSideActionPressed,
-              ]}
-              onPress={() => switchSearchMode('free')}
-              hitSlop={8}
-              accessibilityRole="radio"
-              accessibilityState={{ checked: searchMode === 'free' }}
-              accessibilityLabel={t('home.search.modeFree')}
-            >
-              <View style={[styles.heroSideActionIconWrap, heroCompact && styles.heroSideActionIconWrapCompact, searchMode === 'free' && styles.heroSideActionIconWrapActive]}>
-                <Image
-                  source={require('../assets/magnifier.png')}
-                  style={[styles.heroSideActionIconImage, heroCompact && styles.heroSideActionIconImageCompact]}
-                  resizeMode="contain"
-                />
-              </View>
-              <Text style={[styles.heroSideActionText, heroCompact && styles.heroSideActionTextCompact, searchMode === 'free' && styles.heroSideActionTextActive]} numberOfLines={1}>
-                {t('home.search.modeFree')}
-              </Text>
-              {searchMode === 'free' ? <View style={styles.heroSideActionActiveDot} /> : null}
-            </Pressable>
-          </View>
-
-          <View style={styles.heroCenterCol}>
-            <Pressable
-              style={({ pressed }) => [styles.nearMeStandalone, pressed && styles.nearMeStandalonePressed]}
-              onPress={handleNearMePress}
-              onPressIn={nearMePressIn}
-              onPressOut={nearMePressOut}
-              disabled={nearMeLoading}
-              accessibilityRole="button"
-              accessibilityLabel={t('home.nearMe.a11yLabel')}
-              accessibilityState={{ disabled: nearMeLoading, busy: nearMeLoading }}
-            >
-              <Animated.View
-                style={[styles.nearMeRadarWrapCompact, { transform: [{ scale: nearMePressScale }] }]}
-                importantForAccessibility="no-hide-descendants"
-                accessibilityElementsHidden
-              >
-                <NearMeRadar loading={nearMeLoading} color={colors.accent} showLabel={false} />
-              </Animated.View>
-              {/* "מה קרוב?" - nearMeLabelText עצמאי (לא עוד heroSideActionText משותף, ראו שם:
-                  2026-09-20 "תגדיל את בחירה מהירה וחיפוש חופשי... ותקטין מעט... את הכיתוב מה
-                  קרוב" - הפרדנו סטייל כדי שכל אחד יוכל לזוז לכיוון הפוך). בלי active-dot/faded
-                  (זו לא "בחירת מצב" - לחיצה מנווטת ישירות, ראו goNearMe למטה). בתוך אותו Pressable
-                  כמו הרדאר עצמו - כל האזור (רדאר+טקסט) הוא יעד-לחיצה אחד. מוצג רק כש-searchMode
-                  ===null - נעלם כש-panel צדדי פתוח, חוזר במצב ברירת-המחדל הנקי. */}
-              {!searchMode ? (
-                <Text style={[styles.nearMeLabelText, heroCompact && styles.nearMeLabelTextCompact]} numberOfLines={1}>
-                  {t('home.nearMe.label')}
-                </Text>
-              ) : null}
-            </Pressable>
-            {/* כיתוב-מרחק/רדיוס (למשל "עד 15 דק' ממני") לא חוזר כאן - "מה קרוב?" למעלה הוא
-                התווית הקבועה היחידה מתחת לרדאר (בקשת המשתמש: "אל תוסיפו עוד כיתוב-מרחק מתחת
-                ל'מה קרוב?'"). goNearMe עודכן (2026-09-20, סבב "CENTRAL RADAR update"): radiusKm
-                עובר null במקום 10 - "מה קרוב?" הוא shortcut-גילוי ("הכי קרוב אליי"), לא בורר-טווח;
-                matchesLocation (lib/filterActivities.js) מתעלם ממרחק כשradiusKm הוא null (אותה
-                טכניקה בדיוק כמו locationWithNoTravelPreference) אז כל הפעילויות המאושרות זכאיות,
-                ו-app/activities.js הוא זה שממיין-לפי-מרחק+חותך ל-50 הקרובות ביותר בפועל (ראו
-                sortedActivities שם) - "50" הוא תקרת-תוצאות, לא רדיוס גיאוגרפי. */}
-            {nearMeError ? (
-              <View style={styles.nearMeErrorRow}>
-                <Text style={styles.nearMeErrorText}>{t(nearMeError)}</Text>
-                <View style={styles.nearMeErrorActions}>
-                  <Pressable onPress={handleNearMePress} hitSlop={8}>
-                    <Text style={styles.nearMeErrorLink}>{t('common.actions.retry')}</Text>
-                  </Pressable>
-                  <Text style={styles.nearMeErrorDot}>·</Text>
-                  <Pressable onPress={() => setWhereQuickOpen(true)} hitSlop={8}>
-                    <Text style={styles.nearMeErrorLink}>{t('home.nearMe.errors.chooseCity')}</Text>
-                  </Pressable>
-                  {nearMeError === 'home.nearMe.errors.blocked' && Platform.OS !== 'web' ? (
-                    <>
-                      <Text style={styles.nearMeErrorDot}>·</Text>
-                      <Pressable onPress={() => Linking.openSettings()} hitSlop={8}>
-                        <Text style={styles.nearMeErrorLink}>{t('home.nearMe.errors.openSettings')}</Text>
-                      </Pressable>
-                    </>
-                  ) : null}
-                </View>
-              </View>
-            ) : null}
-          </View>
-
-          <View style={styles.heroSideCol}>
-            <Pressable
-              style={({ pressed }) => [
-                styles.heroSideAction,
-                // דהייה - ראו ההערה המלאה ליד הפעולה הצדדית השנייה (heroSideAction הראשון
-                // למעלה, "חיפוש חופשי") לאותו שינוי בדיוק (סימטרי לשתי הפעולות).
-                searchMode !== 'guided' && styles.heroSideActionFaded,
-                pressed && styles.heroSideActionPressed,
-              ]}
-              onPress={() => switchSearchMode('guided')}
-              hitSlop={8}
-              accessibilityRole="radio"
-              accessibilityState={{ checked: searchMode === 'guided' }}
-              accessibilityLabel={t('home.search.modeGuided')}
-            >
-              <View style={[styles.heroSideActionIconWrap, heroCompact && styles.heroSideActionIconWrapCompact, searchMode === 'guided' && styles.heroSideActionIconWrapActive]}>
-                <Image
-                  source={require('../assets/sparkles.png')}
-                  style={[styles.heroSideActionIconImage, heroCompact && styles.heroSideActionIconImageCompact]}
-                  resizeMode="contain"
-                />
-              </View>
-              <Text style={[styles.heroSideActionText, heroCompact && styles.heroSideActionTextCompact, searchMode === 'guided' && styles.heroSideActionTextActive]} numberOfLines={1}>
-                {t('home.search.modeGuided')}
-              </Text>
-              {searchMode === 'guided' ? <View style={styles.heroSideActionActiveDot} /> : null}
-            </Pressable>
-          </View>
-        </View>
+        {/* 🧭 הירו - כותרת "לאן קופצים היום?"+קו-מבטא+שורת-הירו התלת-חלקית (חיפוש חופשי |
+            רדאר "מה קרוב?" | בחירה מהירה). PHASE 1 EXTRACTION (2026-09-19, "safe presentational
+            extraction" - ראו הביקורת הארכיטקטונית): הועבר byte-for-byte ל-components/HomeHero.js
+            (עם NearMeRadar המקונן, components/NearMeRadar.js) - שום שינוי חזותי/state-ownership,
+            רק ה-JSX/סטיילים-הפנימיים עברו לקובץ נפרד. כל ה-state/handlers (searchMode/heroCompact/
+            nearMeLoading/nearMeError/nearMePressScale/switchSearchMode/handleNearMePress/
+            nearMePressIn/Out/setWhereQuickOpen) עדיין גרים ב-HomeScreen בלי שום שינוי - מוזנים
+            כ-props בלבד. ראו app/index.js (גרסה קודמת בהיסטוריית git) או components/HomeHero.js
+            להסבר המלא על כל אחד מהם. */}
+        <HomeHero
+          searchMode={searchMode}
+          onSwitchMode={switchSearchMode}
+          heroCompact={heroCompact}
+          nearMeLoading={nearMeLoading}
+          nearMeError={nearMeError}
+          nearMePressScale={nearMePressScale}
+          onNearMePress={handleNearMePress}
+          onNearMePressIn={nearMePressIn}
+          onNearMePressOut={nearMePressOut}
+          onChooseCityInstead={() => setWhereQuickOpen(true)}
+        />
 
         {/* כרטיס-חיפוש דו-מצבי (2026-09-19, בקשת המשתמש: "ONE USER INTENTION = ONE CLEAR PATH" -
             progressive disclosure). מוצג רק כש-searchMode !== null (2026-09-20, "TURU home
@@ -1995,10 +1587,6 @@ const styles = createStyles((d) => ({
   // קיים. CONTENT_MAX_WIDTH (למעלה) גם מוזן ל-GrassFooter במקום windowWidth הגולמי, כדי שהאיור
   // ימשיך להתאים בדיוק לרוחב-בפועל של התוכן, לא לרוחב המסך המלא מעליו.
   content: { padding: spacing.xl, paddingBottom: 0, width: '100%', maxWidth: CONTENT_MAX_WIDTH, alignSelf: 'center' },
-  grassFooter: {
-    marginTop: 28, marginHorizontal: -spacing.xl,
-  },
-  grassFooterFade: { position: 'absolute', top: 0, left: 0 },
   // WHAT+WHERE side-by-side, כ-pills קומפקטיים (2026-09-16, מעבר מ"שדה חצי-רוחב" ל-selection
   // pill - בקשת המשתמש). 'row' רגיל (לא row-reverse!) - נבדק ויזואלית בדפדפן, לא רק מהנחה: הדף
   // לא forceRTL ברמת ה-layout (טקסט מיושר-ימין ידנית בלבד), אז 'row' מתנהג LTR - הפריט הראשון
@@ -2115,66 +1703,6 @@ const styles = createStyles((d) => ({
   personalChipText: { fontFamily: fonts.semiBold, fontSize: 13.5, color: colors.textSecondary },
   personalChipTextSelected: { color: colors.accent, fontFamily: fonts.bold },
   personalHint: { fontFamily: fonts.regular, fontSize: 11.5, color: colors.textMuted, textAlign: d.textAlign, marginTop: 10 },
-  // מעטפת-כרטיס לכל כרטיסי ה"נעול" (כרטיס-1 עם ה-overlay וגם כרטיסים 2+) - שונה מ-recCardWrap
-  // המשותף (שאין לו radius/overflow משלו - ActivityCard האמיתי מביא את זה בעצמו) כי כאן צריך
-  // clip אחיד לכל הכרטיס (תמונה+גוף+overlay) כדי שה-overlay הקריא בכרטיס 1 יקבל פינות מעוגלות
-  // נקיות בלי לגעת בסגנון המשותף של הכרטיסים האמיתיים.
-  lockedCardOuter: { width: 260, alignSelf: 'flex-start', borderRadius: radii.lg, overflow: 'hidden' },
-  // עטיפת-התמונה המטושטשת - אותו גובה/רוחב בדיוק כמו image ב-ActivityCard.js (158, 100%), עם
-  // overflow:'hidden' כדי שה-blurRadius (שמגדיל מעט את "טווח" הפיקסלים המוצג בקצוות) לא ידלוף
-  // מחוץ לפינות המעוגלות של הכרטיס. backgroundColor הוא רק רשת-ביטחון לרגע שלפני שהתמונה נטענת.
-  lockedCardImageWrap: {
-    width: '100%', height: 158, overflow: 'hidden', position: 'relative', backgroundColor: colors.borderLight,
-  },
-  // ה-<Image> עצמו - כאן ה-blurRadius האמיתי מופעל (ראו LockedCardImage), לא simulation.
-  lockedCardImagePhoto: { width: '100%', height: '100%' },
-  // "צעיף" לבן עדין מעל התמונה המטושטשת - לא שוטף אותה: עדיין רואים גוונים/צורות מבעד לו, רק
-  // מרכך קצת את הניגודיות כדי שהטקסט/אייקונים שמעליו (🔒 / ה-overlay בכרטיס 1) יהיו קריאים על
-  // כל תמונה, לא משנה כמה כהה/בהירה.
-  lockedCardVeil: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(255,255,255,0.15)' },
-  // תג ה-🔒 בכרטיסים 2+ - מרוכז על אזור התמונה בלבד (לא על כל הכרטיס), כמו כפתורי הפעולה
-  // (מועדפים/הסתרה) שמונחים על התמונה ב-ActivityCard האמיתי. עיגול לבן-שקוף מתחת לאייקון בשביל
-  // ניגודיות עקבית מעל תמונות שונות בבהירות.
-  lockedCardImageIconBadge: {
-    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center',
-  },
-  lockedCardIconCircle: {
-    width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.85)',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  lockedCardLockIconReal: { fontSize: 17 },
-  // "גוף" הכרטיס - ראו LockedCardBody. קווים מנוקדים (לא פסי-skeleton אפורים-שטוחים, לא shimmer) -
-  // נקראים כ"מידע מוסתר בכוונה" (redacted), לא כ"בטעינה". letterSpacing מרווח את הנקודות כדי
-  // שהתבנית תיקרא ברור כ"מוסתר" גם מרחוק, לא כטקסט-שנקטע.
-  lockedCardBody: { backgroundColor: colors.card, padding: 14 },
-  lockedCardRedactedTitle: {
-    fontFamily: fonts.extraBold, fontSize: 15, color: colors.textMuted, textAlign: d.textAlign, letterSpacing: 3,
-  },
-  lockedCardRedactedMeta: {
-    fontFamily: fonts.regular, fontSize: 13, color: colors.textMuted, textAlign: d.textAlign, marginTop: 8, letterSpacing: 3,
-  },
-  // overlay קריא לכרטיס 1 בלבד - בקשת המשתמש המפורשת (2026-09-16): לא "לשטוף" את כל הכרטיס
-  // בלבן (זה מסתיר את התמונה המטושטשת וגורם לכרטיס להיראות ריק/לא-מטושטש) - רק "ריבוע לבן"
-  // (קופסה) סביב הטקסט/כפתורים עצמם, כדי שהתמונה המטושטשת תיראה ברור סביב/מאחורי הקופסה בדיוק
-  // כמו בכרטיסים 2+. lockedCardOverlayWrap ממרכז את הקופסה בתוך הכרטיס; pointerEvents="box-none"
-  // כדי שהשוליים השקופים סביב הקופסה לא יחסמו קליקים על התמונה (לא שממילא יש שם onPress, אבל
-  // עקבי עם הכוונה - רק הקופסה עצמה אינטראקטיבית).
-  lockedCardOverlayWrap: {
-    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', padding: 14,
-  },
-  lockedCardOverlay: {
-    backgroundColor: 'rgba(255,255,255,0.96)', borderRadius: radii.lg, alignItems: 'center',
-    paddingVertical: 16, paddingHorizontal: 18, maxWidth: '92%',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.12, shadowRadius: 8, elevation: 3,
-  },
-  lockedCardOverlayIcon: { fontSize: 20, marginBottom: 4 },
-  lockedCardOverlayTitle: { fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary, textAlign: 'center' },
-  lockedCardOverlaySubtitle: { fontFamily: fonts.regular, fontSize: 11.5, color: colors.textSecondary, textAlign: 'center', marginTop: 2, marginBottom: 10 },
-  lockedCardOverlayBtn: { backgroundColor: colors.accent, borderRadius: radii.pill, paddingVertical: 8, paddingHorizontal: 18 },
-  lockedCardOverlayBtnText: { fontFamily: fonts.bold, fontSize: 12.5, color: '#fff' },
-  lockedCardOverlaySecondary: {
-    fontFamily: fonts.semiBold, fontSize: 11.5, color: colors.textSecondary, textDecorationLine: 'underline', marginTop: 9,
-  },
   ageAddRow: { alignItems: 'center', marginBottom: 18 },
   extraFiltersWrap: { alignItems: 'center' },
   ageAddText: { fontFamily: fonts.semiBold, fontSize: 12.5, color: colors.textMuted },
@@ -2182,137 +1710,6 @@ const styles = createStyles((d) => ({
   saveDefaultLink: { alignItems: 'center', marginBottom: 14 },
   saveDefaultText: { fontFamily: fonts.semiBold, fontSize: 12.5, color: colors.accent },
   defaultNoticeText: { fontFamily: fonts.semiBold, fontSize: 12, color: colors.greenStrong, textAlign: 'center', marginBottom: 10 },
-  // "לאן קופצים היום?" - כותרת-העל של כל מודול החיפוש (מחוץ לכרטיס, ראו ה-JSX), לא רק של החיפוש
-  // החופשי בתוכו. marginTop/marginBottom - סבב-עידון אחד-עשר, בקשת המשתמש: "גבוה יותר לכיוון
-  // הלוגו [מרווח קטן יותר מעל]. המרווח בין הלוגו למשפט צריך להיות שווה למרווח בין המשפט לכפתור
-  // הגדול". לא 10/10 סימטרי בקוד - קובץ turu-logo.png עצמו נושא כמה px של שוליים-שקופים בתחתית
-  // התמונה (לא נגוע כאן, זה ה-asset עצמו), אז marginTop קטן יותר (4, לא 10) מפצה על זה כדי
-  // שהמרווח *החזותי* בפועל (לא רק הערך ב-style) יצא שווה למרווח שמתחת לכותרת - נמדד ואומת
-  // בדפדפן (16px משני הצדדים), לא רק חושב.
-  searchModuleHeaderWrap: { marginTop: 4, marginBottom: 10 },
-  // justifyContent:'center' - בלעדיו View-עמודה רגיל (searchModuleHeaderWrap) נותן לילד שלו
-  // רוחב-מלא כברירת-מחדל, וללא justifyContent מפורש הטקסט היה נדחף לקצה-ה-flex-start של השורה,
-  // לא ממורכז.
-  searchModuleTitleRow: { flexDirection: d.row, alignItems: 'center', justifyContent: 'center', gap: 8 },
-  // 26px (היה 24) - סבב "hero area visual refinement" (2026-09-19, בקשת המשתמש: "approximately
-  // 25-27px... Make this feel like the main question of the screen... visually stronger than the
-  // current implementation"). extraBold=800/textPrimary=#121c23 (navy-כהה, לא #000 טהור) כבר
-  // תאמו את הבקשה - לא נגעו בהם. lineHeight:31 (היה 29) - שומר על אותו יחס קומפקטי-אך-נוח
-  // (1.19, היה 1.208) יחסית לגודל-הפונט החדש.
-  searchModuleTitle: {
-    fontFamily: fonts.extraBold, fontSize: 26, lineHeight: 31, color: colors.textPrimary, textAlign: d.textAlign,
-  },
-  // heroTitleAccent (חדש) - "קו-מבטא" כתום קטן מתחת לכותרת הראשית בלבד (לא sectionTitle/
-  // recSectionTitle למטה - "The small orange accent belongs ONLY to the main hero title").
-  // #FF9101 נדגם בפועל מ-assets/turu-logo.png (ראו הערה ב-JSX למעלה). 27x3, borderRadius:1.5 -
-  // "NOT a full underline... short centered decorative stroke", בתוך הטווח המבוקש (24-30 רוחב,
-  // ~3 גובה). marginTop:8 - "approximately 7-9px below the text".
-  heroTitleAccent: {
-    width: 27, height: 3, borderRadius: 1.5, backgroundColor: '#FF9101', alignSelf: 'center', marginTop: 8,
-  },
-  // שורת-הירו התלת-חלקית - flexDirection:'row' פיזי (לא d.row) בכוונה, כמו recRow למטה:
-  // האפליקציה מכבה forceRTL לגמרי (app/_layout.js), אז 'row' תמיד ממקם את הילד הראשון בקצה
-  // הפיזי-שמאלי - חיפוש חופשי משמאל, בחירה מהירה מימין, בסדר-JSX תואם.
-  // heroSideCol.flex:1 (חזרה, סבב "hero area visual refinement" 2026-09-19) - בקשת המשתמש
-  // המפורשת: "the radar must be geometrically centered in the viewport... Use a layout that
-  // guarantees radar center X = viewport/content center X... Hebrew label lengths are unequal -
-  // do not let text width push the radar sideways". justifyContent:'space-evenly' הקודם (סבב
-  // קודם) לא הבטיח את זה מתמטית (שתי התוויות שונות ברוחבן) - הוסר. שתי עמודות-הצד עכשיו flex:1
-  // שוות-רוחב-מוחלט (לא תלויות-תוכן) עם alignItems:'center' פנימי, כך שעמודת-המרכז (heroCenterCol,
-  // ברוחב-תוכן טבעי) יושבת תמיד בדיוק במרכז הגיאומטרי של השורה - בלי קשר לאורך "חיפוש חופשי"
-  // מול "בחירה מהירה".
-  // marginBottom:8 - מרווח בין שורת-הירו (כולל "מה קרוב?") לכרטיס-הפילטרים הלבן שמתחתיה.
-  // paddingHorizontal:8 - "3 הכפתורים... דחוסים בצדדים, אבל לשמור על הפרופורציות" (סבב קודם).
-  heroRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 8, paddingHorizontal: 8 },
-  // paddingTop ממקם את אייקון+תווית הפעולה הצדדית בערך מול מרכז דיסקית הרדאר - כך הן מרגישות
-  // כמו "secondary actions orbiting the central radar", לא שורה תלושה שיושבת סתם למעלה. כויל
-  // מול הגובה-הקומפקטי הנוכחי (~114px, ראו RADAR_SVG_W למעלה) בבדיקה חזותית ב-browser.
-  // flex:1 - ראו ההערה המלאה ב-heroRow למעלה (מירכוז-גיאומטרי אמיתי של הרדאר).
-  heroSideCol: { flex: 1, alignItems: 'center', paddingTop: 22 },
-  // לא pill/card (סעיף 4, "INTENTIONAL DEVIATION #1" - "NOT large pills, NOT cards, NOT
-  // competing with the radar visually") - רק אייקון+טקסט, minHeight נדיב ל-touch target נוח.
-  // paddingHorizontal:0/minWidth הוסרו (היו 6/64) - עם justifyContent:'space-evenly' על heroRow
-  // (למעלה, בקשת המשתמש: "4 מרווחים שווים בדיוק") רוחב-התוכן של שלושת האיברים ביחד כבר כמעט
-  // ממלא את כל רוחב-השורה ב-375px; כל ריפוד נוסף כאן היה גורם ל"גלישה שלילית" (0 מרווחים אמיתיים
-  // במקום 4 שווים) - ראו heroSideActionText/heroCenterCol למטה לאותה סיבה בדיוק.
-  heroSideAction: { alignItems: 'center', gap: 5, paddingVertical: 8, paddingHorizontal: 0, minHeight: 60, justifyContent: 'center' },
-  heroSideActionPressed: { opacity: 0.7 },
-  // דהייה עדינה לפעולה-הצדדית שלא נבחרה - 0.7 (היה 0.45), סבב "hero area visual refinement"
-  // (2026-09-19, בקשת המשתמש המפורשת: "Do NOT gray them out so strongly that they appear
-  // disabled... Inactive ≠ unavailable... especially important for 'חיפוש חופשי', which currently
-  // looks slightly too disabled when inactive"). עדיין קצת פחות בולט מהמצב הפעיל (שמקבל גם צבע-
-  // accent על הטקסט וגם heroSideActionIconWrapActive למטה), רק לא "כבוי".
-  heroSideActionFaded: { opacity: 0.7 },
-  // heroSideActionIconWrap - עכשיו "צ'יפ" עגול-רך מאחורי האייקון (52x52, לא רק גובה-יישור כמו
-  // קודם), סבב "hero area visual refinement" (2026-09-19, בקשת המשתמש: "The side icons should
-  // feel like actual buttons/actions even before the user reads the text... give the icon more
-  // visual presence... they should not look like tiny decorative icons floating beside the
-  // radar"). accentTintLight - אותו טוקן-רקע-עדין הקיים כבר בכפתור "🎯 מסונן" וכו', לא צבע חדש.
-  // עדיין קטן משמעותית מהרדאר (52px מול ~158px) - "not as large as the radar" (סעיף 7 בבקשה).
-  heroSideActionIconWrap: {
-    width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center',
-    backgroundColor: colors.accentTintLight,
-  },
-  // heroSideActionIconWrapCompact (<360px, יחד עם heroCompact הקיים) - צ'יפ מעט קטן יותר, אותו
-  // יחס בערך (44/52≈0.846) כמו heroSideActionIconImageCompact למטה (25/35≈0.714 - לא זהה בכוונה,
-  // האייקון-הפנימי מתכווץ יותר מהצ'יפ-הרקע כדי שישאר "אוויר" נוח סביבו גם במסך הצר ביותר).
-  heroSideActionIconWrapCompact: { width: 44, height: 44, borderRadius: 22 },
-  // heroSideActionIconWrapActive - כשמצב זה נבחר בפועל (searchMode==='free'/'guided'), הצ'יפ
-  // עובר לטון-accent חזק יותר (accentTint, לא רק accentTintLight) - משוב-בחירה נוסף מעבר לצבע-
-  // הטקסט/הנקודה הקיימים, לא מחליף אותם.
-  heroSideActionIconWrapActive: { backgroundColor: colors.accentTint },
-  // assets/magnifier.png ו-assets/sparkles.png - Image אמיתי במקום אמוג'י-Text (🔎/✨ הקודמים).
-  // אין color דינמי (accent כשפעיל) על האייקונים האלה עצמם - תמונת-PNG לא ניתנת לצביעה - אבל
-  // התווית מתחתיהם (heroSideActionTextActive) והנקודה הפעילה (heroSideActionActiveDot) עדיין
-  // מספקות את משוב-המצב. 38px (היה 34, 2026-09-20 "תגדיל את בחירה מהירה וחיפוש חופשי... וגם
-  // את האייקונים שלהם") - יחס icon/text נשמר (38/18≈2.11, היה 34/16≈2.13) כדי "לשמור על אותן
-  // פרופורציות" כמבוקש.
-  // 35 (היה 38) - צעד קטן, יחד עם heroRow.paddingHorizontal החדש: השורה כבר מילאה 100% מהרוחב
-  // הזמין ב-375px בלי שום "רווח-סרק" (ראו ההערה ב-heroSideAction למעלה: "כל ריפוד נוסף כאן היה
-  // גורם לגלישה שלילית") - אי אפשר להוסיף ריפוד-דוחס-לצדדים בלי לפנות מקום קודם. הקטנה אחידה
-  // וקטנה (לא פרופורציה-שונה בין אייקון לטקסט) שומרת על "הפרופורציות" שהמשתמש ביקש לשמר.
-  heroSideActionIconImage: { width: 35, height: 35 },
-  // heroCompact (<360px, ראו ההערה המלאה ליד ה-state) - מקטין רק את שתי הפעולות הצדדיות, לא נוגע
-  // ברדאר/בכרטיס/בכותרת. 25px (היה 22) - אותו יחס-הקטנה בערך משומר מול הגרסה הרגילה (25/12.5=2,
-  // היה 22/11=2).
-  heroSideActionIconImageCompact: { width: 25, height: 25 },
-  // 18px/bold (היה 16px) - בקשת המשתמש: "תגדיל את בחירה מהירה וחיפוש חופשי".
-  heroSideActionText: { fontFamily: fonts.bold, fontSize: 16.5, color: colors.textSecondary, textAlign: 'center' },
-  heroSideActionTextCompact: { fontSize: 12.5 },
-  heroSideActionTextActive: { color: colors.accent },
-  // "a small teal active-underline shown in the mockup's active example state" (סעיף 4) - סימון
-  // נוסף מעבר לצבע-הטקסט בלבד, כי אמוג'י ✨ עצמו לא ניתן לצביעה. מעט גדול יותר (18x2.5, היה 14x2)
-  // כדי להישאר פרופורציונלי לטקסט המוגדל.
-  heroSideActionActiveDot: { width: 18, height: 2.5, borderRadius: 1.5, backgroundColor: colors.accent, marginTop: 3 },
-  heroCenterCol: { alignItems: 'center' },
-  // "📍 מה קורה סביבי?" - TURU ORBIT, עכשיו עמודת-המרכז של heroRow (showLabel=false, בלי קשת-
-  // הטקסט - שלוש התוויות הסמוכות כבר מספרות את הסיפור). הצבע - colors.accent הקיים (ראו ההערה
-  // המלאה ליד NearMeRadar למעלה: זהו טוקן-הצבע הקיים שכבר מייצג את הכחול-טורקיז של האות ת'
-  // הראשונה בלוגו, לא הכתום).
-  // gap:1 (היה 6) - בקשת המשתמש: "'מה קרוב' מתחת לכפתור הראשי צריך להיות יותר גבוה" - התווית
-  // צמודה יותר לרדאר מעליה (nearMeRadarWrapCompact כבר כולל padding משלו בגובה 121).
-  nearMeStandalone: { alignItems: 'center', gap: 1 },
-  nearMeStandalonePressed: { opacity: 0.85 },
-  // גובה קומפקטי (RADAR_COMPACT_H, ראו הגדרות NearMeRadar למעלה - showLabel=false) - לא עוד
-  // RADAR_SVG_H שהיה כולל שוליים לקשת-הטקסט שכבר לא מוצגת כאן. 158x112 (היה 170x121, בקשת
-  // המשתמש: "תקטין מעט את הכפתור המרכזי") - תואם את RADAR_SVG_W: svgHeight בפועל =
-  // RADAR_SVG_W * (RADAR_COMPACT_H/180) = 158*(128/180) ≈ 112.4.
-  nearMeRadarWrapCompact: { width: 158, height: 112, alignItems: 'center', justifyContent: 'center' },
-  // nearMeLabelText/Compact - "מה קרוב?" עצמאי מ-heroSideActionText (ראו ההערה ב-JSX). 17px
-  // (היה 14) - סבב "hero area visual refinement" (2026-09-19, בקשת המשתמש: "מה קרוב?" -
-  // approximately 17-18px, bold - the center label should be slightly stronger because it
-  // belongs to the primary action", "17-18px" > צדדיות ה-16.5px). אותו fontFamily/color בדיוק
-  // כמו heroSideActionText כדי שהבולטות-החזותית תישאר עקבית (רק הגודל שונה, מעט גדול יותר).
-  nearMeLabelText: { fontFamily: fonts.bold, fontSize: 17, color: colors.textSecondary, textAlign: 'center' },
-  nearMeLabelTextCompact: { fontSize: 13 },
-  // מרוכז (לא d.textAlign) - יושב ישירות מתחת לרדאר, בתוך heroCenterCol הממורכז בעצמו. כיתוב-
-  // מרחק (heroDistanceRow/heroDistanceText) הוסר סופית (2026-09-20, סבב-עידון עשירי, בקשת
-  // המשתמש: "להוריד את 'עד 15 דקות' מתחת לכפתור המרכזי").
-  nearMeErrorRow: { marginTop: 8, alignItems: 'center' },
-  nearMeErrorText: { fontFamily: fonts.semiBold, fontSize: 12, color: colors.danger, textAlign: 'center' },
-  nearMeErrorActions: { flexDirection: d.row, alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 4 },
-  nearMeErrorLink: { fontFamily: fonts.bold, fontSize: 12, color: colors.accent },
-  nearMeErrorDot: { fontSize: 12, color: colors.textMuted },
   // מודל-הסבר: אותם טוקנים בדיוק כמו LoginRequiredModal (colors.card/radii.xl/fonts.extraBold),
   // כדי שהוא יראה כמו חלק מאותה "שפת מודלים" קיימת ולא רכיב חדש.
   nearMeModalBackdrop: { flex: 1, backgroundColor: 'rgba(20,30,35,0.4)', justifyContent: 'center', padding: spacing.xl },
