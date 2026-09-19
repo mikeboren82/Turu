@@ -153,15 +153,26 @@ export const REDEMPTION_METHOD_EDIT_OPTIONS = localized([
   { id: 'link' }, { id: 'coupon_code' }, { id: 'show_card' }, { id: 'automatic' }, { id: 'other' },
 ], (o) => t(`domain.options.redemption.${o.id}`));
 
+// 'next_week' (2026-09-19, temporal-search audit item E.4) - "שבוע הבא" (Sun-Sat of the NEXT
+// calendar week), a distinct symbolic range from 'week' ("השבוע" - today..this coming Saturday).
+// Both are resolved to concrete day-offsets by optionDayOffsets (lib/filterActivities.js), never
+// by the smart-search model - see the comment there for the exact arithmetic.
 export const WHEN_OPTIONS = localized([
-  { id: 'now' }, { id: 'today' }, { id: 'tomorrow' }, { id: 'weekend' }, { id: 'week' }, { id: 'specific' },
+  { id: 'now' }, { id: 'today' }, { id: 'tomorrow' }, { id: 'weekend' }, { id: 'week' }, { id: 'next_week' }, { id: 'specific' },
 ], (o) => t(`domain.options.when.${o.id}`));
 
+// evening: 18:00-22:00 (was 18:00-23:00) + new 'night': 20:00-00:00 (2026-09-19, temporal-search
+// audit D1 fix + item 4 - explicit product-semantics change, reported per the task instructions:
+// this ALSO changes what the existing manual "ערב" filter chip in FiltersSheet matches, not just
+// smart-search parsing, since both read HOUR_OPTIONS - see the implementation report). '00:00' as
+// an end time is treated as end-of-day (24:00) by lib/filterActivities.js's toEndMinutes, not
+// midnight-start - required for 'night' to mean 20:00→24:00, not an empty/inverted range.
 export const HOUR_OPTIONS = localized([
   { id: 'morning', start: '06:00', end: '12:00' },
   { id: 'noon', start: '12:00', end: '15:00' },
   { id: 'afternoon', start: '15:00', end: '18:00' },
-  { id: 'evening', start: '18:00', end: '23:00' },
+  { id: 'evening', start: '18:00', end: '22:00' },
+  { id: 'night', start: '20:00', end: '00:00' },
 ], (o) => t(`domain.options.hour.${o.id}`));
 
 // כל קטגוריה: key (שם השדה במצב הפילטרים), icon, title, type (chips/location/when),

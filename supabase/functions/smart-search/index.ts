@@ -15,7 +15,8 @@
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import Anthropic from 'npm:@anthropic-ai/sdk@0.32';
-import { WEEKDAY_LABEL_TO_DOW, buildSystemPrompt, parseJsonObject, sanitizeIntent } from '../_shared/smartSearchIntent.ts';
+import { buildSystemPrompt, parseJsonObject, sanitizeIntent } from '../_shared/smartSearchIntent.ts';
+import { toIsraelISODate, HEBREW_DAY_NAMES, dowOfISO, resolveDateLabel } from '../_shared/temporalResolve.ts';
 import { geocodeAddress } from '../_shared/geocoding.ts';
 import { matchRegionAlias } from '../_shared/regionAliases.ts';
 
@@ -28,54 +29,9 @@ function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } });
 }
 
-
-
-function toIsraelISODate(d: Date): string {
-  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' }).format(d);
-}
-
-const HEBREW_DAY_NAMES = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
-
-function addDaysISO(todayISO: string, days: number): string {
-  const d = new Date(`${todayISO}T00:00:00`);
-  d.setDate(d.getDate() + days);
-  return d.toISOString().slice(0, 10);
-}
-
-function nextWeekdayOffset(todayISO: string, targetDow: number): number {
-  const d = new Date(`${todayISO}T00:00:00`);
-  const currentDow = d.getDay();
-  let diff = targetDow - currentDow;
-  if (diff < 0) diff += 7;
-  return diff;
-}
-
-// ממיר date_label (סיווג מה-AI) לתאריך אמיתי + ה-WHEN_OPTIONS id המתאים (constants/filterSchema.js) -
-// חישוב דטרמיניסטי, לא תלוי-AI. מחזיר {whenOption, resolvedDate} - שניהם עשויים להיות null.
-function resolveDateLabel(
-  label: string | null, daysOffset: number | null, explicitDate: string | null, todayISO: string,
-): { whenOption: string | null; resolvedDate: string | null } {
-  if (label && label in WEEKDAY_LABEL_TO_DOW) {
-    return { whenOption: 'specific', resolvedDate: addDaysISO(todayISO, nextWeekdayOffset(todayISO, WEEKDAY_LABEL_TO_DOW[label])) };
-  }
-  switch (label) {
-    case 'today': return { whenOption: 'today', resolvedDate: todayISO };
-    case 'tomorrow': return { whenOption: 'tomorrow', resolvedDate: addDaysISO(todayISO, 1) };
-    case 'day_after_tomorrow': return { whenOption: 'specific', resolvedDate: addDaysISO(todayISO, 2) };
-    case 'weekend': return { whenOption: 'weekend', resolvedDate: null };
-    case 'this_week': return { whenOption: 'week', resolvedDate: null };
-    case 'in_days': {
-      const n = typeof daysOffset === 'number' && daysOffset >= 0 && daysOffset <= 60 ? daysOffset : null;
-      return n == null ? { whenOption: null, resolvedDate: null } : { whenOption: 'specific', resolvedDate: addDaysISO(todayISO, n) };
-    }
-    case 'specific_date': {
-      const valid = explicitDate && /^\d{4}-\d{2}-\d{2}$/.test(explicitDate) && explicitDate >= todayISO;
-      return valid ? { whenOption: 'specific', resolvedDate: explicitDate } : { whenOption: null, resolvedDate: null };
-    }
-    default:
-      return { whenOption: null, resolvedDate: null };
-  }
-}
+// resolveDateLabel/toIsraelISODate/HEBREW_DAY_NAMES/dowOfISO עברו ל-_shared/temporalResolve.ts
+// (2026-09-19, temporal-search audit item E.3) - טהורים ובדיקים ישירות (temporalResolve.test.ts),
+// בלי תלות ב-Deno.serve/req. index.ts משתמש בהם כמו שהיה, רק לא מגדיר אותם יותר מקומית.
 
 
 
@@ -121,7 +77,9 @@ Deno.serve(async (req: Request) => {
   }
 
   const todayISO = toIsraelISODate(new Date());
-  const todayHebrewDay = HEBREW_DAY_NAMES[new Date(`${todayISO}T12:00:00`).getDay()];
+  // dowOfISO (לא new Date(`${todayISO}T12:00:00`).getDay() כמו קודם) - חשבון-UTC טהור, בלי
+  // תלות באזור-הזמן המקומי של ה-runtime (סעיף 12 בבקשה).
+  const todayHebrewDay = HEBREW_DAY_NAMES[dowOfISO(todayISO)];
 
   const logRow: Record<string, unknown> = { user_id: user?.id ?? null, ip_address: user ? null : clientIp, query };
 
@@ -162,7 +120,7 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    const { whenOption, resolvedDate } = resolveDateLabel(parsed.dateLabel, parsed.daysOffset, parsed.explicitDate, todayISO);
+    const { whenOption, resolvedDate } = resolveDateLabel(parsed.dateLabel, parsed.daysOffset, parsed.explicitDate, todayISO, parsed.explicitDateYearGiven);
 
     // עמימות אמיתית: רחוב הוזכר בלי עיר ובלי אזור - אי אפשר לגאוקד בלי לדעת איפה לחפש, ואסור
     // לנחש עיר (ראו שלב 8/9 בבקשה). מחזירים needsClarification ולא מנסים geocoding בכלל.

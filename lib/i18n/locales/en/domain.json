@@ -129,13 +129,15 @@
       "tomorrow": "Tomorrow",
       "weekend": "This weekend",
       "week": "This week",
+      "next_week": "Next week",
       "specific": "Pick a date"
     },
     "hour": {
       "morning": "Morning",
       "noon": "Midday",
       "afternoon": "Afternoon",
-      "evening": "Evening"
+      "evening": "Evening",
+      "night": "Night"
     }
   },
   "summary": {

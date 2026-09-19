@@ -79,6 +79,22 @@ Deno.test('no category → no evidence bookkeeping', () => {
   assertEquals(validateCategoryEvidence(null, 'x', null, 'x'), { category: null, categoryEvidence: null, categoryRejectedReason: null });
 });
 
+// explicit_date_year_given (2026-09-19 regression fix): sanitizeIntent's job is only to read the
+// raw model field defensively - the actual year-rolling DECISION lives in resolveDateLabel
+// (temporalResolve.test.ts). Default is conservative (true) so a missing/malformed signal from
+// the model never silently enables the year-rolling behavior - see the comment at the call site.
+Deno.test('explicit_date_year_given: the model saying false is honored (no year was given)', () => {
+  assertEquals(sanitizeIntent({ ...blankRaw, explicit_date: '2026-09-10', explicit_date_year_given: false }, 'x').explicitDateYearGiven, false);
+});
+Deno.test('explicit_date_year_given: the model saying true is honored (an explicit year was given)', () => {
+  assertEquals(sanitizeIntent({ ...blankRaw, explicit_date: '2025-09-10', explicit_date_year_given: true }, 'x').explicitDateYearGiven, true);
+});
+Deno.test('explicit_date_year_given: missing/malformed defaults to true (conservative - never assume no-year)', () => {
+  assertEquals(sanitizeIntent({ ...blankRaw, explicit_date: '2026-09-10' }, 'x').explicitDateYearGiven, true, 'field omitted entirely');
+  assertEquals(sanitizeIntent({ ...blankRaw, explicit_date: '2026-09-10', explicit_date_year_given: 'yes' }, 'x').explicitDateYearGiven, true, 'non-boolean garbage');
+  assertEquals(sanitizeIntent({ ...blankRaw, explicit_date: '2026-09-10', explicit_date_year_given: null }, 'x').explicitDateYearGiven, true);
+});
+
 Deno.test('prompt: contract fields present, and no evaluation-matrix query is used as a prompt example', () => {
   const prompt = buildSystemPrompt('2026-09-18', 'שישי');
   assert(prompt.includes('category_evidence'));

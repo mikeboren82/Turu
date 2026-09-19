@@ -19,7 +19,7 @@ import { fetchUserPreferences, saveExcludedCategories, saveExcludedCities, saveE
 import { supabase } from '../lib/supabase';
 import { DEFAULT_FILTERS, CATEGORY_FILTER_OPTIONS } from '../constants/filterSchema';
 import { categorySummary } from '../lib/filterSummaries';
-import { rankActivitiesWithSmartRadius, countActiveFilters, normalizeFilters, getOpenNowInfo, haversineKm, locationWithDrivingTime } from '../lib/filterActivities';
+import { rankActivitiesWithSmartRadius, countActiveFilters, normalizeFilters, getOpenNowInfo, isOpenOrOpeningSoon, haversineKm, locationWithDrivingTime } from '../lib/filterActivities';
 import { formatBenefitCardTag } from '../lib/benefits';
 import { buildMatchReasons } from '../lib/matchReasons';
 import { parseSmartSearchQuery, intentToFilters } from '../lib/smartSearch';
@@ -28,6 +28,9 @@ import { formatKm } from '../lib/i18n/format';
 
 const BOOKING_REQUIRED_VALUES = ['registration_required', 'advance_booking'];
 const SPONTANEOUS_TOP_COUNT = 5;
+// "מה קרוב?" (nearMe==='true') - בקשת המשתמש: "רק פעילויות פתוחות, בתוספת פעילויות שייפתחו תוך
+// 30 דקות". ראו isOpenOrOpeningSoon (lib/filterActivities.js) למקור-האמת/חריגת-גני-השעשועים.
+const NEARME_OPEN_WITHIN_MINUTES = 30;
 
 // 🪄 ספונטני - "למה הפעילות הזו מופיעה עכשיו" (סעיף 11 בבקשת שדרוג הספונטני): רק מידע שהמערכת
 // יודעת בפועל (openHours/availableDays/booking_requirement קיימים) - null כשאין נתון, לעולם
@@ -506,6 +509,11 @@ export default function ActivitiesScreen() {
   const filteredActivities = useMemo(
     () => rankedResult.activities
       .filter((a) => !hiddenIds.has(a.id))
+      // "מה קרוב?" (nearMe==='true') - חוסם, לא רק ממיין: בקשת המשתמש המפורשת: "רק פעילויות
+      // פתוחות, בתוספת פעילויות שייפתחו תוך 30 דקות" - לא ג'ימבורי סגור/הצגה לא-פעילה גם אם
+      // קרובים. מוחל כאן (לא רק על sortedActivities למטה) כדי שכל מה שתלוי ב-filteredActivities -
+      // מונה-התוצאות בכותרת, מסך-ריק, תצוגת-מפה - יישאר עקבי איתו, במקום לסנן רק את מה שמוצג בפועל.
+      .filter((a) => nearMe !== 'true' || isOpenOrOpeningSoon(a, NEARME_OPEN_WITHIN_MINUTES))
       .map((a) => {
         // ספונטני פעיל: מרחק אמיתי (ק"מ) מהמיקום החי, לא שם-העיר הכללי (סעיף 11 בבקשה) - רק
         // כשיש בפועל קואורדינטות לשני הצדדים, אחרת נופל לאותה formatDistance הרגילה כמו היום.
@@ -544,7 +552,7 @@ export default function ActivitiesScreen() {
         };
       }),
     // locale: {...a} מעתיק את ערכי ה-getters (ageRange/price/hours) - חישוב מחדש בהחלפת שפה.
-    [rankedResult, hiddenIds, favoriteIds, visitedIds, notesByActivity, benefitClubs, spontaneousActive, spontaneousCoords, searchOriginCoords, filters.location?.mode, locale, childAges]
+    [rankedResult, hiddenIds, favoriteIds, visitedIds, notesByActivity, benefitClubs, spontaneousActive, spontaneousCoords, searchOriginCoords, filters.location?.mode, locale, childAges, nearMe]
   );
 
   // סעיף N בבקשה: "יש הבדל בין 'לא מצאנו מספיק תוצאות באזור' לבין 'הפילטרים מגבילים מאוד'" -

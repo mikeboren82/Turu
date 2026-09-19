@@ -129,13 +129,15 @@
       "tomorrow": "מחר",
       "weekend": "סוף השבוע",
       "week": "השבוע",
+      "next_week": "שבוע הבא",
       "specific": "תאריך אחר"
     },
     "hour": {
       "morning": "בוקר",
       "noon": "צהריים",
       "afternoon": "אחר הצהריים",
-      "evening": "ערב"
+      "evening": "ערב",
+      "night": "לילה"
     }
   },
   "summary": {

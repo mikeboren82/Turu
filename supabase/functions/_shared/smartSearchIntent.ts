@@ -5,6 +5,7 @@
 
 import { CATEGORY_VALUES, ARCHIVE_CATEGORIES, REGION_VALUES } from './extraction.ts';
 import { normalizeHebrewText } from './regionAliases.ts';
+import { WEEKDAY_LABEL_TO_DOW, NEXT_WEEKDAY_LABEL_TO_DOW } from './temporalResolve.ts';
 
 // זהה לגזירת CATEGORY_FILTER_OPTIONS ב-constants/filterSchema.js (אותו מקור-אמת,
 // categoryValues.json, רק שני runtimes נפרדים) - קטגוריות-ארכיון ו"אחר" אינן יעד-חיפוש תקין.
@@ -12,15 +13,15 @@ export const SEARCHABLE_CATEGORIES = CATEGORY_VALUES.filter((c) => !ARCHIVE_CATE
 
 // ימי השבוע - כולם, לא רק שישי/שבת (נמצא בבדיקה: "פעילות ביום שלישי הבא" נפל בשקט ל-null כי
 // רק שני ימים היו נתמכים - המשתמש ציין יום מפורש, אסור להשמיט את זה, ראו עקרון "אל תמציא/
-// תשמיט" בסעיף 24). WEEKDAY_LABEL_TO_DOW למטה ממפה כל אחד ל-getDay() (0=ראשון...6=שבת).
-export const WEEKDAY_LABEL_TO_DOW: Record<string, number> = {
-  this_sunday: 0, this_monday: 1, this_tuesday: 2, this_wednesday: 3,
-  this_thursday: 4, this_friday: 5, this_saturday: 6,
-};
+// תשמיט" בסעיף 24). WEEKDAY_LABEL_TO_DOW/NEXT_WEEKDAY_LABEL_TO_DOW (מ-temporalResolve.ts, מקור-
+// אמת יחיד - 2026-09-19 temporal-search audit) ממפים כל אחד ל-getDay() (0=ראשון...6=שבת).
+// next_X (חדש, סעיף 6 בבקשה) - "שבת הבאה"/"יום ראשון הבא" הם *שבוע קלנדרי אחר* מ-"שבת"/
+// "השבת הקרובה" (this_X, הקרוב ביותר כולל היום) - ראו buildSystemPrompt למטה להבחנה שנלמדת למודל.
 export const DATE_LABELS = [
   'today', 'tomorrow', 'day_after_tomorrow',
   ...Object.keys(WEEKDAY_LABEL_TO_DOW),
-  'weekend', 'this_week', 'in_days', 'specific_date', null,
+  ...Object.keys(NEXT_WEEKDAY_LABEL_TO_DOW),
+  'weekend', 'this_week', 'next_week', 'in_days', 'specific_date', null,
 ] as const;
 const AMENITY_HINTS = ['ממוזג', 'מקורה', 'חניה', 'שירותים', 'נגיש לכיסא גלגלים', 'מתאים לעגלה'];
 const PRICE_HINTS = ['free', 'cheap', null];
@@ -47,10 +48,17 @@ export function buildSystemPrompt(todayISO: string, todayHebrewDay: string): str
     חשוב: המשתמש כותב אזורים בקיצור/בדיבור - החזר תמיד את הערך הקנוני המדויק מהרשימה, לא את מה שנכתב. למשל: "בשרון"/"אזור השרון" → "השרון"; "גוש דן"/"במרכז"/"מרכז הארץ" → "גוש דן והמרכז"; "בצפון"/"בגליל"/"בגולן" → "הצפון והגליל"; "בדרום"/"בנגב"/"בערבה" → "הדרום והנגב"; "בשפלה" → "השפלה"; "בעמקים"/"עמק יזרעאל" → "עמק יזרעאל והעמקים"; "בקריות"/"אזור חיפה" → "חיפה והקריות"; "אזור ירושלים" → "ירושלים והסביבה"; "ביו״ש"/"בשומרון"/"בבנימין" → "יו\\"ש והבנימין". שם עיר לבדה (חיפה, ירושלים, נתניה) הוא city, לא region.
   - relation: "exact" אם המשתמש התכוון לרחוב עצמו (למשל "ברחוב הרצל"), "nearby" אם התכוון לאזור מסביב (למשל "ליד רחוב הרצל", "באזור הרצל"), אחרת null. רלוונטי רק כש-street לא null.
 - date_label: בדיוק אחד מהערכים הבאים לפי מה שהמשתמש התכוון, אחרת null:
-  "today" (היום/עכשיו) | "tomorrow" (מחר) | "day_after_tomorrow" (מחרתיים/בעוד יומיים) | "this_sunday"/"this_monday"/"this_tuesday"/"this_wednesday"/"this_thursday"/"this_friday"/"this_saturday" (המשתמש ציין יום בשבוע מפורש - "ביום שלישי", "שישי", "השבת הקרובה" - תמיד היום הקרוב הבא מהיום) | "weekend" (סוף השבוע, בלי יום ספציפי) | "this_week" (השבוע) | "in_days" (ביטוי כמו "בעוד 3 ימים" - גם למלא days_offset) | "specific_date" (המשתמש נתן תאריך מפורש כמו "ב-15 לחודש" - גם למלא explicit_date)
+  "today" (היום/עכשיו) | "tomorrow" (מחר) | "day_after_tomorrow" (מחרתיים/בעוד יומיים)
+  | "this_sunday"/"this_monday"/"this_tuesday"/"this_wednesday"/"this_thursday"/"this_friday"/"this_saturday" (יום-בשבוע *הקרוב ביותר* מהיום, כולל היום עצמו אם היום כבר אותו יום - "ביום שלישי", "שישי", "שבת", "השבת הקרובה")
+  | "next_sunday"/"next_monday"/"next_tuesday"/"next_wednesday"/"next_thursday"/"next_friday"/"next_saturday" (אותו יום-בשבוע, אבל *בשבוע הקלנדרי הבא* - המשתמש אמר "הבא"/"בשבוע הבא" במפורש: "שבת הבאה", "יום ראשון הבא", "שלישי בשבוע הבא". שימי לב: "השבת הקרובה" או "שבת" סתם הם this_saturday, לא next_saturday - רק "הבא"/"הבאה" מפורש הופך את זה ל-next)
+  | "weekend" (סוף השבוע הקרוב, בלי יום ספציפי - "בסופ״ש", "בסוף השבוע")
+  | "this_week" (השבוע - לא "שבוע הבא")
+  | "next_week" (שבוע הבא - המשתמש אמר "שבוע הבא" במפורש, לא רק "בעוד שבוע" שיכול להתכוון ל-7 ימים קדימה - במקרה של ספק, "בעוד שבוע"/"עוד שבוע" הם in_days עם days_offset:7)
+  | "in_days" (ביטוי כמו "בעוד 3 ימים" - גם למלא days_offset) | "specific_date" (המשתמש נתן תאריך מפורש כמו "ב-15 לחודש" - גם למלא explicit_date)
 - days_offset: מספר ימים קדימה מהיום, רק אם date_label הוא "in_days", אחרת null
-- explicit_date: תאריך בפורמט YYYY-MM-DD, רק אם date_label הוא "specific_date" והמשתמש נתן תאריך מפורש וחד-משמעי, אחרת null
-- time_range: אובייקט {start:"HH:MM", end:"HH:MM"} אם המשתמש ציין זמן ביום (גם מרומז - "בבוקר"→06:00-12:00, "צהריים"→12:00-15:00, "אחר הצהריים"→15:00-18:00, "בערב"→18:00-23:00, "אחרי הגן"→בדרך כלל 15:00-18:00, "יש לנו שעה"→null, זה לא מידע על שעה ספציפית), אחרת null
+- explicit_date: תאריך בפורמט YYYY-MM-DD, רק אם date_label הוא "specific_date" והמשתמש נתן תאריך מפורש וחד-משמעי, אחרת null. אם המשתמש לא ציין שנה (כמו "25.9" או "25 בספטמבר") - השתמש תמיד בשנה הנוכחית (מתוך "היום הוא ${todayISO}" למעלה); אל תנסי/תנסה לנחש אם התאריך כבר עבר השנה הזו - זה מחושב בקוד אחריך, לא על ידך. ודאי/ודא שהתאריך אכן קיים בלוח השנה (למשל 31 בספטמבר אינו תאריך תקין - 31 בנובמבר גם לא) - אם לא, החזירי/החזר specific_date כ-null.
+- explicit_date_year_given: true אם המשתמש עצמו כתב שנה מפורשת בטקסט (למשל "10.9.2025", "10 בספטמבר 2025", "10/9/27") - false אם המשתמש נתן רק יום וחודש בלי שנה (למשל "10.9", "25 בספטמבר") והשנה שמילאת ב-explicit_date היא השנה הנוכחית שאת/ה בעצמך בחרת, לא מה שהמשתמש אמר. זה קריטי לחשב נכון: אם true וה-explicit_date כבר עבר - אסור לקוד שקורא אותך "לתקן" את זה לשנה אחרת, גם אם זה אומר שהתאריך יידחה כבלתי-רלוונטי - המשתמש התכוון לשנה הזו במפורש. רלוונטי רק כש-explicit_date אינו null, אחרת false.
+- time_range: אובייקט {start:"HH:MM", end:"HH:MM"} אם המשתמש ציין זמן ביום (גם מרומז - "בבוקר"→06:00-12:00, "צהריים"→12:00-15:00, "אחר הצהריים"→15:00-18:00, "בערב"→18:00-22:00, "בלילה"→20:00-00:00, "אחרי הגן"→בדרך כלל 15:00-18:00, "יש לנו שעה"→null, זה לא מידע על שעה ספציפית), אחרת null
 - age: אובייקט {min, max} (מספרים, שנים) אם המשתמש ציין גיל מפורש למשל "לילד בן 5" → {min:5,max:5}, "לגילאי 3 עד 6" → {min:3,max:6}, אחרת null
 - child_name_mentioned: אם המשתמש הזכיר שם פרטי של ילד/ה (למשל "עם אבישי", "לדנה"), החזר את השם עצמו כמחרוזת, אחרת null
 - price_hint: "free" אם המשתמש ביקש בפירוש בחינם, "cheap" אם ביקש זול, אחרת null
@@ -95,6 +103,11 @@ export function sanitizeIntent(raw: any, query = '') {
   const dateLabel = inList(raw.date_label, DATE_LABELS);
   const daysOffset = typeof raw.days_offset === 'number' ? raw.days_offset : null;
   const explicitDate = typeof raw.explicit_date === 'string' ? raw.explicit_date : null;
+  // ברירת-מחדל שמרנית: "שנה ניתנה" (true) בכל מקרה שהמודל לא אישר מפורשות false - עדיף לדחות
+  // תאריך-עבר בטעות (fail-safe קיים, "null עדיף על שגוי") מאשר לגלגל-שנה כשלא בטוח שמותר
+  // (regression שנמצא 2026-09-19: תאריך עם שנה מפורשת-בעבר, כמו "10.9.2025", התגלגל בשקט
+  // לשנה אחרת בדיוק כמו "10.9" בלי שנה - חייב להישאר שני מקרים שונים, ראו resolveDateLabel).
+  const explicitDateYearGiven = raw.explicit_date_year_given !== false;
   const timeRange = raw.time_range && typeof raw.time_range.start === 'string' && typeof raw.time_range.end === 'string'
     && /^\d{2}:\d{2}$/.test(raw.time_range.start) && /^\d{2}:\d{2}$/.test(raw.time_range.end)
     ? { start: raw.time_range.start, end: raw.time_range.end } : null;
@@ -114,7 +127,7 @@ export function sanitizeIntent(raw: any, query = '') {
   const residualQuery = residualCandidate && isQuotedFrom(residualCandidate, query) ? residualCandidate : null;
   const { category, categoryEvidence, categoryRejectedReason } = validateCategoryEvidence(modelCategory, raw.category_evidence, residualQuery, query);
 
-  return { category, categoryEvidence, categoryRejectedReason, location, dateLabel, daysOffset, explicitDate, timeRange, age, childName, priceHint, durationHint, placeTypeHint, amenityHints, benefitsHint, residualQuery, vagueIntent };
+  return { category, categoryEvidence, categoryRejectedReason, location, dateLabel, daysOffset, explicitDate, explicitDateYearGiven, timeRange, age, childName, priceHint, durationHint, placeTypeHint, amenityHints, benefitsHint, residualQuery, vagueIntent };
 }
 
 // --- ראיות לכוונה מוסקת (2026-09-18) ---------------------------------------------------------
