@@ -21,6 +21,7 @@ addHook(
 
 const {
   shouldApplyHomeDefaults, buildCarouselFilters, resolveCommittedHomeLocation,
+  buildResultsParams, resolveSmartSearchCoords,
 } = require('../lib/homeSession');
 
 // --- 1. shouldApplyHomeDefaults (app/index.js focus effect) ---
@@ -78,4 +79,106 @@ test('buildCarouselFilters: passes through every other field unchanged (age/when
   assert.deepEqual(result.age, draftFilters.age);
   assert.deepEqual(result.when, draftFilters.when);
   assert.deepEqual(result.hour, draftFilters.hour);
+});
+
+// --- 4. buildResultsParams (Home Refactor Phase 2A) ---
+// כל הבדיקות למטה משחזרות את הצורה המדויקת שכל אתר-קריאה ב-app/index.js בונה בפועל (ראו
+// ההערות ב-lib/homeSession.js) - לא סמנטיקה חדשה, רק ה-behaviour הקיים שנלכד לפני ה-extraction.
+
+test('buildResultsParams: basic Quick Choice submission (handleGo shape) - homeFilters/homeChildAges always JSON-stringified, homeCoords stringified when present', () => {
+  const filters = { category: ['גן שעשועים'], age: ['3-5'], location: { mode: 'city', city: 'ינוב' } };
+  const coords = { latitude: 32.1, longitude: 34.9 };
+  const childAges = [4, 6];
+  const result = buildResultsParams({ filters, coords, childAges });
+  assert.deepEqual(result, {
+    homeFilters: JSON.stringify(filters),
+    homeCoords: JSON.stringify(coords),
+    homeChildAges: JSON.stringify(childAges),
+  });
+});
+
+test('buildResultsParams: category selected vs. no category - homeFilters just mirrors whatever filters object is passed, untouched', () => {
+  const withCategory = buildResultsParams({ filters: { category: ['מוזיאון'] }, coords: null, childAges: [] });
+  const withoutCategory = buildResultsParams({ filters: { category: [] }, coords: null, childAges: [] });
+  assert.equal(withCategory.homeFilters, JSON.stringify({ category: ['מוזיאון'] }));
+  assert.equal(withoutCategory.homeFilters, JSON.stringify({ category: [] }));
+});
+
+test('buildResultsParams: default coordsMode ("always") - falsy coords (null/undefined) become an empty string, the key is still present (matches handleGo/handleAdvancedFilters/handleSpontaneous/navigateToCategoryResults)', () => {
+  const withNull = buildResultsParams({ filters: {}, coords: null, childAges: [] });
+  const withUndefined = buildResultsParams({ filters: {}, coords: undefined, childAges: [] });
+  assert.equal(withNull.homeCoords, '');
+  assert.equal(withUndefined.homeCoords, '');
+  assert.ok('homeCoords' in withNull);
+  assert.ok('homeCoords' in withUndefined);
+});
+
+test('buildResultsParams: coordsMode "omit-if-absent" - falsy coords means the homeCoords key is missing entirely, not an empty string (matches goToSmartSearchResults)', () => {
+  const result = buildResultsParams({ filters: {}, coords: undefined, childAges: [], coordsMode: 'omit-if-absent' });
+  assert.ok(!('homeCoords' in result));
+});
+
+test('buildResultsParams: coordsMode "omit-if-absent" with real coords still stringifies them like the default mode', () => {
+  const coords = { latitude: 1, longitude: 2 };
+  const result = buildResultsParams({ filters: {}, coords, childAges: [], coordsMode: 'omit-if-absent' });
+  assert.equal(result.homeCoords, JSON.stringify(coords));
+});
+
+test('buildResultsParams: extra flags are merged as-is (openFilters/spontaneous/nearMe are each string "true", not boolean, matching the existing route-param convention)', () => {
+  const openFilters = buildResultsParams({ filters: {}, coords: null, childAges: [], extra: { openFilters: 'true' } });
+  const spontaneous = buildResultsParams({ filters: {}, coords: null, childAges: [], extra: { spontaneous: 'true' } });
+  const nearMe = buildResultsParams({ filters: {}, coords: null, childAges: [], extra: { nearMe: 'true' } });
+  assert.equal(openFilters.openFilters, 'true');
+  assert.equal(spontaneous.spontaneous, 'true');
+  assert.equal(nearMe.nearMe, 'true');
+});
+
+test('buildResultsParams: goNearMe shape - coords always present (post permission-check), nearMe flag included alongside a DEFAULT_FILTERS-based filter set', () => {
+  const nearMeFilters = { category: [], location: { mode: 'current', radiusKm: null } };
+  const coords = { latitude: 32.5, longitude: 35.0 };
+  const result = buildResultsParams({ filters: nearMeFilters, coords, childAges: [7], extra: { nearMe: 'true' } });
+  assert.deepEqual(result, {
+    homeFilters: JSON.stringify(nearMeFilters),
+    homeCoords: JSON.stringify(coords),
+    homeChildAges: JSON.stringify([7]),
+    nearMe: 'true',
+  });
+});
+
+test('buildResultsParams: childAges serializes an empty array distinctly from a populated one (no personalization vs. active personalization)', () => {
+  const empty = buildResultsParams({ filters: {}, coords: null, childAges: [] });
+  const populated = buildResultsParams({ filters: {}, coords: null, childAges: [3, 5, 9] });
+  assert.equal(empty.homeChildAges, '[]');
+  assert.equal(populated.homeChildAges, '[3,5,9]');
+});
+
+// --- 5. resolveSmartSearchCoords (goToSmartSearchResults only) ---
+
+test('resolveSmartSearchCoords: address-mode intent with coords wins over deviceCoords, converting {lat,lng} -> {latitude,longitude}', () => {
+  const builtFilters = { location: { mode: 'address', coords: { lat: 31.5, lng: 34.8 } } };
+  const deviceCoords = { latitude: 99, longitude: 99 };
+  assert.deepEqual(resolveSmartSearchCoords(builtFilters, deviceCoords), { latitude: 31.5, longitude: 34.8 });
+});
+
+test('resolveSmartSearchCoords: non-address-mode intent falls back to deviceCoords when known', () => {
+  const builtFilters = { location: { mode: 'city', city: 'חיפה' } };
+  const deviceCoords = { latitude: 32.8, longitude: 34.98 };
+  assert.deepEqual(resolveSmartSearchCoords(builtFilters, deviceCoords), deviceCoords);
+});
+
+test('resolveSmartSearchCoords: address-mode intent but WITHOUT coords still falls back to deviceCoords (not silently address-mode-locked to nothing)', () => {
+  const builtFilters = { location: { mode: 'address' } };
+  const deviceCoords = { latitude: 32.8, longitude: 34.98 };
+  assert.deepEqual(resolveSmartSearchCoords(builtFilters, deviceCoords), deviceCoords);
+});
+
+test('resolveSmartSearchCoords: neither address coords nor deviceCoords known -> undefined (buildResultsParams then omits homeCoords entirely)', () => {
+  const builtFilters = { location: { mode: 'city', city: 'ינוב' } };
+  assert.equal(resolveSmartSearchCoords(builtFilters, null), undefined);
+  assert.equal(resolveSmartSearchCoords(builtFilters, undefined), undefined);
+});
+
+test('resolveSmartSearchCoords: location can be missing mode entirely (e.g. no fallback resolved) without throwing', () => {
+  const builtFilters = { location: {} };
+  assert.equal(resolveSmartSearchCoords(builtFilters, null), undefined);
 });

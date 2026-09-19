@@ -29,7 +29,10 @@ import { fetchApprovedActivities, formatDistance, fetchSettlementCoords } from '
 import { fetchUserActivityFlags, toggleFavorite, toggleVisited, fetchAllPersonalNotes, toggleWithFeedback, hideActivityWithFeedback } from '../lib/interactions';
 import { formatBenefitCardTag } from '../lib/benefits';
 import { buildMatchReasons, selectedChildAges } from '../lib/matchReasons';
-import { shouldApplyHomeDefaults, buildCarouselFilters, resolveCommittedHomeLocation } from '../lib/homeSession';
+import {
+  shouldApplyHomeDefaults, buildCarouselFilters, resolveCommittedHomeLocation,
+  buildResultsParams, resolveSmartSearchCoords,
+} from '../lib/homeSession';
 import { colors, fonts, radii, spacing } from '../constants/theme';
 import { useI18n, createStyles, t } from '../lib/i18n';
 import { categoryLabel, compactLocationText } from '../lib/i18n/format';
@@ -837,23 +840,16 @@ export default function HomeScreen() {
 
     router.push({
       pathname: '/activities',
-      params: {
-        homeFilters: JSON.stringify(goFilters),
-        homeCoords: goCoords ? JSON.stringify(goCoords) : '',
-        homeChildAges: JSON.stringify(childAgesForSearch),
-      },
+      params: buildResultsParams({ filters: goFilters, coords: goCoords, childAges: childAgesForSearch }),
     });
   };
 
   const handleAdvancedFilters = () => {
     router.push({
       pathname: '/activities',
-      params: {
-        homeFilters: JSON.stringify(filters),
-        homeCoords: deviceCoords ? JSON.stringify(deviceCoords) : '',
-        homeChildAges: JSON.stringify(childAgesForSearch),
-        openFilters: 'true',
-      },
+      params: buildResultsParams({
+        filters, coords: deviceCoords, childAges: childAgesForSearch, extra: { openFilters: 'true' },
+      }),
     });
   };
 
@@ -864,12 +860,9 @@ export default function HomeScreen() {
   const handleSpontaneous = () => {
     router.push({
       pathname: '/activities',
-      params: {
-        homeFilters: JSON.stringify(filters),
-        homeCoords: deviceCoords ? JSON.stringify(deviceCoords) : '',
-        homeChildAges: JSON.stringify(childAgesForSearch),
-        spontaneous: 'true',
-      },
+      params: buildResultsParams({
+        filters, coords: deviceCoords, childAges: childAgesForSearch, extra: { spontaneous: 'true' },
+      }),
     });
   };
 
@@ -910,12 +903,9 @@ export default function HomeScreen() {
       };
       router.push({
         pathname: '/activities',
-        params: {
-          homeFilters: JSON.stringify(nearMeFilters),
-          homeCoords: JSON.stringify(result.coords),
-          homeChildAges: JSON.stringify(childAgesForSearch),
-          nearMe: 'true',
-        },
+        params: buildResultsParams({
+          filters: nearMeFilters, coords: result.coords, childAges: childAgesForSearch, extra: { nearMe: 'true' },
+        }),
       });
     } finally {
       setNearMeLoading(false);
@@ -969,11 +959,11 @@ export default function HomeScreen() {
     setHomeLocation(filters.location);
     router.push({
       pathname: '/activities',
-      params: {
-        homeFilters: JSON.stringify({ ...DEFAULT_FILTERS, category: [category], location: filters.location }),
-        homeCoords: deviceCoords ? JSON.stringify(deviceCoords) : '',
-        homeChildAges: JSON.stringify(childAgesForSearch),
-      },
+      params: buildResultsParams({
+        filters: { ...DEFAULT_FILTERS, category: [category], location: filters.location },
+        coords: deviceCoords,
+        childAges: childAgesForSearch,
+      }),
     });
   };
 
@@ -1029,17 +1019,15 @@ export default function HomeScreen() {
       // אחרת נופלים לבחירה המובנית הקיימת). ראו lib/smartSearch.js.
       fallbackCategory: filters.category?.length ? filters.category : null,
     });
-    const params = { homeFilters: JSON.stringify(builtFilters), homeChildAges: JSON.stringify(childAgesForSearch) };
-    if (builtFilters.location.mode === 'address' && builtFilters.location.coords) {
-      params.homeCoords = JSON.stringify({
-        latitude: builtFilters.location.coords.lat, longitude: builtFilters.location.coords.lng,
-      });
-    } else if (deviceCoords) {
-      // כמו כל שאר הניווטים מהבית (handleAdvancedFilters/handleSpontaneous/navigateToCategoryResults):
-      // מסך התוצאות מקבל את נקודת ה-GPS רק מכאן, ובלעדיה "השתמשו במיקום שלי" בבורר לא היה מסנן לפי
-      // מרחק. בטוח ל"בלי מיקום": distanceScore/searchOriginCoords קוראים deviceCoords רק במצב 'current'.
-      params.homeCoords = JSON.stringify(deviceCoords);
-    }
+    // כמו כל שאר הניווטים מהבית (handleAdvancedFilters/handleSpontaneous/navigateToCategoryResults):
+    // מסך התוצאות מקבל את נקודת ה-GPS רק מכאן, ובלעדיה "השתמשו במיקום שלי" בבורר לא היה מסנן לפי
+    // מרחק. בטוח ל"בלי מיקום": distanceScore/searchOriginCoords קוראים deviceCoords רק במצב 'current'.
+    const params = buildResultsParams({
+      filters: builtFilters,
+      coords: resolveSmartSearchCoords(builtFilters, deviceCoords),
+      childAges: childAgesForSearch,
+      coordsMode: 'omit-if-absent',
+    });
     // homeLocation - commit מפורש (ראו ההערה המלאה ליד ה-state): חיפוש-חכם מוגש הוא גם-כן פעולת-
     // הגשה, בדיוק כמו handleGo/navigateToCategoryResults. builtFilters.location (לא filters.location
     // הטיוטה) - המיקום *בפועל* שישמש את החיפוש הזה (למשל עיר שזוהתה מהטקסט החופשי עצמו), לא
