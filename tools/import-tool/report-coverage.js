@@ -23,10 +23,10 @@ const tally = (arr, fn) => { const m = {}; arr.forEach((x) => { const k = fn(x) 
   const [sources, venues, acts, logs, incoming] = await Promise.all([
     all(client, 'sources', '*, venue:venues(venue_type, city, region)'),
     all(client, 'venues', 'id, name_he, venue_type, city, region, is_active, facebook_url, instagram_url, website_url, events_url'),
-    all(client, 'activities', 'id, status, category, venue_id, source_id, created_at, last_seen_at, location:locations(region, city), activity_schedules(schedule_type)'),
+    all(client, 'activities', 'id, status, category, venue_id, source_id, created_at, last_seen_at, archive_reason, location:locations(region, city), activity_schedules(schedule_type)'),
     all(client, 'source_scan_logs', 'source_id, started_at, status, activities_found, new_count, updated_count, duplicate_count, auto_approved_count, failure_kind, detail_metrics', (q) => q.gte('started_at', new Date(Date.now() - 30 * 86400000).toISOString())),
     // only the JSON keys we need - pulling whole extracted_data blobs for ~1.5k rows timed out PostgREST
-    all(client, 'incoming_activities', 'source_id, status, match_type, found_at, location_name:extracted_data->>location_name, city:extracted_data->>city, venue_id:extracted_data->>venue_id', (q) => q.gte('found_at', new Date(Date.now() - 30 * 86400000).toISOString())),
+    all(client, 'incoming_activities', 'source_id, status, match_type, found_at, archive_reason, location_name:extracted_data->>location_name, city:extracted_data->>city, venue_id:extracted_data->>venue_id', (q) => q.gte('found_at', new Date(Date.now() - 30 * 86400000).toISOString())),
   ]);
   // venue-normalization backlog: location labels the scanner keeps seeing but cannot link to a venue
   const unresolvedVenueLabels = tally(incoming.filter((i) => i.location_name && !i.venue_id), (i) => `${i.location_name} | ${i.city || '?'}`);
@@ -83,6 +83,9 @@ const tally = (arr, fn) => { const m = {}; arr.forEach((x) => { const k = fn(x) 
 
   const report = {
     generatedAt: new Date().toISOString(),
+    // SERVICE AREA (2026-09-19): coverage is measured over TURU's regions only (REGIONS above - Palestinian-administered
+    // territory is not a region and never a gap); what the rule excluded is reported, not counted as missing
+    serviceArea: { policy: 'Palestinian-Authority-administered localities are out of scope (geographic rule, lib/serviceArea.js)', archivedOutsideServiceArea: acts.filter((a) => a.status === 'archived' && a.archive_reason === 'outside_service_area').length, candidatesRejectedOutside30d: incoming.filter((i) => i.archive_reason === 'outside_service_area').length },
     totals: {
       sources: sources.length, activeSources: active.length, pausedSources: sources.filter((s) => s.health_status === 'auto_paused').length,
       attentionSources: sources.filter((s) => s.health_status === 'attention_required').length,

@@ -900,6 +900,17 @@ app.post('/api/discover/scrape', async (req, res) => {
 // *לפני* שיוצרים שורת location חדשה, כך שאף פעם לא נוצרת שורה שצריך למחוק. location *קיים*
 // עם קואורדינטות-חסרות (אולי פעילות אחרת כבר מצביעה עליו) נשאר כמו שהוא בלי נגיעה - רק מנסים
 // להשלים לו קואורדינטות אם ניתן, לא מוחקים.
+// SERVICE AREA (product decision 2026-09-19): verified coordinates inside Palestinian-administered territory never
+// become a published location - the approve path refuses with code OUTSIDE_SERVICE_AREA (the caller records the
+// reason on the incoming row). AMBIGUOUS is never a reason to refuse.
+const { classifyServiceArea } = require('./lib/serviceArea');
+async function refuseOutsideServiceArea(client, coords, cityHint = null) {
+  const { loadSettlementIndex } = require('./lib/canonicalSettlement');
+  let index = null; try { index = await loadSettlementIndex(client); } catch { index = null; }
+  const v = classifyServiceArea({ lat: coords.lat, lng: coords.lng }, { index, cityHint });
+  if (v.klass === 'OUTSIDE_SERVICE_AREA') throw Object.assign(new Error('המקום מחוץ לאזור השירות של תורו - ' + v.reason), { code: 'OUTSIDE_SERVICE_AREA', verdict: v });
+  return v;
+}
 async function requireVerifiedLocation(client, rawActivity) {
   if (!rawActivity.location_name) {
     throw new Error('לא נמצאה כתובת למקום - הפעילות לא נשמרה (חובה מיקום עם כתובת מאומתת)');
@@ -937,6 +948,7 @@ async function requireVerifiedLocation(client, rawActivity) {
     if (!coords) {
       throw new Error('לא נמצאה כתובת מאומתת למקום "' + activity.location_name + '" - הפעילות לא נשמרה');
     }
+    await refuseOutsideServiceArea(client, coords, activity.city || existing.city || null);
     if (existing.lat == null) {
       await client.from('locations').update({ lat: coords.lat, lng: coords.lng, ...centroidStamp(coords) }).eq('id', existing.id);
     }
@@ -956,6 +968,7 @@ async function requireVerifiedLocation(client, rawActivity) {
   if (!coords) {
     throw new Error('לא נמצאה כתובת מאומתת למקום "' + activity.location_name + '" - הפעילות לא נשמרה');
   }
+  await refuseOutsideServiceArea(client, coords, activity.city || null);
   // same prevention for a new row: canonical city from the venue / the address tail, never a geocoder guess
   const canonCity = activity.city ? null : await canonicalCityFallback(client, { venueId: activity.venue_id, address: bestAddress, lat: coords.lat, lng: coords.lng });
   const { data: created, error: locErr } = await client
@@ -2791,6 +2804,11 @@ app.post('/api/incoming/:id/approve', async (req, res) => {
       let saved;
       try { saved = await saveNewActivity(client, userId, item.page_url, payload, { sourceId: item.source_id, incomingId: item.id }); }
       catch (e) {
+        if (e && e.code === 'OUTSIDE_SERVICE_AREA') {
+          // service-area policy: the row is kept as rejected with the geographic evidence, never published, never re-queued
+          await client.from('incoming_activities').update({ status: 'rejected', archive_reason: 'outside_service_area', reject_reason: e.message, extracted_data: { ...(item.extracted_data || {}), service_area: e.verdict }, reviewed_by: userId, reviewed_at: new Date().toISOString() }).eq('id', id);
+          return res.status(422).json({ error: e.message, code: 'OUTSIDE_SERVICE_AREA', verdict: e.verdict });
+        }
         if (!e || e.code !== 'DUPLICATE_PLACE') throw e;
         await client.from('incoming_activities').update({ status: 'rejected', match_type: 'duplicate', archive_reason: 'duplicate_of_existing_activity', reject_reason: 'כפילות מאומתת - אותו מקום ואותו שם כמו פעילות קיימת (' + e.duplicateOf + ')', existing_activity_id: e.duplicateOf, reviewed_by: userId, reviewed_at: new Date().toISOString() }).eq('id', id);
         await client.from('activity_sources').upsert({ activity_id: e.duplicateOf, source_id: item.source_id, page_url: item.page_url, incoming_activity_id: item.id, relation: 'seen', last_seen_at: new Date().toISOString() }, { onConflict: 'activity_id,page_url' });

@@ -32,6 +32,10 @@ import { extractDetailEvidence, applyDetailEvidence, detailPageNamesCandidate } 
 import { parseSitemapUrls, orderForIncrementalScan, isSitemapIndex, type SitemapConfig } from '../_shared/sitemap.ts';
 import { enumerateListingCards, cardAccounting, cardWindows, cardsLookLikeEvents, type ListingCard } from '../_shared/listingCards.ts';
 import { hintCategory } from '../_shared/categoryHints.ts';
+// SERVICE AREA (product decision 2026-09-19): a candidate whose verified coordinates fall inside Palestinian-
+// administered territory is stopped at the earliest point that has coordinates (before any activity row exists),
+// recorded on its incoming row as rejected / outside_service_area, and never re-queued by later rescans.
+import { classifyServiceArea, type Settlement } from '../_shared/serviceArea.ts';
 // EVENT identity (stable across occurrences) - see eventIdentity.ts. event_fingerprint below stays the
 // LEGACY first-occurrence fingerprint used only for the exact pre-checks.
 import { computeEventKey, findEventMatch, type EventKeyKind } from '../_shared/eventIdentity.ts';
@@ -85,7 +89,7 @@ function autoApproveEligible(candidate: Record<string, unknown>, issues: string[
 // מקביל-בפועל ל-saveNewActivity ב-tools/import-tool/server.js (אותה תוצאה: location+activity+
 // schedules+images) אבל ל-Deno, ובלי חיפוש-תמונה-אוטומטי/אתר-רשמי (דורשים SERPAPI).
 async function autoApproveNewActivity(
-  client: Client, createdBy: string | null, sourceId: string, pageUrl: string, candidate: Record<string, unknown>,
+  client: Client, createdBy: string | null, sourceId: string, pageUrl: string, candidate: Record<string, unknown>, settlements: Settlement[] = [],
 ): Promise<{ id: string; lat: number | null; lng: number | null }> {
   candidate = { ...candidate, city: normalizeCityName(candidate.city as string | null) };
   let locationId: string | null = null;
@@ -153,6 +157,13 @@ async function autoApproveNewActivity(
   if (!hasCoords) {
     if (createdNewLocation) await client.from('locations').delete().eq('id', locationId);
     throw new Error(`לא נמצאה כתובת מאומתת למקום "${locationName}"`);
+  }
+  // SERVICE AREA: the earliest point with verified coordinates - nothing is published outside it; an AMBIGUOUS
+  // verdict is never a reason to block (it goes on as usual and the Cleaner / a person sees the evidence)
+  const verdict = classifyServiceArea(finalLat, finalLng, settlements, candidate.city || null);
+  if (verdict.klass === 'OUTSIDE_SERVICE_AREA') {
+    if (createdNewLocation) await client.from('locations').delete().eq('id', locationId);
+    throw Object.assign(new Error('outside_service_area: ' + verdict.reason), { code: 'OUTSIDE_SERVICE_AREA', verdict });
   }
 
   let finalName = candidate.name as string;
@@ -394,6 +405,9 @@ Deno.serve(async (req: Request) => {
   const thresholds = getConfidenceThresholds(settings);
   const healthSettings = readHealthSettings(settings);
   const todayStr = new Date().toISOString().slice(0, 10);
+  // CBS settlement centroids for the service-area rule (one read per scan; an empty list means "no claim")
+  const { data: settlementRows } = await client.from('settlements').select('name_he, lat, lng').not('lat', 'is', null);
+  const settlements: Settlement[] = (settlementRows || []).map((r) => ({ city: String((r as { name_he: string }).name_he), lat: Number((r as { lat: number }).lat), lng: Number((r as { lng: number }).lng) }));
   const gate: AutoApproveGate = {
     minTrust: Number(settings.auto_approve_min_trust_score ?? 80),
     maxDaysAhead: Number(settings.event_max_days_ahead ?? 180),
@@ -435,7 +449,7 @@ Deno.serve(async (req: Request) => {
 
   const counters = {
     pagesChecked: 0, pagesChanged: 0, pagesUnchanged: 0, aiCalls: 0,
-    found: 0, newCount: 0, updatedCount: 0, duplicateCount: 0, rejectedCount: 0,
+    found: 0, newCount: 0, updatedCount: 0, duplicateCount: 0, rejectedCount: 0, outsideServiceArea: 0,
     missingCount: 0, errorCount: 0, autoApprovedCount: 0, repairedResponses: 0,
   };
   let errorType: string | null = null;
@@ -485,7 +499,7 @@ Deno.serve(async (req: Request) => {
   // DENSE-LISTING RECALL FUNNEL (wave 2): DOM cards detected -> extractor output -> past filter ->
   // accounted cards -> bounded recovery -> rejections / folding / cap. Stored per scan in
   // source_scan_logs.listing_metrics (0095) so recall is a number, not an impression.
-  const listing = { pages_with_cards: 0, cards_detected: 0, ai_returned: 0, past_filtered: 0, cards_matched: 0, cards_unaccounted: 0, recovery_calls: 0, recovered: 0, rejected_no_name: 0, rejected_commitment: 0, rejected_adult: 0, twins_folded: 0, capped: 0, skipped_in_scan_duplicate: 0, skipped_pending_in_queue: 0, identity_backfilled: 0, updates_superseded: 0, recovery_error: null as string | null, recovery_skipped: null as string | null, sitemap: null as null | { entities: number; never_scanned: number; picked: number; error?: string }, sample_unaccounted: [] as string[] };
+  const listing = { pages_with_cards: 0, cards_detected: 0, ai_returned: 0, past_filtered: 0, cards_matched: 0, cards_unaccounted: 0, recovery_calls: 0, recovered: 0, rejected_no_name: 0, rejected_commitment: 0, rejected_adult: 0, twins_folded: 0, capped: 0, skipped_in_scan_duplicate: 0, skipped_pending_in_queue: 0, outside_service_area: 0, skipped_outside_service_area: 0, identity_backfilled: 0, updates_superseded: 0, recovery_error: null as string | null, recovery_skipped: null as string | null, sitemap: null as null | { entities: number; never_scanned: number; picked: number; error?: string }, sample_unaccounted: [] as string[] };
   const RECOVERY_MAX_CARDS = 12;
   const RECOVERY_TIME_LIMIT_MS = 100_000;
 
@@ -947,6 +961,13 @@ Deno.serve(async (req: Request) => {
           // were open twins of the first scan. Same SOURCE + same extracted name already waiting => not queued again.
           // Scoped to the source and to identity-less candidates only, so two genuinely different dated events that
           // share a title are never folded here (their fingerprints / keys decide above).
+          // SERVICE-AREA memory: a candidate this source already produced that was rejected as outside the service
+          // area is not re-queued (and not re-geocoded) on every rescan - the earlier verdict and its evidence stand
+          if (!fingerprintMatchId && !eventMatch && typeof candidate.name === 'string' && candidate.name.trim()) {
+            const { data: outsideRow } = await client.from('incoming_activities').select('id')
+              .eq('source_id', source.id).eq('archive_reason', 'outside_service_area').eq('extracted_data->>name', (candidate.name as string).trim()).limit(1).maybeSingle();
+            if (outsideRow) { counters.outsideServiceArea++; listing.skipped_outside_service_area = (listing.skipped_outside_service_area || 0) + 1; continue; }
+          }
           if (!fingerprintMatchId && !eventMatch && !candidate.event_fingerprint && !candidate.event_key && typeof candidate.name === 'string' && candidate.name.trim()) {
             const nameKey = normalizeForMatch(candidate.name as string);
             if (seenIdentityless.has(nameKey)) { counters.duplicateCount++; listing.skipped_in_scan_duplicate++; continue; }
@@ -1030,9 +1051,10 @@ Deno.serve(async (req: Request) => {
           }
 
           let autoApprovedActivityId: string | null = null;
+          let serviceAreaReject: { reason: string; verdict: unknown } | null = null;
           if (matchType === 'new' && autoApproveEligible(candidate, gatingIssues(issues), source, gate)) {
             try {
-              const approved = await autoApproveNewActivity(client, source.created_by ?? null, source.id, pageUrl, candidate);
+              const approved = await autoApproveNewActivity(client, source.created_by ?? null, source.id, pageUrl, candidate, settlements);
               autoApprovedActivityId = approved.id;
               status = 'approved';
               // מונע כפילויות תוך-סריקה - cityCache נטען פעם אחת, אז מוסיפים את מה שנוצר עכשיו.
@@ -1052,7 +1074,14 @@ Deno.serve(async (req: Request) => {
               }
             } catch (saveErr) {
               autoApprovedActivityId = null;
-              console.error('אישור אוטומטי נכשל, נופל בחזרה לתור בדיקה ידנית:', saveErr);
+              if ((saveErr as { code?: string }).code === 'OUTSIDE_SERVICE_AREA') {
+                // not a failure: the place is outside TURU's service area - the row is kept as rejected with the
+                // reason (provenance), counted, and never published or queued for review
+                const v = (saveErr as { verdict?: { reason?: string } }).verdict;
+                serviceAreaReject = { reason: v?.reason || 'outside_service_area', verdict: v };
+                status = 'rejected'; counters.outsideServiceArea++; counters.newCount--; counters.rejectedCount++;
+                listing.outside_service_area = (listing.outside_service_area || 0) + 1;
+              } else console.error('אישור אוטומטי נכשל, נופל בחזרה לתור בדיקה ידנית:', saveErr);
             }
           }
 
@@ -1062,9 +1091,10 @@ Deno.serve(async (req: Request) => {
             match_type: matchType, existing_activity_id: existingActivityId,
             confidence_score: confidenceScore, confidence_breakdown: confidenceBreakdown,
             source_trust_score: source.source_trust_score,
-            extracted_data: storedCandidate, diff, validation_issues: issues,
+            extracted_data: serviceAreaReject ? { ...storedCandidate, service_area: serviceAreaReject.verdict } : storedCandidate, diff, validation_issues: issues,
             raw_source_snapshot: text.slice(0, 4000), status,
             created_activity_id: autoApprovedActivityId,
+            ...(serviceAreaReject ? { archive_reason: 'outside_service_area', reject_reason: 'מחוץ לאזור השירות של תורו (' + serviceAreaReject.reason + ')', reviewed_at: new Date().toISOString() } : {}),
           };
           // ONE pending update per (activity, source): a rescan SUPERSEDES the update still waiting for review
           // instead of stacking another row (2026-09-17: 109 activities had stacked rows, up to 30 for one).
