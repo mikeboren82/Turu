@@ -18,6 +18,7 @@ const ARCHIVE_REASON_BY_ISSUE = {
   missing_image: 'image_unavailable_only', broken_image: 'image_unavailable_only', missing_schedule: 'insufficient_required_data',
   missing_region: 'other', missing_required_metadata: 'insufficient_required_data', low_quality_description: 'other',
   settlement_review: 'insufficient_required_data', missing_city: 'city_unresolved', misclassified: 'requires_human_judgment',
+  city_not_canonical: 'city_unresolved',
 };
 // issues whose archive also archives/rejects the SUBJECT (blocking); the rest archive only the case
 const BLOCKING_FOR_INCOMING = new Set(['missing_location', 'rejected_missing_address', 'unverified_location', 'missing_required_metadata', 'missing_coordinates']);
@@ -32,6 +33,7 @@ const MISSING_BY_ISSUE = {
   missing_required_metadata: 'required metadata (category/date/entity type/audience)', low_quality_description: 'description',
   settlement_review: 'identity decision for a legacy settlement candidate (duplicate / new / invalid)',
   missing_city: 'canonical city (coordinates known)',
+  city_not_canonical: 'canonical city (a regional council / spelling variant / unknown locality string is stored)',
   misclassified: 'correct venue type (filed as a public playground)',
 };
 const REOPEN_WHEN_BY_ISSUE = {
@@ -43,6 +45,7 @@ const REOPEN_WHEN_BY_ISSUE = {
   missing_required_metadata: ['the source page exposes the missing field (JSON-LD)'], low_quality_description: ['the source page changes'],
   misclassified: ['an admin confirms the venue type', 'the official site / a canonical venue states the venue type'],
   missing_city: ['a canonical venue is linked to the activity', 'a settlement alias is added for the geocoder locality (public.settlement_aliases)', 'the coordinates are corrected'],
+  city_not_canonical: ['a settlement alias is added for the stored value (public.settlement_aliases)', 'a canonical venue is linked to the activity', 'the coordinates are corrected', 'a service-area decision is made for Palestinian localities'],
   settlement_review: ['Google Place details become available (types/photos)', 'a canonical record appears with the same place id or street', 'an admin adds venue/category evidence'],
 };
 
@@ -147,13 +150,18 @@ function buildExplanation(c, { reason, methods, unavailable, evidence, note, las
 async function archiveCase(client, c, { reason, methods, evidence, attempts, note, unavailable, lastError }) {
   const now = new Date().toISOString();
   const explanation = buildExplanation(c, { reason, methods, unavailable: unavailable || unavailableOf(c), evidence, note, lastError });
+  // the SUBJECT write comes first and is verified: an unlocatable live activity is archived only if the
+  // row actually changed; a zero-row write whose guard still holds is an authorization failure that must
+  // surface as an error (retry / explicit failure), never as an "archived" case (2026-09-19)
+  if (c.subject_kind === 'activity' && c.issue === 'missing_coordinates') {
+    const { verifiedUpdate, deniedError } = require('./apply');
+    const w = await verifiedUpdate(client, 'activities', c.subject_id, { status: 'archived', archive_reason: reason, archived_at: now }, (q) => q.eq('status', 'approved'), (row) => row.status === 'approved');
+    if (!w.wrote && w.why === 'write_denied') throw new Error(deniedError('activities', ['status']));
+  }
   const { error } = await client.from('cleaner_cases').update({ status: 'archived', archive_reason: reason, attempts: attempts ?? c.attempts, methods_tried: methods || c.methods_tried, last_attempt_at: now, resolution: { outcome: 'archived', reason, explanation, evidence: evidence || null, note: note || null, unavailable: explanation.methods_unavailable }, updated_at: now, ...RELEASE }).eq('id', c.id);
   if (error) throw error;
   if (c.subject_kind === 'incoming' && BLOCKING_FOR_INCOMING.has(c.issue)) {
     await client.from('incoming_activities').update({ status: 'rejected', archive_reason: reason, reject_reason: `הפריט הועבר לארכיון ע"י THE CLEANER (${reason})${note ? ' - ' + note : ''}`, reviewed_at: now }).eq('id', c.subject_id).in('status', ['new', 'needs_review', 'failed']);
-  }
-  if (c.subject_kind === 'activity' && c.issue === 'missing_coordinates') {
-    await client.from('activities').update({ status: 'archived', archive_reason: reason, archived_at: now }).eq('id', c.subject_id).eq('status', 'approved');
   }
   return { outcome: 'archived', reason, explanation };
 }

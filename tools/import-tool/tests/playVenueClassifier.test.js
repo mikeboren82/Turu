@@ -21,6 +21,17 @@ test('an equipment company is not a place; an amusement park is its own category
   for (const n of ['פארק חבלים', 'מתחם חבלים (קומפן)', 'פארק אקסטרים אגוז']) { const k = classifyPlayVenue(n); assert.equal(k.confidence, 'MEDIUM', n); assert.equal(k.category, null); }
 });
 
+// Google settlement-scanner cohort (place_kind PARK / UNCERTAIN, 2026-09-19): names proving another existing category
+test('petting zoos, botanical gardens and pump tracks / skate parks are HIGH reclassifications; nature sites are MEDIUM; "גינה"/"גן" stay playgrounds', () => {
+  assert.equal(classifyPlayVenue('פינת חי').category, 'פינת חי');
+  assert.equal(classifyPlayVenue('פינת החי העירונית').confidence, 'HIGH');
+  assert.equal(classifyPlayVenue('הגן הבוטני').category, 'טבע');
+  assert.equal(classifyPlayVenue('פאמפטרק ע"ש גבי לרנר ז"ל').category, 'ספורט');
+  assert.equal(classifyPlayVenue('סקייט פארק חולון').category, 'ספורט');
+  const nature = classifyPlayVenue("שלולית חורף - חורשת הסרג'נטים"); assert.equal(nature.confidence, 'MEDIUM'); assert.equal(nature.category, null);
+  for (const n of ['גינת היובל', 'גן הבנים', 'Habanim Garden', 'גני מעלה המפל', 'הפארק הגדול']) assert.equal(classifyPlayVenue(n), null, n + ' - a public garden may well be a playground; never reclassified on the name alone');
+});
+
 // Failure class of the "חוות ארץ האיילים" regression ("367, ביתר עילית"): a highway reference number is not a street.
 test('a bare road number is never a street - not in an address, not in a generated playground title', () => {
   const { parseStreetAddress, generatePlaygroundDisplayName } = require('../playgroundNaming');

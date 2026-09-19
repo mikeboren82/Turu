@@ -19,7 +19,17 @@ const categoryValues = require('../../../supabase/functions/_shared/categoryValu
 const CATEGORIES = new Set(categoryValues.categories || categoryValues.CATEGORY_VALUES || []);
 const LD_TYPE_TO_CATEGORY = { TheaterEvent: 'הצגה', MusicEvent: 'מוזיקה', DanceEvent: 'ריקוד', ExhibitionEvent: 'מוזיאון לילדים', ScreeningEvent: 'קולנוע לילדים', SportsEvent: 'ספורט', EducationEvent: 'סדנה', ChildrensEvent: 'פעילות קהילתית' };
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}/;
-const GATING = ['קטגוריה', 'תאריך', 'סוג ישות', 'קהל יעד לא ברור'];
+const GATING = ['קטגוריה', 'תאריך', 'סוג ישות', 'קהל יעד לא ברור', 'ימי פעילות'];
+
+// weekdays named next to a day marker ("ימי שלישי וחמישי", "כל יום שני", "בימי ראשון, רביעי") - the
+// context word keeps "שני" (second) / "ראשון" (first) from counting as days on their own
+const DAYS = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
+const DAY_CTX_RE = /(?:ימי|ימים|יום|בימי|ביום|כל יום|בכל יום|מדי יום)\s+((?:ו?(?:ראשון|שני|שלישי|רביעי|חמישי|שישי|שבת)[\s,\-–ו]*){1,7})/g;
+function weekdaysIn(text) {
+  const out = new Set();
+  for (const m of (text || '').matchAll(DAY_CTX_RE)) for (const d of DAYS) if (new RegExp('(^|[\\s,ו\\-–])' + d + '(?=$|[\\s,\\-–])').test(m[1])) out.add(d);
+  return DAYS.filter((d) => out.has(d));
+}
 
 // name keyword -> category (MEDIUM; needs corroboration). Order matters: specific before generic.
 const NAME_CATEGORY = [
@@ -97,7 +107,8 @@ async function resolveIncomingMetadata(client, row, ctx) {
   // 1. canonical fields already there (a stale issue list): audience/category/date present => clear
   if (issues.includes('קטגוריה') && ed.category && CATEGORIES.has(ed.category)) set('category', ed.category, 'HIGH', 'already extracted', 'קטגוריה');
   if (issues.includes('תאריך') && ed.schedule_type === 'one_time' && ISO_DATE.test(ed.one_time_date || '') && ed.one_time_date >= today) set('one_time_date', ed.one_time_date, 'HIGH', 'already extracted', 'תאריך');
-  if (issues.includes('תאריך') && ed.schedule_type !== 'one_time' && ed.schedule_type) set('one_time_date', null, 'HIGH', 'not a one-time event (' + ed.schedule_type + ')', 'תאריך');
+  // an "אירוע" (one-time by definition) keeps its date issue - a non one-time schedule on it is the model's contradiction, not a resolution
+  if (issues.includes('תאריך') && ed.schedule_type !== 'one_time' && ed.schedule_type && ed.entity_type !== 'אירוע') set('one_time_date', null, 'HIGH', 'not a one-time event (' + ed.schedule_type + ')', 'תאריך');
   // entity type is deterministic from the schedule (the prompt's own definitions)
   if (issues.includes('סוג ישות') && !ed.entity_type) {
     const st = ed.schedule_type || (ISO_DATE.test(ed.one_time_date || '') ? 'one_time' : null);
@@ -121,6 +132,17 @@ async function resolveIncomingMetadata(client, row, ctx) {
       const ds2 = ds.length ? ds : datesIn(pages.detail?.about ? pages.detail.title + ' ' + pages.detail.text.slice(0, 1500) : '', today).filter((d) => d >= today);
       if (ds2.length === 1) { ed.one_time_date = ds2[0]; ed.schedule_type = ed.schedule_type || 'one_time'; const t = TIME_RE.exec(pages.card || pages.detail?.text.slice(0, 1500) || ''); if (t && !ed.start_time) ed.start_time = `${t[1].padStart(2, '0')}:${t[2]}`; set('one_time_date', ds2[0], 'MEDIUM', (ds.length ? 'single date in the event card' : 'single date on the detail page') + (ed.start_time ? ' + time' : ''), 'תאריך'); }
       else unresolved['תאריך'] = ds2.length > 1 ? 'several dates on the page (' + ds2.slice(0, 4).join(', ') + ') - occurrences, not one date' : (pages.source ? 'no structured date and no date in the event card / detail page' : 'no page evidence');
+    }
+  }
+  // recurring event without weekdays (the approval gate's temporal evidence): weekdays named in the event's
+  // own card first, else on a detail page that is about this event; MEDIUM (text), never guessed
+  if (issues.includes('ימי פעילות') && !(Array.isArray(ed.recurring_days) && ed.recurring_days.length)) {
+    if (ed.schedule_type && ed.schedule_type !== 'recurring') { set('recurring_days', null, 'HIGH', 'not a recurring event (' + ed.schedule_type + ')', 'ימי פעילות'); }
+    else {
+      const fromCard = weekdaysIn(pages.card || '');
+      const days = fromCard.length ? fromCard : weekdaysIn(pages.detail?.about ? pages.detail.title + ' ' + pages.detail.text.slice(0, 3000) : '');
+      if (days.length) { ed.recurring_days = days; ed.schedule_type = ed.schedule_type || 'recurring'; set('recurring_days', days, 'MEDIUM', (fromCard.length ? 'weekdays named in the event card' : 'weekdays named on the detail page') + ': ' + days.join(', '), 'ימי פעילות'); }
+      else unresolved['ימי פעילות'] = pages.source ? 'no weekday named in the event card / detail page' : 'no page evidence';
     }
   }
   if (issues.includes('קהל יעד לא ברור')) {
@@ -196,4 +218,4 @@ async function enrichFields(client, target, ctx) {
   return { filled, remaining: [], tried };
 }
 
-module.exports = { enrichFields, resolveIncomingMetadata, LD_TYPE_TO_CATEGORY, NAME_CATEGORY, datesIn, agesIn, GATING };
+module.exports = { enrichFields, resolveIncomingMetadata, LD_TYPE_TO_CATEGORY, NAME_CATEGORY, datesIn, agesIn, weekdaysIn, GATING };

@@ -3,11 +3,13 @@
 // paginated selects). Playgrounds are exempt from missing_image (placeholder policy is their designed
 // resolution) but not from incomplete_address (reverse geocoding is cheap and useful in the app).
 const { normalizeCityName } = require('../cityNaming');
-const { isMissingCity } = require('../lib/canonicalSettlement');
+const { isMissingCity, loadSettlementIndex, classifyCityValue } = require('../lib/canonicalSettlement');
 const { classifyPlayVenue } = require('../lib/playVenueClassifier');
 
-const BASE_PRIORITY = { missing_location: 10, rejected_missing_address: 12, unverified_location: 15, missing_city: 22, misclassified: 24, missing_schedule: 25, incomplete_address: 30, missing_required_metadata: 35, missing_venue: 40, missing_region: 45, missing_image: 50, broken_image: 52, low_quality_description: 60 };
-const META_ISSUES = new Set(['קטגוריה', 'תאריך', 'סוג ישות', 'קהל יעד לא ברור']);
+const BASE_PRIORITY = { missing_location: 10, rejected_missing_address: 12, unverified_location: 15, missing_city: 22, city_not_canonical: 23, misclassified: 24, missing_schedule: 25, incomplete_address: 30, missing_required_metadata: 35, missing_venue: 40, missing_region: 45, missing_image: 50, broken_image: 52, low_quality_description: 60 };
+// 'ימי פעילות' (2026-09-19): a recurring event the extractor returned without weekdays - temporal evidence the
+// approval gate requires; the metadata resolver looks for the weekdays on the event's card / detail page
+const META_ISSUES = new Set(['קטגוריה', 'תאריך', 'סוג ישות', 'קהל יעד לא ברור', 'ימי פעילות']);
 
 async function all(client, table, select, fn) {
   let from = 0, rows = [];
@@ -58,6 +60,9 @@ async function discoverCases(client, { today }) {
   }
 
   // B. live activities with missing important data
+  // canonical settlement knowledge for CITY_NOT_CANONICAL; without it (empty table / stub) no claim is made
+  let index = null;
+  try { index = await loadSettlementIndex(client); } catch { index = null; }
   const acts = await all(client, 'activities', 'id, name, category, venue_id, source_id, placeholder_group, photo_skipped, locations(id, address, city, lat, lng, region, address_source, address_confidence), activity_schedules(schedule_type, one_time_date), activity_images(id)', (q) => q.eq('status', 'approved'));
   for (const a of acts) {
     const pg = a.category === 'גן שעשועים';
@@ -79,6 +84,13 @@ async function discoverCases(client, { today }) {
     // locations.city, so the locality vanishes from Results while the detail screen still shows the address.
     // Playgrounds included - they are most of this debt. One case per activity (unique subject+issue).
     if (loc && loc.lat != null && loc.lng != null && isMissingCity(loc.city)) add({ subject_kind: 'activity', subject_id: a.id, issue: 'missing_city', priority: priorityFor('missing_city', ctx), event_date: eventDate, source_id: a.source_id, opened_reason: 'published with coordinates but no canonical city' });
+    // CITY_NOT_CANONICAL (0099): a stored city that is a regional council, a non-canonical spelling variant or a
+    // locality string the shared resolver does not know. `city` = the canonical user-facing settlement; the
+    // repair runs the same evidence pipeline as missing_city with the stored value as the write guard.
+    else if (loc && loc.lat != null && loc.lng != null && index && index.size && !isMissingCity(loc.city)) {
+      const nc = classifyCityValue(index, loc.city);
+      if (nc) add({ subject_kind: 'activity', subject_id: a.id, issue: 'city_not_canonical', priority: priorityFor('city_not_canonical', ctx), event_date: eventDate, source_id: a.source_id, opened_reason: `${nc.kind}${nc.script ? '/' + nc.script : ''}: "${loc.city}"${nc.canonical ? ' -> ' + nc.canonical : ''}` });
+    }
     // MISCLASSIFIED (0096): filed as a public playground, but its own name proves another kind of venue
     // (indoor play centre / amusement park) or no venue at all (an equipment company). HIGH and MEDIUM both
     // open a case; only HIGH is ever written.
@@ -97,14 +109,29 @@ async function discoverCases(client, { today }) {
   return { candidates: out, stats };
 }
 
+// issues introduced by a migration that widens cleaner_cases_issue_check; until that migration is applied
+// the constraint rejects them - they are skipped (reported), never allowed to fail the whole discovery
+const MIGRATION_GATED_ISSUES = { city_not_canonical: '0100' };
+const isIssueCheckViolation = (error) => error && (error.code === '23514' || /cleaner_cases_issue_check/.test(error.message || ''));
+
 // upsert without touching attempts/status of existing open cases; re-open nothing here (reopen.js does)
 async function upsertCases(client, candidates) {
-  let created = 0, existing = 0;
+  let created = 0, existing = 0; const skippedByConstraint = {};
   const known = await all(client, 'cleaner_cases', 'subject_kind, subject_id, issue, status');
   const key = (c) => `${c.subject_kind}|${c.subject_id}|${c.issue}`;
   const map = new Map(known.map((k) => [key(k), k]));
-  const rows = [];
+  let rows = [];
   for (const c of candidates) { if (map.has(key(c))) { existing++; continue; } rows.push({ ...c, status: 'open', next_attempt_at: new Date().toISOString() }); }
+  // gated issues go in their own chunk first: a constraint violation there drops only them
+  const gated = rows.filter((r) => MIGRATION_GATED_ISSUES[r.issue]); rows = rows.filter((r) => !MIGRATION_GATED_ISSUES[r.issue]);
+  for (let i = 0; i < gated.length; i += 200) {
+    const chunk = gated.slice(i, i + 200);
+    const { data, error } = await client.from('cleaner_cases').upsert(chunk, { onConflict: 'subject_kind,subject_id,issue', ignoreDuplicates: true }).select('id');
+    if (error && isIssueCheckViolation(error)) { for (const r of chunk) skippedByConstraint[r.issue] = (skippedByConstraint[r.issue] || 0) + 1; continue; }
+    if (error) throw new Error('cleaner_cases upsert: ' + error.message);
+    created += (data || []).length;
+  }
+  for (const [issue, n] of Object.entries(skippedByConstraint)) console.log(`discover: ${n} ${issue} candidates NOT recorded - cleaner_cases_issue_check does not allow the issue yet (migration ${MIGRATION_GATED_ISSUES[issue]} not applied)`);
   for (let i = 0; i < rows.length; i += 200) {
     // idempotent: two workers discovering at the same moment both see the same new subjects (found
     // by the 2026-09-14 two-worker test) - the unique key decides, duplicates are ignored, not errors
@@ -116,7 +143,7 @@ async function upsertCases(client, candidates) {
   const wanted = new Set(candidates.map(key));
   const stale = known.filter((k) => k.status === 'open' && !wanted.has(key(k)));
   for (const k of stale) await client.from('cleaner_cases').update({ status: 'resolved', resolution: { outcome: 'resolved_externally' }, resolved_at: new Date().toISOString(), updated_at: new Date().toISOString() }).match({ subject_kind: k.subject_kind, subject_id: k.subject_id, issue: k.issue });
-  return { created, existing, closedExternally: stale.length };
+  return { created, existing, closedExternally: stale.length, skippedByConstraint };
 }
 
-module.exports = { discoverCases, upsertCases, all, BASE_PRIORITY };
+module.exports = { discoverCases, upsertCases, all, BASE_PRIORITY, MIGRATION_GATED_ISSUES };

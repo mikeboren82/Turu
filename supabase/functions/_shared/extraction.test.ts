@@ -7,7 +7,30 @@ import {
   repairHebrewGershayim, repairUnescapedQuotes, parseExtractionResponse, filterPastOneTimeActivities, isPlausibleEventDate, looksLikeStaleRepost,
 } from "./extraction.ts";
 
-import { assessChildRelevance, hasExplicitChildAge, cheapPageText, cheapDiscoverLinks } from "./extraction.ts";
+import { assessChildRelevance, hasExplicitChildAge, cheapPageText, cheapDiscoverLinks, missingTemporalEvidence, repairEntityTypeFromSchedule, TEMPORAL_ISSUE_LABEL } from "./extraction.ts";
+
+// ENTITY-TYPE-AWARE approval gate (2026-09-19): scan-source's autoApproveEligible refuses any candidate
+// with missing temporal evidence and sanitizeCandidate turns it into a gating validation issue.
+Deno.test('temporal gate: a one-time event needs a date (or occurrences), a recurring event needs weekdays, an evergreen place needs nothing', () => {
+  assertEquals(missingTemporalEvidence({ entity_type: 'אירוע', schedule_type: 'one_time', one_time_date: null }), 'one_time_without_date');
+  assertEquals(missingTemporalEvidence({ entity_type: 'אירוע', schedule_type: 'one_time', one_time_date: '2026-10-01' }), null);
+  assertEquals(missingTemporalEvidence({ entity_type: 'אירוע', schedule_type: 'one_time', one_time_date: null, occurrences: [{ date: '2026-10-01' }] }), null);
+  assertEquals(missingTemporalEvidence({ entity_type: 'אירוע_קבוע', schedule_type: 'recurring', recurring_days: [] }), 'recurring_without_days');
+  assertEquals(missingTemporalEvidence({ entity_type: 'פעילות', schedule_type: 'recurring', recurring_days: ['שני'] }), null);
+  assertEquals(missingTemporalEvidence({ entity_type: 'אירוע_קבוע', schedule_type: null }), 'recurring_event_without_schedule');
+  assertEquals(missingTemporalEvidence({ entity_type: 'אירוע', schedule_type: 'fixed_hours' }), 'event_without_one_time_schedule');
+  // evergreen: an OSM / Google playground or any permanent place without hours stays valid
+  assertEquals(missingTemporalEvidence({ entity_type: 'מקום_קבוע', schedule_type: 'fixed_hours', start_time: null }), null);
+  assertEquals(missingTemporalEvidence({ entity_type: 'מקום_קבוע', schedule_type: null }), null);
+  assertEquals(TEMPORAL_ISSUE_LABEL.recurring_without_days, 'ימי פעילות');
+});
+
+Deno.test('temporal gate: an "אירוע" with a repeating schedule is repaired to אירוע_קבוע (the prompt definition), nothing else is touched', () => {
+  assertEquals(repairEntityTypeFromSchedule({ entity_type: 'אירוע', schedule_type: 'recurring', recurring_days: ['שישי'] }), 'אירוע_קבוע');
+  assertEquals(repairEntityTypeFromSchedule({ entity_type: 'אירוע', schedule_type: 'recurring', recurring_days: [] }), 'אירוע');
+  assertEquals(repairEntityTypeFromSchedule({ entity_type: 'מקום_קבוע', schedule_type: 'recurring', recurring_days: ['שישי'] }), 'מקום_קבוע');
+  assertEquals(repairEntityTypeFromSchedule({ entity_type: null, schedule_type: 'one_time' }), null);
+});
 
 Deno.test("cheapPageText strips scripts/tags/entities without a DOM", () => {
   const html = '<html><head><script>var x = "<b>no</b>";</script><style>.a{}</style></head><body><nav>x</nav><h1>פסטיבל הקוסם</h1><p>27.09 &amp; 28.09 &nbsp; ב-<a href="/x">קניון</a></p><!-- c --></body></html>';

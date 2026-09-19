@@ -51,6 +51,21 @@ function isMissingCity(city) {
 }
 
 const isAdministrativeArea = (raw) => !!raw && ADMIN_AREA_RE.test(String(raw).trim());
+const adminAreaName = (raw) => { const m = /^מועצה\s+(?:אזורית|איזורית|מקומית)\s+(.+)$/.exec(String(raw || '').trim()); return m ? m[1].trim() : null; };
+
+// CITY_NOT_CANONICAL: why a stored locations.city is not the canonical settlement value; null when it is.
+//   administrative_area  "מועצה אזורית X" (a council is not a city; `council` = X)
+//   variant              resolves to a settlement under another spelling / alias (`canonical` = the value to store)
+//   unresolved           no settlement knows this string (script noted: Arabic-script OSM values, Latin, typos)
+function classifyCityValue(index, city) {
+  if (!index || !index.size || isMissingCity(city)) return null;
+  const raw = String(city).trim();
+  if (isAdministrativeArea(raw)) return { kind: 'administrative_area', council: adminAreaName(raw) };
+  const s = resolveSettlement(index, raw);
+  if (s) return s.city === raw ? null : { kind: 'variant', canonical: s.city, settlement_id: s.settlement_id, how: s.how };
+  const script = /[؀-ۿ]/.test(raw) ? 'arabic' : /[֐-׿]/.test(raw) ? 'hebrew' : /[a-zA-Z]/.test(raw) ? 'latin' : 'other';
+  return { kind: 'unresolved', script };
+}
 
 // comparison key: canonical city normalization + quote/geresh/parenthesis noise removed
 function heKey(s) {
@@ -151,6 +166,40 @@ async function loadSettlementIndex(client, { fresh = false } = {}) {
   return cached;
 }
 
+// The SHARED resolver learns a locality string from a HIGH Cleaner repair ONLY when every published
+// location carrying that exact string lies within the settlement's widest plausible radius (one string
+// = one place). Never an administrative area, never a string with digits/commas, never from a value the
+// index already resolves. The alias makes the Monster and the Cleaner agree next time (0072 table).
+// generic geographic words are never an alias of one settlement ("גולן" is a region, "צפון" a direction)
+const GENERIC_GEO = new Set(['צפון', 'דרום', 'מרכז', 'מזרח', 'מערב', 'גולן', 'גליל', 'נגב', 'שרון', 'שפלה', 'ערבה', 'יהודה', 'שומרון', 'בקעה', 'כרמל', 'עמק', 'הר', 'חוף', 'ים המלח', 'ישראל', 'israel', 'north', 'south', 'center', 'galilee', 'negev', 'golan']);
+const tokens = (s) => heKey(s).split(' ').filter((t) => t.length >= 2);
+function aliasRelatesToSettlement(raw, S) {
+  const hebrew = /[֐-׿]/.test(raw);
+  if (!hebrew) return true; // Arabic / Latin / Cyrillic spellings of the same place carry no shared Hebrew token by nature
+  const a = tokens(raw), b = new Set([...tokens(S.name_he), ...tokens(S.city)]);
+  return a.some((t) => b.has(t)) || a.some((t) => [...b].some((x) => x.length >= 4 && t.length >= 4 && (x.startsWith(t) || t.startsWith(x)))); // "טירת הכרמל"/"טירת כרמל", "יוקנעם"/"יקנעם" (no) -> shared "עילית"
+}
+async function learnSettlementAlias(client, index, alias, settlementId, { notes } = {}) {
+  const raw = String(alias || '').trim();
+  if (!raw || raw.length < 2 || isAdministrativeArea(raw) || /[\d,]/.test(raw)) return { learned: false, why: 'not_a_locality_string' };
+  if (GENERIC_GEO.has(heKey(raw)) || GENERIC_GEO.has(raw.toLowerCase())) return { learned: false, why: 'generic_geographic_word' };
+  if (resolveSettlement(index, raw)) return { learned: false, why: 'already_resolves' };
+  const S = index.byId.get(String(settlementId));
+  if (!S || S.lat == null) return { learned: false, why: 'settlement_without_centroid' };
+  // a string that is part of ANOTHER settlement's name ("שער חפר" in "בית יצחק-שער חפר") is that settlement's, not this one's
+  const k = heKey(raw);
+  for (const other of index.byId.values()) { if (other.settlement_id !== S.settlement_id && k.length >= 4 && heKey(other.name_he).includes(k)) return { learned: false, why: `substring of another settlement name (${other.city})` }; }
+  if (!aliasRelatesToSettlement(raw, S)) return { learned: false, why: 'hebrew string shares no token with the settlement name (historical / neighbourhood names need a person)' };
+  const { data: rows, error } = await client.from('locations').select('lat, lng, activities!inner(status)').eq('city', raw).eq('activities.status', 'approved').limit(500);
+  if (error) throw error;
+  const far = (rows || []).filter((r) => r.lat != null && haversineKm(S.lat, S.lng, Number(r.lat), Number(r.lng)) > RADIUS_KM.city);
+  if (far.length) return { learned: false, why: `${far.length} of ${rows.length} published locations with this value lie > ${RADIUS_KM.city} km from ${S.city}`, checked: rows.length };
+  const { error: e2 } = await client.from('settlement_aliases').upsert({ alias_name: raw, settlement_id: S.settlement_id, notes: notes || 'learned by THE CLEANER (city_not_canonical)' }, { onConflict: 'alias_name' });
+  if (e2) throw e2;
+  cached = null; // the shared index must see the new alias on its next load
+  return { learned: true, checked: (rows || []).length, city: S.city };
+}
+
 // Prevention for the create path (THE MONSTER, Node approve): a location about to be stored with
 // coordinates but no city gets the canonical city from knowledge already in hand - the canonical
 // venue's city, else the "street, city" tail of its address validated against the CBS centroid.
@@ -166,4 +215,4 @@ async function canonicalCityFallback(client, { venueId = null, address = null, l
   return null;
 }
 
-module.exports = { settlementFromAddress, canonicalCityFallback, buildSettlementIndex, resolveSettlement, loadSettlementIndex, isMissingCity, isAdministrativeArea, centroidCheck, nearestSettlements, plausibleRadiusKm, haversineKm, heKey, LISHKA_TO_TURU_REGION, MERGED_AUTHORITY_ALIASES };
+module.exports = { settlementFromAddress, canonicalCityFallback, buildSettlementIndex, resolveSettlement, loadSettlementIndex, isMissingCity, isAdministrativeArea, adminAreaName, classifyCityValue, learnSettlementAlias, centroidCheck, nearestSettlements, plausibleRadiusKm, haversineKm, heKey, RADIUS_KM, LISHKA_TO_TURU_REGION, MERGED_AUTHORITY_ALIASES };

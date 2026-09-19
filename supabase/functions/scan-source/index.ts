@@ -18,6 +18,7 @@ import * as cheerio from 'npm:cheerio@1.0.0';
 import {
   buildExtractionSystemPrompt, extractCandidateImages, parseExtractionResponse,
   filterPastOneTimeActivities, isPlausibleEventDate, looksLikeStaleRepost, fetchHtml, pageTextForExtraction,
+  missingTemporalEvidence, repairEntityTypeFromSchedule, TEMPORAL_ISSUE_LABEL,
   assessChildRelevance, AUDIENCE_VALUES, cheapPageText, cheapDiscoverLinks, HEAVY_HTML_BYTES,
   EXTRACTION_MODEL, EXTRACTION_MAX_TOKENS, PAGE_TEXT_CHAR_LIMIT, MAX_TEXT_CHUNKS, splitTextForExtraction,
   CATEGORY_VALUES, REGION_VALUES, WEATHER_VALUES, AMENITIES_VALUES,
@@ -30,6 +31,7 @@ import { findEventDetailLinks, findEventDetailLinksCheap, detailLinkFor, sharedL
 import { extractDetailEvidence, applyDetailEvidence, detailPageNamesCandidate } from '../_shared/detailEvidence.ts';
 import { parseSitemapUrls, orderForIncrementalScan, isSitemapIndex, type SitemapConfig } from '../_shared/sitemap.ts';
 import { enumerateListingCards, cardAccounting, cardWindows, cardsLookLikeEvents, type ListingCard } from '../_shared/listingCards.ts';
+import { hintCategory } from '../_shared/categoryHints.ts';
 // EVENT identity (stable across occurrences) - see eventIdentity.ts. event_fingerprint below stays the
 // LEGACY first-occurrence fingerprint used only for the exact pre-checks.
 import { computeEventKey, findEventMatch, type EventKeyKind } from '../_shared/eventIdentity.ts';
@@ -66,12 +68,15 @@ function isCommitmentActivity(candidate: { entity_type: unknown; category: unkno
 //   (2) sanitizeCandidate found no missing required field;
 //   (3) city + location_name present (needed to create a verified location);
 //   (4) one-time events carry a real date within [today, today+event_max_days_ahead];
-//   (5) the item does not look like an old post re-imported as a future event.
+//   (5) the item does not look like an old post re-imported as a future event;
+//   (6) ENTITY-TYPE-AWARE temporal evidence (2026-09-19): a recurring event carries its weekdays, an
+//       "אירוע" a one-time date - an evergreen place needs none (missingTemporalEvidence).
 // Everything else lands in the review queue with its confidence/trust visible to the admin.
 interface AutoApproveGate { minTrust: number; maxDaysAhead: number; today: string }
 function autoApproveEligible(candidate: Record<string, unknown>, issues: string[], source: { is_trusted: boolean | null; source_trust_score: number | null }, gate: AutoApproveGate): boolean {
   const trusted = !!source.is_trusted || (source.source_trust_score != null && Number(source.source_trust_score) >= gate.minTrust);
   if (!trusted || issues.length > 0 || !candidate.city || !candidate.location_name) return false;
+  if (missingTemporalEvidence(candidate)) return false;
   if (candidate.schedule_type === 'one_time' && !isPlausibleEventDate(candidate.one_time_date as string | null, gate.today, gate.maxDaysAhead)) return false;
   if (looksLikeStaleRepost(candidate as { schedule_type?: string | null; one_time_date?: string | null; source_published_date?: string | null }, gate.today)) return false;
   return true;
@@ -319,6 +324,9 @@ function sanitizeCandidate(raw: any, pageUrl: string): { candidate: any; issues:
     return { url, source_type: sourceType, needs_rights_review: sourceType === 'EXTERNAL_SOURCE' };
   });
 
+  // model repair from the prompt's own definition: a repeating schedule is never a plain "אירוע"
+  candidate.entity_type = repairEntityTypeFromSchedule(candidate);
+
   if (!candidate.name) issues.push('שם');
   if (!candidate.entity_type) issues.push('סוג ישות');
   if (!candidate.category) issues.push('קטגוריה');
@@ -327,6 +335,9 @@ function sanitizeCandidate(raw: any, pageUrl: string): { candidate: any; issues:
   // first 569 scanned events had only this "issue". See gatingIssues() below.
   if (!candidate.price_type) issues.push('מחיר');
   if (!candidate.one_time_date && candidate.schedule_type === 'one_time') issues.push('תאריך');
+  // temporal evidence the entity type requires (recurring without weekdays, an "אירוע" without a one-time
+  // schedule): a GATING issue -> review queue / Cleaner metadata resolver, never a silent approval
+  if (candidate.entity_type) { const t = missingTemporalEvidence(candidate); const label = t ? TEMPORAL_ISSUE_LABEL[t] : null; if (label && !issues.includes(label)) issues.push(label); }
   if (!candidate.city) issues.push('עיר');
 
   return { candidate, issues };
@@ -437,6 +448,7 @@ Deno.serve(async (req: Request) => {
   // source can repeat it) - the second occurrence must not become a second queue row.
   const seenFingerprints = new Set<string>();
   const seenEventKeys = new Set<string>(); // EVENT keys handled in this scan (one queue row per event)
+  const seenIdentityless = new Set<string>(); // source-scoped names of candidates with neither fingerprint nor event key
 
   // Adapter-controlled bounded DETAIL TRAVERSAL (2026-09-14): sources.adapter_config.detail_traversal =
   // { max_pages, allow_hosts }. A listing card names the event; its detail page carries the address,
@@ -780,6 +792,12 @@ Deno.serve(async (req: Request) => {
         for (const rawCandidate of extracted) {
           const { candidate, issues } = sanitizeCandidate(rawCandidate, pageUrl);
           candidate.pageUrl = pageUrl;
+          // Monster <- Cleaner feedback (2026-09-19): a missing category the Cleaner would later derive from the
+          // same name + source family is filled here (MEDIUM, corroborated, provenance kept) instead of becoming debt
+          if (!candidate.category) {
+            const hint = hintCategory(candidate, (source as { publisher_type?: string | null }).publisher_type ?? null, CATEGORY_VALUES);
+            if (hint) { candidate.category = hint.category; candidate.category_source = 'hint:' + hint.why; const i = issues.indexOf('קטגוריה'); if (i >= 0) issues.splice(i, 1); }
+          }
           // deterministic structured data beats nothing: fill address/coordinates/date from the page's
           // JSON-LD Event with the same name (fill-null only - never over what the extractor found)
           if (pageJsonLd.length) { const filled = applyJsonLdToCandidate(candidate, pageJsonLd); if (filled.length) { candidate.jsonld_filled = filled; if (candidate.one_time_date) { const i = issues.indexOf('תאריך'); if (i >= 0) issues.splice(i, 1); } } }
@@ -923,6 +941,19 @@ Deno.serve(async (req: Request) => {
             }
             if (!eventMatch && candidate.city) eventMatch = findEventMatch(candidate, await findSimilarActivities(client, candidate, cityCache), source.id, todayStr);
             if (candidate.event_key) seenEventKeys.add(candidate.event_key);
+          }
+          // (c) IDENTITY-LESS candidates (no city / no date => no fingerprint; generic title => no event key) used to
+          // queue again on every rescan of a changed listing page: 17 of the 42 "new" rows of the 2026-09-19 rescan
+          // were open twins of the first scan. Same SOURCE + same extracted name already waiting => not queued again.
+          // Scoped to the source and to identity-less candidates only, so two genuinely different dated events that
+          // share a title are never folded here (their fingerprints / keys decide above).
+          if (!fingerprintMatchId && !eventMatch && !candidate.event_fingerprint && !candidate.event_key && typeof candidate.name === 'string' && candidate.name.trim()) {
+            const nameKey = normalizeForMatch(candidate.name as string);
+            if (seenIdentityless.has(nameKey)) { counters.duplicateCount++; listing.skipped_in_scan_duplicate++; continue; }
+            seenIdentityless.add(nameKey);
+            const { data: pendingSame } = await client.from('incoming_activities').select('id, extracted_data->>name')
+              .eq('source_id', source.id).eq('match_type', 'new').in('status', ['new', 'needs_review']).eq('extracted_data->>name', (candidate.name as string).trim()).limit(1).maybeSingle();
+            if (pendingSame) { counters.duplicateCount++; listing.skipped_pending_in_queue++; continue; }
           }
 
           const similar = !fingerprintMatchId && !eventMatch && candidate.city ? await findSimilarActivities(client, candidate, cityCache) : [];

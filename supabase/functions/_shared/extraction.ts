@@ -307,6 +307,31 @@ export function assessChildRelevance(candidate: { audience?: unknown; name?: unk
   return hasChild ? 'ok' : 'review';
 }
 
+// ENTITY-TYPE-AWARE temporal evidence (2026-09-19). A one-time EVENT must carry a date, a recurring
+// event its weekdays, before any automated path may approve it; an evergreen place never needs one and
+// hours are never fabricated. Returns the missing-evidence code or null. Node twin:
+// tools/import-tool/lib/temporalEvidence.js (Cleaner hand-back, review-queue reprocessing).
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+export interface TemporalCandidate { entity_type?: unknown; schedule_type?: unknown; one_time_date?: unknown; recurring_days?: unknown; occurrences?: unknown; [k: string]: unknown }
+export function missingTemporalEvidence(c: TemporalCandidate): string | null {
+  const days = Array.isArray(c.recurring_days) ? c.recurring_days.filter((d) => typeof d === 'string' && d.trim()) : [];
+  const occ = Array.isArray(c.occurrences) ? (c.occurrences as { date?: unknown }[]).filter((o) => o && typeof o.date === 'string' && ISO_DATE_RE.test(o.date)) : [];
+  const hasDate = (typeof c.one_time_date === 'string' && ISO_DATE_RE.test(c.one_time_date)) || occ.length > 0;
+  if (c.schedule_type === 'one_time') return hasDate ? null : 'one_time_without_date';
+  if (c.schedule_type === 'recurring') return days.length ? null : 'recurring_without_days';
+  if (c.entity_type === 'אירוע') return 'event_without_one_time_schedule';
+  if ((c.entity_type === 'אירוע_קבוע' || c.entity_type === 'פעילות') && !c.schedule_type) return 'recurring_event_without_schedule';
+  return null;
+}
+// the prompt's own definition: a repeating schedule is never a plain "אירוע" - deterministic model repair
+export function repairEntityTypeFromSchedule(c: TemporalCandidate): unknown {
+  const days = Array.isArray(c.recurring_days) ? c.recurring_days.filter((d) => typeof d === 'string' && d.trim()) : [];
+  if (c.entity_type === 'אירוע' && c.schedule_type === 'recurring' && days.length) return 'אירוע_קבוע';
+  return c.entity_type ?? null;
+}
+// validation-issue label shown in the review queue for each code ('תאריך' is what sanitize already pushes for one-time)
+export const TEMPORAL_ISSUE_LABEL: Record<string, string> = { one_time_without_date: 'תאריך', recurring_without_days: 'ימי פעילות', event_without_one_time_schedule: 'תאריך', recurring_event_without_schedule: 'ימי פעילות' };
+
 // Auto-publish date sanity: a one-time event must have a real, well-formed date that is today or
 // in the near future (default 180 days). Anything else is not "HIGH confidence" and goes to review.
 export function isPlausibleEventDate(dateStr: string | null | undefined, todayStr: string, maxDaysAhead: number): boolean {

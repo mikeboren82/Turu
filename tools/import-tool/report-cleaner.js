@@ -128,8 +128,14 @@ function rootCause(src, cases) {
     canonical_settlement_match: mcSum('settlementMatch'), normalization_failure: mcSum('normalizationFailure'),
     byMethod: tally(mcCases.filter((c) => c.resolution?.outcome === 'city_filled'), (c) => c.resolution.method),
   };
+  // CITY_NOT_CANONICAL (0100) + zero-row write protection (2026-09-19): how many published cities are still
+  // non-canonical, and how many Cleaner writes were DENIED (0 rows while the guard held = authorization) per run
+  const ncCases = cases.filter((c) => c.issue === 'city_not_canonical');
+  const cityNotCanonical = { cases_opened: ncCases.length, open: ncCases.filter((c) => c.status === 'open').length, corrected: ncCases.filter((c) => c.status === 'resolved' && c.resolution?.outcome === 'city_corrected').length, aliases_learned: ncCases.filter((c) => c.resolution?.alias_learned?.learned).length, human_review: ncCases.filter((c) => c.archive_reason === 'requires_human_judgment').length, unresolved: ncCases.filter((c) => c.archive_reason === 'city_unresolved').length, byMethod: tally(ncCases.filter((c) => c.resolution?.outcome === 'city_corrected'), (c) => c.resolution.method) };
+  const writeDenied = { runsWithDenials: finished.filter((r) => (r.counters?.writeDenied || 0) > 0).length, total: finished.reduce((n, r) => n + (r.counters?.writeDenied || 0), 0), openCasesWithDeniedError: open.filter((c) => /write_denied/.test(c.last_error || '')).length };
   const report = {
     generatedAt: new Date().toISOString(), since: since.toISOString(),
+    cityNotCanonical, writeDenied,
     backlog: { open: open.length, due: open.filter((c) => new Date(c.next_attempt_at).getTime() <= now).length, awaitingRetry: awaiting.length, stuckBeyondWindow: stuck.length, byIssue, byPriorityBucket: tally(open, (c) => (c.priority <= 15 ? 'blocking' : c.priority <= 35 ? 'important' : 'enrichment')), leased: open.filter((c) => c.lease_until && new Date(c.lease_until).getTime() > now).length },
     awaitingRetryByNextStrategy: awaitingByNext,
     resolved: { total: resolvedCases.length, withGain: resolvedCases.length - noGain.length, noGain: noGain.length, outcomes, byMethod: resolvedByMethod, avgAttempts: Math.round(avgAttempts * 100) / 100, successRateByIssue: successByIssue },
@@ -157,6 +163,7 @@ function rootCause(src, cases) {
   console.log('awaiting retry by next strategy', JSON.stringify(awaitingByNext));
   console.log('historical debt', histCases.length, '| new debt', JSON.stringify({ total: newDebt.cases.total, open: newDebt.cases.open, per100: newDebt.casesPer100Subjects, entered: newDebt.subjectsEntered, byIssue: newDebt.cases.byIssue, byPath: newDebt.cases.byIngestionPath }));
   console.log('missing city', JSON.stringify(report.missingCity));
+  console.log('city not canonical', JSON.stringify(cityNotCanonical), '| write denied', JSON.stringify(writeDenied));
   console.log('centroid', JSON.stringify(report.centroid));
   console.log('source debt (top 12):'); sourceDebt.slice(0, 12).forEach((s) => console.log(`  ${s.source} | ${s.family}/${s.path} | acts ${s.activities} cand ${s.candidates} | cases ${s.cases} (open ${s.open}) | ${s.dominantIssue} | ratio ${s.debtRatio}% | ${s.likelyRootCause} ${s.flags.join(',')}`));
   console.log('last run', report.runs[0] ? JSON.stringify(report.runs[0]).slice(0, 400) : '-');

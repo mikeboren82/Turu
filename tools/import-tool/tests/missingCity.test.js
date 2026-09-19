@@ -187,13 +187,14 @@ test('J: after the repair the activity is no longer a candidate (no reopen) and 
   assert.equal(r.closedExternally, 0, 'the open image case is still wanted, the resolved city case is not reopened');
 });
 
+// `current` may be an array: successive reads (the pre-write read, then the post-0-row verification read)
 function applyClient({ current, hit = true }) {
-  const updates = [];
+  const updates = []; const reads = Array.isArray(current) ? [...current] : null;
   const from = (table) => {
     const st = { op: 'select', filters: [], payload: null };
     const chain = new Proxy({}, { get(_o, k) {
       if (k === 'update') return (p) => { st.op = 'update'; st.payload = p; return chain; };
-      if (k === 'maybeSingle') return () => Promise.resolve({ data: current, error: null });
+      if (k === 'maybeSingle') return () => Promise.resolve({ data: reads ? (reads.length > 1 ? reads.shift() : reads[0]) : current, error: null });
       if (k === 'then') return (res) => { if (st.op === 'update') { updates.push({ table, payload: st.payload, filters: st.filters }); return res({ data: hit ? [{ id: 'l1' }] : [], error: null }); } return res({ data: null, error: null }); };
       return (...a) => { st.filters.push([k, ...a]); return chain; };
     } });
@@ -210,10 +211,15 @@ test('H: a city filled after discovery is never overwritten -> already_fixed, no
 });
 
 test('H: the write itself is conditional on the city still being empty (race between read and write)', async () => {
-  const client = applyClient({ current: { id: 'l1', city: null, region: 'הדרום והנגב' }, hit: false });
+  // read 1: city empty -> write issued with `city is null`; 0 rows; read 2 shows the city filled meanwhile -> already_fixed
+  const client = applyClient({ current: [{ id: 'l1', city: null, region: 'הדרום והנגב' }, { id: 'l1', city: 'אשדוד', region: 'הדרום והנגב' }], hit: false });
   const r = await applyCityToActivity(client, { id: 'a1', location_id: 'l1' }, proposal);
   assert.deepEqual(r.wrote, []); assert.equal(r.why, 'already_fixed');
   assert.ok(client.updates[0].filters.some((f) => f[0] === 'is' && f[1] === 'city' && f[2] === null));
+  // the same 0-row write while the city is STILL empty is a DENIED write (RLS), never already_fixed (2026-09-19)
+  const denied = applyClient({ current: { id: 'l1', city: null, region: null }, hit: false });
+  const d = await applyCityToActivity(denied, { id: 'a1', location_id: 'l1' }, proposal);
+  assert.equal(d.why, 'write_denied'); assert.match(d.error, /write_denied/);
 });
 
 test('repair writes the canonical city and fills a null region only', async () => {

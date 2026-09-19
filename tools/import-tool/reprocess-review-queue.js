@@ -12,6 +12,7 @@
 require('dotenv').config();
 const { getClient } = require('./supabase');
 const { assessChildRelevance } = require('./childRelevance');
+const { missingTemporalEvidence } = require('./lib/temporalEvidence');
 
 const APPLY = process.argv.includes('--apply');
 const LIMIT = Number((process.argv.find((a) => a.startsWith('--limit=')) || '').split('=')[1]) || Infinity;
@@ -60,10 +61,12 @@ const SOFT = new Set(['מחיר']);
     // a possible-duplicate flag is a gating issue - never auto-approve over it
     const gating = (r.validation_issues || []).filter((i) => !SOFT.has(i));
     const dateOk = c.schedule_type !== 'one_time' || (c.one_time_date && c.one_time_date >= today && c.one_time_date <= maxDate);
+    // entity-type-aware temporal evidence (2026-09-19): recurring without weekdays / "אירוע" without a one-time date stays for a human
+    const temporal = missingTemporalEvidence(c);
     const hasPlace = !!(c.city && (c.location_name || c.formatted_address));
-    if (trusted && gating.length === 0 && dateOk && hasPlace && rel === 'ok') { plan.approve.push({ id: r.id, name: c.name, src: r.source?.name, fp: c.event_fingerprint || null }); continue; }
+    if (trusted && gating.length === 0 && dateOk && !temporal && hasPlace && rel === 'ok') { plan.approve.push({ id: r.id, name: c.name, src: r.source?.name, fp: c.event_fingerprint || null }); continue; }
     plan.leave++;
-    const why = !trusted ? 'untrusted source' : gating.length ? 'issues: ' + gating.join(',') : !dateOk ? 'date not plausible' : !hasPlace ? 'no place' : 'relevance ' + rel;
+    const why = !trusted ? 'untrusted source' : gating.length ? 'issues: ' + gating.join(',') : !dateOk ? 'date not plausible' : temporal ? 'temporal: ' + temporal : !hasPlace ? 'no place' : 'relevance ' + rel;
     leaveReasons[why] = (leaveReasons[why] || 0) + 1;
   }
   console.log(`plan: approve ${plan.approve.length}, reject ${plan.reject.length}, leave ${plan.leave}`);
