@@ -33,6 +33,7 @@ import {
   shouldApplyHomeDefaults, buildCarouselFilters, resolveCommittedHomeLocation,
   buildResultsParams, resolveSmartSearchCoords,
 } from '../lib/homeSession';
+import { useRecentSearches } from '../lib/useRecentSearches';
 import { colors, fonts, radii, spacing } from '../constants/theme';
 import { useI18n, createStyles, t } from '../lib/i18n';
 import { categoryLabel, compactLocationText } from '../lib/i18n/format';
@@ -75,14 +76,8 @@ function SkeletonCard() {
   );
 }
 
-// "🕐 חיפושים אחרונים" - מוחלף מ"💡 רעיונות לחיפוש" הקבוע (בקשת המשתמש): נשמר מקומית במכשיר
-// בלבד (AsyncStorage - שקול ל-localStorage בעברית שלה, אבל עובד גם ב-native, לא רק web), לא
-// ב-DB ולא קשור לחשבון המשתמש.
-const RECENT_SEARCHES_KEY = 'turu_recent_searches';
-const RECENT_SEARCHES_MAX = 5;
-
 // "✨ רעיונות להיום" - מיקום-אורח (guest) שנשמר מקומית בלבד (AsyncStorage, אותו דפוס בדיוק כמו
-// RECENT_SEARCHES_KEY למעלה - לא ארכיטקטורת-persistence מקבילה). רק city/address (לא 'current') -
+// חיפושים-אחרונים ב-lib/useRecentSearches.js - לא ארכיטקטורת-persistence מקבילה). רק city/address (לא 'current') -
 // GPS לא נשמר כאן בכוונה, כי קואורדינטות ישנות מתיישנות; "current" נגזר מחדש בכל טעינה מבדיקת
 // הרשאה שקטה (getForegroundPermissionsAsync, ראו למטה), לא מ-storage. משתמש מחובר לא כותב לכאן
 // בכלל - יש לו כבר default_home_filters אמיתי ב-DB (saveDefaultHomeFilters), שני מקורות-אמת
@@ -409,7 +404,6 @@ export default function HomeScreen() {
   const [smartSearchError, setSmartSearchError] = useState('');
   // חיפוש חופשי שממתין לבחירת מיקום בבורר הקנוני: { pendingIntent, mode: 'plain'|'street', prevLocation }
   const [smartSearchClarify, setSmartSearchClarify] = useState(null);
-  const [recentSearches, setRecentSearches] = useState([]);
   // חיפושים אחרונים כ-dropdown תלוי-פוקוס, לא section קבוע (בקשת המשתמש 2026-09-16 השנייה:
   // "כמו מנוע חיפוש מודרני" - נעלם/מופיע לפי פוקוס בשדה, לא toggle ידני). searchFocused נשלט
   // מ-onFocus/onBlur של ה-TextInput למטה, בלי screen-wide touch-dismiss (בקשת המשתמש: לא לעטוף
@@ -443,12 +437,13 @@ export default function HomeScreen() {
   const [excludedRegions, setExcludedRegions] = useState([]);
   const [benefitClubs, setBenefitClubs] = useState([]);
 
-  useEffect(() => {
-    AsyncStorage.getItem(RECENT_SEARCHES_KEY).then((raw) => {
-      if (!raw) return;
-      try { setRecentSearches(JSON.parse(raw)); } catch { /* ערך פגום - מתעלמים, לא קורסים */ }
-    });
-  }, []);
+  // אחריות-חיפושים-אחרונים המלאה (state + טעינה מ-AsyncStorage + persistence + dedupe/remove/
+  // clear) - Home Refactor Phase 2B, ראו lib/useRecentSearches.js. אותו מיקום-בדיוק בסדר ה-hooks
+  // שבו היה קודם effect-הטעינה הישיר כאן (mount, לפני effect-קטלוג-הפעילויות למטה) - סדר-ה-mount
+  // בפועל לא השתנה.
+  const {
+    recentSearches, recordRecentSearch, clearRecentSearches, removeRecentSearch,
+  } = useRecentSearches();
 
   // כל הפעילויות המאושרות - נטען פעם אחת בלבד ב-mount (לא ב-useFocusEffect כמו user/children
   // למטה): payload כבד (אלפי פעילויות, ראו lib/activities.js) - טעינה חוזרת בכל חזרה למסך הבית
@@ -527,27 +522,6 @@ export default function HomeScreen() {
     if (userId || filters.location?.mode !== 'city' || !filters.location?.city) return;
     AsyncStorage.setItem(GUEST_HOME_LOCATION_KEY, JSON.stringify(filters.location));
   }, [userId, filters.location]);
-
-  const recordRecentSearch = (text) => {
-    setRecentSearches((prev) => {
-      const next = [text, ...prev.filter((q) => q !== text)].slice(0, RECENT_SEARCHES_MAX);
-      AsyncStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(next));
-      return next;
-    });
-  };
-
-  const clearRecentSearches = () => {
-    setRecentSearches([]);
-    AsyncStorage.removeItem(RECENT_SEARCHES_KEY);
-  };
-
-  const removeRecentSearch = (text) => {
-    setRecentSearches((prev) => {
-      const next = prev.filter((q) => q !== text);
-      AsyncStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(next));
-      return next;
-    });
-  };
 
   // ראו הערה מפורטת ליד searchFocused למעלה - עוקף מרוץ blur-לפני-press. clearSearchBlurTimeout
   // מבוטל בתחילת כל handler-לחיצה בפאנל (שורה/×/נקה-הכל) לפני שממשיכים בפעולה שלו עצמו.
