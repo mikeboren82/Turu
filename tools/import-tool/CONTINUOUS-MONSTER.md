@@ -176,3 +176,67 @@ New: `supabase/functions/_shared/{serviceArea.ts, serviceArea.test.ts, paLocalit
 7. **Register discovered sources** (weekly ≤ 20 INACTIVE rows) — part of activation; the first dry run is in `discovery-candidates-osm-2026-09-19.json`.
 8. **Production host** for durable execution — cost decision, not made.
 9. Push of `continuous-monster` — not done (needs approval).
+
+
+---
+
+# PHASE D — BOUNDED PILOT ACTIVATION (2026-09-19, approved scope only)
+
+Approved by the owner on 2026-09-19 (see the brief): deploy the service-area prevention, archive the verified 19-row historical cohort, activate the hourly local pilot and disable the legacy Cleaner task. NOT approved and NOT done: the cadence plan (38 → 60 scans/day), the 9 re-probe proposals, any RLS change (0099), a production host, a push or merge.
+
+## A. scan-source deployment
+- Diff deployed = MAIN `5014295` (identical to the last deployed base `a510914` for `supabase/functions/`) + exactly 4 files: `scan-source/index.ts` (+42/−6), `_shared/serviceArea.ts`, `_shared/serviceArea.test.ts`, `_shared/paLocalities.json`. MAIN's working tree has no `supabase/` changes.
+- 0099 not required: the edge function runs with the service-role client; the new writes go to `incoming_activities` / `locations` / `source_scan_logs` as before.
+- Tests before deploy: Deno 168 pass / 1 pre-existing failure (escape-room relevance, HEAD baseline); `deno check scan-source/index.ts` 0 type errors. Deployed 2026-09-19 20:43 local (`npx supabase functions deploy scan-source --project-ref kkvgzubwsjsbqxzjejcs`).
+- Bounded verification after deploy: one real scan through `scan_source_now` on הספרייה העירונית קריית אתא (1 page): `success`, 1 AI call, 1 update, and the new counters are present in `listing_metrics` (`outside_service_area=0`, `skipped_outside_service_area=0`) → the deployed code path is live and in-scope processing is unchanged. Live-settlement classification (same rules as the Deno twin, against `public.settlements`): Umm al-Fahm, Nazareth, Rahat, Tayibe, Kafr Qasim, Sakhnin, Baqa al-Gharbiyye (border), Jaljulia, Abu Ghosh, Ariel → IN_SCOPE; Hebron centre, Kiryat Arba edge, Ramallah/Al-Bireh, East Jerusalem next to Anata (with city hint) → AMBIGUOUS (never blocked); Gaza City, Jenin → OUTSIDE. No candidate has yet reached the prevention point (0 blocked so far) — the counters are now in every scan log. The rule was not broadened.
+
+## B. service-area cohort
+- The 3 Gaza-area class-A rows from the whole-catalogue audit (`51854157…`, `cee0d44e…`, `9d1e6bd6…`) are **B — a separate cohort**: none of them is among the 19 (they carry no Cleaner case and were not part of the deferred 37). They remain published and untouched; archiving them needs its own approval.
+- The original 19: rediscovered from the audit JSON (`A_CONFIRMED_OUTSIDE_SERVICE_AREA` + `in_cohort_37`), re-classified immediately before each write from the current coordinates with city hint + cached reverse (`archive-service-area-cohort.js`, dry run first: 19/19 still OUTSIDE), then archived through the Cleaner's verified activity write (status `approved` → `archived`, `archive_reason=outside_service_area`, `archived_at`), each Cleaner case closed with the same reason and its previous resolution preserved inside the new one. Result: **19 archived, 0 write_denied, 0 skipped** (`service-area-cohort-2026-09-19-applied.json`, rollback statement inside). All 19 rows are owned by the importer user, so RLS allowed the write without 0099.
+- Untouched, verified after the run: B 4 rows `approved`, C 14 rows `approved` with their cases still `requires_human_judgment` (18 cases; one C row shares no case), D none.
+
+## C. scheduler
+- Pre-checks: no "TuRu Monster" task existed; a fresh `logs/monster.lock` makes a cycle refuse ("refusing to overlap", 0 jobs run); `monster.js pause` → a real cycle runs 0 jobs; `resume` restores; every local job is bounded in `lib/monsterJobs.js` (relay 6, Cleaner **40**, discovery 20, re-probe 30 report-only); the weekly cadence job was changed to **dry-run only** (`tune-source-cadence.js --budget=60`, writes the plan JSON, applies nothing — locked by a test) so activation cannot apply the 60/day plan; 0099 not required (the Cleaner records `write_denied`).
+- Activated 2026-09-19 20:42 local, exactly as audited: `schtasks /Create /TN "TuRu Monster" /SC MINUTE /MO 60 /TR "cmd.exe /c C:\Users\mbore\turu-continuous-monster\tools\import-tool\monster.cmd" /F` (runs as user mbore, repeat every 1 h, first run 21:42). On the same activation: `schtasks /Change /TN "TuRu Cleaner pilot" /DISABLE` → verified `Disabled`. Only one Cleaner scheduling path remains (the Monster's hourly `cleaner.js --max=40`).
+
+## D. observed pilot cycles
+__CYCLES__
+
+## E. cadence
+The 60 scans/day plan was NOT applied; `sources.scan_frequency_hours` unchanged (expected 38.1 scans/day; the scheduled cadence job only writes `source-cadence-<date>-dryrun.json`). Actual pilot volume: see D and the heartbeat.
+
+## F. re-probe — 9 proposals NOT applied (kept as proposals in `reprobe-sources-2026-09-19.json`)
+| Source | Why paused | Local probe | History (all scans / ok / new+updated / auto-approved / last ok) | Reachability vs ingestibility |
+|---|---|---|---|---|
+| ספריית הילדים והנוער כפר סבא | failing / access_403_waf | 200, 24.7k Hebrew chars | 3 / 1 / 4 / 1 / 09-13 | server HTML with Hebrew → ingestible on relay (it yielded before) |
+| רשת המתנ"סים הרצליה - אירועים | failing / access_403_waf | 200, 14.1k | 5 / 4 / 23 / 0 / 09-13 | ingestible (23 candidates historically) |
+| עיריית פתח תקווה - כל האירועים | auto_paused / js_only (Next.js client API) | 200, 39.5k | 1 / 1 / 0 / 0 / 09-13 | **reachability only** — the events are loaded client-side; relay would not extract them |
+| החברה העירונית אשדוד - לוח אירועים | failing / access_403_waf | 200, 1.5k | 7 / 4 / 16 / 0 / 09-17 | thin page (1.5k chars) — reachable; ingestibility uncertain |
+| עיריית גבעתיים - אירועים | failing / access_403_waf | 200, 21.5k | 22 / 13 / 116 / 19 / 09-14 | ingestible — the best historical yield of the set |
+| מועצה אזורית לב השרון | failing / access_403_waf | 200, 6.0k | 5 / 1 / 3 / 0 / 09-13 | ingestible but low yield |
+| עיריית קריית מוצקין - אירועי תרבות | failing / access_403_waf | 200, 15.9k | 3 / 1 / 1 / 1 / 09-13 | ingestible, low yield |
+| עיריית כפר סבא | failing / access_403_waf | 200, 23.9k | 4 / 2 / 21 / 0 / 09-13 | ingestible (21 candidates) |
+| iTravelJerusalem - פעילויות לילדים | auto_paused / js_only (client-side render) | 200, 0.6k | 0 / 0 / 0 / 0 / never | **reachability only** — no server HTML to extract |
+| (kept, not proposed) קצת תרבות | failing / 403 | 200 but 0 Hebrew chars | 4 / 1 / 35 / 0 / 09-13 | reachable without content |
+| (kept) מתנ"ס מתן, Kenyonim.com | auto_paused / blocked, unknown | unreachable | 0–1 / 0 / 0 | — |
+Recommendation for the separate decision: 6 of the 9 (Kfar Saba ×2, Herzliya, Givatayim, Lev HaSharon, Kiryat Motzkin) demonstrate ingestibility; Ashdod is uncertain; Petah Tikva and iTravelJerusalem are reachable but not extractable by the current scanner and should stay paused.
+
+## G. service-area prevention counters
+Blocked (`outside_service_area`) since deploy: see D (0 in the verification scan). Ambiguous rows are never blocked (classification only; 137 catalogue rows, 14 in the cohort). Israeli Arab localities: all IN_SCOPE in the live check above; the rule uses coordinates, the PA locality reference and CBS centroids only.
+
+## H. RLS
+0099 remains unapplied and unmodified. `write_denied` in this phase: 0 (cohort) — the Monster cycle's Cleaner job records its own `write_denied` counts in `cleaner_runs`.
+
+## I. production-host status
+Pilot host = the admin laptop (user mbore, Windows Task Scheduler), explicitly PILOT INFRASTRUCTURE: no cycle runs while the laptop is off, asleep or the user is logged out; the durable tier (pg_cron scanning + expiry) is unaffected by that. Telemetry to collect for the host recommendation: per-cycle runtime, relay share, Cleaner throughput, missed cycles (gaps in `monster_state.lastCycle`).
+
+## J. git
+Phase D changes committed locally on `continuous-monster` (see the commit list below); nothing pushed; MAIN untouched (its uncommitted UI work unchanged).
+
+## K. remaining approvals
+1. Cadence plan (38 → 60 scans/day, ≈ +55 % AI calls) — pending telemetry.
+2. Re-probe restorations (6 recommended, 1 uncertain, 2 not recommended).
+3. The 3 extra Gaza-area class-A rows (separate cohort).
+4. The 14 ambiguous rows — human review.
+5. Production host; push / merge of `continuous-monster`.
+6. Migration 0099 — still blocked.

@@ -8,7 +8,11 @@ const { classifyIncoming, reviewBudget } = require('../lib/reviewBudget');
 
 test('every job is bounded, placed and explained; durable jobs are never selected locally', () => {
   for (const j of JOBS) { assert.ok(j.id && j.where && j.reason && j.command, j.id); if (j.where === 'local') assert.ok(j.everyHours > 0, j.id + ' cadence'); }
-  assert.ok(JOBS.filter((j) => j.where === 'local').every((j) => j.maxWork == null || j.maxWork > 0));
+  assert.ok(JOBS.filter((j) => j.where === 'local').every((j) => j.maxWork == null || j.maxWork >= 0));
+  // Phase D pilot: the scheduled cadence job never applies (approval pending); the Cleaner batch stays at 40
+  assert.ok(!JOBS.find((j) => j.id === 'cadence').command.includes('--apply'), 'cadence job is dry-run in the pilot');
+  assert.ok(/--max=40(s|$)/.test(JOBS.find((j) => j.id === 'cleaner').command), 'Cleaner batch stays at 40');
+  assert.ok(!JOBS.find((j) => j.id === 'reprobe').command.includes('--apply'), 're-probe job proposes only');
   const sel = selectJobs({ state: {}, now: new Date('2026-09-20T10:00:00Z') });
   assert.ok(sel.every((j) => j.where === 'local')); assert.ok(sel.some((j) => j.id === 'relay') && sel.some((j) => j.id === 'cleaner'));
 });

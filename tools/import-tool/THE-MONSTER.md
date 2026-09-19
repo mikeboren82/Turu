@@ -136,7 +136,7 @@ Tests: 101 Deno + 49 Node (fixtures `_shared/fixtures/raanana-*.html`). Migratio
 - **Corroborated category hint** (`_shared/categoryHints.ts`, lockstep with the Cleaner's `NAME_CATEGORY` / `FAMILY_SUPPORTS`): a missing category that the Cleaner would derive later from the same name + source family is filled at ingestion (MEDIUM, `extracted_data.category_source = 'hint:…'`) — 6 of the 14 AVOIDABLE cohort cases were exactly this.
 - Reference data the Monster relies on: `public.settlements` centroids are now authoritative (CBS 2024) for the 193 repaired rows — see THE-CLEANER.md.
 
-## 10. CONTINUOUS MONSTER — operating model (2026-09-19, Phase B; production schedule NOT activated)
+## 10. CONTINUOUS MONSTER — operating model (2026-09-19; bounded PILOT active since Phase D, see below)
 
 **Principle.** The Monster is a maintained data system, not a periodic scrape: every data type has its own freshness need and every job is bounded, idempotent, isolated and observable. Nothing here replaces the pipeline above — it schedules and observes it. Design + audit: `CONTINUOUS-MONSTER.md`.
 
@@ -144,7 +144,7 @@ Tests: 101 Deno + 49 Node (fixtures `_shared/fixtures/raanana-*.html`). Migratio
 | Job | Runs | Cadence | Max work / run | Why this cadence |
 |---|---|---|---|---|
 | Active source scanning | **Supabase pg_cron** `scan-due-sources` → `_scan_due_sources_cron()` → edge fn `scan-source` | every 15 min | 20 due sources per tick (priority desc, next_scan_at asc) | dated events: median lead time 14 d (p25 5 d) — a productive calendar must be revisited every 1–2 days; 20 per tick prevents a thundering herd |
-| Per-source frequency | `sources.scan_frequency_hours`, proposed by `tune-source-cadence.js` (`lib/sourceCadence.js`) | weekly, ≤ 40 changes, `--budget` scans/day (default 60) | 40 | evidence-based on 30-day yield: events 24 h when ≥ 1 new/updated per scan and ≥ 10 in 30 d, 48 h when productive, 72 h when quiet; venues 168 h / 336 h; unmeasured 72 h; bounds 24–336 h. A page hash that changes on every load is *not* a live calendar. The least productive daily sources are demoted until the expected scans/day fit the budget |
+| Per-source frequency | `sources.scan_frequency_hours`, proposed by `tune-source-cadence.js` (`lib/sourceCadence.js`) | weekly **dry run** in the pilot (writes the plan only; `--apply --max=40` is a separate approval) | 0 in the pilot | evidence-based on 30-day yield: events 24 h when ≥ 1 new/updated per scan and ≥ 10 in 30 d, 48 h when productive, 72 h when quiet; venues 168 h / 336 h; unmeasured 72 h; bounds 24–336 h. A page hash that changes on every load is *not* a live calendar. The least productive daily sources are demoted until the expected scans/day fit the budget |
 | Expiration | pg_cron `cleanup-expired-activities-daily` | 03:00 daily | all | one-time events leave Results the morning after their last date |
 | Relay (WAF-blocked sources) | local `relay-scan.js --max=6` | every 6 h | 6 sources | 10 relay sources with 72–168 h frequencies need ~2 relays per cycle; 6 absorbs a backlog after downtime |
 | Cleaner follow-up | local `cleaner.js --max=40` | hourly | 40 cases (leases + run guard) | resolvable debt follows ingestion asynchronously; ~1,000 cases/day capacity |
@@ -170,6 +170,9 @@ Palestinian-Authority-administered localities are out of scope — a **geographi
 - **One bounded cycle by hand**: `node monster.js cycle` (or `--job=relay` etc.); `--dry-run` first.
 - **Diagnose a failed cycle**: `logs/monster.log`, `monster_state[job].lastTail`, `monster-status.json`, `source_scan_logs` (status / failure_kind / listing_metrics per scan), `cleaner_runs.notes`.
 - **Still human**: activating a discovered source, review-queue decisions, ambiguous service-area cases, RLS (0099 blocked), scan budgets / AI cost, applying relay proposals, and the production activation itself (Phase D).
+
+### Pilot status (Phase D, 2026-09-19)
+Active: Task Scheduler "TuRu Monster" (hourly, user mbore, `tools/import-tool/monster.cmd` in the `turu-continuous-monster` worktree); the legacy "TuRu Cleaner pilot" task is DISABLED — one Cleaner scheduling path only. scan-source with the service-area prevention is deployed. The cadence plan and the re-probe proposals are NOT applied. Phase D report: `CONTINUOUS-MONSTER.md`.
 
 ### Pilot vs production
 The local orchestrator on the admin laptop is a **PILOT** (same class as the "TuRu Cleaner pilot" task): a laptop is a single point of failure, not a durable execution tier for national ingestion. Durable today: pg_cron scanning + expiry. Migration path: (1) run `monster.cmd` on a small always-on host with an Israeli IP (relay needs it); (2) once relay is off the laptop, port the Cleaner's fetch stages to an edge function; (3) keep pg_cron as the scheduler of record. Nothing is activated without approval.
