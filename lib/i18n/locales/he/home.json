@@ -6,7 +6,8 @@
     "ctaFree": "חפשו פעילויות",
     "modeGuided": "בחירה מהירה",
     "modeFree": "חיפוש חופשי",
-    "freeLabel": "חפשו במילים שלכם",
+    "freeLabel": "מה מתחשק לכם?",
+    "freeSupporting": "אפשר לכתוב ממש בחופשיות",
     "or": "או",
     "errorParse": "לא הצלחנו להבין את החיפוש, נסו לנסח אחרת",
     "errorParseShort": "לא הצלחנו להבין את החיפוש",
@@ -14,7 +15,7 @@
     "distancePrompt": "כמה קרוב?"
   },
   "nearMe": {
-    "label": "מה קרוב?",
+    "label": "קרוב אלי",
     "radarLabel": "מה קורה סביבי?",
     "radarHelper": "לחצו לגלות",
     "loading": "מחפשים מה יש סביבכם...",

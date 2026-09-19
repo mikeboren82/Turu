@@ -40,20 +40,15 @@ const radarPoint = (r, angleDeg) => {
 const radarTextArcStart = radarPoint(RADAR_R_TEXT, 180 - (90 - RADAR_TEXT_HALF_ANGLE));
 const radarTextArcEnd = radarPoint(RADAR_R_TEXT, 90 - RADAR_TEXT_HALF_ANGLE);
 const RADAR_TEXT_ARC_PATH = `M ${radarTextArcStart.x} ${radarTextArcStart.y} A ${RADAR_R_TEXT} ${RADAR_R_TEXT} 0 0 1 ${radarTextArcEnd.x} ${radarTextArcEnd.y}`;
-// "נקודות-גילוי" - 3 בלבד, זוויות ורדיוסים לא-אחידים בכוונה (לא רשת-מכשיר), בחצי-הכדור התחתון/
-// צדדים כדי לא להתנגש עם קשת-הטקסט שמעל (שמתחילה סביב 148°/32°).
-const RADAR_DOTS = [
-  { angle: 20, r: RADAR_R_ORBIT_OUTER + 3 },
-  { angle: 152, r: RADAR_R_ORBIT_OUTER - 5 },
-  { angle: 255, r: RADAR_R_ORBIT_OUTER + 1 },
-];
 // שינוי-פרמטר יחיד בכוונה (RADAR_SVG_W בלבד), לא recompute של כל רדיוס-פנימי בנפרד: viewBox
 // נשאר "0 0 180 <גובה>" בדיוק כמו תמיד, אז שינוי ה-width בלבד מגדיל/מקטין את כל התוכן הפנימי
 // (דיסקית/הילה/טבעות/נקודות/פין) פרופורציונלית ובאופן אחיד, בלי לגעת באף קבוע-רדיוס/זווית
 // בנפרד - מבטל כליל סיכון ל"קליפינג" או הזזת-נקודות שהיה נובע מהגדלת/הקטנת-רדיוסים ידנית.
-// 158 (היה 170) - בקשת המשתמש: "תקטין מעט את הכפתור המרכזי... שמור על אותן פרופורציות" - פרמטר
-// יחיד (ראו ההערה למעלה) אז כל הגיאומטריה הפנימית (דיסקית/הילה/טבעות/נקודות) מתכווצת פרופורציונלית
-// יחד, בלי שינוי ביחסים הפנימיים. קוטר-האורביט החיצוני בפועל = 158*(134/180) ≈ 117.6px.
+// 158 (היה 134, "small visual polish" round 2, 2026-09-20, בקשת המשתמש: "הכפתור הגדול צריך
+// להיות יותר גדול" - חזרה לגודל המוכר/מאושר הקודם) - פרמטר יחיד (ראו ההערה למעלה) אז כל
+// הגיאומטריה הפנימית (דיסקית/הילה/טבעות/נקודות) גדלה פרופורציונלית יחד, בלי שינוי ביחסים
+// הפנימיים - עדיין מעוגל ומרוכז בדיוק כמו קודם. קוטר-האורביט החיצוני בפועל
+// (RADAR_R_ORBIT_OUTER*2=116 בתוך viewBox 180 רוחב) = RADAR_SVG_W * (116/180) ≈ 101.9px.
 const RADAR_SVG_W = 158;
 const RADAR_SVG_H = 160;
 // גובה-קנבס קומפקטי (2026-09-20, בקשת המשתמש: הרדאר עצמו הוא הגיבור המרכזי בשורת-הירו החדשה,
@@ -93,12 +88,15 @@ export default function NearMeRadar({ loading, color, showLabel = true }) {
   const dial = (
     <G transform={recenter}>
       {loading ? <AnimatedCircle cx={RADAR_CX} cy={RADAR_CY} r={pulseRadius} fill="none" stroke={color} strokeWidth={1.5} opacity={pulseOpacity} /> : null}
-      <Circle cx={RADAR_CX} cy={RADAR_CY} r={RADAR_R_ORBIT_OUTER} fill="none" stroke={color} strokeWidth={1.3} opacity={0.18} />
+      {/* טבעת-האורביט החיצונית (r=RADAR_R_ORBIT_OUTER) הוסרה (2026-09-20, "visual polish: free
+          search + quick choice" - בקשת המשתמש: "reduce the visual prominence of the decorative
+          radar rings... preferably remove one unnecessary ring") - הייתה הכי-עדינה מלכתחילה
+          (opacity 0.18), חופפת חזותית לטבעת-הפנימית+להילה. RADAR_R_ORBIT_OUTER עצמו נשאר קבוע-
+          גיאומטריה בשימוש (ה-pulse/svgHeight) - רק הצורה-הסטטית-עצמה לא מצוירת יותר.
+          "נקודות-הגילוי" הוסרו גם הן (2026-09-20, בקשת המשתמש: "יש 3 נקודות קטנות מסביב לכפתור
+          המרכזי, לא רואה בהם צורך" - RADAR_DOTS הוסר לגמרי, ראו git history). טבעת פנימית אחת
+          (RADAR_R_ORBIT_INNER) נשארת, בלי שינוי. */}
       <Circle cx={RADAR_CX} cy={RADAR_CY} r={RADAR_R_ORBIT_INNER} fill="none" stroke={color} strokeWidth={2} opacity={0.32} />
-      {RADAR_DOTS.map((dot, i) => {
-        const p = radarPoint(dot.r, dot.angle);
-        return <Circle key={i} cx={p.x} cy={p.y} r={2.6} fill={color} opacity={0.55} />;
-      })}
       <Circle cx={RADAR_CX} cy={RADAR_CY} r={RADAR_R_HALO} fill={color} opacity={0.13} />
       <Circle cx={RADAR_CX} cy={RADAR_CY} r={RADAR_R_CIRCLE} fill={color} />
       {/* אותו LocationPinIcon בדיוק כמו בכל שאר האפליקציה (למשל LocationQuickPicker) - לא צורת-פין

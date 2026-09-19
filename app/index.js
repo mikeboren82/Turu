@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { View, Text, ScrollView, Pressable, TextInput, ActivityIndicator, Image, Platform, Linking, Modal, useWindowDimensions, Animated } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter, useFocusEffect } from 'expo-router';
 import * as Location from 'expo-location';
@@ -207,7 +208,11 @@ function GuidedIntentSegment({ f }) {
       accessibilityLabel={t('home.guided.a11yLabel', { label: f.label, value: f.a11yValue || f.subtitle })}
       accessibilityHint={f.a11yHint}
     >
-      <Image source={f.decorIcon} style={styles.guidedIntentIconImage} resizeMode="contain" />
+      {f.decorIcon ? (
+        <Image source={f.decorIcon} style={styles.guidedIntentIconImage} resizeMode="contain" />
+      ) : (
+        <Text style={styles.guidedIntentIconEmoji}>{f.decorEmoji}</Text>
+      )}
       <View style={styles.guidedIntentSegmentMain}>
         <Text style={styles.guidedIntentTitle} numberOfLines={1}>{f.title}</Text>
         <Text
@@ -780,9 +785,11 @@ export default function HomeScreen() {
       a11yValue: filters.category.length > 0 ? listJoin(filters.category.map(categoryLabel)) : t('domain.summary.all'),
       a11yHint: t('home.guided.whatHint'),
       active: hasSelectedCategory,
-      // decorIcon (חדש) - אייקון-PNG אמיתי (בקשת המשתמש: "יש אייקון של ג'ירפה - להחליף במה
-      // עושים"). decorEmoji (🦒) נשאר לאותה סיבה כמו למעלה (CompactFilterField).
-      decorIcon: require('../assets/giraffe.png'), decorEmoji: '🦒', tint: '#fdf3d9', onPress: () => setCategoryQuickOpen(true),
+      // decorIcon:null (היה require('../assets/giraffe.png'), 2026-09-20 בקשת המשתמש: "קנגורו
+      // במקום ג'ירפה ב'מה עושים', באותו גודל") - אין קובץ-אייקון תואם-סגנון לקנגורו זמין, אז
+      // הוחלט (המשתמש) על אמוג'י 🦘 במקום PNG; GuidedIntentSegment (למעלה) עובר לרינדור
+      // guidedIntentIconEmoji כש-decorIcon הוא null. decorEmoji עודכן בהתאם (היה 🦒).
+      decorIcon: null, decorEmoji: '🦘', tint: '#fdf3d9', onPress: () => setCategoryQuickOpen(true),
     },
   ];
 
@@ -1222,16 +1229,10 @@ export default function HomeScreen() {
       {smartSearchLoading || locatingForSearch ? (
         <ActivityIndicator color="#ffffff" size="small" />
       ) : (
-        // חץ (2026-09-20, סבב-עידון רביעי - בקשת המשתמש: "צריך להיות בדיוק הפוך, מימין לשמאל,
-        // וצריך להיות אחרי המשפט, לא לפני") - היה קודם ← אחרי-הטקסט-פיזית-בקצה-הימני (כיוון "→",
-        // שקורא כ"לפני" הטקסט כשסורקים RTL - התחלה=ימין). עכשיו הפוך: החץ עצמו מצביע ← (כיוון-
-        // הקריאה בעברית) והוא פיזית בקצה השמאלי - "אחרי" הטקסט בסדר-הקריאה (שמתחיל בימין, איפה
-        // שהטקסט יושב עכשיו). View פיזי (flexDirection:'row', לא d.row) עם שני Text נפרדים, בסדר
-        // [חץ, טקסט] - כך החץ תמיד פיזית-משמאל והטקסט תמיד פיזית-מימין, בכל שפה/כיוון.
-        <View style={styles.smartSearchBtnRow}>
-          <Text style={styles.smartSearchBtnArrow}>←</Text>
-          <Text style={styles.smartSearchBtnText}>{t(searchMode === 'free' ? 'home.search.ctaFree' : 'home.search.cta')}</Text>
-        </View>
+        // חץ הוסר (2026-09-20, "visual polish: free search + quick choice" - בקשת המשתמש: "the
+        // decorative/navigation arrow... reads slightly like back-navigation and is unnecessary.
+        // The CTA itself already communicates forward action") - הטקסט לבדו, ממורכז.
+        <Text style={styles.smartSearchBtnText}>{t(searchMode === 'free' ? 'home.search.ctaFree' : 'home.search.cta')}</Text>
       )}
     </Pressable>
   );
@@ -1271,7 +1272,7 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        <Header onMenuPress={() => {}} />
+        <Header onMenuPress={() => {}} largeLogo />
 
         {/* 🧭 הירו - כותרת "לאן קופצים היום?"+קו-מבטא+שורת-הירו התלת-חלקית (חיפוש חופשי |
             רדאר "מה קרוב?" | בחירה מהירה). PHASE 1 EXTRACTION (2026-09-19, "safe presentational
@@ -1305,9 +1306,37 @@ export default function HomeScreen() {
         <View style={styles.smartSearchCard}>
           {searchMode === 'free' ? (
             <>
-              <Text style={styles.searchFreeLabel}>{t('home.search.freeLabel')}</Text>
-              <View style={styles.smartSearchInputWrap}>
-                <SearchIcon />
+              {/* גוון-עדין דקורטיבי (2026-09-20, "free search visual polish" - בקשת המשתמש:
+                  "a VERY subtle pale cyan/blue tint near the upper part of the card... fading
+                  naturally into the existing white") - רק במצב 'free', לא ב"בחירה מהירה" (סעיף 9
+                  בבקשה: "Free Search: cleaner and smarter... Quick Choice: more playful" - שני
+                  כרטיסים צריכים "להרגיש כמו אחים", לא זהים). מוחלט (position:absolute) מתחת לכל
+                  התוכן האמיתי, pointerEvents:none - דקורציה בלבד, לא חוסם אינטראקציה. פינות-
+                  עליונות מעוגלות תואמות בדיוק ל-smartSearchCard.borderRadius (22) כדי שלא "יזלוג"
+                  מעבר לקצוות המעוגלים של הכרטיס. */}
+              <LinearGradient
+                colors={['#F1FAFC', 'rgba(241,250,252,0)']}
+                style={styles.smartSearchFreeTint}
+                pointerEvents="none"
+              />
+              {/* כותרת+אייקון-חיפוש (2026-09-20, בקשת המשתמש: "Add a small search icon next to
+                  it... Prefer reusing the existing Free Search search/magnifier visual language")
+                  - אותו SearchIcon בדיוק שכבר בתוך שדה-הטקסט למטה (לא אייקון חדש), רק גדול יותר
+                  (24, ברירת-המחדל 18) וב-colors.accent (היה textMuted). d.row - אותה טכניקה בדיוק
+                  כמו searchModuleTitle בשורת-הירו (HomeHero.js): הילד-הראשון-ב-JSX (האייקון)
+                  יושב בקצה הפיזי-הימני בעברית, שהוא תחילת-הקריאה. */}
+              <View style={styles.searchFreeHeaderRow}>
+                <SearchIcon size={24} color={colors.accent} />
+                <Text style={styles.searchFreeLabel}>{t('home.search.freeLabel')}</Text>
+              </View>
+              {/* טקסט-תמיכה (חדש, בקשת המשתמש: "communicate that this is natural-language search
+                  rather than a conventional keyword box") - צמוד לכותרת (marginTop קטן ב-
+                  searchFreeHeaderRow למעלה), לא פסקה נפרדת. */}
+              <Text style={styles.searchFreeSupporting}>{t('home.search.freeSupporting')}</Text>
+              <View
+                style={[styles.smartSearchInputWrap, searchFocused && styles.smartSearchInputWrapFocused]}
+              >
+                <SearchIcon color={colors.accent} />
                 <TextInput
                   ref={searchInputRef}
                   style={styles.smartSearchInput}
@@ -1551,7 +1580,12 @@ const styles = createStyles((d) => ({
   // maxWidth ברמת-container דומה בשום מקום אחר), אז זו התקרה הראשונה מסוגה, לא reuse של דפוס
   // קיים. CONTENT_MAX_WIDTH (למעלה) גם מוזן ל-GrassFooter במקום windowWidth הגולמי, כדי שהאיור
   // ימשיך להתאים בדיוק לרוחב-בפועל של התוכן, לא לרוחב המסך המלא מעליו.
-  content: { padding: spacing.xl, paddingBottom: 0, width: '100%', maxWidth: CONTENT_MAX_WIDTH, alignSelf: 'center' },
+  // paddingTop:14 (היה 10, "small visual polish" round 3, 2026-09-20, בקשת המשתמש: "להוריד את
+  // הלוגו מעט למטה בעמוד, ממש מעט" - נסיגה קטנה אחרי שסבב קודם קירב את הכותרת לראש המסך יותר
+  // מדי). שאר הכיוונים (שמאל/ימין/תחתית) נשארים spacing.xl כרגיל.
+  content: {
+    padding: spacing.xl, paddingTop: 14, paddingBottom: 0, width: '100%', maxWidth: CONTENT_MAX_WIDTH, alignSelf: 'center',
+  },
   // WHAT+WHERE side-by-side, כ-pills קומפקטיים (2026-09-16, מעבר מ"שדה חצי-רוחב" ל-selection
   // pill - בקשת המשתמש). 'row' רגיל (לא row-reverse!) - נבדק ויזואלית בדפדפן, לא רק מהנחה: הדף
   // לא forceRTL ברמת ה-layout (טקסט מיושר-ימין ידנית בלבד), אז 'row' מתנהג LTR - הפריט הראשון
@@ -1621,12 +1655,18 @@ const styles = createStyles((d) => ({
     backgroundColor: colors.card, borderWidth: 1, borderColor: colors.borderLight, borderRadius: radii.lg,
     paddingVertical: 4, paddingHorizontal: 10, minHeight: 42,
   },
-  // Image אמיתי (assets/giraffe.png / assets/house-tree.png, היה אמוג'י-Text 🦒/🏡). בלי chip
-  // צבוע מסביב, תמיד בקצה הפיזי-שמאלי (ראו ההערה המלאה למעלה). 42px (היה 36/30) - בקשת המשתמש:
-  // "תגדיל עוד את האייקונים של הג'ירפה והבית".
-  // 46x46 (היה 42x42) - בקשת המשתמש: "האימוג'י מולם צריך להיות קצת יותר גדול" (יחד עם הקטנת
-  // הטקסט לצדו, ראו guidedIntentTitle/guidedIntentValue למטה).
-  guidedIntentIconImage: { width: 46, height: 46, flexShrink: 0 },
+  // Image אמיתי (assets/house-tree.png). בלי chip צבוע מסביב, תמיד בקצה הפיזי-שמאלי (ראו ההערה
+  // המלאה למעלה). 54x54 (היה 46x46, 2026-09-20, בקשת המשתמש: "להגדיל גם את הקנגרו וגם את הבית,
+  // שיהיו יותר גדולים אבל באותה פרופורציה") - קופסה משותפת גדלה פי ~1.17 (54/46), עדיין תואמת
+  // חזותית לקנגורו לצידה (ראו guidedIntentIconEmoji למטה - fontSize גדל באותו יחס בדיוק).
+  guidedIntentIconImage: { width: 54, height: 54, flexShrink: 0 },
+  // guidedIntentIconEmoji (קנגורו 🦘 ב"מה עושים") - אותה קופסה בדיוק (54x54) כמו
+  // guidedIntentIconImage כדי שהשורה לא תזוז. fontSize:28 (היה 24, גדל באותו יחס-הגדלה בדיוק:
+  // 24*(54/46)≈28.2) - שומר על יחס הגודל החזותי שכבר כויל מול הבית (PNG תופס נפח-חזותי שונה
+  // מ-glyph-אמוג'י לכל px של fontSize, ראו ההערה למעלה).
+  guidedIntentIconEmoji: {
+    width: 54, height: 54, flexShrink: 0, fontSize: 28, lineHeight: 54, textAlign: 'center',
+  },
   // gap: 0 (היה 3) - בקשת המשתמש: "'מה עושים' ו'הכל' צריכים להיות יותר צמודים... כנ"ל 'איפה'/
   // 'ינוב'" - חל על שתי השורות (guidedIntentTitle/Value משותפים לשתיהן, לא סטייל נפרד לכל שורה).
   guidedIntentSegmentMain: {
@@ -1642,15 +1682,15 @@ const styles = createStyles((d) => ({
   // הפיזי-ימני, ראו ה-mockup). בקשת המשתמש (spec מדויק): כותרת ~21px/700/lineHeight 25, ערך
   // ~16px/400/lineHeight 21 - fontFamily נשאר turu (fonts.bold/fonts.regular - אותם קבצי-גופן
   // קיימים, לא גופן חדש), רק מידות/משקל/line-height/מרווח שונו בהתאם למפרט.
-  // 18/21 (היה 19/23) - בקשת המשתמש: "'מה עושים' פונט מעט קטן יותר... כנ"ל 'איפה'" - עוד הקטנה
-  // קלה, נוסף לגיבוב-כיווני "דחיפה למטה" (יחד עם lineHeight המצומצם - ראו guidedIntentSegmentMain
-  // gap:0 - התווית כולה יורדת ומתקרבת לערך שמתחתיה).
+  // 18/21 (היה 16.5/19.5, "visual polish: free search + quick choice" 2026-09-20, בקשת המשתמש:
+  // "primary labels... should be slightly larger and/or heavier... the primary question should
+  // be what the eye reads first") - חזרה לגודל מעט גדול יותר, מחזק את ההיררכיה מול הערך-המשני
+  // שמתחת (guidedIntentValue למטה, שנשאר קטן/עדין בכוונה - הניגוד עצמו הוא הכלי).
   guidedIntentTitle: { fontFamily: fonts.bold, fontSize: 18, lineHeight: 21, color: colors.textPrimary, textAlign: d.textAlign },
-  // #8A9097 (היה colors.textSecondary/#59656d) - בקשת המשתמש: hex מדויק לצבע הערך המשני
-  // ("כל הקטגוריות"/"עד 15 דק' ממני"), שונה מטוקן-האפור הכללי הקיים.
-  // 15.5/18 (היה 14.5/19) - בקשת המשתמש: "'הכל' פונט מעט גדול יותר... כנ"ל 'ינוב'" - lineHeight
-  // גם ירד קמעה (19→18) כך שהערך "עולה למעלה" ומתקרב לכותרת שמעליו (gap:0 ב-guidedIntentSegmentMain).
-  guidedIntentValue: { minWidth: 0, fontFamily: fonts.regular, fontSize: 15.5, lineHeight: 18, color: '#8A9097', textAlign: d.textAlign },
+  // #8A9097 - צבע-ערך-משני קיים, אפרפר-ניטרלי. 14/16.5 (היה 14.5/17) - "secondary values...
+  // should be lighter and more neutral gray" (בקשת המשתמש) - הקטנה עדינה נוספת (יחד עם ה-title
+  // שגדל למעלה) כדי שההבדל הראשי/משני יהיה ברור מיד למבט ראשון.
+  guidedIntentValue: { minWidth: 0, fontFamily: fonts.regular, fontSize: 14, lineHeight: 16.5, color: '#8A9097', textAlign: d.textAlign },
   personalCard: {
     backgroundColor: colors.card, borderRadius: radii.xl, borderWidth: 1, borderColor: colors.borderLight,
     padding: 16, marginBottom: 18,
@@ -1706,24 +1746,51 @@ const styles = createStyles((d) => ({
   // הריפוד הפנימי (16) נשאר המקור היחיד למרווח-הבסיס כאן, ו-sectionHeaderRow תואם אותו בדיוק.
   smartSearchCard: {
     backgroundColor: colors.card, borderWidth: 1, borderColor: colors.accentTintLight,
+    // borderTopColor: colors.accentTint (חדש, "visual polish: free search + quick choice"
+    // 2026-09-20, בקשת המשתמש: "a VERY SUBTLE visual relationship between the selected side
+    // action and the card below... barely perceptible") - רק הצלע העליונה מקבלת גוון-accent
+    // מעט חזק יותר מ-accentTintLight (שאר 3 הצלעות) - אותה משפחת-צבע בדיוק כמו ה-underline
+    // הפעיל בשורת-הירו (heroSideActionActiveDot, HomeHero.js), בלי חץ/משולש/זנב-בועה - קו-גבול
+    // דק, לא מסגרת-accent עבה.
+    borderTopColor: colors.accentTint,
     // marginTop:2 (היה 6) - חלק מאותה בקשה (heroRow.marginBottom למעלה) - עוד צמצום-מרווח קטן
     // בין שורת-הירו לכרטיס-הפילטרים.
     borderRadius: 22, padding: 16, marginHorizontal: -10, marginTop: 2, marginBottom: 0,
     shadowColor: colors.accent, shadowOpacity: 0.1, shadowRadius: 18, shadowOffset: { width: 0, height: 6 }, elevation: 3,
   },
-  // "חפשו במילים שלכם" - תווית-כוונה קטנה מעל שדה הטקסט, קיימת רק במצב "חיפוש חופשי" (מלמדת
-  // "אפשר סתם לתאר מה שרוצים", בלי לחזור על "או בחרו" הישן שכבר לא רלוונטי - הבורר עצמו מעליה
-  // כבר עשה את הבחירה בין המצבים).
-  searchFreeLabel: { fontFamily: fonts.semiBold, fontSize: 12, color: colors.textSecondary, textAlign: d.textAlign, marginBottom: 8 },
+  // smartSearchFreeTint (חדש, "free search visual polish" 2026-09-20) - גוון-עדין דקורטיבי,
+  // מוחלט מתחת לתוכן, רק מכסה את החלק העליון של הכרטיס (120) - לא נוגע בכל שאר הכרטיס (הקלט/
+  // שגיאה/חיפושים-אחרונים למטה נשארים על רקע-הכרטיס הרגיל, colors.card לבן).
+  smartSearchFreeTint: {
+    position: 'absolute', top: 0, left: 0, right: 0, height: 120,
+    borderTopLeftRadius: 22, borderTopRightRadius: 22,
+  },
+  // "מה מתחשק לכם?" + אייקון-חיפוש לצידה (searchFreeHeaderRow) - ראו ה-JSX למעלה. gap:8/
+  // marginBottom:2 - צמוד לטקסט-התמיכה שמתחת (searchFreeSupporting) כך שהשניים "נקראים כיחידה
+  // אחת" (בקשת המשתמש).
+  searchFreeHeaderRow: { flexDirection: d.row, alignItems: 'center', gap: 8, marginBottom: 2 },
+  // 16/bold/textPrimary (היה 12/semiBold/textSecondary) - "free search visual polish" 2026-09-20:
+  // גדל כדי לאזן מול האייקון (24px) שנוסף לצידה - עדיין ברור-משני ביחס לכותרת-העל "לאן קופצים
+  // היום?" מעל כל המודול (26px).
+  searchFreeLabel: { fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary, textAlign: d.textAlign },
+  // "אפשר לכתוב ממש בחופשיות" (חדש, "free search visual polish" 2026-09-20, בקשת המשתמש: "This
+  // sentence should communicate that this is natural-language search rather than a conventional
+  // keyword box") - משני/עדין: קטן מהכותרת, משקל רגיל, אפור ניטרלי.
+  searchFreeSupporting: { fontFamily: fonts.regular, fontSize: 12.5, color: colors.textMuted, textAlign: d.textAlign, marginBottom: 10 },
   // כרטיס-חיפוש: שדה הטקסט הוא הקלט היחיד בשורה הזו (אין יותר כפתור "חיפוש" לצידו) - ה-pill/
   // border/bg יושבים כאן כדי שאייקון-החיפוש יישב "בתוך" השדה חזותית, לא ליד שדה נפרד. row: אייקון
   // ראשון בכיוון-הקריאה, TextInput ממלא את השאר. marginBottom נותן את המרווח הבסיסי לפני מה
   // שמתחת (שגיאה/חיפושים אחרונים).
+  // borderColor: colors.accentTintLight (היה colors.border, "free search visual polish"
+  // 2026-09-20, בקשת המשתמש: "a little more TURU identity... very subtle blue/cyan border in
+  // its resting state") - אותו טוקן-כחלחל-עדין הקיים כבר בגבול smartSearchCard עצמו.
   smartSearchInputWrap: {
     flexDirection: d.row, alignItems: 'center', gap: 6, marginBottom: 16,
-    backgroundColor: colors.bg, borderWidth: 1, borderColor: colors.border,
+    backgroundColor: colors.bg, borderWidth: 1, borderColor: colors.accentTintLight,
     borderRadius: radii.pill, paddingHorizontal: 14,
   },
+  // smartSearchInputWrapFocused (חדש) - "when focused, make the border clearly #007598".
+  smartSearchInputWrapFocused: { borderColor: colors.accent },
   smartSearchInput: {
     flex: 1, paddingVertical: 12,
     fontFamily: fonts.regular, fontSize: 14, color: colors.textPrimary, textAlign: d.textAlign, writingDirection: d.writingDirection,
@@ -1739,9 +1806,7 @@ const styles = createStyles((d) => ({
   },
   smartSearchBtnFullWidth: { width: '100%', paddingVertical: 12 },
   smartSearchBtnDisabled: { opacity: 0.5 },
-  smartSearchBtnRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 },
-  smartSearchBtnText: { fontFamily: fonts.bold, fontSize: 16, color: '#ffffff' },
-  smartSearchBtnArrow: { fontSize: 17, fontFamily: fonts.bold, color: '#ffffff' },
+  smartSearchBtnText: { fontFamily: fonts.bold, fontSize: 16, color: '#ffffff', textAlign: 'center' },
   smartSearchErrorText: { fontFamily: fonts.semiBold, fontSize: 12, color: colors.danger, textAlign: 'center', marginTop: 10 },
   // חיפושים אחרונים כ-dropdown תלוי-פוקוס (2026-09-16, סבב שני) - יושב באותו מקום-JSX בדיוק
   // כמו קודם (מתחת לשדה, בתוך אותו smartSearchCard), רק בלי accordion ידני (recentSearchesOpen

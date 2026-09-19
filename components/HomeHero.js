@@ -42,14 +42,6 @@ export default function HomeHero({
         <View style={styles.searchModuleTitleRow}>
           <Text style={styles.searchModuleTitle}>{t('home.search.title')}</Text>
         </View>
-        {/* קו-מבטא כתום קטן (2026-09-20, "typography and section-heading refinement" - בקשת
-            המשתמש: "add a very small decorative accent line underneath... NOT a full underline...
-            use the existing TURU orange/golden accent color from the logo"). #FF9101 נדגם בפועל
-            מפיקסלי-הקישוטים הכתומים בתוך assets/turu-logo.png עצמו (rgb(255,145,1), לא ניחוש) -
-            אין טוקן-כתום קיים ב-theme.js שמייצג את זה (coral/coralStrong משמשים כבר למפה/מועדפים,
-            גוון שונה). alignSelf:'center' - עמודת-האב (searchModuleHeaderWrap) לא ממרכזת ילדים
-            כברירת-מחדל. */}
-        <View style={styles.heroTitleAccent} />
       </View>
 
       {/* שורת-הירו התלת-חלקית (2026-09-20, "TURU home reference mockup" - מחליפה לגמרי את
@@ -64,29 +56,31 @@ export default function HomeHero({
       <View style={styles.heroRow}>
         <View style={styles.heroSideCol}>
           <Pressable
-            style={({ pressed }) => [
-              styles.heroSideAction,
-              // דהייה (עודכן 2026-09-20, "change the DEFAULT BEHAVIOR" - בקשת המשתמש: "בחירה
-              // מהירה וחיפוש חופשי צריכים להיות שניהם דהויים בהתחלה אם הם לא נבחרו, רק מי
-              // שנבחר נראה רגיל") - היה מותנה ב-searchMode truthy (כך ששניהם נשארו מלאים
-              // במצב-ברירת-המחדל הישן); עכשיו דהוי בכל מצב שהוא *לא* הפעיל, כולל null.
-              searchMode !== 'free' && styles.heroSideActionFaded,
-              pressed && styles.heroSideActionPressed,
-            ]}
+            style={({ pressed }) => [styles.heroSideAction, pressed && styles.heroSideActionPressed]}
             onPress={() => onSwitchMode('free')}
             hitSlop={8}
             accessibilityRole="radio"
             accessibilityState={{ checked: searchMode === 'free' }}
             accessibilityLabel={t('home.search.modeFree')}
           >
-            <View style={[styles.heroSideActionIconWrap, heroCompact && styles.heroSideActionIconWrapCompact, searchMode === 'free' && styles.heroSideActionIconWrapActive]}>
+            <View style={[
+              styles.heroSideActionIconWrap, heroCompact && styles.heroSideActionIconWrapCompact,
+              searchMode !== 'free' && styles.heroSideActionIconWrapFaded,
+            ]}
+            >
               <Image
                 source={require('../assets/magnifier.png')}
                 style={[styles.heroSideActionIconImage, heroCompact && styles.heroSideActionIconImageCompact]}
                 resizeMode="contain"
               />
             </View>
-            <Text style={[styles.heroSideActionText, heroCompact && styles.heroSideActionTextCompact, searchMode === 'free' && styles.heroSideActionTextActive]} numberOfLines={1}>
+            <Text
+              style={[
+                styles.heroSideActionText, heroCompact && styles.heroSideActionTextCompact,
+                searchMode === 'free' ? styles.heroSideActionTextActive : styles.heroSideActionTextInactive,
+              ]}
+              numberOfLines={1}
+            >
               {t('home.search.modeFree')}
             </Text>
             {searchMode === 'free' ? <View style={styles.heroSideActionActiveDot} /> : null}
@@ -153,27 +147,31 @@ export default function HomeHero({
 
         <View style={styles.heroSideCol}>
           <Pressable
-            style={({ pressed }) => [
-              styles.heroSideAction,
-              // דהייה - ראו ההערה המלאה ליד הפעולה הצדדית השנייה (heroSideAction הראשון
-              // למעלה, "חיפוש חופשי") לאותו שינוי בדיוק (סימטרי לשתי הפעולות).
-              searchMode !== 'guided' && styles.heroSideActionFaded,
-              pressed && styles.heroSideActionPressed,
-            ]}
+            style={({ pressed }) => [styles.heroSideAction, pressed && styles.heroSideActionPressed]}
             onPress={() => onSwitchMode('guided')}
             hitSlop={8}
             accessibilityRole="radio"
             accessibilityState={{ checked: searchMode === 'guided' }}
             accessibilityLabel={t('home.search.modeGuided')}
           >
-            <View style={[styles.heroSideActionIconWrap, heroCompact && styles.heroSideActionIconWrapCompact, searchMode === 'guided' && styles.heroSideActionIconWrapActive]}>
+            <View style={[
+              styles.heroSideActionIconWrap, heroCompact && styles.heroSideActionIconWrapCompact,
+              searchMode !== 'guided' && styles.heroSideActionIconWrapFaded,
+            ]}
+            >
               <Image
                 source={require('../assets/sparkles.png')}
                 style={[styles.heroSideActionIconImage, heroCompact && styles.heroSideActionIconImageCompact]}
                 resizeMode="contain"
               />
             </View>
-            <Text style={[styles.heroSideActionText, heroCompact && styles.heroSideActionTextCompact, searchMode === 'guided' && styles.heroSideActionTextActive]} numberOfLines={1}>
+            <Text
+              style={[
+                styles.heroSideActionText, heroCompact && styles.heroSideActionTextCompact,
+                searchMode === 'guided' ? styles.heroSideActionTextActive : styles.heroSideActionTextInactive,
+              ]}
+              numberOfLines={1}
+            >
               {t('home.search.modeGuided')}
             </Text>
             {searchMode === 'guided' ? <View style={styles.heroSideActionActiveDot} /> : null}
@@ -188,21 +186,25 @@ const styles = createStyles((d) => ({
   // marginTop:4 (לא 10) - קובץ turu-logo.png עצמו נושא כמה px של שוליים-שקופים בתחתית התמונה
   // (לא נגוע כאן, זה ה-asset עצמו), אז marginTop קטן יותר מפצה על זה כדי שהמרווח *החזותי* בפועל
   // (לא רק הערך ב-style) יצא שווה למרווח שמתחת לכותרת - נמדד ואומת בדפדפן (16px משני הצדדים).
-  searchModuleHeaderWrap: { marginTop: 4, marginBottom: 10 },
+  // marginTop:10 (היה 16, "visual polish: free search + quick choice" 2026-09-20, בקשת המשתמש:
+  // "slightly reduce the vertical gap between the TURU logo and 'לאן קופצים היום?'... do not
+  // aggressively compress") - צמצום עדין, לא דרסטי; הלוגו עצמו לא זז (content.paddingTop
+  // ב-app/index.js, לא נגוע כאן).
+  // marginBottom:8 (היה 12) - "slightly reduce the gap between the heading and the three
+  // discovery actions... preserve comfortable breathing room".
+  searchModuleHeaderWrap: { marginTop: 10, marginBottom: 8 },
   // justifyContent:'center' - בלעדיו View-עמודה רגיל (searchModuleHeaderWrap) נותן לילד שלו
   // רוחב-מלא כברירת-מחדל, וללא justifyContent מפורש הטקסט היה נדחף לקצה-ה-flex-start של השורה,
   // לא ממורכז.
   searchModuleTitleRow: { flexDirection: d.row, alignItems: 'center', justifyContent: 'center', gap: 8 },
-  // 26px - "approximately 25-27px... Make this feel like the main question of the screen".
-  // extraBold=800/textPrimary=#121c23 (navy-כהה, לא #000 טהור). lineHeight:31 - יחס קומפקטי-אך-נוח.
+  // 26px (ללא שינוי) - "approximately 25-27px... Make this feel like the main question of the
+  // screen". extraBold=800/textPrimary=#121c23 (navy-כהה, לא #000 טהור). lineHeight:22 (היה 31,
+  // "SMALL VISUAL POLISH" 2026-09-20, בקשת המשתמש: "reduce its line-height... make the glyph/text
+  // block feel less tall... do NOT simply make the font noticeably smaller") - קרוב לגובה-הגופן
+  // עצמו (26px), לא עוד "אוויר" גדול מעליו/מתחתיו - כותרת חד-שורתית (לא עוברת שורה ברוחבי-מסך
+  // נתמכים), אז lineHeight קובע ישירות את גובה-הבלוק החזותי בלי להשפיע על גודל-התווים עצמם.
   searchModuleTitle: {
-    fontFamily: fonts.extraBold, fontSize: 26, lineHeight: 31, color: colors.textPrimary, textAlign: d.textAlign,
-  },
-  // heroTitleAccent - "קו-מבטא" כתום קטן מתחת לכותרת הראשית בלבד. #FF9101 נדגם בפועל
-  // מ-assets/turu-logo.png. 27x3, borderRadius:1.5 - "NOT a full underline... short centered
-  // decorative stroke", בתוך הטווח המבוקש (24-30 רוחב, ~3 גובה). marginTop:8 - "~7-9px below the text".
-  heroTitleAccent: {
-    width: 27, height: 3, borderRadius: 1.5, backgroundColor: '#FF9101', alignSelf: 'center', marginTop: 8,
+    fontFamily: fonts.extraBold, fontSize: 26, lineHeight: 22, color: colors.textPrimary, textAlign: d.textAlign,
   },
   // שורת-הירו התלת-חלקית - flexDirection:'row' פיזי (לא d.row) בכוונה: האפליקציה מכבה forceRTL
   // לגמרי (app/_layout.js), אז 'row' תמיד ממקם את הילד הראשון בקצה הפיזי-שמאלי - חיפוש חופשי
@@ -212,42 +214,62 @@ const styles = createStyles((d) => ({
   // שתי עמודות-הצד flex:1 שוות-רוחב-מוחלט (לא תלויות-תוכן) עם alignItems:'center' פנימי, כך
   // שעמודת-המרכז (heroCenterCol, ברוחב-תוכן טבעי) יושבת תמיד בדיוק במרכז הגיאומטרי של השורה.
   heroRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 8, paddingHorizontal: 8 },
-  // paddingTop ממקם את אייקון+תווית הפעולה הצדדית בערך מול מרכז דיסקית הרדאר - כך הן מרגישות
-  // כמו "secondary actions orbiting the central radar", לא שורה תלושה שיושבת סתם למעלה.
-  heroSideCol: { flex: 1, alignItems: 'center', paddingTop: 22 },
+  // paddingTop:14 (היה 22, "small visual polish" round 2, 2026-09-20, בקשת המשתמש: "שני הכפתורים
+  // בצדדיו צריכים להיות קצת יותר גבוה, גם הכיתוב וגם האייקונים") - מרים את כל התוכן של שתי
+  // העמודות-הצדדיות (אייקון+טקסט יחד, ראו heroSideAction למטה) קצת יותר קרוב לראש השורה.
+  heroSideCol: { flex: 1, alignItems: 'center', paddingTop: 14 },
   // לא pill/card ("NOT large pills, NOT cards, NOT competing with the radar visually") - רק
   // אייקון+טקסט, minHeight נדיב ל-touch target נוח.
-  heroSideAction: { alignItems: 'center', gap: 5, paddingVertical: 8, paddingHorizontal: 0, minHeight: 60, justifyContent: 'center' },
+  // gap:0 (היה 2, "small visual polish" round 4, 2026-09-20, בקשת המשתמש: "לקרב עוד יותר את
+  // הכיתוב... לאייקונים שלהם") - חל על שני הצדדים, אותה פרופורציה בדיוק.
+  heroSideAction: { alignItems: 'center', gap: 0, paddingVertical: 8, paddingHorizontal: 0, minHeight: 60, justifyContent: 'center' },
   heroSideActionPressed: { opacity: 0.7 },
-  // דהייה עדינה לפעולה-הצדדית שלא נבחרה - "Do NOT gray them out so strongly that they appear
-  // disabled... Inactive ≠ unavailable".
-  heroSideActionFaded: { opacity: 0.7 },
-  // heroSideActionIconWrap - "צ'יפ" עגול-רך מאחורי האייקון (52x52) - "The side icons should feel
-  // like actual buttons/actions even before the user reads the text". accentTintLight - אותו
-  // טוקן-רקע-עדין הקיים כבר בכפתור "🎯 מסונן" וכו'. עדיין קטן משמעותית מהרדאר (52px מול ~158px).
+  // heroSideActionIconWrap - קופסת-מיקום/גודל בלבד מסביב לאייקון (54x54) - בלי רקע-עגול צבוע
+  // (הוסר בסבב קודם). צמוד לגודל-האייקון עצמו (52, ראו heroSideActionIconImage למטה).
   heroSideActionIconWrap: {
-    width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center',
-    backgroundColor: colors.accentTintLight,
+    width: 54, height: 54, alignItems: 'center', justifyContent: 'center',
   },
-  heroSideActionIconWrapCompact: { width: 44, height: 44, borderRadius: 22 },
-  // heroSideActionIconWrapActive - כשמצב זה נבחר בפועל, הצ'יפ עובר לטון-accent חזק יותר.
-  heroSideActionIconWrapActive: { backgroundColor: colors.accentTint },
-  heroSideActionIconImage: { width: 35, height: 35 },
-  heroSideActionIconImageCompact: { width: 25, height: 25 },
-  heroSideActionText: { fontFamily: fonts.bold, fontSize: 16.5, color: colors.textSecondary, textAlign: 'center' },
-  heroSideActionTextCompact: { fontSize: 12.5 },
+  heroSideActionIconWrapCompact: { width: 40, height: 40 },
+  // heroSideActionIconWrapFaded (חדש, "visual polish: free search + quick choice" 2026-09-20,
+  // בקשת המשתמש: "strengthen the selected-state hierarchy... [inactive] icon may be slightly
+  // visually quieter") - מחליף את heroSideActionFaded הישן (opacity:0.7 שחל על כל ה-Pressable,
+  // כולל הטקסט): עכשיו רק האייקון דוהה מעט כשלא פעיל, והטקסט מקבל צבע מפורש משלו
+  // (heroSideActionTextInactive למטה) - שתי אותות נפרדים וברורים, לא עוד עמעום גורף אחד.
+  heroSideActionIconWrapFaded: { opacity: 0.6 },
+  // 52/38 - "האימוג'י שלהם ["בחירה מהירה"/"חיפוש חופשי"]... יותר גדולים".
+  heroSideActionIconImage: { width: 52, height: 52 },
+  heroSideActionIconImageCompact: { width: 38, height: 38 },
+  // heroSideActionText - בלי color כאן יותר (הוסר, "visual polish: free search + quick choice"
+  // 2026-09-20): כל אחד משני המצבים (Active/Inactive למטה) מזין צבע מפורש משלו במקום ברירת-מחדל
+  // אחת+עמעום. 15/11.5 - "הכיתוב 'בחירה מהירה' ו'חיפוש חופשי' צריכים להיות מעט יותר קטנים"
+  // (בקשת-עבר). nearMeLabelText/Compact למטה מוגדרים לאותו גודל בדיוק.
+  heroSideActionText: { fontFamily: fonts.bold, fontSize: 15, textAlign: 'center' },
+  heroSideActionTextCompact: { fontSize: 11.5 },
+  // ACTIVE: #007598 (colors.accent) - "TURU accent color", בדיוק כמו underline (heroSideActionActiveDot
+  // למטה) והרדאר המרכזי - זהות-צבע אחת עקבית ל"פעיל".
   heroSideActionTextActive: { color: colors.accent },
-  heroSideActionActiveDot: { width: 18, height: 2.5, borderRadius: 1.5, backgroundColor: colors.accent, marginTop: 3 },
+  // INACTIVE (חדש) - colors.textMuted (#7a8185, אפרפר-ניטרלי) במקום textSecondary+עמעום-גורף
+  // ישן - "label should be visibly more neutral/gray" (בקשת המשתמש), ניגוד ברור יותר מול הכחול
+  // הפעיל מאשר גוון-יחיד בשתי שקיפויות.
+  heroSideActionTextInactive: { color: colors.textMuted },
+  // 22x3 (היה 18x2.5, "visual polish: free search + quick choice" 2026-09-20, בקשת המשתמש:
+  // "current small underline alone is slightly too subtle... strengthen") - חיזוק עדין, עדיין
+  // קו-תחתי דק, לא בר/פס גדול.
+  heroSideActionActiveDot: { width: 22, height: 3, borderRadius: 1.5, backgroundColor: colors.accent, marginTop: 4 },
   heroCenterCol: { alignItems: 'center' },
   nearMeStandalone: { alignItems: 'center', gap: 1 },
   nearMeStandalonePressed: { opacity: 0.85 },
-  // גובה קומפקטי (RADAR_COMPACT_H ב-NearMeRadar, showLabel=false) - 158x112 תואם את
-  // RADAR_SVG_W: svgHeight בפועל = RADAR_SVG_W * (RADAR_COMPACT_H/180) ≈ 112.4.
+  // גובה קומפקטי (RADAR_COMPACT_H ב-NearMeRadar, showLabel=false) - 158x112 (היה 134x95, "small
+  // visual polish" round 2, 2026-09-20, בקשת המשתמש: "הכפתור הגדול צריך להיות יותר גדול" - חזרה
+  // לגודל הקודם/מוכר) תואם את RADAR_SVG_W שם: svgHeight בפועל = RADAR_SVG_W * (RADAR_COMPACT_H/180)
+  // ≈ 112.4. שינוי-פרמטר יחיד ב-NearMeRadar.js (RADAR_SVG_W בלבד, ראו שם) מגדיל את כל הגיאומטריה
+  // הפנימית פרופורציונלית - הרדאר עדיין מעוגל ומרוכז בדיוק כמו קודם, רק גדול יותר.
   nearMeRadarWrapCompact: { width: 158, height: 112, alignItems: 'center', justifyContent: 'center' },
-  // nearMeLabelText/Compact - "מה קרוב?" עצמאי מ-heroSideActionText: 17px, bold - "the center
-  // label should be slightly stronger because it belongs to the primary action".
-  nearMeLabelText: { fontFamily: fonts.bold, fontSize: 17, color: colors.textSecondary, textAlign: 'center' },
-  nearMeLabelTextCompact: { fontSize: 13 },
+  // nearMeLabelText/Compact - אותו גודל בדיוק כמו heroSideActionText/Compact (15/11.5, "small
+  // visual polish" round 2, בקשת המשתמש: "הטקסט 'מה קרוב' צריך להיות באותו גודל של 'בחירה מהירה
+  // וחיפוש חופשי'" - במפורש לא עוד גדול-יותר, כמו שהיה קודם).
+  nearMeLabelText: { fontFamily: fonts.bold, fontSize: 15, color: colors.textSecondary, textAlign: 'center' },
+  nearMeLabelTextCompact: { fontSize: 11.5 },
   nearMeErrorRow: { marginTop: 8, alignItems: 'center' },
   nearMeErrorText: { fontFamily: fonts.semiBold, fontSize: 12, color: colors.danger, textAlign: 'center' },
   nearMeErrorActions: { flexDirection: d.row, alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 4 },
