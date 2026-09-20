@@ -53,6 +53,7 @@
     "closedNow": "Closed now",
     "todayHolidayWarning": "⚠️ Today is {{holiday}} · hours may vary",
     "dayWarning": "⚠️ Hours may vary",
+    "sharedWarningNote": "⚠️ Hours may vary on holidays and their eves",
     "today": "Today",
     "tomorrow": "Tomorrow",
     "closedToday": "Closed",

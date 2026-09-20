@@ -1,6 +1,7 @@
-// lib/i18n/format.js's Opening Hours Phase 2 string builders (hoursStatusText/hoursDayLabel/
-// hoursDayValueText/hoursTodayWarningText/hoursDayWarningText). Real translations are exercised
-// (not mocked), same require-hook (babel commonjs + stubs) as tests/filterSummaries.test.js.
+// lib/i18n/format.js's Opening Hours string builders (hoursStatusText/hoursDayLabelParts/
+// hoursDayHolidayName/hoursSharedWarningNote/hoursDayValueText/hoursTodayWarningText/
+// hoursDayWarningText). Real translations are exercised (not mocked), same require-hook (babel
+// commonjs + stubs) as tests/filterSummaries.test.js.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('path');
@@ -29,7 +30,8 @@ addHook(
 );
 
 const {
-  hoursStatusText, hoursTodayWarningText, hoursDayWarningText, hoursDayLabel, hoursDayValueText,
+  hoursStatusText, hoursTodayWarningText, hoursDayWarningText, hoursDayLabelParts, hoursDayHolidayName,
+  hoursSharedWarningNote, hoursDayValueText,
 } = require('../lib/i18n/format.js');
 const { buildTodayStatus, buildUpcomingDays } = require('../lib/hoursDisplay.js');
 const { setLocale } = require('../lib/i18n/index.js');
@@ -90,19 +92,27 @@ test('per-day warning line is compact and generic', () => {
   assert.equal(hoursDayWarningText(), '⚠️ השעות עשויות להשתנות');
 });
 
-test('day label: today/tomorrow get the prefix, later days just the weekday', () => {
+test('day label parts: today/tomorrow get a prefix, later days none - weekday is always separate', () => {
   const days = buildUpcomingDays({ hoursByDay: {}, openHours: null }, { now: new Date('2026-06-17T10:00:00') }); // Wed
-  assert.equal(hoursDayLabel(days[0]), 'היום, רביעי');
-  assert.equal(hoursDayLabel(days[1]), 'מחר, חמישי');
-  assert.equal(hoursDayLabel(days[2]), 'שישי');
+  assert.deepEqual(hoursDayLabelParts(days[0]), { prefix: 'היום', weekday: 'רביעי' });
+  assert.deepEqual(hoursDayLabelParts(days[1]), { prefix: 'מחר', weekday: 'חמישי' });
+  assert.deepEqual(hoursDayLabelParts(days[2]), { prefix: null, weekday: 'שישי' });
 });
 
-test('day label appends the holiday/eve name when present', () => {
+test('holiday name is returned separately from the day label, not concatenated onto it', () => {
   const days = buildUpcomingDays({ hoursByDay: {}, openHours: null }, { now: new Date('2026-09-17T10:00:00') }); // includes Erev Yom Kippur (09-20) and Yom Kippur (09-21)
   const erev = days.find((d) => d.date === '2026-09-20');
   const yk = days.find((d) => d.date === '2026-09-21');
-  assert.equal(hoursDayLabel(erev), 'ראשון · ערב יום כיפור');
-  assert.equal(hoursDayLabel(yk), 'שני · יום כיפור');
+  const ordinary = days.find((d) => d.date === '2026-09-17');
+  assert.deepEqual(hoursDayLabelParts(erev), { prefix: null, weekday: 'ראשון' });
+  assert.equal(hoursDayHolidayName(erev), 'ערב יום כיפור');
+  assert.deepEqual(hoursDayLabelParts(yk), { prefix: null, weekday: 'שני' });
+  assert.equal(hoursDayHolidayName(yk), 'יום כיפור');
+  assert.equal(hoursDayHolidayName(ordinary), null);
+});
+
+test('shared warning note names the kind of dates it applies to', () => {
+  assert.equal(hoursSharedWarningNote(), '⚠️ בחגים ובערבי חג שעות הפעילות עשויות להשתנות');
 });
 
 test('day value text: intervals win, then closed, then unknown - never conflated', () => {
@@ -130,5 +140,5 @@ test('English locale produces English strings for the same data', () => {
   const status = buildTodayStatus({ hoursByDay: { ד: { start: '09:00', end: '18:00' } }, openHours: { start: '09:00', end: '18:00' } }, { now: new Date('2026-06-17T10:00:00') });
   assert.equal(hoursStatusText(status), '🟢 Open now · until 18:00');
   const days = buildUpcomingDays({ hoursByDay: {}, openHours: null }, { now: new Date('2026-06-17T10:00:00') });
-  assert.equal(hoursDayLabel(days[0]), 'Today, Wed');
+  assert.deepEqual(hoursDayLabelParts(days[0]), { prefix: 'Today', weekday: 'Wed' });
 });
