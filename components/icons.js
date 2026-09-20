@@ -10,6 +10,33 @@ export function LocationPinIcon({ size = 14, color = colors.textSecondary }) {
   );
 }
 
+// חיפוש חופשי (Home, components/HomeHero.js) - זכוכית-מגדלת קווית, אותה משפחה בדיוק כמו שאר
+// האייקונים בקובץ הזה (2026-09-20, "discovery actions visual polish": "unify icon language...
+// the three icons should look as though they belong to the same design system") - במקום
+// assets/magnifier.png (תמונת-raster צבועה) שלא ניתנת לצביעה-מחדש נקייה למצב-פעיל.
+// strokeWidth ניתן-לדריסה (חדש, 2026-09-20, "restore side icons" - בקשת המשתמש: "make sure the
+// restored icons have enough contrast... check stroke/visual weight feels coherent") - ברירת-
+// המחדל (2) נשארת זהה לכל שאר קוראי-האייקון הקיימים; HomeHero.js מזין ערך מעט יותר עבה כדי
+// שהזכוכית-המגדלת/הכוכבית יקראו ברור וקריא בגודל-הקטן של המיני-כפתור העגול (46px).
+export function SearchIcon({ size = 18, color = colors.textSecondary, strokeWidth = 2 }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+      <Circle cx="11" cy="11" r="7" />
+      <Line x1="21" y1="21" x2="16.65" y2="16.65" />
+    </Svg>
+  );
+}
+
+// בחירה מהירה (Home, components/HomeHero.js) - כוכבית-4-קצוות קווית, אותה סיבה בדיוק כמו
+// SearchIcon למעלה - מחליפה את assets/sparkles.png.
+export function SparkleIcon({ size = 18, color = colors.textSecondary, strokeWidth = 1.8 }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M12 3l2.2 6.8L21 12l-6.8 2.2L12 21l-2.2-6.8L3 12l6.8-2.2z" />
+    </Svg>
+  );
+}
+
 export function ClockIcon({ size = 14, color = colors.textSecondary }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
@@ -174,6 +201,16 @@ export function WhatsAppIcon({ size = 22, color = '#ffffff' }) {
   );
 }
 
+export function ShareIcon({ size = 15, color = colors.textPrimary }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M12 3v12" />
+      <Polyline points="8 7 12 3 16 7" />
+      <Path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7" />
+    </Svg>
+  );
+}
+
 // לוגו Google הרשמי (4 צבעים) - להתחברות עם Google, ראו app/login.js.
 export function GoogleIcon({ size = 18 }) {
   return (
@@ -275,6 +312,29 @@ export function AlertIcon({ size = 17, color = colors.textSecondary }) {
       <Circle cx="12" cy="12" r="10" />
       <Line x1="12" y1="8" x2="12" y2="13" />
       <Line x1="12" y1="16" x2="12.01" y2="16" />
+    </Svg>
+  );
+}
+
+// "?" בעיגול - עזרה/דיווח ידידותי, לא אזהרה. תפריט Header - "משהו לא עובד?" - הוחלף מ-AlertIcon
+// כי הצללית שלו (עיגול+סימן ממורכז) קרובה מדי ויזואלית ל-InfoIcon ("עלינו") בגודל תפריט קטן.
+export function HelpIcon({ size = 17, color = colors.textSecondary }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <Circle cx="12" cy="12" r="10" />
+      <Path d="M9.5 9.2a2.6 2.6 0 0 1 5 1c0 1.7-2.3 2-2.3 3.6" />
+      <Line x1="12" y1="17" x2="12.01" y2="17" />
+    </Svg>
+  );
+}
+
+// תפריט Header - שורת "שפה" (components/Header.js).
+export function GlobeIcon({ size = 17, color = colors.textSecondary }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+      <Circle cx="12" cy="12" r="9" />
+      <Line x1="3" y1="12" x2="21" y2="12" />
+      <Path d="M12 3c2.8 2.6 4.2 5.8 4.2 9s-1.4 6.4-4.2 9c-2.8-2.6-4.2-5.8-4.2-9s1.4-6.4 4.2-9z" />
     </Svg>
   );
 }

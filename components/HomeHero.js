@@ -19,12 +19,26 @@ import { useI18n, createStyles } from '../lib/i18n';
 //   onNearMePress()    - גם לחיצה על הרדאר עצמו וגם "נסו שוב" בשגיאה (אותו handler בדיוק כמו קודם)
 //   onNearMePressIn/Out() - אנימציית-לחיצה עדינה על הרדאר
 //   onChooseCityInstead() - "בחרו עיר במקום" בשגיאת-מיקום (setWhereQuickOpen(true) המקורי)
+//   children           - (חדש, "Home Discovery Panel Redesign" 2026-09-20, עודכן "no rectangle
+//     at all" באותו יום) תוכן חיפוש-חופשי/בחירה-מהירה (מה שהיה בעבר smartSearchCard נפרד
+//     ב-app/index.js) - מוצג עכשיו *בתוך* אותו discoveryArea בדיוק ששורת-שלוש-הפעולות יושבת בו
+//     (בלי רקע-מרובע, ראו discoveryArea/discoveryAreaExpanded למטה), לא בכרטיס-צף נפרד מתחתיו.
+//     app/index.js עדיין הבעלים היחיד של כל ה-state/JSX הפנימי (input/GuidedSearchIntentControl/
+//     CTA וכו') - HomeHero רק מחליט *איפה* זה מצטייר, לא *מה* מצטייר.
 export default function HomeHero({
   searchMode, onSwitchMode, heroCompact,
   nearMeLoading, nearMeError, nearMePressScale,
   onNearMePress, onNearMePressIn, onNearMePressOut, onChooseCityInstead,
+  children,
 }) {
   const { t } = useI18n();
+  // אין יותר רקע-מרובע בכלל, באף מצב (2026-09-20, "no rectangle at all" - בקשת המשתמש המפורשת:
+  // "אני לא רוצה את המרובע בכלל מסביב לשום דבר משלושת הכפתורים ולא מסביב למה שנפתח מתחת... יושבים
+  // על הרקע של האפליקציה ולא על רקע של מרובע כלשהו") - גם שורת שלוש-הפעולות וגם התוכן-המורחב
+  // (חיפוש-חופשי/שני-הפילטרים) יושבים ישירות על SkyBackground, בלי View/LinearGradient עוטף עם
+  // רקע/border/radius/צל. discoveryPanel/discoveryPanelExpanded (הישנים, עם רקע-חם/LinearGradient)
+  // הוסרו - נשאר View פשוט אחד (discoveryArea) עם מרווחים בלבד, זהה בשני המצבים - בדיוק כמו
+  // ה"floating" הקודם שהיה קיים רק במצב-סגור, מוחל עכשיו גם על מצב-מורחב.
   return (
     <>
       {/* 🧭 "לאן קופצים היום?" - כותרת-העל של כל מודול החיפוש, מחוץ לכרטיס עצמו. סדר-הילדים
@@ -53,6 +67,13 @@ export default function HomeHero({
           ה-GPS/הרשאה/שגיאה (onNearMePress/onNearMePressIn/Out/nearMeLoading/nearMeError) מגיעה
           מ-HomeScreen כ-props - רק ה-JSX/עיצוב-סביב חי כאן. onSwitchMode (switchSearchMode
           המקורי) גם מגיע כ-prop - נקרא משתי הפעולות הצדדיות. */}
+      {/* discoveryArea (2026-09-20, "no rectangle at all" - בקשת המשתמש המפורשת: אין יותר שום
+          רקע/border/radius/צל סביב שורת-שלוש-הפעולות או סביב התוכן-המורחב, באף מצב - הכל יושב
+          ישירות על SkyBackground. View פשוט אחד, זהה בשני המצבים (collapsed/expanded) - רק
+          מרווחים (marginHorizontal/padding), בלי שום עיצוב-רקע. לא הופך את שלוש הפעולות לשלושה
+          pills/cards נפרדים - heroSideAction/nearMeStandalone למטה נשארים בדיוק כמו שהיו, בלי
+          רקע/מסגרת/radius משלהם. */}
+      <View style={styles.discoveryArea}>
       <View style={styles.heroRow}>
         <View style={styles.heroSideCol}>
           <Pressable
@@ -65,11 +86,11 @@ export default function HomeHero({
           >
             <View style={[
               styles.heroSideActionIconWrap, heroCompact && styles.heroSideActionIconWrapCompact,
-              searchMode !== 'free' && styles.heroSideActionIconWrapFaded,
+              searchMode === 'free' && styles.heroSideActionIconWrapActive,
             ]}
             >
               <Image
-                source={require('../assets/magnifier.png')}
+                source={require('../assets/home-search-orange.png')}
                 style={[styles.heroSideActionIconImage, heroCompact && styles.heroSideActionIconImageCompact]}
                 resizeMode="contain"
               />
@@ -83,7 +104,6 @@ export default function HomeHero({
             >
               {t('home.search.modeFree')}
             </Text>
-            {searchMode === 'free' ? <View style={styles.heroSideActionActiveDot} /> : null}
           </Pressable>
         </View>
 
@@ -156,11 +176,11 @@ export default function HomeHero({
           >
             <View style={[
               styles.heroSideActionIconWrap, heroCompact && styles.heroSideActionIconWrapCompact,
-              searchMode !== 'guided' && styles.heroSideActionIconWrapFaded,
+              searchMode === 'guided' && styles.heroSideActionIconWrapActive,
             ]}
             >
               <Image
-                source={require('../assets/sparkles.png')}
+                source={require('../assets/home-quick-choice-orange.png')}
                 style={[styles.heroSideActionIconImage, heroCompact && styles.heroSideActionIconImageCompact]}
                 resizeMode="contain"
               />
@@ -174,9 +194,21 @@ export default function HomeHero({
             >
               {t('home.search.modeGuided')}
             </Text>
-            {searchMode === 'guided' ? <View style={styles.heroSideActionActiveDot} /> : null}
           </Pressable>
         </View>
+      </View>
+      {/* תוכן-מורחב - מוצג רק כש-searchMode פעיל, בתוך אותו discoveryArea ממש - יושב ישירות על
+          SkyBackground, בלי שום divider/border/רקע עוטף (2026-09-20, "no rectangle at all" -
+          גם קו-ההפרדה העדין שהיה כאן קודם הוסר, לא רק הרקע). children מגיע מ-app/index.js ללא
+          שינוי (input/dropdown-היסטוריה/PersonalPicker/GuidedSearchIntentControl/
+          extraFiltersBlock/CTA) - רק המיקום-החזותי השתנה. מרווח (marginTop) בלבד מפריד בין שורת-
+          הפעולות לתוכן - האלמנטים הפנימיים עצמם (תיבת-החיפוש/שורות-הפילטר) כבר נושאים רקע/border
+          משלהם, אז אין צורך בקו-הפרדה נוסף. */}
+      {searchMode ? (
+        <View style={styles.discoveryAreaExpanded}>
+          {children}
+        </View>
+      ) : null}
       </View>
     </>
   );
@@ -206,6 +238,18 @@ const styles = createStyles((d) => ({
   searchModuleTitle: {
     fontFamily: fonts.extraBold, fontSize: 26, lineHeight: 22, color: colors.textPrimary, textAlign: d.textAlign,
   },
+  // discoveryArea (2026-09-20, "no rectangle at all" - בקשת המשתמש המפורשת: "אני לא רוצה את
+  // המרובע בכלל מסביב לשום דבר משלושת הכפתורים ולא מסביב למה שנפתח מתחת... יושבים על הרקע של
+  // האפליקציה") - בלי backgroundColor/border/shadow/borderRadius בכלל, באף מצב (לא רק כשסגור) -
+  // רק מרווחים, זהים למה שה"פאנל" הישן נשא (marginHorizontal:-10 וכו') כדי לשמר את הפריסה
+  // הגיאומטרית הקיימת ("preserve the current geometric layout") בלי לזוז, רק בלי שום רקע-חזותי.
+  discoveryArea: {
+    marginHorizontal: -10, paddingTop: 10, paddingBottom: 12, paddingHorizontal: 16,
+  },
+  // discoveryAreaExpanded - תוכן-חיפוש-חופשי/בחירה-מהירה, יושב ישירות על SkyBackground כמו שורת
+  // שלוש-הפעולות מעליו - בלי שום divider/רקע/border עוטף (הוסר גם קו-ההפרדה הדק שהיה כאן קודם).
+  // מרווח (marginTop) בלבד בין שורת-הפעולות לתוכן.
+  discoveryAreaExpanded: { marginTop: 10 },
   // שורת-הירו התלת-חלקית - flexDirection:'row' פיזי (לא d.row) בכוונה: האפליקציה מכבה forceRTL
   // לגמרי (app/_layout.js), אז 'row' תמיד ממקם את הילד הראשון בקצה הפיזי-שמאלי - חיפוש חופשי
   // משמאל, בחירה מהירה מימין, בסדר-JSX תואם.
@@ -213,7 +257,9 @@ const styles = createStyles((d) => ({
   // viewport... Hebrew label lengths are unequal - do not let text width push the radar sideways".
   // שתי עמודות-הצד flex:1 שוות-רוחב-מוחלט (לא תלויות-תוכן) עם alignItems:'center' פנימי, כך
   // שעמודת-המרכז (heroCenterCol, ברוחב-תוכן טבעי) יושבת תמיד בדיוק במרכז הגיאומטרי של השורה.
-  heroRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 8, paddingHorizontal: 8 },
+  // paddingHorizontal:0 (היה 8) - discoveryArea כבר נותן paddingHorizontal:16 משלו, אז
+  // הריפוד הישן כאן היה מכפיל את המרווח בצד אחד בלבד ומזיז את המירכוז הגיאומטרי של הרדאר.
+  heroRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 8, paddingHorizontal: 0 },
   // paddingTop:14 (היה 22, "small visual polish" round 2, 2026-09-20, בקשת המשתמש: "שני הכפתורים
   // בצדדיו צריכים להיות קצת יותר גבוה, גם הכיתוב וגם האייקונים") - מרים את כל התוכן של שתי
   // העמודות-הצדדיות (אייקון+טקסט יחד, ראו heroSideAction למטה) קצת יותר קרוב לראש השורה.
@@ -222,40 +268,51 @@ const styles = createStyles((d) => ({
   // אייקון+טקסט, minHeight נדיב ל-touch target נוח.
   // gap:0 (היה 2, "small visual polish" round 4, 2026-09-20, בקשת המשתמש: "לקרב עוד יותר את
   // הכיתוב... לאייקונים שלהם") - חל על שני הצדדים, אותה פרופורציה בדיוק.
-  heroSideAction: { alignItems: 'center', gap: 0, paddingVertical: 8, paddingHorizontal: 0, minHeight: 60, justifyContent: 'center' },
+  heroSideAction: { alignItems: 'center', gap: 6, paddingVertical: 8, paddingHorizontal: 0, minHeight: 60, justifyContent: 'center' },
   heroSideActionPressed: { opacity: 0.7 },
-  // heroSideActionIconWrap - קופסת-מיקום/גודל בלבד מסביב לאייקון (54x54) - בלי רקע-עגול צבוע
-  // (הוסר בסבב קודם). צמוד לגודל-האייקון עצמו (52, ראו heroSideActionIconImage למטה).
+  // heroSideActionIconWrap (2026-09-20, "discovery actions visual polish") - מיני-כפתור עגול
+  // מוחזר בכוונה (בקשת המשתמש: "the two side actions currently feel more like floating decorative
+  // illustrations than actual interactive controls... give them a subtle circular mini-button
+  // treatment") - 46px (בטווח 44-48 המבוקש), לא עוד "רק אייקון+טקסט" בלי שום רמז-לחיצות. לבן
+  // (colors.card, לא accentTintLight) + border עדין ב-inactive - נשאר "קליל" מול רקע-השמיים
+  // (SkyBackground) בלי צל כלל ("minimal or no shadow"), עדיין קורא-בבירור כ"שבב לחיץ" בזכות
+  // הניגוד-הפשוט מול הרקע הצבעוני מסביב. heroSideActionIconWrapActive למטה הוא ה-state הפעיל
+  // היחיד - לא עוד heroSideActionIconWrapFaded מבוסס-opacity (הוסר: "prefer the circular control
+  // + label color as the primary active state").
   heroSideActionIconWrap: {
-    width: 54, height: 54, alignItems: 'center', justifyContent: 'center',
+    width: 46, height: 46, borderRadius: 23, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border,
   },
-  heroSideActionIconWrapCompact: { width: 40, height: 40 },
-  // heroSideActionIconWrapFaded (חדש, "visual polish: free search + quick choice" 2026-09-20,
-  // בקשת המשתמש: "strengthen the selected-state hierarchy... [inactive] icon may be slightly
-  // visually quieter") - מחליף את heroSideActionFaded הישן (opacity:0.7 שחל על כל ה-Pressable,
-  // כולל הטקסט): עכשיו רק האייקון דוהה מעט כשלא פעיל, והטקסט מקבל צבע מפורש משלו
-  // (heroSideActionTextInactive למטה) - שתי אותות נפרדים וברורים, לא עוד עמעום גורף אחד.
-  heroSideActionIconWrapFaded: { opacity: 0.6 },
-  // 52/38 - "האימוג'י שלהם ["בחירה מהירה"/"חיפוש חופשי"]... יותר גדולים".
-  heroSideActionIconImage: { width: 52, height: 52 },
-  heroSideActionIconImageCompact: { width: 38, height: 38 },
-  // heroSideActionText - בלי color כאן יותר (הוסר, "visual polish: free search + quick choice"
-  // 2026-09-20): כל אחד משני המצבים (Active/Inactive למטה) מזין צבע מפורש משלו במקום ברירת-מחדל
-  // אחת+עמעום. 15/11.5 - "הכיתוב 'בחירה מהירה' ו'חיפוש חופשי' צריכים להיות מעט יותר קטנים"
-  // (בקשת-עבר). nearMeLabelText/Compact למטה מוגדרים לאותו גודל בדיוק.
+  heroSideActionIconWrapCompact: { width: 40, height: 40, borderRadius: 20 },
+  // heroSideActionIconWrapActive - "when Free Search is active: its mini-circle receives a pale
+  // TURU-blue treatment" - accentTintLight (מילוי) + accent (border), אותם טוקנים בדיוק שכבר
+  // מייצגים "פעיל" בכל שאר האפליקציה (למשל modeBtnActive, components/LocationQuickPicker.js) -
+  // לא paleta חדשה. חשוב עוד יותר עכשיו (2026-09-20, "visual correction: orange icon assets") -
+  // האייקונים החדשים (home-search-orange.png/home-quick-choice-orange.png) הם עצמם כתומים-זהב
+  // תמיד, גם במצב פעיל וגם לא (כתום = "גילוי", לא "פעיל" - ראו היררכיית-הצבעים בהודעת המשתמש) -
+  // אין דרך (ואין כוונה) "לצבוע" תמונת-raster בזמן-ריצה, אז ה-state הפעיל היחיד שיכול לתקשר
+  // "זה הבחירה שלך" הוא העיגול הכחול-חיוור מסביב + הטקסט הכחול מתחת, לא האייקון עצמו.
+  heroSideActionIconWrapActive: { backgroundColor: colors.accentTintLight, borderColor: colors.accent },
+  // heroSideActionIconImage (2026-09-20, "visual correction: orange icon assets" - בקשת המשתמש:
+  // "noticeably larger/more expressive than the tiny current icons... start around a 44-48px
+  // control/icon area") - 34/27 (היה 28/22) בתוך אותו עיגול 46/40px בדיוק (heroSideActionIconWrap
+  // למעלה, לא נגוע) - שוליים של כ-6px מכל צד, מספיק כדי שהעיגול עדיין ניכר כ"מסגרת" סביב
+  // האייקון, אבל האייקון עצמו תופס משמעותית יותר מהעיגול מאשר קודם (74% מהקוטר, היה 61%).
+  heroSideActionIconImage: { width: 34, height: 34 },
+  heroSideActionIconImageCompact: { width: 27, height: 27 },
+  // heroSideActionText - 15/11.5 (ללא שינוי) - "הכיתוב 'בחירה מהירה' ו'חיפוש חופשי' צריכים
+  // להיות מעט יותר קטנים" (בקשת-עבר).
   heroSideActionText: { fontFamily: fonts.bold, fontSize: 15, textAlign: 'center' },
   heroSideActionTextCompact: { fontSize: 11.5 },
-  // ACTIVE: #007598 (colors.accent) - "TURU accent color", בדיוק כמו underline (heroSideActionActiveDot
-  // למטה) והרדאר המרכזי - זהות-צבע אחת עקבית ל"פעיל".
+  // ACTIVE: #007598 (colors.accent) - "TURU accent color", בדיוק כמו הרדאר המרכזי - זהות-צבע
+  // אחת עקבית ל"פעיל" (עיגול+אייקון+טקסט, שלושתם יחד - "the visual relationship should
+  // communicate: I tapped this control, and the panel below belongs to it").
   heroSideActionTextActive: { color: colors.accent },
-  // INACTIVE (חדש) - colors.textMuted (#7a8185, אפרפר-ניטרלי) במקום textSecondary+עמעום-גורף
-  // ישן - "label should be visibly more neutral/gray" (בקשת המשתמש), ניגוד ברור יותר מול הכחול
-  // הפעיל מאשר גוון-יחיד בשתי שקיפויות.
-  heroSideActionTextInactive: { color: colors.textMuted },
-  // 22x3 (היה 18x2.5, "visual polish: free search + quick choice" 2026-09-20, בקשת המשתמש:
-  // "current small underline alone is slightly too subtle... strengthen") - חיזוק עדין, עדיין
-  // קו-תחתי דק, לא בר/פס גדול.
-  heroSideActionActiveDot: { width: 22, height: 3, borderRadius: 1.5, backgroundColor: colors.accent, marginTop: 4 },
+  // INACTIVE (2026-09-20, "discovery actions visual polish" - בקשת המשתמש: "current side labels
+  // are slightly too muted... increase readability/contrast modestly... should no longer feel
+  // disabled") - textSecondary (#59656d, כהה יותר מ-textMuted #7a8185 הקודם) - עדיין ברור-משני
+  // ביחס ל"קרוב אלי"/לצבע-הפעיל, אבל לא נראה מנוטרל.
+  heroSideActionTextInactive: { color: colors.textSecondary },
   heroCenterCol: { alignItems: 'center' },
   nearMeStandalone: { alignItems: 'center', gap: 1 },
   nearMeStandalonePressed: { opacity: 0.85 },
@@ -268,7 +325,11 @@ const styles = createStyles((d) => ({
   // nearMeLabelText/Compact - אותו גודל בדיוק כמו heroSideActionText/Compact (15/11.5, "small
   // visual polish" round 2, בקשת המשתמש: "הטקסט 'מה קרוב' צריך להיות באותו גודל של 'בחירה מהירה
   // וחיפוש חופשי'" - במפורש לא עוד גדול-יותר, כמו שהיה קודם).
-  nearMeLabelText: { fontFamily: fonts.bold, fontSize: 15, color: colors.textSecondary, textAlign: 'center' },
+  // marginTop:-12 (2026-09-20, "קרוב אלי צריך להיות קצת יותר גבוה וקרוב לכפתור הגדול") - מקרב את
+  // הכיתוב לעיגול הרדאר הנראה בפועל: nearMeRadarWrapCompact (112px) גבוה יותר מהתוכן הנראה בפועל
+  // בתוך ה-SVG (ההילה, RADAR_R_HALO, לא ממלאת את כל הקנבס - יש שוליים-שקופים מובנים למטה כדי
+  // לתת מקום לטבעת ה-pulse בזמן טעינה), אז בלי הפיצוי הזה הכיתוב נראה "רחוק" מהעיגול הכחול.
+  nearMeLabelText: { fontFamily: fonts.bold, fontSize: 15, color: colors.textSecondary, textAlign: 'center', marginTop: -12 },
   nearMeLabelTextCompact: { fontSize: 11.5 },
   nearMeErrorRow: { marginTop: 8, alignItems: 'center' },
   nearMeErrorText: { fontFamily: fonts.semiBold, fontSize: 12, color: colors.danger, textAlign: 'center' },

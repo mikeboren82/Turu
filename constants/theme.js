@@ -14,6 +14,13 @@ export const colors = {
   coral: '#d35d31',
   coralStrong: '#ec6d3d',
   coralTint: '#ffd9c5',
+  // logoOrange - הכתום האמיתי של גוף הקנגורו בלוגו (assets/turu-logo.png), נמדד ישירות
+  // מהפיקסלים (canvas.getImageData, לא ניחוש/קירוב) - #fd9203 הוא הצבע-השטוח הדומיננטי-בבירור
+  // (6470 פיקסלים תואמים-מדויק, בהפרש-ענק מהבא בתור). שונה בכוונה מ-coral/coralStrong למעלה
+  // (אלה כתום-אדמדם יותר, לא נמדדו מהלוגו עצמו) - "reuse the actual existing TURU orange...
+  // do not invent a new orange if the logo/brand color is already defined" (2026-09-20,
+  // "Home discovery actions" סבב-תיקון: אייקון-המיקום בתוך "קרוב אלי" הכחול).
+  logoOrange: '#fd9203',
 
   purple: '#714ca6',
   purpleTint: '#eee0ff',

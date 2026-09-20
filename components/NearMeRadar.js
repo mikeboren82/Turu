@@ -1,9 +1,20 @@
 import { useEffect, useRef } from 'react';
 import { Animated, Easing } from 'react-native';
-import Svg, { Circle, Path, G, Defs, Text as SvgText, TextPath } from 'react-native-svg';
+import Svg, { Circle, Path, G, Defs, LinearGradient, Stop, Text as SvgText, TextPath } from 'react-native-svg';
 import { LocationPinIcon } from './icons';
 import { fonts } from '../constants/theme';
 import { useI18n } from '../lib/i18n';
+
+// RADAR_GRADIENT_LIGHT (2026-09-20, "visual refinement: Near Me color treatment" - בקשת המשתמש:
+// "Change the main blue circle from flat blue into a SUBTLE TURU BLUE GRADIENT... #007598 as the
+// foundation and transition toward a slightly lighter/brighter blue from the same family...
+// restrained and elegant... NOT glossy/neon/cyan/purple/metallic") - נגזר מ-colors.accent
+// (#007598, HSL 194°/100%/30%) ב-lightness+9 וגם saturation-8 יחד (לא רק lightness) - הורדת-
+// הרוויה הקלה היא בדיוק מה שמונע מהגוון-הבהיר-יותר "לגלוש" לכיוון cyan/neon בעת הבהרה על אותו
+// hue (194° כבר גבולי-cyan) - עדיין "בלתי-ניתן-לטעות כחול-TURU", רק קליל יותר. קבוע מקומי (לא
+// פרופ' כללי) כי יש caller ייצור אחד בלבד (HomeHero.js, color=colors.accent) - לא תשתית-הבהרה
+// גנרית שאין לה עדיין שימוש שני.
+const RADAR_GRADIENT_LIGHT = '#0894be';
 
 // PHASE 1 EXTRACTION (2026-09-19, "safe presentational extraction" - ראו הביקורת הארכיטקטונית):
 // הועבר byte-for-byte מ-app/index.js, בלי שום שינוי בגיאומטריה/פרופס/state-ownership - קומפוננטה
@@ -27,8 +38,8 @@ const RADAR_CX = 90;
 const RADAR_CY = 90;
 const RADAR_R_CIRCLE = 38; // קוטר 76px
 const RADAR_R_HALO = 47; // הילה רכה (fill, לא stroke) - "קשר חזק יותר בין המרכז לאורביט"
-const RADAR_R_ORBIT_INNER = 51;
-const RADAR_R_ORBIT_OUTER = 58; // קוטר-אורביט מלא 116px
+const RADAR_R_ORBIT_OUTER = 58; // קוטר-אורביט מלא 116px - עדיין קובע את pulseRadius/גובה-הקנבס,
+// גם אחרי שהטבעת-הפנימית (RADAR_R_ORBIT_INNER, הוסרה 2026-09-20 - ראו ההערה למטה) כבר לא מצוירת.
 const RADAR_R_TEXT = 73;
 const RADAR_TEXT_HALF_ANGLE = 58; // קשת רחבה (116°) - אותיות גדולות בלי להידחס
 const radarPoint = (r, angleDeg) => {
@@ -94,15 +105,30 @@ export default function NearMeRadar({ loading, color, showLabel = true }) {
           (opacity 0.18), חופפת חזותית לטבעת-הפנימית+להילה. RADAR_R_ORBIT_OUTER עצמו נשאר קבוע-
           גיאומטריה בשימוש (ה-pulse/svgHeight) - רק הצורה-הסטטית-עצמה לא מצוירת יותר.
           "נקודות-הגילוי" הוסרו גם הן (2026-09-20, בקשת המשתמש: "יש 3 נקודות קטנות מסביב לכפתור
-          המרכזי, לא רואה בהם צורך" - RADAR_DOTS הוסר לגמרי, ראו git history). טבעת פנימית אחת
-          (RADAR_R_ORBIT_INNER) נשארת, בלי שינוי. */}
-      <Circle cx={RADAR_CX} cy={RADAR_CY} r={RADAR_R_ORBIT_INNER} fill="none" stroke={color} strokeWidth={2} opacity={0.32} />
+          המרכזי, לא רואה בהם צורך" - RADAR_DOTS הוסר לגמרי, ראו git history).
+          טבעת-האורביט הפנימית (r=51, הקבוע RADAR_R_ORBIT_INNER עצמו הוסר - לא נשאר בשימוש
+          בשום מקום אחר, בניגוד ל-OUTER למעלה) הוסרה גם היא (2026-09-20, "discovery actions
+          visual polish" - בקשת המשתמש: "the current concentric rings are somewhat visually
+          busy... remove one redundant ring") - הילה-האור (RADAR_R_HALO, fill רך) כבר נותנת
+          בעצמה את "הקשר בין המרכז לאורביט" שהטבעת-הדקה ניסתה להוסיף, אז שתיהן יחד קראו "טבעתי"
+          יותר מהנדרש. נשארים: הילה (fill רך) + דיסקית-מרכז מלאה + אייקון-המיקום - "keep: central
+          blue circle, location icon, strong central positioning". */}
       <Circle cx={RADAR_CX} cy={RADAR_CY} r={RADAR_R_HALO} fill={color} opacity={0.13} />
-      <Circle cx={RADAR_CX} cy={RADAR_CY} r={RADAR_R_CIRCLE} fill={color} />
+      {/* fill="url(#nearMeDiscGradient)" (היה fill={color} שטוח, 2026-09-20, "visual refinement:
+          Near Me color treatment") - גרדיאנט עדין, לא צבע אחיד - ראו RADAR_GRADIENT_LIGHT למעלה
+          וה-Defs ב-JSX החיצוני להגדרת ה-gradient עצמו. ה-halo מעל (r=RADAR_R_HALO) נשאר צבע-שטוח
+          בכוונה - שכבת-זוהר רכה ב-13% opacity, גרדיאנט עליה לא היה נראה כלל ורק מוסיף מורכבות.*/}
+      <Circle cx={RADAR_CX} cy={RADAR_CY} r={RADAR_R_CIRCLE} fill="url(#nearMeDiscGradient)" />
       {/* אותו LocationPinIcon בדיוק כמו בכל שאר האפליקציה (למשל LocationQuickPicker) - לא צורת-פין
           חדשה מצוירת ידנית, רק גדול יותר (32, היה 24 - "too small relative to the disc"). נשאר
           מוצג גם בזמן טעינה (סעיף 10 בבקשה: "animate the ORBIT rather than replacing the
-          component" - לא מוחלף ב-spinner, ה-pulse מסביב הוא סימון-הטעינה היחיד). */}
+          component" - לא מוחלף ב-spinner, ה-pulse מסביב הוא סימון-הטעינה היחיד).
+          color: "#ffffff" (היה colors.logoOrange, 2026-09-20, "visual refinement: Near Me color
+          treatment" - בקשת המשתמש: "Remove the orange from the central Near Me control... make
+          the pin white or a very pale blue/white - whichever has the best contrast") - לבן מלא
+          נבחר: הניגוד הכי-חד מול הדיסקית הכחולה-גרדיאנטית מתחתיו, בלי שום כתום במרכז יותר -
+          הכתום היחיד במסך הבית עכשיו הוא אך ורק שני האייקונים הצדדיים. שינוי-פרופ' יחיד (רק
+          color) - שום שינוי בגיאומטריה/גודל/מבנה של הרדאר עצמו. */}
       <G transform={`translate(${RADAR_CX - 16}, ${RADAR_CY - 16})`}>
         <LocationPinIcon size={32} color="#ffffff" />
       </G>
@@ -116,11 +142,21 @@ export default function NearMeRadar({ loading, color, showLabel = true }) {
     // לא כאן על <Svg> עצמו: ב-react-native-web הם props לא-מוכרים שדולפים ל-DOM כ-attributes
     // לא-חוקיים (console warnings) על <svg> גולמי, בניגוד ל-View אמיתי שכן יודע לפרש אותם.
     <Svg width={RADAR_SVG_W} height={svgHeight} viewBox={`0 0 180 ${showLabel ? 170 : RADAR_COMPACT_H}`} pointerEvents="none">
+      {/* Defs (2026-09-20, "visual refinement: Near Me color treatment") - הועבר להיות תמיד-קיים
+          (לא רק כש-showLabel), כי הדיסקית-המרכזית (fill="url(#nearMeDiscGradient)" למעלה) צריכה
+          את ה-gradient הזה גם במצב הקומפקטי (showLabel=false, השימוש היחיד בפועל ב-HomeHero.js) -
+          הטקסט-קשת (nearMeRadarTextPath) עדיין מותנה-showLabel כמו קודם, רק ה-Defs העוטף אותו לא.
+          x1/y1/x2/y2 (0,0)->(0,1) - גרדיאנט אנכי פשוט (כהה למעלה, בהיר-מעט למטה), "restrained",
+          לא אלכסוני/רדיאלי שהיה יכול להיראות "glossy". */}
+      <Defs>
+        <LinearGradient id="nearMeDiscGradient" x1="0" y1="0" x2="0" y2="1">
+          <Stop offset="0" stopColor={color} />
+          <Stop offset="1" stopColor={RADAR_GRADIENT_LIGHT} />
+        </LinearGradient>
+        {showLabel ? <Path id="nearMeRadarTextPath" d={RADAR_TEXT_ARC_PATH} fill="none" /> : null}
+      </Defs>
       {showLabel ? (
         <>
-          <Defs>
-            <Path id="nearMeRadarTextPath" d={RADAR_TEXT_ARC_PATH} fill="none" />
-          </Defs>
           {dial}
           <SvgText fill={color} fontSize={16} fontFamily={fonts.semiBold} textAnchor="middle">
             <TextPath href="#nearMeRadarTextPath" startOffset="50%">

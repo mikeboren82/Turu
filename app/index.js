@@ -4,7 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter, useFocusEffect } from 'expo-router';
 import * as Location from 'expo-location';
-import Svg, { Circle, Polyline, Line } from 'react-native-svg';
+import Svg, { Polyline } from 'react-native-svg';
 import Header from '../components/Header';
 import SkyBackground from '../components/SkyBackground';
 import LoginRequiredModal from '../components/LoginRequiredModal';
@@ -46,6 +46,17 @@ import { categoryLabel, compactLocationText } from '../lib/i18n/format';
 // יחד לקובץ הזה בשלב קודם, ואז home2.js נמחק לגמרי - זה כל הסיפור, אין יותר מסך שני.
 
 const RECOMMENDATIONS_LIMIT = 8;
+
+// CTA_GRADIENT (2026-09-20, "TURU Home CTA gradient" - בקשת המשתמש: "Replace the flat blue fill
+// on BOTH [Free Search / Quick Choice] buttons with the same subtle blue gradient... #007598 ->
+// #009FC7... treat as a starting point, not blindly") - נגזר מ-colors.accent (#007598) באותו hue
+// בדיוק (194°) עם lightness+9/saturation-6 (לא saturation מלאה כמו ההצעה הגולמית) - התאמה קלה
+// כדי שהגוון-הבהיר-יותר יישאר "unmistakably TURU blue... sophisticated" ולא יגלוש לכיוון cyan
+// כשה-hue כבר גבולי (194° קרוב ל-cyan ב-saturation מלאה+lightness גבוה). כיוון אופקי-עדין
+// (start/end בשימוש ב-JSX) - "the user consciously noticing a dramatic gradient" הוא בדיוק מה
+// שצריך להימנע ממנו. token משותף יחיד - גם ה-CTA של חיפוש-חופשי וגם של בחירה-מהירה משתמשים
+// באותו unifiedCtaButton ממש (JSX אחד, לא שני קומפוננטות-כפולות), אז יש רק מקום-הגדרה אחד ממילא.
+const CTA_GRADIENT_LIGHT = '#0695c0';
 
 // תקרת-רוחב לתוכן עמוד הבית בדסקטופ (2026-09-19, בקשת המשתמש) - בלי זה כרטיס-החיפוש נמתח כמעט
 // לרוחב-מסך מלא ב-1280px+. ~480 נשאר קרוב-מספיק לרוחב מסך-נייד ריאלי (375-414) כדי שאותה פריסה
@@ -133,19 +144,6 @@ function ChevronDown() {
   );
 }
 
-// אייקון חיפוש מונוכרומטי-עדין לשדה החיפוש החופשי - לא אימוג'י (יש כבר "🔎" בטקסט הכפתור "חיפוש
-// 🔎" ולא רוצים שני חיפושים-חזותיים שונים), ולא ספרייה חדשה - SVG מקומי עם אותם primitives
-// (Svg/Circle/Line) שכבר בשימוש בכל שאר האייקונים בקובץ הזה. מכוון (לא צבוע/badge) בכוונה: זו
-// affordance פונקציונלית לשדה הראשי, לא מזהה-קטגוריה מעוטר כמו האייקונים ב"מה עושים/איפה נח לכם".
-function SearchIcon({ size = 18, color = colors.textMuted }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-      <Circle cx="11" cy="11" r="7" />
-      <Line x1="21" y1="21" x2="16.65" y2="16.65" />
-    </Svg>
-  );
-}
-
 // "כפתור-בחירה" (selection pill) ל"מה עושים?"/"איפה נח לכם?" (2026-09-16, מעבר מ"שדה קומפקטי"
 // ל-pill אמיתי - בקשת המשתמש: הבקרות האלה הן טריגר-בחירה קליל, לא עוד שדה-טופס). בלי label נפרד
 // מעל הכפתור - הבקרה עצמה היא ה-affordance, כשלא נבחר כלום f.subtitle כבר מציג "מה עושים?"/
@@ -209,14 +207,18 @@ function GuidedIntentSegment({ f }) {
       accessibilityHint={f.a11yHint}
     >
       {f.decorIcon ? (
-        <Image source={f.decorIcon} style={styles.guidedIntentIconImage} resizeMode="contain" />
+        <Image
+          source={f.decorIcon}
+          style={[styles.guidedIntentIconImage, f.decorIconStyle]}
+          resizeMode={f.decorIconResizeMode || 'contain'}
+        />
       ) : (
         <Text style={styles.guidedIntentIconEmoji}>{f.decorEmoji}</Text>
       )}
       <View style={styles.guidedIntentSegmentMain}>
         <Text style={styles.guidedIntentTitle} numberOfLines={1}>{f.title}</Text>
         <Text
-          style={[styles.guidedIntentValue, f.active && styles.compactFieldValueActive]}
+          style={[styles.guidedIntentValue, f.active && styles.guidedIntentValueActive]}
           numberOfLines={1}
           ellipsizeMode="tail"
         >
@@ -230,11 +232,11 @@ function GuidedIntentSegment({ f }) {
   );
 }
 
-// שתי שורות זו-מתחת-לזו, כל אחת שדה-בחירה מעוגל ונפרד בפני עצמו (2026-09-20, סבב-עידון שישי,
-// בקשת המשתמש: "should visually read as TWO separate rounded selection fields... DO NOT use
-// only a horizontal divider between two compressed rows" - היה בעבר משטח-אחד עם guidedIntentDivider
-// דק ביניהן, שונה עכשיו: guidedIntentControl הוא רק מרווח (gap) בין שני GuidedIntentSegment
-// עצמאיים, וכל GuidedIntentSegment נושא רקע/מסגרת/radius משלו - ראו הסטיילים למטה). סדר תצוגה:
+// שתי שורות-מידע זו-מתחת-לזו, בלי כרטיס/שדה מסביב לאף אחת מהן (2026-09-20, "Quick Choice selector
+// visual refinement" - בקשת המשתמש: "no white selector rectangles... they should sit directly on
+// the Home background... use whitespace as the primary separator" - guidedIntentSegment עצמו כבר
+// לא נושא רקע/מסגרת/radius כלל, ה-gap כאן (guidedIntentControl) הוא ההפרדה העיקרית; קו-חוצץ דק-
+// מאוד ומוזח (guidedIntentDivider) הוא רק תוספת עדינה ביניהן, לא border סביב אף שורה). סדר תצוגה:
 // מה עושים קודם, איפה נח לכם אחריו (בקשת המשתמש - סדר-הקריאה האנכי, לא סדר ה-array שנשאר
 // [where, category] מסיבות היסטוריות של הפריסה האופקית הקודמת).
 function GuidedSearchIntentControl({ fields }) {
@@ -242,6 +244,7 @@ function GuidedSearchIntentControl({ fields }) {
   return (
     <View style={styles.guidedIntentControl}>
       <GuidedIntentSegment f={category} />
+      <View style={styles.guidedIntentDivider} />
       <GuidedIntentSegment f={where} />
     </View>
   );
@@ -363,6 +366,17 @@ export default function HomeScreen() {
   const [nearMeError, setNearMeError] = useState(''); // '' | i18n key
   const [showNearMeExplainer, setShowNearMeExplainer] = useState(false);
   const nearMeInFlightRef = useRef(false);
+  // whereQuickShouldSearchRef (חדש, 2026-09-20, תיקון-באג, בקשת המשתמש: "כשאני לוחץ על 'איפה'
+  // ... הכפתור למטה... ישר מבצע חיפוש. במקום זה אמור להיות כפתור של בחירה, שיחזיר אותי חזרה
+  // לפילטרים, ורק כשאלחץ על הכפתור שם של חיפוש יתבצע חיפוש") - אותו LocationQuickPicker משותף
+  // (whereQuickOpen) נפתח משלושה מקומות שונים עם כוונות שונות לגמרי: (1) שורת "איפה?" בכרטיס
+  // "בחירה מהירה"/כרטיסי-Preview נעולים (openLocationPicker) - אמור *רק* לבחור מיקום ולחזור
+  // לכרטיס, לא לנווט (המשתמש עוד עשוי לבחור "מה עושים?" לפני שהוא לוחץ בעצמו על "מצאו
+  // פעילויות"); (2) shortcut-קטגוריה בלי מיקום ידוע (pendingCategory) - עדיין מנווט מיד לתוצאות
+  // (flow נפרד, מטופל בנפרד ב-handleWhereQuickConfirm); (3) "בחרו עיר במקום" מתוך שגיאת "מה
+  // קרוב?" (handleChooseCityInstead למטה) - כן אמור לנווט מיד, אין כרטיס-פילטרים לחזור אליו.
+  // ref רגיל (לא state) - רק שער-קריאה חד-פעמי בתוך handleWhereQuickConfirm, לא נוגע ברינדור.
+  const whereQuickShouldSearchRef = useRef(false);
   // "very subtle tactile scale response" (2026-09-20, בקשת המשתמש) - Animated.Value יחיד, לא
   // state: onPressIn/onPressOut מכווצים/משחזרים מעט את כל הרדאר (transform.scale, useNativeDriver
   // כן - זה View/transform רגיל, לא צורת-SVG כמו ה-pulse ב-NearMeRadar).
@@ -775,7 +789,14 @@ export default function HomeScreen() {
       // באיפה") - מוצג בפועל ב-GuidedIntentSegment. decorEmoji (🏡) נשאר בכוונה - עדיין מוזן
       // ל-CompactFilterField (הפקד-הישן, מאחורי SHOW_UNIFIED_GUIDED_SEARCH - לא מוצג כרגע, אבל
       // לא שבור), לא כפילות-מיותרת.
-      decorIcon: require('../assets/house-tree.png'), decorEmoji: '🏡', tint: '#e2f5e7', onPress: openLocationPicker,
+      // decorIconStyle/decorIconResizeMode (חדש, 2026-09-20, בקשת המשתמש: "האייקון של הבית צריך
+      // להיות מתוח קצת יותר ימינה ושמאלה, להתאים לאייקון של הקנגורו") - הקנגורו (Kangaroo.png,
+      // ציור-לוגו רחב) כבר ממלא את כל רוחב הקופסה 54x54 ב-resizeMode="contain" הרגיל; הבית
+      // (house-tree.png, ציור כמעט-מרובע) לא, ונראה צר יותר לצידו. guidedIntentIconImageWide
+      // (למטה בסטיילים) מרחיב את קופסת-האייקון הזו בלבד ל-66 (מ-54), ו-resizeMode="stretch"
+      // (במקום "contain") מותח בפועל את הציור לרוחב החדש בלי לשמר את יחס-הממדים המקורי - זו
+      // בדיוק המשמעות של "מתוח", לא רק "קופסה גדולה יותר עם letterbox".
+      decorIcon: require('../assets/house-tree.png'), decorIconStyle: styles.guidedIntentIconImageWide, decorIconResizeMode: 'stretch', decorEmoji: '🏡', tint: '#e2f5e7', onPress: openLocationPicker,
     },
     {
       key: 'category', label: t('home.guided.whatLabel'), title: t('home.guided.whatEmpty'),
@@ -785,11 +806,14 @@ export default function HomeScreen() {
       a11yValue: filters.category.length > 0 ? listJoin(filters.category.map(categoryLabel)) : t('domain.summary.all'),
       a11yHint: t('home.guided.whatHint'),
       active: hasSelectedCategory,
-      // decorIcon:null (היה require('../assets/giraffe.png'), 2026-09-20 בקשת המשתמש: "קנגורו
-      // במקום ג'ירפה ב'מה עושים', באותו גודל") - אין קובץ-אייקון תואם-סגנון לקנגורו זמין, אז
-      // הוחלט (המשתמש) על אמוג'י 🦘 במקום PNG; GuidedIntentSegment (למעלה) עובר לרינדור
-      // guidedIntentIconEmoji כש-decorIcon הוא null. decorEmoji עודכן בהתאם (היה 🦒).
-      decorIcon: null, decorEmoji: '🦘', tint: '#fdf3d9', onPress: () => setCategoryQuickOpen(true),
+      // decorIcon: assets/Kangaroo.png (חדש, 2026-09-20, בקשת המשתמש: "יש בתיקיה assets תמונה
+      // של הקנגורו מהלוגו נקי, בלי כיתוב - יש להחליף את אייקון הקנגורו בפילטר... ולדאוג שיהיה
+      // באותו גודל של אייקון הבית") - קודם היה אמוג'י 🦘 (guidedIntentIconEmoji, ראו למטה) כי אז
+      // לא היה קובץ-אייקון תואם-סגנון זמין; עכשיו יש, אז GuidedIntentSegment (למעלה) מרנדר אותו
+      // בדיוק כמו house-tree.png - <Image> עם guidedIntentIconImage (54x54), אותה קופסה בדיוק
+      // כמו "איפה". decorEmoji נשאר כפי שהיה - עדיין מוזן ל-CompactFilterField (הפקד-הישן, מאחורי
+      // SHOW_UNIFIED_GUIDED_SEARCH), לא כפילות-מיותרת.
+      decorIcon: require('../assets/Kangaroo.png'), decorEmoji: '🦘', tint: '#fdf3d9', onPress: () => setCategoryQuickOpen(true),
     },
   ];
 
@@ -965,17 +989,55 @@ export default function HomeScreen() {
     }
   };
 
-  // סוגר את LocationQuickPicker; אם היה pendingCategory (המשתמש לחץ קודם על shortcut בלי
-  // location ידוע) וממש נבחר מיקום בפועל - ממשיכים ישר לתוצאות, בלי לחזור למסך הבית ובלי לדרוש
-  // לחיצה חוזרת על הקטגוריה (בדיוק ה-flow המבוקש: CATEGORY TAP → ASK → SELECTED → RESULTS).
-  // אם המשתמש סגר בלי לבחור (backdrop/החלטה לוותר) - הקטגוריה הממתינה פשוט מתבטלת בשקט.
-  const handleWhereQuickCloseFromDiscovery = () => {
+  // סגירה טהורה (רקע/חזרה/X) - לא מנווטת לשום מקום, רק מבטלת בשקט קטגוריה-ממתינה/כוונת-חיפוש
+  // אם הייתה (2026-09-20, תיקון-באג: בעבר הפונקציה הזו הייתה גם ה-CTA בפועל, ראו
+  // handleWhereQuickConfirm למטה - "בחרו עיר במקום" מתוך שגיאת "מה קרוב?" לא היה עושה כלום
+  // בלחיצה על "הציגו לי פעילויות" כי אין pendingCategory בזרימה הזו. עכשיו onClose ו-onConfirm
+  // נפרדים לגמרי, בדיוק כמו שהתיעוד ב-LocationQuickPicker.js תמיד התכוון: "סגירה אסור שתריץ
+  // חיפוש"). מאפס גם whereQuickShouldSearchRef - אחרת סגירה-בלי-בחירה של "בחרו עיר במקום" הייתה
+  // משאירה את הדגל דלוק עבור הפתיחה הבאה (למשל שורת "איפה?" הרגילה).
+  const handleWhereQuickClose = () => {
+    setWhereQuickOpen(false);
+    setPendingCategory(null);
+    whereQuickShouldSearchRef.current = false;
+  };
+
+  // "בחרו עיר במקום" (HomeHero, שגיאת "מה קרוב?" בלבד) - היחיד שצריך לנווט-מיד בלי כרטיס-
+  // פילטרים לחזור אליו (ראו whereQuickShouldSearchRef למעלה). openLocationPicker הרגיל (שורת
+  // "איפה?"/כרטיסי-Preview נעולים) לא עובר דרך כאן, אז נשאר עם ברירת-המחדל (false) כרגיל.
+  const handleChooseCityInstead = () => {
+    whereQuickShouldSearchRef.current = true;
+    setWhereQuickOpen(true);
+  };
+
+  // "הציגו לי פעילויות" בפועל - שלושה flows חולקים את אותו הפיקר (whereQuickOpen), כל אחד עם
+  // כוונת-סיום שונה (ראו whereQuickShouldSearchRef למעלה לפירוט המלא): (1) pendingCategory קיים
+  // (shortcut-קטגוריה בלי location ידוע, handleDiscoveryTilePress) - ממשיכים ישר לתוצאות של
+  // אותה קטגוריה, בדיוק ה-flow המבוקש (CATEGORY TAP → ASK → SELECTED → RESULTS). (2)
+  // whereQuickShouldSearchRef===true (handleChooseCityInstead בלבד) - מנווטים לתוצאות עם
+  // ה-filters הרגילים, אותה צורת-ניווט בדיוק כמו "מצאו פעילויות" (handleGo) כשלא היה צריך GPS.
+  // (3) ברירת המחדל (openLocationPicker - שורת "איפה?"/כרטיסי-Preview) - *רק* סוגר את הפיקר;
+  // handleLocationFieldChange כבר כתב את הבחירה ל-filters.location בזמן-אמת, אז הכרטיס
+  // (smartSearchCard, עדיין מוצג מתחת) כבר מציג אותה - המשתמש ממשיך לבחור "מה עושים?" ולוחץ
+  // בעצמו על "מצאו פעילויות" (unifiedCtaButton) כשהוא מוכן, בדיוק כמו בקשת המשתמש: "כפתור של
+  // בחירה, שיחזיר אותי חזרה לפילטרים, ורק כשאלחץ על הכפתור שם של חיפוש יתבצע חיפוש".
+  const handleWhereQuickConfirm = () => {
     setWhereQuickOpen(false);
     if (pendingCategory) {
       const category = pendingCategory;
       setPendingCategory(null);
       if (filters.location?.mode) navigateToCategoryResults(category);
+      return;
     }
+    const shouldSearch = whereQuickShouldSearchRef.current;
+    whereQuickShouldSearchRef.current = false;
+    if (!shouldSearch) return;
+    if (!filters.location?.mode) return;
+    setHomeLocation(filters.location);
+    router.push({
+      pathname: '/activities',
+      params: buildResultsParams({ filters, coords: deviceCoords, childAges: childAgesForSearch }),
+    });
   };
 
   const handleAllCategoriesSelect = (ids) => {
@@ -1226,6 +1288,23 @@ export default function HomeScreen() {
       accessibilityRole="button"
       accessibilityState={{ disabled: activeCtaDisabled }}
     >
+      {/* גרדיאנט רק כש-enabled (2026-09-20, "TURU Home CTA gradient" - בקשת המשתמש: "Do not make
+          a disabled CTA look active just because it has a gradient... Only enabled primary CTAs
+          should receive the full blue gradient") - smartSearchBtn עצמו נשאר עם
+          backgroundColor:colors.accent שטוח כ-fallback/בסיס (ראו הסטייל למטה) - כש-disabled, שום
+          LinearGradient לא מצטייר, אז מה שנראה בפועל הוא בדיוק הכחול-השטוח-הישן ב-0.5 opacity
+          (smartSearchBtnDisabled) - אפס שינוי-התנהגות/מראה במצב-disabled ביחס למה שהיה. כש-
+          enabled, הגרדיאנט מצטייר מעל ומכסה את הבסיס-השטוח לגמרי. pointerEvents="none" - עיטור
+          בלבד, לא חוסם את אזור-הלחיצה של ה-Pressable עצמו. */}
+      {!activeCtaDisabled ? (
+        <LinearGradient
+          colors={[colors.accent, CTA_GRADIENT_LIGHT]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0.15 }}
+          style={styles.smartSearchBtnGradient}
+          pointerEvents="none"
+        />
+      ) : null}
       {smartSearchLoading || locatingForSearch ? (
         <ActivityIndicator color="#ffffff" size="small" />
       ) : (
@@ -1293,17 +1372,16 @@ export default function HomeScreen() {
           onNearMePress={handleNearMePress}
           onNearMePressIn={nearMePressIn}
           onNearMePressOut={nearMePressOut}
-          onChooseCityInstead={() => setWhereQuickOpen(true)}
-        />
-
-        {/* כרטיס-חיפוש דו-מצבי (2026-09-19, בקשת המשתמש: "ONE USER INTENTION = ONE CLEAR PATH" -
-            progressive disclosure). מוצג רק כש-searchMode !== null (2026-09-20, "TURU home
-            reference mockup" סעיף 5/6/7 - "INTENTIONAL DEVIATION #2": במצב ההתחלתי אף מצב לא
-            נבחר, ואין כרטיס/פאנל מוצג כלל, עד בחירה מפורשת בשורת-הירו מעל). בורר-המצב עצמו
-            (searchModeRow הישן) הוסר מכאן - הבחירה עכשיו קורית אך ורק בשתי הפעולות הצדדיות
-            בשורת-הירו. ה-CTA (unifiedCtaButton) עדיין יחיד ותמיד באותו מיקום יחסי (תחתית הכרטיס).*/}
-        {searchMode ? (
-        <View style={styles.smartSearchCard}>
+          onChooseCityInstead={handleChooseCityInstead}
+        >
+          {/* תוכן חיפוש-חופשי/בחירה-מהירה (2026-09-19, בקשת המשתמש: "ONE USER INTENTION = ONE
+              CLEAR PATH" - progressive disclosure; 2026-09-20, "Home Discovery Panel Redesign":
+              עבר מ-smartSearchCard נפרד מתחת לשורת-הירו אל *בתוך* אותו discoveryPanel ב-
+              HomeHero.js - "the SAME container expands downward", לא כרטיס-צף שני. HomeHero
+              מרנדר את ה-children האלה רק כש-searchMode פעיל - ראו שם. שום שינוי בתוכן/סמנטיקה/
+              state - רק המיקום-החזותי). בורר-המצב עצמו (searchModeRow הישן) לא קיים כאן - הבחירה
+              קורית אך ורק בשתי הפעולות הצדדיות בשורת-הירו. ה-CTA (unifiedCtaButton) עדיין יחיד
+              ותמיד באותו מיקום יחסי (תחתית התוכן-המורחב). */}
           {searchMode === 'free' ? (
             <>
               {/* גוון-עדין דקורטיבי (2026-09-20, "free search visual polish" - בקשת המשתמש:
@@ -1319,24 +1397,14 @@ export default function HomeScreen() {
                 style={styles.smartSearchFreeTint}
                 pointerEvents="none"
               />
-              {/* כותרת+אייקון-חיפוש (2026-09-20, בקשת המשתמש: "Add a small search icon next to
-                  it... Prefer reusing the existing Free Search search/magnifier visual language")
-                  - אותו SearchIcon בדיוק שכבר בתוך שדה-הטקסט למטה (לא אייקון חדש), רק גדול יותר
-                  (24, ברירת-המחדל 18) וב-colors.accent (היה textMuted). d.row - אותה טכניקה בדיוק
-                  כמו searchModuleTitle בשורת-הירו (HomeHero.js): הילד-הראשון-ב-JSX (האייקון)
-                  יושב בקצה הפיזי-הימני בעברית, שהוא תחילת-הקריאה. */}
-              <View style={styles.searchFreeHeaderRow}>
-                <SearchIcon size={24} color={colors.accent} />
-                <Text style={styles.searchFreeLabel}>{t('home.search.freeLabel')}</Text>
-              </View>
-              {/* טקסט-תמיכה (חדש, בקשת המשתמש: "communicate that this is natural-language search
-                  rather than a conventional keyword box") - צמוד לכותרת (marginTop קטן ב-
-                  searchFreeHeaderRow למעלה), לא פסקה נפרדת. */}
-              <Text style={styles.searchFreeSupporting}>{t('home.search.freeSupporting')}</Text>
+              {/* כותרת+טקסט-תמיכה+אייקון-זכוכית-מגדלת הוסרו (2026-09-20, בקשת המשתמש: "בחיפוש
+                  חופשי, יש להוריד את 'מה מתחשק לכם?' ואת 'אפשר לכתוב בחופשיות'... ולהוריד גם
+                  את אייקון הזכוכית המגדלת - במקום זה רק להשאיר שורת חיפוש ואת הכפתור מתחת") -
+                  נשאר רק שדה-הקלט עצמו (מוגדל, ראו smartSearchInputWrap/smartSearchInput למטה)
+                  ואחריו ה-CTA (unifiedCtaButton, מוצג תמיד בתחתית הכרטיס). */}
               <View
                 style={[styles.smartSearchInputWrap, searchFocused && styles.smartSearchInputWrapFocused]}
               >
-                <SearchIcon color={colors.accent} />
                 <TextInput
                   ref={searchInputRef}
                   style={styles.smartSearchInput}
@@ -1410,8 +1478,7 @@ export default function HomeScreen() {
           )}
           {searchMode !== 'free' ? extraFiltersBlock : null}
           {unifiedCtaButton}
-        </View>
-        ) : null}
+        </HomeHero>
 
         {userId ? (
           <Pressable style={styles.saveDefaultLink} onPress={handleSaveAsDefault} disabled={savingDefault} hitSlop={8}>
@@ -1550,7 +1617,8 @@ export default function HomeScreen() {
         value={filters.location}
         onChange={handleLocationFieldChange}
         onCoordsResolved={setDeviceCoords}
-        onClose={handleWhereQuickCloseFromDiscovery}
+        onConfirm={handleWhereQuickConfirm}
+        onClose={handleWhereQuickClose}
         deviceCoords={deviceCoords}
       />
       {/* חיפוש חופשי שחסר לו הקשר גאוגרפי - אותו רכיב בדיוק (לא עותק), אותו state (filters.location),
@@ -1628,69 +1696,61 @@ const styles = createStyles((d) => ({
   compactFieldValue: { flexShrink: 1, minWidth: 0, fontFamily: fonts.semiBold, fontSize: 13.5, color: colors.textSecondary, textAlign: d.textAlign },
   compactFieldValueActive: { fontFamily: fonts.bold, color: colors.accent },
 
-  // GuidedSearchIntentControl (2026-09-20, סבב-עידון שישי, בקשת המשתמש: "should visually read
-  // as TWO separate rounded selection fields... DO NOT use only a horizontal divider" - guidedIntentControl
-  // עצמו כבר לא נושא bg/border/radius משלו, רק gap בין שני GuidedIntentSegment עצמאיים - כל אחד
-  // מהם עכשיו שדה מעוגל ונפרד בזכות עצמו (ראו guidedIntentSegment למטה).
-  // marginHorizontal:-6 (חדש) - בקשת המשתמש: "שני הפילטרים... יותר ארוכים לצדדים" - מרחיב את
-  // שתי שורות מה-עושים/איפה מעט מעבר לריפוד הרגיל של smartSearchCard (16), בלי לגעת בכפתור
-  // "מצאו פעילויות" שמתחת (נשאר ברוחב-התוכן הרגיל של הכרטיס).
-  guidedIntentControl: { gap: 8, marginBottom: 14, marginHorizontal: -6 },
-  // כל שורה - שדה-בחירה מעוגל עצמאי (לא עוד משטח-אחד+חוצץ-דק) - bg/border/radius עכשיו כאן,
-  // לא ב-guidedIntentControl. flexDirection:'row' פיזי (לא d.row) - ראו ההערה המלאה ליד
-  // GuidedIntentSegment למעלה: [אייקון][עמודת-טקסט flex:1][chevron], בסדר-JSX הזה בדיוק, כך
-  // שהאייקון תמיד פיזית-משמאל וה-chevron תמיד פיזית-מימין בלי קשר לכיוון-הקריאה. paddingHorizontal
-  // 16 כדי שיתאים לשדה-בעל-מסגרת אמיתי, לא רק שורה בתוך קופסה חיצונית. גובה הוקטן שוב (48, היה
-  // 60/68/76; paddingVertical 6, היה 8/11/14) - בקשת המשתמש: "פחות גבוהות... ויותר ארוכות" +
-  // "החלק הלבן... צריך להיות כולו יותר קטן, פרופורציונלית, ביחס לכפתורים [הצדדיים]".
-  // backgroundColor: colors.card/#fff (חזרה מ-colors.bg שנוסה בסבב קודם) - בקשת המשתמש: "תוריד
-  // את הצבע ברקע של הקוביות... שהפס הקטן מסביב ישאר אבל בפנים יהיה צבע לבן לגמרי כמו הרקע" -
-  // לבן זהה בדיוק לרקע smartSearchCard החיצוני (שגם הוא colors.card), רק ה-border (borderLight)
-  // ממשיך לתחום את השורה חזותית.
-  // paddingVertical:4/minHeight:42 (היה 6/48) + paddingHorizontal:10 (היה 14) - בקשת המשתמש:
-  // "יותר דחוסים מלמעלה אבל יותר ארוכים לצדדים" - עוד סבב באותו כיוון שכבר אושר (ראו ההערה
-  // למעלה), יחד עם guidedIntentControl.marginHorizontal:-6 להרחבה הפיזית.
+  // GuidedSearchIntentControl (2026-09-20, "Quick Choice selector visual refinement" - בקשת
+  // המשתמש: "no white selector rectangles... should sit directly on the Home background...
+  // use whitespace as the primary separator") - guidedIntentSegment למטה כבר לא נושא bg/border/
+  // radius בכלל (הוסר, לא רק "החליף צבע") - ה-gap כאן הוא ה-הפרדה העיקרית בין שתי השורות,
+  // guidedIntentDivider (קו עדין ומוזח) הוא רק תוספת אופציונלית, לא border סביב שורה.
+  // marginHorizontal בוטל (היה -6, פיצוי-רוחב לריפוד הפנימי של הכרטיס הישן) - אין יותר כרטיס
+  // לפצות עליו; השורות מיושרות עכשיו לאותו paddingHorizontal:16 כמו שאר detail הכרטיס.
+  guidedIntentControl: { gap: 14, marginBottom: 16 },
+  // קו-חוצץ עדין-מאוד ומוזח בין "מה עושים?" ל"איפה?" - לא border סביב אף שורה, רק תוספת-עידון
+  // קטנה על גבי ה-whitespace (guidedIntentControl.gap) שכבר מפריד ביניהן. inset (לא full-width)
+  // כדי שירגיש כמו קו-הפרדה בתוך רשימה, לא כמו קצה-כרטיס.
+  guidedIntentDivider: { height: 1, backgroundColor: colors.borderLight, marginHorizontal: 44 },
+  // כל שורה - information row, לא שדה-טופס (2026-09-20, "no card background, no field border,
+  // no field shadow" - בקשת המשתמש המפורשת). בלי backgroundColor/borderWidth/borderColor/
+  // borderRadius בכלל - ה-Pressable יושב ישירות על SkyBackground/discoveryArea כמו שאר האלמנטים
+  // בכרטיס. minHeight:48 (היה 42, גדל בכוונה עכשיו שאין יותר מסגרת חזותית שמסמנת את גבולות-
+  // הלחיצה - שומר על touch target נוח, "the entire row must remain comfortably tappable").
+  // paddingHorizontal:2 (היה 10, פנימי-לשדה) - השורה כבר מיושרת ל-paddingHorizontal:16 של
+  // discoveryArea עצמו, לא צריכה עוד ריפוד-פנימי-לשדה משלה.
   guidedIntentSegment: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: colors.card, borderWidth: 1, borderColor: colors.borderLight, borderRadius: radii.lg,
-    paddingVertical: 4, paddingHorizontal: 10, minHeight: 42,
+    paddingVertical: 10, paddingHorizontal: 2, minHeight: 48,
   },
-  // Image אמיתי (assets/house-tree.png). בלי chip צבוע מסביב, תמיד בקצה הפיזי-שמאלי (ראו ההערה
-  // המלאה למעלה). 54x54 (היה 46x46, 2026-09-20, בקשת המשתמש: "להגדיל גם את הקנגרו וגם את הבית,
-  // שיהיו יותר גדולים אבל באותה פרופורציה") - קופסה משותפת גדלה פי ~1.17 (54/46), עדיין תואמת
-  // חזותית לקנגורו לצידה (ראו guidedIntentIconEmoji למטה - fontSize גדל באותו יחס בדיוק).
-  guidedIntentIconImage: { width: 54, height: 54, flexShrink: 0 },
-  // guidedIntentIconEmoji (קנגורו 🦘 ב"מה עושים") - אותה קופסה בדיוק (54x54) כמו
-  // guidedIntentIconImage כדי שהשורה לא תזוז. fontSize:28 (היה 24, גדל באותו יחס-הגדלה בדיוק:
-  // 24*(54/46)≈28.2) - שומר על יחס הגודל החזותי שכבר כויל מול הבית (PNG תופס נפח-חזותי שונה
-  // מ-glyph-אמוג'י לכל px של fontSize, ראו ההערה למעלה).
+  // 32x32 (היה 40x40, 2026-09-20, "reduce their visual dominance slightly... function as playful
+  // TURU accents, not compete with the question text" - בקשת המשתמש) - שני האייקונים (וה-emoji
+  // fallback למטה) הוקטנו באותו יחס בדיוק (⁓0.8) כדי שישארו מכוילים אחד מול השני.
+  guidedIntentIconImage: { width: 32, height: 32, flexShrink: 0 },
+  // guidedIntentIconImageWide - ראו ההערה המלאה ליד decorIconStyle ב-PRIMARY_FILTERS למעלה (למה
+  // house-tree.png צריך קופסה רחבה+resizeMode="stretch"). 47x30+marginLeft:-5 (היה 59x37/-6) -
+  // אותו יחס-הקטנה (⁓0.8) כמו guidedIntentIconImage למעלה.
+  guidedIntentIconImageWide: { width: 47, height: 30, flexShrink: 0, marginLeft: -5 },
+  // guidedIntentIconEmoji (fallback בלבד) - אותה קופסה בדיוק (32x32) כמו guidedIntentIconImage
+  // כדי שהשורה לא תזוז אם ה-fallback הזה אי-פעם כן ירונדר. fontSize:17/lineHeight:32 (היה 21/40) -
+  // אותו יחס-הקטנה (⁓0.8) כמו שאר האייקונים למעלה.
   guidedIntentIconEmoji: {
-    width: 54, height: 54, flexShrink: 0, fontSize: 28, lineHeight: 54, textAlign: 'center',
+    width: 32, height: 32, flexShrink: 0, fontSize: 17, lineHeight: 32, textAlign: 'center',
   },
-  // gap: 0 (היה 3) - בקשת המשתמש: "'מה עושים' ו'הכל' צריכים להיות יותר צמודים... כנ"ל 'איפה'/
-  // 'ינוב'" - חל על שתי השורות (guidedIntentTitle/Value משותפים לשתיהן, לא סטייל נפרד לכל שורה).
   guidedIntentSegmentMain: {
     flex: 1, minWidth: 0, gap: 0,
   },
-  // ChevronLeftIcon מצביע שמאלה = "קדימה/פותח בורר" בעברית; באנגלית מסתובב ימינה. המיקום שלו
-  // בשורה (פיזית-ימני, ראו guidedIntentSegment) לא קשור לכיוון שהוא מצביע אליו. paddingLeft קטן
-  // ("comfortable padding around it... don't let it compete with the text") - מרווח נוסף מהטקסט
-  // מעבר ל-gap הכללי של השורה.
+  // ChevronLeftIcon - קטן ועדין, לא בתוך עיגול/כפתור משלו (בקשת המשתמש המפורשת: "the chevron
+  // should be small and understated... do not place it inside its own circle or button").
   guidedIntentChevron: { transform: [{ rotate: d.forwardRotate }], flexShrink: 0, paddingLeft: 2 },
-  // כותרת-שורה קבועה (guidedIntentTitle) + ערך (guidedIntentValue) - שתי שורות מוערמות בתוך
-  // guidedIntentSegmentMain, שתיהן מיושרות d.textAlign (ימין בעברית - "צמודות" ל-chevron
-  // הפיזי-ימני, ראו ה-mockup). בקשת המשתמש (spec מדויק): כותרת ~21px/700/lineHeight 25, ערך
-  // ~16px/400/lineHeight 21 - fontFamily נשאר turu (fonts.bold/fonts.regular - אותם קבצי-גופן
-  // קיימים, לא גופן חדש), רק מידות/משקל/line-height/מרווח שונו בהתאם למפרט.
-  // 18/21 (היה 16.5/19.5, "visual polish: free search + quick choice" 2026-09-20, בקשת המשתמש:
-  // "primary labels... should be slightly larger and/or heavier... the primary question should
-  // be what the eye reads first") - חזרה לגודל מעט גדול יותר, מחזק את ההיררכיה מול הערך-המשני
-  // שמתחת (guidedIntentValue למטה, שנשאר קטן/עדין בכוונה - הניגוד עצמו הוא הכלי).
-  guidedIntentTitle: { fontFamily: fonts.bold, fontSize: 18, lineHeight: 21, color: colors.textPrimary, textAlign: d.textAlign },
-  // #8A9097 - צבע-ערך-משני קיים, אפרפר-ניטרלי. 14/16.5 (היה 14.5/17) - "secondary values...
-  // should be lighter and more neutral gray" (בקשת המשתמש) - הקטנה עדינה נוספת (יחד עם ה-title
-  // שגדל למעלה) כדי שההבדל הראשי/משני יהיה ברור מיד למבט ראשון.
-  guidedIntentValue: { minWidth: 0, fontFamily: fonts.regular, fontSize: 14, lineHeight: 16.5, color: '#8A9097', textAlign: d.textAlign },
+  // כותרת-שאלה ("מה עושים?"/"איפה?") - extraBold/19 (היה bold/18, 2026-09-20, "Quick Choice
+  // selector visual refinement": "the questions should feel confident and branded... stronger
+  // hierarchy") - צבע textPrimary (#121c23), הטוקן הכהה-הקיים שכבר מתועד כ"navy-כהה, לא #000
+  // טהור" (ראו searchModuleTitle/HomeHero.js) - זה בדיוק ה"navy brand blue" שהמשתמש ביקש, לא
+  // גוון חדש.
+  guidedIntentTitle: { fontFamily: fonts.extraBold, fontSize: 19, lineHeight: 22, color: colors.textPrimary, textAlign: d.textAlign },
+  // ערך ברירת-מחדל ("הכל"/"בחרו מיקום") - אפור-כחלחל מעודן, לא אפור ניטרלי טהור (2026-09-20,
+  // בקשת המשתמש: "muted blue-grey"). guidedIntentValueActive למטה (לא עוד compactFieldValueActive
+  // המשותף) הוא ה-state הפעיל היחיד לשורות האלה - accent בעדינות (semiBold, לא bold מלא) כשיש
+  // ערך אמיתי נבחר, כדי לא להתחרות עם הכותרת מעליו.
+  guidedIntentValue: { minWidth: 0, fontFamily: fonts.regular, fontSize: 14, lineHeight: 16.5, color: '#7E8A99', textAlign: d.textAlign },
+  guidedIntentValueActive: { fontFamily: fonts.semiBold, color: colors.accent },
   personalCard: {
     backgroundColor: colors.card, borderRadius: radii.xl, borderWidth: 1, borderColor: colors.borderLight,
     padding: 16, marginBottom: 18,
@@ -1729,83 +1789,58 @@ const styles = createStyles((d) => ({
   // למעלה). border/shadow עדינים (לא מסגרת accent עבה) כדי שהכרטיס יתבלוט בעדינות בלי להרגיש כבד.
   // padding/borderRadius/marginTop/shadow הוגדלו בסבב-העידון השלישי (בקשת המשתמש: "feels too
   // compressed and generic... should feel like a substantial floating search module") - עדיין
-  // "לא גבוה מיותר", רק נדיב יותר. marginTop קטן מפריד אותו מכיתוב-המרחק בלי לגעת בו (heroRow/
-  // heroDistanceRow עצמם, שנשארו ללא שינוי-מבני).
-  // marginHorizontal:-10 (חדש, סבב-עידון תשיעי, בקשת המשתמש: "החלון... צריך להיות יותר רחב,
-  // מתוח לצדדים... ולרקע הלבן... לתת עוד קצת אורך") - הכרטיס "דולף" מעט מעבר לריפוד הרגיל של
-  // content (spacing.xl=22 בכל צד, ראו styles.content למטה), בלי לגעת בריפוד הגלובלי הזה עצמו
-  // (שממשיך לשמש את הכותרת/שורת-הירו מעליו) - רק הכרטיס הזה מתרחב מעט לצדדים.
-  // padding 16/borderRadius 22 (היה 22/26) - בקשת המשתמש: "החלק הלבן... צריך להיות כולו יותר
-  // קטן, פרופורציונלית, ביחס לכפתורים [הצדדיים]" - לא רק השורות/הכפתור בפנים (guidedIntentSegment/
-  // smartSearchBtn למטה), גם המעטפת החיצונית עצמה מתכווצת מעט בהתאם. marginTop/marginBottom/
-  // marginHorizontal לא נגעו - אלה מיקום/מרווחים-מהעמוד, לא הפרופורציה הפנימית של הכרטיס עצמו.
-  // marginBottom: 0 (היה 16) - בקשת המשתמש: "2 הכותרות... צריך שהן יהיו בדיוק באמצע בין מה
-  // שמעליהן לבין מה שמתחתיהן". נמדד בפועל בדפדפן: ה-padding הפנימי של הכרטיס עצמו (16, למטה)
-  // כבר תורם 16px גלויים מתחת ל-CTA לפני שמגיעים לקצה-הכרטיס - marginBottom נוסף מעליו היה
-  // מכפיל את המרווח ("above") הרבה מעבר ל-"below" (sectionHeaderRow.marginBottom, ראו שם).
-  // הריפוד הפנימי (16) נשאר המקור היחיד למרווח-הבסיס כאן, ו-sectionHeaderRow תואם אותו בדיוק.
-  smartSearchCard: {
-    backgroundColor: colors.card, borderWidth: 1, borderColor: colors.accentTintLight,
-    // borderTopColor: colors.accentTint (חדש, "visual polish: free search + quick choice"
-    // 2026-09-20, בקשת המשתמש: "a VERY SUBTLE visual relationship between the selected side
-    // action and the card below... barely perceptible") - רק הצלע העליונה מקבלת גוון-accent
-    // מעט חזק יותר מ-accentTintLight (שאר 3 הצלעות) - אותה משפחת-צבע בדיוק כמו ה-underline
-    // הפעיל בשורת-הירו (heroSideActionActiveDot, HomeHero.js), בלי חץ/משולש/זנב-בועה - קו-גבול
-    // דק, לא מסגרת-accent עבה.
-    borderTopColor: colors.accentTint,
-    // marginTop:2 (היה 6) - חלק מאותה בקשה (heroRow.marginBottom למעלה) - עוד צמצום-מרווח קטן
-    // בין שורת-הירו לכרטיס-הפילטרים.
-    borderRadius: 22, padding: 16, marginHorizontal: -10, marginTop: 2, marginBottom: 0,
-    shadowColor: colors.accent, shadowOpacity: 0.1, shadowRadius: 18, shadowOffset: { width: 0, height: 6 }, elevation: 3,
-  },
+  // smartSearchCard (הישן) הוסר (2026-09-20, "Home Discovery Panel Redesign") - התוכן שהיה בתוכו
+  // עבר להיות children של HomeHero, שמצייר אותו בתוך discoveryPanel/discoveryPanelExpanded
+  // (components/HomeHero.js) במקום כרטיס-צף נפרד. כל שאר הסטיילים למטה (smartSearchInputWrap/
+  // smartSearchBtn וכו') נשארים בשימוש-מלא, בלי שינוי - רק המעטפת החיצונית עצמה זזה.
   // smartSearchFreeTint (חדש, "free search visual polish" 2026-09-20) - גוון-עדין דקורטיבי,
   // מוחלט מתחת לתוכן, רק מכסה את החלק העליון של הכרטיס (120) - לא נוגע בכל שאר הכרטיס (הקלט/
   // שגיאה/חיפושים-אחרונים למטה נשארים על רקע-הכרטיס הרגיל, colors.card לבן).
+  // top:0 (יחסית ל-discoveryPanelExpanded, ראו components/HomeHero.js) - בלי border-radius
+  // עליון יותר (הוסר, "Home Discovery Panel Redesign" 2026-09-20): הגוון הזה כבר לא יושב בקצה-
+  // העליון-המעוגל של הפאנל החיצוני (discoveryPanel) - הוא בתוך תת-מקטע מלבני שנמצא *מתחת*
+  // לשורת שלוש-הפעולות, אז אין יותר פינה-מעוגלת אמיתית שממנה הוא יכול "לזלוג" החוצה.
   smartSearchFreeTint: {
     position: 'absolute', top: 0, left: 0, right: 0, height: 120,
-    borderTopLeftRadius: 22, borderTopRightRadius: 22,
   },
-  // "מה מתחשק לכם?" + אייקון-חיפוש לצידה (searchFreeHeaderRow) - ראו ה-JSX למעלה. gap:8/
-  // marginBottom:2 - צמוד לטקסט-התמיכה שמתחת (searchFreeSupporting) כך שהשניים "נקראים כיחידה
-  // אחת" (בקשת המשתמש).
-  searchFreeHeaderRow: { flexDirection: d.row, alignItems: 'center', gap: 8, marginBottom: 2 },
-  // 16/bold/textPrimary (היה 12/semiBold/textSecondary) - "free search visual polish" 2026-09-20:
-  // גדל כדי לאזן מול האייקון (24px) שנוסף לצידה - עדיין ברור-משני ביחס לכותרת-העל "לאן קופצים
-  // היום?" מעל כל המודול (26px).
-  searchFreeLabel: { fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary, textAlign: d.textAlign },
-  // "אפשר לכתוב ממש בחופשיות" (חדש, "free search visual polish" 2026-09-20, בקשת המשתמש: "This
-  // sentence should communicate that this is natural-language search rather than a conventional
-  // keyword box") - משני/עדין: קטן מהכותרת, משקל רגיל, אפור ניטרלי.
-  searchFreeSupporting: { fontFamily: fonts.regular, fontSize: 12.5, color: colors.textMuted, textAlign: d.textAlign, marginBottom: 10 },
-  // כרטיס-חיפוש: שדה הטקסט הוא הקלט היחיד בשורה הזו (אין יותר כפתור "חיפוש" לצידו) - ה-pill/
-  // border/bg יושבים כאן כדי שאייקון-החיפוש יישב "בתוך" השדה חזותית, לא ליד שדה נפרד. row: אייקון
-  // ראשון בכיוון-הקריאה, TextInput ממלא את השאר. marginBottom נותן את המרווח הבסיסי לפני מה
-  // שמתחת (שגיאה/חיפושים אחרונים).
+  // כרטיס-חיפוש: שדה הטקסט הוא הקלט היחיד בשורה הזו (אין יותר כפתור/אייקון-חיפוש לצידו, הוסר
+  // 2026-09-20 - בקשת המשתמש: "להוריד גם את האייקון של זכוכית מגדלת, במקום זה רק להשאיר שורת
+  // חיפוש ואת הכפתור מתחת"). row: TextInput ממלא את כל השורה. marginBottom נותן את המרווח הבסיסי
+  // לפני מה שמתחת (שגיאה/חיפושים אחרונים).
   // borderColor: colors.accentTintLight (היה colors.border, "free search visual polish"
   // 2026-09-20, בקשת המשתמש: "a little more TURU identity... very subtle blue/cyan border in
   // its resting state") - אותו טוקן-כחלחל-עדין הקיים כבר בגבול smartSearchCard עצמו.
+  // paddingVertical:16/fontSize:16 (היה 12/14, בקשת המשתמש 2026-09-20: "שורת החיפוש צריכה
+  // להיות יותר גדולה ממה שהיא עכשיו, לא בטירוף אבל יותר גדולה") - גדילה מתונה, לא דרסטית.
   smartSearchInputWrap: {
     flexDirection: d.row, alignItems: 'center', gap: 6, marginBottom: 16,
     backgroundColor: colors.bg, borderWidth: 1, borderColor: colors.accentTintLight,
-    borderRadius: radii.pill, paddingHorizontal: 14,
+    borderRadius: radii.pill, paddingHorizontal: 16,
   },
   // smartSearchInputWrapFocused (חדש) - "when focused, make the border clearly #007598".
   smartSearchInputWrapFocused: { borderColor: colors.accent },
   smartSearchInput: {
-    flex: 1, paddingVertical: 12,
-    fontFamily: fonts.regular, fontSize: 14, color: colors.textPrimary, textAlign: d.textAlign, writingDirection: d.writingDirection,
+    flex: 1, paddingVertical: 16,
+    fontFamily: fonts.regular, fontSize: 16, color: colors.textPrimary, textAlign: d.textAlign, writingDirection: d.writingDirection,
   },
   // paddingVertical 12 (היה 18) - בקשת המשתמש: "כפתור 'מצאו פעילויות' צריך להיות יותר נמוך
   // (פרופורציה, לא מיקום)" + "החלק הלבן... כולו יותר קטן ביחס לכפתורים [הצדדיים]".
   // colors.accent (חזרה מ-'#006786' המותאם-אישית מהסבב הקודם) - בקשת המשתמש המפורשת: "הצבע של
   // הכפתור 'מצאו פעילויות' צריך להיות בדיוק אותו צבע כמו הכפתור המרכזי [הרדאר]" - הרדאר משתמש
   // ב-colors.accent (ראו NearMeRadar למעלה בקובץ), אז חזרה לאותו טוקן בדיוק כאן, לא גוון קרוב.
+  // overflow:'hidden' (חדש, "TURU Home CTA gradient" 2026-09-20) - כדי ש-smartSearchBtnGradient
+  // (מילוי-מוחלט, ראו למטה) ייחתך בדיוק לצורת-ה-pill המעוגלת של הכפתור, לא יבצבץ מעבר לפינות.
+  // backgroundColor:colors.accent נשאר - בסיס שטוח, גלוי רק כש-disabled (הגרדיאנט לא מצטייר אז).
   smartSearchBtn: {
     backgroundColor: colors.accent, borderRadius: radii.pill, paddingHorizontal: 22,
-    alignItems: 'center', justifyContent: 'center',
+    alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
   },
   smartSearchBtnFullWidth: { width: '100%', paddingVertical: 12 },
   smartSearchBtnDisabled: { opacity: 0.5 },
+  // smartSearchBtnGradient (חדש, "TURU Home CTA gradient" 2026-09-20) - שכבת-רקע מוחלטת, ממלאת
+  // את כל שטח הכפתור מתחת לטקסט/ה-ActivityIndicator (שניהם ילדים-רגילים, לא absolute, אז הם
+  // אלה שקובעים את גודל ה-Pressable כרגיל - השכבה הזו רק "צובעת" את השטח שכבר נקבע).
+  smartSearchBtnGradient: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
   smartSearchBtnText: { fontFamily: fonts.bold, fontSize: 16, color: '#ffffff', textAlign: 'center' },
   smartSearchErrorText: { fontFamily: fonts.semiBold, fontSize: 12, color: colors.danger, textAlign: 'center', marginTop: 10 },
   // חיפושים אחרונים כ-dropdown תלוי-פוקוס (2026-09-16, סבב שני) - יושב באותו מקום-JSX בדיוק
