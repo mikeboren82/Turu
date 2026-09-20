@@ -221,7 +221,7 @@
     "yearsNeutral_other": "{{count}} years old"
   },
   "activityMeta": {
-    "ageAll": "All ages",
+    "ageUnknown": "Not specified",
     "ageUpTo": "Up to age {{max}}",
     "ageFrom": "Age {{min}}+",
     "ageExact": "Age {{min}}",

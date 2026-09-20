@@ -221,7 +221,7 @@
     "yearsNeutral_other": "גיל {{count}}"
   },
   "activityMeta": {
-    "ageAll": "כל הגילאים",
+    "ageUnknown": "לא צוין",
     "ageUpTo": "עד גיל {{max}}",
     "ageFrom": "מגיל {{min}}",
     "ageExact": "גיל {{min}}",
