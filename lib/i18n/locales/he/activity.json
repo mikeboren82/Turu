@@ -20,6 +20,7 @@
     "navigate": "ניווט",
     "findSimilar": "🔍 חפש פעילות דומה באזור",
     "fallbackDescription": "{{title}} - {{type}}, מתאים ל{{age}}.",
+    "fallbackDescriptionNoAge": "{{title}} - {{type}}.",
     "fallbackRegistration": "דורש הרשמה מראש.",
     "fallbackIndoor": "פעילות בתוך מבנה.",
     "fallbackOutdoor": "פעילות בחוץ.",
@@ -32,7 +33,48 @@
     "hiddenNotice": "הפעילות לא תוצג לכם יותר. ניתן להחזיר אותה דרך \"הדף שלי\" ← \"פעילויות חסומות\".",
     "unhiddenNotice": "בוטלה ההסתרה",
     "plannedAdded": "נוסף ל\"רוצה לעשות\"",
-    "plannedRemoved": "הוסר מ\"רוצה לעשות\""
+    "plannedRemoved": "הוסר מ\"רוצה לעשות\"",
+    "a11y": {
+      "favorite": "הוספה למועדפים",
+      "unfavorite": "הסרה מהמועדפים",
+      "visited": "סימון \"כבר הייתי כאן\"",
+      "unvisited": "ביטול \"כבר הייתי כאן\"",
+      "hide": "הסתרת הפעילות",
+      "planned": "הוספה ל\"רוצה לעשות\"",
+      "unplanned": "הסרה מ\"רוצה לעשות\""
+    }
+  },
+  "hours": {
+    "openUntil": "🟢 פתוח עכשיו · עד {{time}}",
+    "alwaysOpen": "🟢 פתוח 24 שעות",
+    "opensLaterToday": "סגור עכשיו · נפתח היום ב־{{time}}",
+    "opensTomorrow": "סגור עכשיו · נפתח מחר ב־{{time}}",
+    "opensOnDay": "סגור עכשיו · נפתח ביום {{day}} ב־{{time}}",
+    "closedNow": "סגור עכשיו",
+    "todayHolidayWarning": "⚠️ היום {{holiday}} · השעות עשויות להשתנות",
+    "dayWarning": "⚠️ השעות עשויות להשתנות",
+    "today": "היום",
+    "tomorrow": "מחר",
+    "closedToday": "סגור",
+    "unknownToday": "שעות לא ידועות",
+    "weeklyTitle": "שעות פתיחה",
+    "expandA11y": "הצגת שעות פתיחה לשבעת הימים הקרובים",
+    "collapseA11y": "הסתרת שעות פתיחה לשבעת הימים הקרובים",
+    "nextOccurrenceLabel": "מועד קרוב",
+    "upcomingOccurrencesLabel": "מועדים קרובים"
+  },
+  "share": {
+    "button": "שיתוף",
+    "intro": "מצאתי פעילות שנראית מתאימה לנו ב-TURU 😊",
+    "closing": "מה דעתך?",
+    "ageRange": "מתאים לגילאי {{min}}–{{max}}",
+    "ageExact": "מתאים לגיל {{min}}",
+    "ageFrom": "מגיל {{min}}",
+    "ageUpTo": "עד גיל {{max}}",
+    "copied": "הקישור הועתק ✓",
+    "copyLink": "העתקת קישור",
+    "openWhatsAppWeb": "פתיחת WhatsApp Web",
+    "failed": "לא הצלחנו לפתוח את השיתוף, נסו שוב"
   },
   "photos": {
     "title": "תמונות מהמקום",

@@ -21,6 +21,7 @@
     "navigate": "Directions",
     "findSimilar": "🔍 Find similar activities nearby",
     "fallbackDescription": "{{title}} - {{type}}, suitable for: {{age}}.",
+    "fallbackDescriptionNoAge": "{{title}} - {{type}}.",
     "fallbackRegistration": "Advance registration required.",
     "fallbackIndoor": "Indoor activity.",
     "fallbackOutdoor": "Outdoor activity.",
@@ -33,7 +34,48 @@
     "hiddenNotice": "You won't see this activity anymore. You can bring it back from \"My page\" → \"Blocked activities\".",
     "unhiddenNotice": "Activity unhidden",
     "plannedAdded": "Added to \"Want to do\"",
-    "plannedRemoved": "Removed from \"Want to do\""
+    "plannedRemoved": "Removed from \"Want to do\"",
+    "a11y": {
+      "favorite": "Add to favorites",
+      "unfavorite": "Remove from favorites",
+      "visited": "Mark as \"been here\"",
+      "unvisited": "Unmark \"been here\"",
+      "hide": "Hide activity",
+      "planned": "Add to \"Want to do\"",
+      "unplanned": "Remove from \"Want to do\""
+    }
+  },
+  "hours": {
+    "openUntil": "🟢 Open now · until {{time}}",
+    "alwaysOpen": "🟢 Open 24 hours",
+    "opensLaterToday": "Closed now · opens today at {{time}}",
+    "opensTomorrow": "Closed now · opens tomorrow at {{time}}",
+    "opensOnDay": "Closed now · opens {{day}} at {{time}}",
+    "closedNow": "Closed now",
+    "todayHolidayWarning": "⚠️ Today is {{holiday}} · hours may vary",
+    "dayWarning": "⚠️ Hours may vary",
+    "today": "Today",
+    "tomorrow": "Tomorrow",
+    "closedToday": "Closed",
+    "unknownToday": "Hours unknown",
+    "weeklyTitle": "Opening hours",
+    "expandA11y": "Show opening hours for the next 7 days",
+    "collapseA11y": "Hide opening hours for the next 7 days",
+    "nextOccurrenceLabel": "Next date",
+    "upcomingOccurrencesLabel": "Upcoming dates"
+  },
+  "share": {
+    "button": "Share",
+    "intro": "Found an activity that looks great for us on TURU 😊",
+    "closing": "What do you think?",
+    "ageRange": "Suitable for ages {{min}}–{{max}}",
+    "ageExact": "Suitable for age {{min}}",
+    "ageFrom": "From age {{min}}",
+    "ageUpTo": "Up to age {{max}}",
+    "copied": "Link copied ✓",
+    "copyLink": "Copy link",
+    "openWhatsAppWeb": "Open WhatsApp Web",
+    "failed": "Couldn't open sharing, please try again"
   },
   "photos": {
     "title": "Photos",
