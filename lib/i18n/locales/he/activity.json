@@ -6,8 +6,7 @@
     "recommendedBy": "הומלץ ע\"י {{name}} ⭐{{stars}}",
     "info": {
       "ages": "גילאים",
-      "price": "מחיר",
-      "hours": "שעות"
+      "price": "מחיר"
     },
     "upcomingDates": "📅 מועדים קרובים",
     "occurrenceBuy": "🎟️ רכישה",

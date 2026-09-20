@@ -6,8 +6,7 @@
     "recommendedBy": "Recommended by {{name}} ⭐{{stars}}",
     "info": {
       "ages": "Ages",
-      "price": "Price",
-      "hours": "Hours"
+      "price": "Price"
     },
     "upcomingDates": "📅 Upcoming dates",
     "occurrenceBuy": "🎟️ Tickets",

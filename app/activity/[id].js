@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react';
-import { View, Text, ScrollView, Pressable, TextInput, Linking, ActivityIndicator, ImageBackground, Image, Modal } from 'react-native';
+import { View, Text, ScrollView, Pressable, TextInput, Linking, ActivityIndicator, ImageBackground, Image, Modal, Share, Platform } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import Header from '../../components/Header';
 import SkyBackground from '../../components/SkyBackground';
 import LoginRequiredModal from '../../components/LoginRequiredModal';
+import WeeklyHoursSection from '../../components/WeeklyHoursSection';
 import {
-  StarIcon, HideIcon, CheckIcon, CalendarIcon, LocationPinIcon, SlidersIcon, ClockIcon, PriceIcon,
+  StarIcon, HideIcon, CheckIcon, CalendarIcon, LocationPinIcon, SlidersIcon, PriceIcon, ShareIcon, WhatsAppIcon,
 } from '../../components/icons';
 import { colors, fonts, radii, spacing } from '../../constants/theme';
 import {
@@ -26,6 +27,7 @@ import {
   fetchActivityFlags, toggleFavorite, toggleVisited, toggleHidden, togglePlanned,
   fetchPersonalNote, savePersonalNote, fetchCommunityNotes, postCommunityNote,
 } from '../../lib/interactions';
+import { buildActivityShareUrl, buildActivityShareMessage } from '../../lib/shareActivity';
 
 const PRICE_ICON_COLOR = colors.green;
 
@@ -101,8 +103,19 @@ function activityTypeLabel(activity, t) {
   return key ? t(key) : (activity.type || '');
 }
 
-function ActionButton({ children, onPress }) {
-  return <Pressable style={styles.actionBtn} onPress={onPress} hitSlop={6}>{children}</Pressable>;
+function ActionButton({ children, onPress, disabled, accessibilityLabel }) {
+  return (
+    <Pressable
+      style={({ pressed }) => [styles.actionBtn, pressed && styles.actionBtnPressed]}
+      onPress={onPress}
+      disabled={disabled}
+      hitSlop={6}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+    >
+      {children}
+    </Pressable>
+  );
 }
 
 function InfoCell({ Icon, label, value, tint }) {
@@ -163,6 +176,10 @@ export default function ActivityScreen() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteSaving, setDeleteSaving] = useState(false);
   const [deleteError, setDeleteError] = useState('');
+  const [sharing, setSharing] = useState(false);
+  // Web בלבד, וכש-Web Share API (navigator.share) לא זמין (למשל דסקטופ) - חושף את שורת ה-fallback
+  // (פתיחת WhatsApp Web / העתקת קישור) במקום גיליון שיתוף מובנה, ראו handleShare למטה.
+  const [showWebShareFallback, setShowWebShareFallback] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -222,6 +239,12 @@ export default function ActivityScreen() {
     try { await toggleVisited(userId, String(id), next); } catch { setVisited(!next); showNotice(t('common.toast.actionFailed')); }
   };
 
+  // תיקון-עקביות (2026-09-20, "reliability pass" audit סעיף 5): כשל כאן היה משחזר את המצב הקודם
+  // בשקט לגמרי - בלי הודעה, בניגוד ל-handleToggleFavorite/handleToggleVisited ממש מעל (ולהתנהגות
+  // המתועדת בהערה שם: "בכשל: שחזור המצב הקודם + הודעה"), ובניגוד גם ל-hideActivityWithFeedback
+  // (lib/interactions.js, עמוד התוצאות) שכבר עושה בדיוק את זה. showNotice הוא אותו מנגנון-הודעה
+  // הקיים כבר בעמוד הזה (לא Toast גלובלי חדש) - אותו common.toast.actionFailed בדיוק כמו שתי
+  // הפונקציות האחיות למעלה, לא ניסוח חדש.
   const handleToggleHidden = async () => {
     if (!userId) return requireLogin();
     const next = !hidden;
@@ -231,9 +254,72 @@ export default function ActivityScreen() {
       showNotice(next ? t('activity.detail.hiddenNotice') : t('activity.detail.unhiddenNotice'));
     } catch {
       setHidden(!next);
+      showNotice(t('common.toast.actionFailed'));
     }
   };
 
+  // שיתוף פעילות (WhatsApp בעיקר, אבל דרך גיליון-השיתוף הכללי כדי שהמשתמש יוכל לבחור יעד אחר) -
+  // Share API של React Native בנייד (opens the native sheet), Web Share API ב-Web כשקיים, ואחרת
+  // שורת fallback (WhatsApp Web + העתקת קישור). תוכן ההודעה/הקישור מגיעים מ-lib/shareActivity.js
+  // (פונקציות טהורות, ראו tests/shareActivity.test.js) - כאן רק ה-IO (Share/Clipboard/Linking).
+  const shareContent = () => {
+    const url = buildActivityShareUrl(String(id));
+    const message = buildActivityShareMessage(activity, { url, t, formatDate });
+    return { url, message };
+  };
+
+  const handleShare = async () => {
+    if (sharing) return; // מניעת לחיצות כפולות בזמן שגיליון השיתוף נפתח
+    setSharing(true);
+    try {
+      if (Platform.OS === 'web') {
+        const { message, url } = shareContent();
+        if (typeof navigator !== 'undefined' && navigator.share) {
+          try {
+            await navigator.share({ text: message, url });
+          } catch (err) {
+            if (err?.name !== 'AbortError') showNotice(t('activity.share.failed')); // AbortError = המשתמש ביטל, לא שגיאה
+          }
+        } else {
+          setShowWebShareFallback((v) => !v);
+        }
+      } else {
+        await Share.share({ message: shareContent().message }); // ביטול ע"י המשתמש (dismissedAction) לא זורק/לא מציג הודעה
+      }
+    } catch {
+      showNotice(t('activity.share.failed'));
+    } finally {
+      setSharing(false);
+    }
+  };
+
+  const handleOpenWhatsAppWeb = () => {
+    try {
+      const { message } = shareContent();
+      const waUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
+      if (Platform.OS === 'web') window.open(waUrl, '_blank');
+      else Linking.openURL(waUrl);
+      setShowWebShareFallback(false);
+    } catch {
+      showNotice(t('activity.share.failed'));
+    }
+  };
+
+  const handleCopyShareLink = async () => {
+    try {
+      const { url } = shareContent();
+      if (typeof navigator === 'undefined' || !navigator.clipboard) throw new Error('clipboard unavailable');
+      await navigator.clipboard.writeText(url);
+      setShowWebShareFallback(false);
+      showNotice(t('activity.share.copied'));
+    } catch {
+      showNotice(t('activity.share.failed'));
+    }
+  };
+
+  // אותו תיקון-עקביות בדיוק כמו handleToggleHidden למטה (סעיף 5 באותו audit) - נמצא באותה
+  // סריקה: גם כאן כשל היה משחזר בשקט לגמרי, בלי הודעה, בניגוד ל-handleToggleFavorite/
+  // handleToggleVisited ממש מעליו.
   const handleTogglePlanned = async () => {
     if (!userId) return requireLogin();
     const next = !planned;
@@ -243,6 +329,7 @@ export default function ActivityScreen() {
       showNotice(next ? t('activity.detail.plannedAdded') : t('activity.detail.plannedRemoved'));
     } catch {
       setPlanned(!next);
+      showNotice(t('common.toast.actionFailed'));
     }
   };
 
@@ -535,9 +622,17 @@ export default function ActivityScreen() {
     });
   };
 
+  // ageKnown (2026-09-20, "reliability pass" audit סעיף 2) - min_age/max_age חסרים-שניהם כבר
+  // לא מתורגמים ל"כל הגילאים" (ראו formatAgeRange, lib/activities.js) אלא ל"לא צוין" - מחרוזת
+  // ניטרלית שמתאימה כערך-שדה עצמאי (activity.ageRange בכרטיס-מידע למעלה), אבל לא בתוך המשפט הזה
+  // ("...מתאים ללא צוין." שבור דקדוקית). כשאין מידע-גיל בכלל, המשפט המחליף פשוט משמיט את סעיף-
+  // הגיל לגמרי (fallbackDescriptionNoAge) - לא ממציא "מתאים לכולם", ולא משבש את המשפט.
+  const ageKnown = activity.min_age != null || activity.max_age != null;
   const descText = activity.description
     || [
-      t('activity.detail.fallbackDescription', { title: activity.title, type: typeLabel, age: activity.ageRange }),
+      ageKnown
+        ? t('activity.detail.fallbackDescription', { title: activity.title, type: typeLabel, age: activity.ageRange })
+        : t('activity.detail.fallbackDescriptionNoAge', { title: activity.title, type: typeLabel }),
       activity.booking_requirement === 'registration_required' ? t('activity.detail.fallbackRegistration') : null,
       activity.indoor_outdoor === 'indoor' ? t('activity.detail.fallbackIndoor') : activity.indoor_outdoor === 'outdoor' ? t('activity.detail.fallbackOutdoor') : null,
     ].filter(Boolean).join(' ');
@@ -545,12 +640,28 @@ export default function ActivityScreen() {
   const heroActions = (
     <>
       <View style={styles.actionRowRight}>
-        <ActionButton onPress={handleToggleFavorite}><StarIcon size={16} filled={favorite} /></ActionButton>
-        <ActionButton onPress={handleTogglePlanned}><CalendarIcon size={16} filled={planned} /></ActionButton>
-        <ActionButton onPress={handleToggleVisited}><CheckIcon size={16} filled={visited} /></ActionButton>
+        <ActionButton onPress={handleShare} disabled={sharing} accessibilityLabel={t('activity.share.button')}>
+          <ShareIcon size={16} />
+        </ActionButton>
+        {/* accessibilityLabel לכל כפתור (2026-09-20, "reliability pass" audit סעיף 6: כפתורי-
+            אייקון-בלבד נחשפו לנגישות רק כ"כפתור" גנרי, בלי לתאר את הפעולה) - מתאר את הפעולה
+            הנוכחית (מצב תלוי-toggle, לא תווית קבועה) בדיוק כמו a11y המקביל שכבר קיים בכרטיס-
+            הפעילות (components/ActivityCard.js, activities.card.a11y.*) - אותו ניסוח בדיוק לאותה
+            פעולה בשני המקומות, לא שני ניסוחים שסוטים זה מזה. */}
+        <ActionButton onPress={handleToggleFavorite} accessibilityLabel={t(favorite ? 'activity.detail.a11y.unfavorite' : 'activity.detail.a11y.favorite')}>
+          <StarIcon size={16} filled={favorite} />
+        </ActionButton>
+        <ActionButton onPress={handleTogglePlanned} accessibilityLabel={t(planned ? 'activity.detail.a11y.unplanned' : 'activity.detail.a11y.planned')}>
+          <CalendarIcon size={16} filled={planned} />
+        </ActionButton>
+        <ActionButton onPress={handleToggleVisited} accessibilityLabel={t(visited ? 'activity.detail.a11y.unvisited' : 'activity.detail.a11y.visited')}>
+          <CheckIcon size={16} filled={visited} />
+        </ActionButton>
       </View>
       <View style={styles.actionRowLeft}>
-        <ActionButton onPress={handleToggleHidden}><HideIcon size={16} /></ActionButton>
+        <ActionButton onPress={handleToggleHidden} accessibilityLabel={t('activity.detail.a11y.hide')}>
+          <HideIcon size={16} />
+        </ActionButton>
       </View>
     </>
   );
@@ -567,9 +678,9 @@ export default function ActivityScreen() {
           <ImageBackground source={{ uri: activity.imageUrl }} style={styles.hero}>
             {heroActions}
           </ImageBackground>
-        ) : placeholderImageFor(activity.placeholderGroup) ? (
+        ) : placeholderImageFor(activity.placeholderGroup, activity.id) ? (
           <ImageBackground
-            source={placeholderImageFor(activity.placeholderGroup)}
+            source={placeholderImageFor(activity.placeholderGroup, activity.id)}
             resizeMode="contain"
             style={[styles.hero, { backgroundColor: placeholderBgColorFor(activity.placeholderGroup) }]}
           >
@@ -583,6 +694,17 @@ export default function ActivityScreen() {
 
         <View style={styles.content}>
           {notice ? <View style={styles.noticeBox}><Text style={styles.noticeText}>{notice}</Text></View> : null}
+          {showWebShareFallback ? (
+            <View style={styles.webShareFallbackRow}>
+              <Pressable style={styles.webShareWhatsAppBtn} onPress={handleOpenWhatsAppWeb} accessibilityRole="button" accessibilityLabel={t('activity.share.openWhatsAppWeb')}>
+                <WhatsAppIcon size={16} />
+                <Text style={styles.webShareWhatsAppBtnText}>{t('activity.share.openWhatsAppWeb')}</Text>
+              </Pressable>
+              <Pressable style={styles.webShareCopyBtn} onPress={handleCopyShareLink} accessibilityRole="button" accessibilityLabel={t('activity.share.copyLink')}>
+                <Text style={styles.webShareCopyBtnText}>{t('activity.share.copyLink')}</Text>
+              </Pressable>
+            </View>
+          ) : null}
           <View style={styles.titleRow}>
             <Text style={styles.title}>{activity.title}</Text>
             <View style={styles.typeBadge}><Text style={styles.typeBadgeText}>{typeLabel}</Text></View>
@@ -617,8 +739,12 @@ export default function ActivityScreen() {
           <View style={styles.infoGrid}>
             <InfoCell Icon={SlidersIcon} label={t('activity.detail.info.ages')} value={ageTileValue} tint={colors.greenTint} />
             <InfoCell Icon={PriceIcon} label={t('activity.detail.info.price')} value={activity.price} tint={colors.greenTint} />
-            <InfoCell Icon={ClockIcon} label={t('activity.detail.info.hours')} value={activity.hours} tint={colors.yellowTint} />
           </View>
+
+          {/* Opening Hours Phase 2 (2026-09-20) - replaces the old 3rd InfoCell above (activity.hours
+              via scheduleHoursLabel showed the flattened openHours envelope - a confirmed display
+              bug for any activity whose hours differ by day). See components/WeeklyHoursSection.js. */}
+          <WeeklyHoursSection activity={activity} />
 
           {activity.occurrences?.length > 1 ? (
             <View style={styles.section}>
@@ -1125,8 +1251,17 @@ const styles = createStyles((d) => ({
   actionRowRight: { position: 'absolute', top: 14, [d.start]: 16, flexDirection: d.row, gap: 8 },
   actionRowLeft: { position: 'absolute', top: 14, [d.end]: 16, flexDirection: 'row', gap: 8 },
   actionBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.92)', alignItems: 'center', justifyContent: 'center' },
+  actionBtnPressed: { opacity: 0.6 },
 
   content: { padding: spacing.xl },
+  webShareFallbackRow: { flexDirection: d.row, gap: 8, marginBottom: 16, flexWrap: 'wrap' },
+  webShareWhatsAppBtn: {
+    flexDirection: d.row, alignItems: 'center', gap: 8,
+    backgroundColor: '#25D366', borderRadius: radii.pill, paddingVertical: 10, paddingHorizontal: 16,
+  },
+  webShareWhatsAppBtnText: { fontFamily: fonts.bold, fontSize: 13, color: '#fff' },
+  webShareCopyBtn: { borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, borderRadius: radii.pill, paddingVertical: 10, paddingHorizontal: 16, justifyContent: 'center' },
+  webShareCopyBtnText: { fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary },
   titleRow: { marginBottom: 8 },
   title: { fontFamily: fonts.extraBold, fontSize: 21, color: colors.textPrimary, textAlign: d.textAlign },
   typeBadge: { alignSelf: d.alignEnd, marginTop: 6, backgroundColor: colors.accentTintLight, borderRadius: 7, paddingVertical: 4, paddingHorizontal: 10 },
