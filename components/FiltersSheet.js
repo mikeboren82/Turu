@@ -17,15 +17,24 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 
 const animate = () => LayoutAnimation.configureNext(LayoutAnimation.create(220, LayoutAnimation.Types.easeInEaseOut, LayoutAnimation.Properties.opacity));
 
-function Chip({ label, selected, onPress }) {
+function Chip({ label, emoji, selected, onPress }) {
   return (
-    <Pressable onPress={onPress} style={[styles.chip, selected && styles.chipSelected]}>
-      <Text style={[styles.chipText, selected && styles.chipTextSelected]} numberOfLines={1}>{label}</Text>
+    <Pressable onPress={onPress} style={[emoji ? styles.iconChip : styles.chip, selected && styles.chipSelected]}>
+      {emoji ? <Text style={styles.iconChipEmoji}>{emoji}</Text> : null}
+      <Text style={[emoji ? styles.iconChipText : styles.chipText, selected && styles.chipTextSelected]} numberOfLines={emoji ? 2 : 1}>
+        {label}
+      </Text>
     </Pressable>
   );
 }
 
+// אופציות-עם-אייקון (כרגע: קטגוריה/"סוג פעילות", היחידה ב-FILTER_SCHEMA עם emoji לכל אופציה) -
+// רשת דו-טורית של מלבנים מסודרים (כמו ה-iconGrid הקיים כבר ב-QuickPicker.js, אותה טכניקה בדיוק:
+// width:'47%'+radii.md) במקום ה-pills ברוחב-משתנה שהיו נדחסות אחת ליד השנייה בלי סדר - בקשת
+// המשתמש: "אמור להראות את האפשרויות בתוך מלבנים מסודרים כמו שהיה בעבר". אופציות בלי emoji (מחיר/
+// גיל/הזמנה/משך וכו') ממשיכות עם ה-pills הרגילות - אין שינוי חזותי אצלן.
 function ChipsGrid({ options, value, multiple, onChange }) {
+  const hasIcons = options.some((o) => o.emoji);
   const toggle = (id) => {
     animate();
     if (multiple) {
@@ -35,9 +44,9 @@ function ChipsGrid({ options, value, multiple, onChange }) {
     }
   };
   return (
-    <View style={styles.chipsWrap}>
+    <View style={hasIcons ? styles.iconChipsWrap : styles.chipsWrap}>
       {options.map((opt) => (
-        <Chip key={opt.id} label={opt.label} selected={value.includes(opt.id)} onPress={() => toggle(opt.id)} />
+        <Chip key={opt.id} label={opt.label} emoji={opt.emoji} selected={value.includes(opt.id)} onPress={() => toggle(opt.id)} />
       ))}
     </View>
   );
@@ -388,6 +397,17 @@ const styles = createStyles((d) => ({
   chipSelected: { backgroundColor: colors.accentTintLight, borderColor: colors.accent },
   chipText: { fontFamily: fonts.semiBold, fontSize: 12.5, color: colors.textSecondary },
   chipTextSelected: { color: colors.accent, fontFamily: fonts.bold },
+
+  // רשת-מלבנים לאופציות-עם-אייקון (ראו ChipsGrid למעלה) - אותם טוקנים בדיוק כמו iconGrid/iconRow
+  // ב-QuickPicker.js, כדי ש"סוג פעילות" ייראה עקבי עם שאר מקומות-הבחירה-בקטגוריה באפליקציה.
+  iconChipsWrap: { flexDirection: d.row, flexWrap: 'wrap', gap: 10, justifyContent: 'space-between' },
+  iconChip: {
+    width: '47%', flexDirection: d.row, alignItems: 'center', gap: 8,
+    backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: radii.md,
+    paddingVertical: 11, paddingHorizontal: 10,
+  },
+  iconChipEmoji: { fontSize: 18, width: 22, textAlign: 'center' },
+  iconChipText: { flex: 1, fontFamily: fonts.semiBold, fontSize: 12.5, color: colors.textSecondary, textAlign: d.textAlign },
 
   subSection: { marginTop: 14 },
   subLabel: { fontFamily: fonts.bold, fontSize: 12, color: colors.textSecondary, marginBottom: 8 },

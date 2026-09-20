@@ -7,8 +7,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, Pressable, Image, ScrollView } from 'react-native';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import MarkerClusterGroup from 'react-leaflet-cluster';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import 'leaflet.markercluster/dist/MarkerCluster.css';
+import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 import { useRouter } from 'expo-router';
 import { colors, fonts, radii } from '../constants/theme';
 import { ChevronLeftIcon } from './icons';
@@ -92,9 +95,9 @@ function SingleActivityPreview({ activity, onOpen }) {
     <Pressable style={styles.previewCard} onPress={onOpen}>
       {activity.imageUrl ? (
         <Image source={{ uri: activity.imageUrl }} style={styles.previewImage} />
-      ) : placeholderImageFor(activity.placeholderGroup) ? (
+      ) : placeholderImageFor(activity.placeholderGroup, activity.id) ? (
         <Image
-          source={placeholderImageFor(activity.placeholderGroup)}
+          source={placeholderImageFor(activity.placeholderGroup, activity.id)}
           resizeMode="contain"
           style={[styles.previewImage, { backgroundColor: placeholderBgColorFor(activity.placeholderGroup) }]}
         />
@@ -156,31 +159,43 @@ export default function ActivitiesMap({ activities, deviceCoords }) {
         />
         <FitOnMount groups={groups} deviceCoords={deviceCoords} />
 
+        {/* deviceCoords ("המיקום שלי") נשאר מחוץ ל-cluster group בכוונה - נקודת-מיקום, לא פעילות
+            שאמורה להצטרף/להיספר בתוך אשכול. */}
         {deviceCoords ? <Marker position={[deviceCoords.latitude, deviceCoords.longitude]} icon={USER_DOT_ICON} /> : null}
 
-        {groups.map((g) => {
-          const key = `${g.lat.toFixed(5)},${g.lng.toFixed(5)}`;
-          const isSelected = selectedKey === key;
-          return (
-            <Marker
-              key={key}
-              position={[g.lat, g.lng]}
-              icon={pinIcon(isSelected ? colors.coralStrong : colors.accent, isSelected)}
-              eventHandlers={{
-                click: () => setSelectedKey(key),
-                popupclose: () => setSelectedKey((prev) => (prev === key ? null : prev)),
-              }}
-            >
-              <Popup>
-                {g.items.length === 1 ? (
-                  <SingleActivityPreview activity={g.items[0]} onOpen={() => router.push(`/activity/${g.items[0].id}`)} />
-                ) : (
-                  <MultiActivityPreview activities={g.items} router={router} />
-                )}
-              </Popup>
-            </Marker>
-          );
-        })}
+        {/* Marker clustering (2026-09-20, "reliability pass" audit סעיף 4) - בתצוגה-ארצית ("כל
+            הארץ") יכולות להיות אלפי סיכות חופפות שמכסות את המפה. react-leaflet-cluster (עוטף
+            את leaflet.markercluster, הספרייה הסטנדרטית/היציבה לצורך הזה) עוטף בדיוק את אותם
+            <Marker>/<Popup> הקיימים בלי לשנות אותם בכלל - שום שינוי בהתנהגות-סיכה-בודדת (לחיצה/
+            פופ-אפ/selectedKey) פרט לכך שבזום-רחוק סיכות קרובות מתקבצות לעיגול-מספר אחד, ומתפרקות
+            חזרה לסיכות אמיתיות תוך זום-פנימה - טבעי, לא רשימה חדשה של "אילו פעילויות מוצגות".
+            peerDependencies נבדקו תואמים במפורש ל-react/react-leaflet המותקנים כאן (5.x/19.x) -
+            לא "ניחוש-תאימות". chunkedLoading מונע חסימת ה-UI ברינדור-ראשוני של אלפי סיכות יחד. */}
+        <MarkerClusterGroup chunkedLoading showCoverageOnHover={false}>
+          {groups.map((g) => {
+            const key = `${g.lat.toFixed(5)},${g.lng.toFixed(5)}`;
+            const isSelected = selectedKey === key;
+            return (
+              <Marker
+                key={key}
+                position={[g.lat, g.lng]}
+                icon={pinIcon(isSelected ? colors.coralStrong : colors.accent, isSelected)}
+                eventHandlers={{
+                  click: () => setSelectedKey(key),
+                  popupclose: () => setSelectedKey((prev) => (prev === key ? null : prev)),
+                }}
+              >
+                <Popup>
+                  {g.items.length === 1 ? (
+                    <SingleActivityPreview activity={g.items[0]} onOpen={() => router.push(`/activity/${g.items[0].id}`)} />
+                  ) : (
+                    <MultiActivityPreview activities={g.items} router={router} />
+                  )}
+                </Popup>
+              </Marker>
+            );
+          })}
+        </MarkerClusterGroup>
       </MapContainer>
 
       {/* תוצאות קיימות, אבל אף אחת מהן עם מיקום ידוע - אותו טקסט/עיצוב בדיוק כמו המפה הנייטיבית

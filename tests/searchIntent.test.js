@@ -37,7 +37,7 @@ const { hasGeographicCue, hasChildReferenceCue, resolveLocationIntent, normalize
 const { intentToFilters, parseSmartSearchQuery, needsAreaClarification } = require('../lib/smartSearch');
 const {
   applyFilters, rankActivities, applyFiltersWithSmartRadius, locationWithDrivingTime, locationWithAnyDistance,
-  locationWithNoRestriction, travelSelection,
+  locationWithNoRestriction, locationWithNoTravelPreference, travelSelection,
 } = require('../lib/filterActivities');
 const { DEFAULT_FILTERS, DEFAULT_PRECISE_RADIUS_KM } = require('../constants/filterSchema');
 const { requestCurrentPosition, applyCurrentPositionResult } = require('../lib/currentPosition');
@@ -705,12 +705,23 @@ test('TRAVEL J: בלי מיקום drops every travel field - no stale restrictio
   }
 });
 
-test('TRAVEL K: בלי מיקום → חיפה starts from the normal default (driving 15), not the old 30', () => {
+test('TRAVEL K: בלי מיקום → חיפה starts with no travel preference (not the old 30, and no auto-default either)', () => {
   const nationwide = pickNoLocation(pickCity('חיפה', 30));
   const typed = { ...nationwide, mode: 'city', city: 'חיפה' };
-  assert.equal(typed.travelMode, undefined, 'nothing to restore - the picker applies its first-time default');
-  const picked = locationWithDrivingTime(typed, 15); // commitLocation: travelMode undefined → driving 15
-  assert.deepEqual(travelSelection(picked), { walking: false, driving: true, minutes: 15, noTimeLimit: false });
+  assert.equal(typed.travelMode, undefined, 'nothing to restore - commitLocation no longer applies an auto-default (2026-09-20)');
+  assert.deepEqual(travelSelection(typed), { walking: false, driving: false, minutes: null, noTimeLimit: false });
+});
+
+test('TRAVEL L: tapping an already-selected minutes chip again (selectDrivingMinutes toggle-off) fully returns to "no preference" - not just travelMinutes:null', () => {
+  const chosen = pickCity('חיפה', 30); // user explicitly picked 30 min
+  const toggledOff = locationWithNoTravelPreference(chosen);
+  assert.equal('travelMode' in toggledOff, false, 'travelMode itself is gone, not left as driving');
+  assert.equal('travelMinutes' in toggledOff, false);
+  assert.equal(toggledOff.radiusKm, null, 'the old toggle-off bug left radiusKm stuck at DEFAULT_PRECISE_RADIUS_KM/city-radius; this must not happen');
+  assert.deepEqual(travelSelection(toggledOff), { walking: false, driving: false, minutes: null, noTimeLimit: false });
+  // city/mode/everything else untouched - only the travel preference is reset
+  assert.equal(toggledOff.mode, 'city');
+  assert.equal(toggledOff.city, 'חיפה');
 });
 
 test('SMART SEARCH: "זהבה" + חולון + no time limit keeps q and the origin city', () => {
@@ -724,7 +735,9 @@ test('SMART SEARCH: "זהבה" + חולון + no time limit keeps q and the orig
 // ---------------------------------------------------------------------------
 // "השתמשו במיקום שלי": 'current' נשמר רק אחרי הרשאה + מיקום שמיש של *הבקשה הזו*.
 // אותו רצף בדיוק כמו useCurrentLocation ב-LocationQuickPicker: requestCurrentPosition →
-// applyCurrentPositionResult → (commitLocation: travelMode ריק → נסיעה 15).
+// applyCurrentPositionResult. commitLocation כבר לא מחיל ברירת-מחדל אוטומטית של "נסיעה 15"
+// (2026-09-20, בקשת המשתמש: "אם לא נבחרה שום אפשרות, הדיפולט הוא שמרחק נסיעה לא רלוונטי") -
+// travelMode נשאר undefined עד בחירה מפורשת של המשתמש באחד מ-15/30/45.
 // ---------------------------------------------------------------------------
 
 const fakeLocation = ({ status = 'granted', canAskAgain, permissionThrows = false, position, positionThrows = false, hang = false } = {}) => {
@@ -744,12 +757,12 @@ const fakeLocation = ({ status = 'granted', canAskAgain, permissionThrows = fals
     },
   };
 };
-// הבורר: תוצאה → מיקום (כישלון = אותו אובייקט בדיוק) → ברירת-המחדל של commitLocation
+// הבורר: תוצאה → מיקום (כישלון = אותו אובייקט בדיוק, הצלחה = mode:'current' בלבד - אין יותר
+// ברירת-מחדל אוטומטית של travelMode, ראו ההערה למעלה).
 const tapMyLocation = async (prev, api, opts) => {
   const result = await requestCurrentPosition(api, opts);
   const next = applyCurrentPositionResult(prev, result);
-  const location = result.ok && next.location.travelMode === undefined ? locationWithDrivingTime(next.location, 15) : next.location;
-  return { result, location, coords: next.coords };
+  return { result, location: next.location, coords: next.coords };
 };
 const FAILURES = {
   denied: () => fakeLocation({ status: 'denied' }),
@@ -798,14 +811,14 @@ test('GPS B: every failure kind leaves UNKNOWN unknown (never current, never nat
   }
 });
 
-test('GPS C: permission + valid position -> current mode, the fresh coordinates, the existing driving default', async () => {
+test('GPS C: permission + valid position -> current mode, the fresh coordinates, no travel preference by default', async () => {
   const { result, location, coords } = await tapMyLocation(PICKED_NOTHING, fakeLocation());
   assert.equal(result.ok, true);
   assert.deepEqual(coords, { latitude: HAIFA.lat, longitude: HAIFA.lng });
   assert.equal(location.mode, 'current');
-  assert.equal(location.travelMode, 'driving');
-  assert.equal(location.travelMinutes, 15);
-  assert.equal(location.radiusKm, DEFAULT_PRECISE_RADIUS_KM);
+  assert.equal(location.travelMode, undefined, 'no auto-default (2026-09-20) - stays unset until the user explicitly picks 15/30/45');
+  assert.equal(location.travelMinutes, undefined);
+  assert.equal(location.radiusKm, null, 'not relevant by default - matchesLocation skips distance filtering entirely');
 });
 
 test('GPS D: existing city חיפה + failed attempt -> חיפה (and its travel choice) preserved exactly', async () => {
@@ -846,13 +859,17 @@ test('GPS F-H: "זהבה" + GPS denied keeps q pending; then חולון or בל�
   assert.deepEqual([nationwide.q, nationwide.location.mode], ['זהבה', 'nationwide']);
 });
 
-test('GPS I: "זהבה" + GPS success -> q kept, current mode, and the origin really drives distance filtering', async () => {
+test('GPS I: "זהבה" + GPS success -> q kept, current mode, no hard distance filter by default (but ranking still prefers close activities)', async () => {
   const { location, coords } = await tapMyLocation(PICKED_NOTHING, fakeLocation());
   const filters = intentToFilters(prod('זהבה'), { children: [], fallbackLocation: location });
   assert.equal(filters.q, 'זהבה');
   assert.equal(filters.location.mode, 'current');
-  // the coordinates Results receives (homeCoords) filter by distance: Tel Aviv (~80 km) is out
-  assert.deepEqual(ids(applyFilters(TRAVEL_CATALOG, withLocation(filters.location), coords, [], [], [], [])), ['h1', 'h2']);
+  assert.equal(filters.location.radiusKm, null, 'no travel preference chosen - not relevant, ראו commitLocation');
+  // no hard filter: everything qualifies, including the ~80 km Tel Aviv result
+  assert.deepEqual(ids(applyFilters(TRAVEL_CATALOG, withLocation(filters.location), coords, [], [], [], [])), ['h1', 'h2', 'ka', 'ta']);
+  // but ranking still prefers close activities first ("עדיין רצוי להציע פעילויות קרובות למשתמש")
+  const ranked = rankActivities(TRAVEL_CATALOG, withLocation(filters.location), coords, [], [], [], null, null, []).map((a) => a.id);
+  assert.equal(ranked[ranked.length - 1], 'ta', 'the farthest activity still ranks last');
 });
 
 test('GPS J: "my location" is only ever committed together with usable fresh coordinates', async () => {

@@ -147,7 +147,9 @@
     "categories_other": "{{count}} קטגוריות",
     "whenOptions_other": "{{count}} אפשרויות זמן",
     "activityTypes_one": "סוג פעילות אחד",
-    "activityTypes_other": "{{count}} סוגי פעילויות"
+    "activityTypes_other": "{{count}} סוגי פעילויות",
+    "ageRange": "לגילאי {{min}}–{{max}}",
+    "ageFrom": "מגיל {{min}}"
   },
   "location": {
     "nationwide": "כל הארץ",

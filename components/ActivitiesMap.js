@@ -64,9 +64,9 @@ export default function ActivitiesMap({ activities, deviceCoords }) {
         <Pressable style={styles.previewCard} onPress={() => router.push(`/activity/${selected.id}`)}>
           {selected.imageUrl ? (
             <Image source={{ uri: selected.imageUrl }} style={styles.previewImage} />
-          ) : placeholderImageFor(selected.placeholderGroup) ? (
+          ) : placeholderImageFor(selected.placeholderGroup, selected.id) ? (
             <Image
-              source={placeholderImageFor(selected.placeholderGroup)}
+              source={placeholderImageFor(selected.placeholderGroup, selected.id)}
               resizeMode="contain"
               style={[styles.previewImage, { backgroundColor: placeholderBgColorFor(selected.placeholderGroup) }]}
             />

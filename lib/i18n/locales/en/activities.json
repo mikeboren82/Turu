@@ -33,6 +33,34 @@
     "expandedSmall": "We widened the search a little to find you more activities ✨",
     "expandedTo15": "We widened the search to 15 km to find you more activities ✨"
   },
+  "resultsSummary": {
+    "prefix": "Showing",
+    "genericWhat": "activities",
+    "freeTextWhat": "activities matching \"{{query}}\"",
+    "near": "near you",
+    "nearPlace": "near {{place}}",
+    "inArea": "in the {{place}} area",
+    "nationwide": "all across Israel",
+    "walking": "within walking distance",
+    "drivingMinutes": "up to a {{minutes}} min drive",
+    "onDate": "on {{date}}",
+    "hourRange": "between {{start}} and {{end}}",
+    "when": {
+      "now": "right now",
+      "today": "today",
+      "tomorrow": "tomorrow",
+      "weekend": "this weekend",
+      "week": "this week",
+      "nextWeek": "next week"
+    },
+    "hour": {
+      "morning": "in the morning",
+      "noon": "at noon",
+      "afternoon": "in the afternoon",
+      "evening": "in the evening",
+      "night": "at night"
+    }
+  },
   "results": {
     "loadError": "We couldn't load activities",
     "emptyWalking": "We didn't find activities within walking distance 🚶",

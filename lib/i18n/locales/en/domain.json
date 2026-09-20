@@ -147,7 +147,9 @@
     "categories_other": "{{count}} categories",
     "whenOptions_other": "{{count}} time options",
     "activityTypes_one": "1 activity type",
-    "activityTypes_other": "{{count}} activity types"
+    "activityTypes_other": "{{count}} activity types",
+    "ageRange": "ages {{min}}–{{max}}",
+    "ageFrom": "age {{min}}+"
   },
   "location": {
     "nationwide": "All of Israel",

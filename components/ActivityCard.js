@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { View, Text, Pressable, ImageBackground } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -13,13 +14,27 @@ function ActionButton({ children, onPress, accessibilityLabel }) {
   );
 }
 
-export default function ActivityCard({
+// React.memo (2026-09-20, "Performance Phase 1" audit סעיף 4A) - בלי זה, כל כרטיס נבנה-מחדש
+// בכל רינדור של הרשימה כולה, גם כשאף prop שלו לא השתנה בפועל (ה-audit מדד ~118ms תקיעת-thread
+// על סימון-מועדף/ביקרתי בודד ברשימה של אלפי כרטיסים). ההשוואה הרדודה-כברירת-מחדל של memo
+// מספיקה: כל ה-props המועברים כאן הם primitives (מחרוזות/booleans/מספרים) חוץ מ-recommendedBy/
+// gradient - שניהם references שנשארים יציבים בין רינדורים כשהפעילות עצמה לא השתנתה (ראו
+// app/activities.js#filteredActivities: השכבה היקרה שמחשבת distance/matchReason/gradient
+// מופרדת מהשכבה הזולה שרק מצרפת favorite/visited/hasNote - כך שלכרטיסים לא-קשורים כל
+// ה-props נשארים === בין רינדורים, וה-memo חוסך את כל עץ-ה-JSX למטה).
+// onToggleFavorite/onToggleVisited/onOpenNote/onHide (חדש - שינוי-API) מקבלים עכשיו את ה-id
+// (ואת title, ל-onOpenNote) כפרמטר בזמן-הקריאה, במקום שה-parent יעטוף כל אחד ב-closure חדש
+// per-item per-render (`() => handleToggleFavorite(a.id)`); ה-parent מזין את אותה פונקציה
+// יציבה בדיוק (useCallback) לכל הכרטיסים - שם ה-reference חייב להישאר קבוע כדי ש-memo יעבוד.
+function ActivityCard({
   id,
   title,
   type,
   distance,
   city = null,
   ageRange,
+  min_age = null,
+  max_age = null,
   price,
   hours,
   gradient,
@@ -52,16 +67,16 @@ export default function ActivityCard({
   const imageOverlay = (
     <>
       <View style={styles.topLeft}>
-        <ActionButton onPress={stop(onHide)} accessibilityLabel={t('activities.card.a11y.hide')}><HideIcon size={14} /></ActionButton>
+        <ActionButton onPress={stop(() => onHide?.(id))} accessibilityLabel={t('activities.card.a11y.hide')}><HideIcon size={14} /></ActionButton>
       </View>
       {/* עמודה אנכית אחת בצד ימין: מועדפים למעלה, "כבר הייתי כאן" באמצע, הערה למטה - סדר
           שהמשתמש ביקש במפורש. "כבר הייתי כאן" עבר מתג-טקסט רחב לכפתור עגול תמציתי כמו שני
           האחרים (filled ירוק כשמסומן, כמו ש-StarIcon כבר עושה ל-favorite) כדי שהעמודה תישאר
           קומפקטית ואחידה. */}
       <View style={styles.rightStack}>
-        <ActionButton onPress={stop(onToggleFavorite)} accessibilityLabel={t(favorite ? 'activities.card.a11y.unfavorite' : 'activities.card.a11y.favorite')}><StarIcon size={14} filled={favorite} /></ActionButton>
-        <ActionButton onPress={stop(onToggleVisited)} accessibilityLabel={t(visited ? 'activities.card.a11y.unvisited' : 'activities.card.a11y.visited')}><CheckIcon size={14} filled={visited} /></ActionButton>
-        <ActionButton onPress={stop(onOpenNote)} accessibilityLabel={t('activities.card.a11y.note')}><NoteIcon size={14} color={hasNote ? colors.accent : colors.textPrimary} /></ActionButton>
+        <ActionButton onPress={stop(() => onToggleFavorite?.(id))} accessibilityLabel={t(favorite ? 'activities.card.a11y.unfavorite' : 'activities.card.a11y.favorite')}><StarIcon size={14} filled={favorite} /></ActionButton>
+        <ActionButton onPress={stop(() => onToggleVisited?.(id))} accessibilityLabel={t(visited ? 'activities.card.a11y.unvisited' : 'activities.card.a11y.visited')}><CheckIcon size={14} filled={visited} /></ActionButton>
+        <ActionButton onPress={stop(() => onOpenNote?.(id, title))} accessibilityLabel={t('activities.card.a11y.note')}><NoteIcon size={14} color={hasNote ? colors.accent : colors.textPrimary} /></ActionButton>
       </View>
     </>
   );
@@ -75,9 +90,9 @@ export default function ActivityCard({
         <ImageBackground source={{ uri: imageUrl }} style={styles.image}>
           {imageOverlay}
         </ImageBackground>
-      ) : placeholderImageFor(placeholderGroup) ? (
+      ) : placeholderImageFor(placeholderGroup, id) ? (
         <ImageBackground
-          source={placeholderImageFor(placeholderGroup)}
+          source={placeholderImageFor(placeholderGroup, id)}
           resizeMode="contain"
           style={[styles.image, { backgroundColor: placeholderBgColorFor(placeholderGroup) }]}
         >
@@ -111,7 +126,14 @@ export default function ActivityCard({
         ) : null}
         <View style={styles.statsRow}>
           <View style={styles.statsGroup}>
-            <Text style={styles.stat}>{ageRange}</Text>
+            {/* גיל-לא-ידוע לגמרי (min_age/max_age שניהם null) מושמט לגמרי מהכרטיס - לא מוצג
+                "לא צוין"/"כל הגילאים" (2026-09-20, "reliability pass" audit סעיף 2: "ACTIVITY
+                CARDS: omit the age label when age information is completely unknown"). statsGroup
+                מבוסס gap (לא מפרידי-"·" ידניים), אז השמטת ה-Text כאן פשוט מכווצת את הרווח בלי
+                תו-הפרדה יתום. כל טווח-גיל אמיתי (גם חלקי, min בלבד/max בלבד) עדיין מוצג כרגיל -
+                ageRange עצמו (lib/activities.js#formatAgeRange) כבר מטפל בהבחנה בין "לא הוזן" ל
+                "הוזן חלקית". */}
+            {min_age != null || max_age != null ? <Text style={styles.stat}>{ageRange}</Text> : null}
             <Text style={[styles.stat, styles.statPrice]}>{price}</Text>
             <Text style={styles.stat}>{hours}</Text>
             {requiresTicket ? <Text style={styles.ticketBadge}>{t('activities.card.ticket')}</Text> : null}
@@ -134,6 +156,8 @@ export default function ActivityCard({
     </Pressable>
   );
 }
+
+export default memo(ActivityCard);
 
 const styles = createStyles((d) => ({
   card: {

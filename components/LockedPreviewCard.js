@@ -16,10 +16,10 @@ import { placeholderImageFor, PLACEHOLDER_IMAGES } from '../lib/placeholderImage
 // placeholderImageFor(placeholderGroup)), עם תמונת-branding אמיתית כ-fallback אחרון (במקום
 // gradient מצויר) - כדי שתמיד יהיה <Image> אמיתי להפעיל עליו blurRadius, גם לפני
 // שהפעילויות האמיתיות נטענות (recActivities עדיין ב-recLoading) - אין רגע של skeleton.
-const PREVIEW_FALLBACK_IMAGES = Object.values(PLACEHOLDER_IMAGES);
+const PREVIEW_FALLBACK_IMAGES = Object.values(PLACEHOLDER_IMAGES).flat();
 function sourceForLockedCard(activity, index) {
   if (activity?.imageUrl) return { uri: activity.imageUrl };
-  const ph = activity?.placeholderGroup ? placeholderImageFor(activity.placeholderGroup) : null;
+  const ph = activity?.placeholderGroup ? placeholderImageFor(activity.placeholderGroup, activity?.id ?? index) : null;
   if (ph) return ph;
   return PREVIEW_FALLBACK_IMAGES[index % PREVIEW_FALLBACK_IMAGES.length];
 }

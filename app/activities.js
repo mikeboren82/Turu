@@ -1,5 +1,5 @@
-import { useState, useMemo, useEffect } from 'react';
-import { View, Text, ScrollView, Pressable, ActivityIndicator, Modal, TextInput } from 'react-native';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import { View, Text, ScrollView, FlatList, Pressable, ActivityIndicator, Modal, TextInput } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as Location from 'expo-location';
 import Header from '../components/Header';
@@ -18,8 +18,8 @@ import { fetchUserActivityFlags, toggleFavorite, toggleVisited, savePersonalNote
 import { fetchUserPreferences, saveExcludedCategories, saveExcludedCities, saveExcludedRegions } from '../lib/preferences';
 import { supabase } from '../lib/supabase';
 import { DEFAULT_FILTERS, CATEGORY_FILTER_OPTIONS } from '../constants/filterSchema';
-import { categorySummary } from '../lib/filterSummaries';
-import { rankActivitiesWithSmartRadius, countActiveFilters, normalizeFilters, getOpenNowInfo, isOpenOrOpeningSoon, haversineKm, locationWithDrivingTime } from '../lib/filterActivities';
+import { categorySummary, buildResultsSummary } from '../lib/filterSummaries';
+import { rankActivitiesWithSmartRadius, countActiveFilters, normalizeFilters, getOpenNowInfo, haversineKm, locationWithDrivingTime } from '../lib/filterActivities';
 import { formatBenefitCardTag } from '../lib/benefits';
 import { buildMatchReasons } from '../lib/matchReasons';
 import { parseSmartSearchQuery, intentToFilters } from '../lib/smartSearch';
@@ -28,9 +28,11 @@ import { formatKm } from '../lib/i18n/format';
 
 const BOOKING_REQUIRED_VALUES = ['registration_required', 'advance_booking'];
 const SPONTANEOUS_TOP_COUNT = 5;
-// "מה קרוב?" (nearMe==='true') - בקשת המשתמש: "רק פעילויות פתוחות, בתוספת פעילויות שייפתחו תוך
-// 30 דקות". ראו isOpenOrOpeningSoon (lib/filterActivities.js) למקור-האמת/חריגת-גני-השעשועים.
-const NEARME_OPEN_WITHIN_MINUTES = 30;
+
+// keyExtractor (2026-09-20, "Performance Phase 1" audit סעיף 4B) - הועבר ל-module scope: אין לו
+// שום תלות ב-state/props של הקומפוננטה, אז אין שום סיבה שהוא ייווצר-מחדש בכל רינדור (בניגוד
+// ל-renderActivityCard, שכן תלוי ב-handlers ולכן useCallback בתוך הקומפוננטה).
+const keyExtractor = (a) => String(a.id);
 
 // 🪄 ספונטני - "למה הפעילות הזו מופיעה עכשיו" (סעיף 11 בבקשת שדרוג הספונטני): רק מידע שהמערכת
 // יודעת בפועל (openHours/availableDays/booking_requirement קיימים) - null כשאין נתון, לעולם
@@ -112,6 +114,22 @@ export default function ActivitiesScreen() {
   const [visitedIds, setVisitedIds] = useState(new Set());
   const [hiddenIds, setHiddenIds] = useState(new Set());
   const [notes, setNotes] = useState([]); // מ-fetchAllPersonalNotes - לכפתור "📝 הערה" בכרטיס הפעילות
+  // *Ref (2026-09-20, "Performance Phase 1" audit סעיף 4C) - עותק תמיד-עדכני של favoriteIds/
+  // visitedIds/notes שנקרא רק בתוך handlers (לא בזמן-רינדור) - כדי ש-handleToggleFavorite/
+  // handleToggleVisited/openNoteModal למטה יוכלו להישאר useCallback עם תלות יחידה (userId) בלבד,
+  // בלי להיות תלויים ב-favoriteIds/visitedIds/notes עצמם. בלי זה, ה-identity של ה-handlers הייתה
+  // משתנה בכל toggle (כי הם קוראים favoriteIds.has(id) כדי לחשב את "next") - מה שהיה שובר בשקט
+  // את React.memo(ActivityCard): toggle על כרטיס אחד היה מחליף את ה-prop onToggleFavorite/
+  // onToggleVisited/onOpenNote אצל *כל* שאר הכרטיסים ברשימה (אותה פונקציה יציבה מוזנת לכולם),
+  // וגורם לכולם לרנדר-מחדש - בדיוק העלות שה-audit מדד (118ms stall). הקצאה ישירה בגוף-הרינדור
+  // (לא useEffect) בכוונה - useEffect היה מציג "רינדור אחד מפגר" (ה-ref עדיין נושא את הערך
+  // הקודם בזמן ה-render של אותו tick), וזה לא נחוץ כאן כי הערך נקרא רק בתוך handler מאוחר יותר.
+  const favoriteIdsRef = useRef(favoriteIds);
+  favoriteIdsRef.current = favoriteIds;
+  const visitedIdsRef = useRef(visitedIds);
+  visitedIdsRef.current = visitedIds;
+  const notesRef = useRef(notes);
+  notesRef.current = notes;
   const [noteModalTarget, setNoteModalTarget] = useState(null); // { activity_id, activity: { name } }
   const [noteModalDraft, setNoteModalDraft] = useState('');
   const [savingNote, setSavingNote] = useState(false);
@@ -359,10 +377,11 @@ export default function ActivitiesScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // "📍 מה יש סביבי?" (app/index.js handleNearMePress/goNearMe) - GPS/הרשאה כבר טופלו בעמוד
-  // הבית לפני הניווט (homeFilters כבר מגיע עם location.mode:'current'+radiusKm:10, homeCoords
-  // עם הקואורדינטות שהתקבלו); כל מה שנשאר לעשות כאן זה sortMode:'distance' פעם אחת ב-mount,
-  // בדיוק כמו טיפול spontaneous/view למעלה - לא זרימת-הרשאה מקבילה.
+  // "מה קרוב?" (app/index.js handleNearMePress/goNearMe) - GPS/הרשאה כבר טופלו בעמוד הבית לפני
+  // הניווט (homeFilters כבר מגיע עם location.mode:'current'+radiusKm:null - בלי חיתוך-רדיוס,
+  // ראו ההערה המלאה ב-goNearMe; homeCoords עם הקואורדינטות שהתקבלו); כל מה שנשאר לעשות כאן זה
+  // sortMode:'distance' פעם אחת ב-mount, בדיוק כמו טיפול spontaneous/view למעלה - לא זרימת-
+  // הרשאה מקבילה. חיתוך-ל-50 (NEARME_RESULT_LIMIT) קורה בנפרד ב-sortedActivities למטה.
   useEffect(() => {
     if (nearMe === 'true') setSortMode('distance');
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -449,31 +468,36 @@ export default function ActivitiesScreen() {
   // מועדפים/"כבר הייתי כאן"/הסתרה - הלוגיקה המשותפת (אופטימי+שחזור-בכשל+הודעה) עברה ל-
   // lib/interactions.js (toggleWithFeedback/hideActivityWithFeedback), כדי שהיא תהיה זהה
   // בדיוק כמו בעמוד הבית (app/index.js) - לא שני מימושים מקבילים.
-  const handleToggleFavorite = (activityId) => {
+  // useCallback עם תלות יחידה [userId] בלבד (2026-09-20, "Performance Phase 1" סעיף 4C) - קוראים
+  // ל-favoriteIdsRef/visitedIdsRef.current (לא ל-favoriteIds/visitedIds ישירות) בדיוק כדי ש-
+  // ה-identity של הפונקציה לא תשתנה בכל toggle - ראו ההערה המלאה ליד הגדרת ה-refs למעלה.
+  // אותה סמנטיקה בדיוק כמו קודם (אופטימי+שחזור-בכשל+הודעה), רק שהקריאה ל-favoriteIds.has נעשית
+  // דרך ref במקום סגירה-ישירה על ה-state.
+  const handleToggleFavorite = useCallback((activityId) => {
     if (!userId) return requireLogin();
-    const next = !favoriteIds.has(activityId);
+    const next = !favoriteIdsRef.current.has(activityId);
     toggleWithFeedback(setFavoriteIds, activityId, next, () => toggleFavorite(userId, activityId, next));
-  };
+  }, [userId]);
 
-  const handleToggleVisited = (activityId) => {
+  const handleToggleVisited = useCallback((activityId) => {
     if (!userId) return requireLogin();
-    const next = !visitedIds.has(activityId);
+    const next = !visitedIdsRef.current.has(activityId);
     toggleWithFeedback(setVisitedIds, activityId, next, () => toggleVisited(userId, activityId, next));
-  };
+  }, [userId]);
 
-  const handleHide = (activityId) => {
+  const handleHide = useCallback((activityId) => {
     if (!userId) return requireLogin();
     hideActivityWithFeedback(setHiddenIds, userId, activityId);
-  };
+  }, [userId]);
 
   // 📝 הערה אישית ישירות מכרטיס הפעילות - אותו דפוס בדיוק כמו openNoteModal/saveNoteModal
   // ב-app/my-things.js, רק על notes/notesByActivity המקומיים של העמוד הזה.
-  const openNoteModal = (activityId, activityName) => {
+  const openNoteModal = useCallback((activityId, activityName) => {
     if (!userId) return requireLogin();
-    const existing = notes.find((n) => n.activity_id === activityId);
+    const existing = notesRef.current.find((n) => n.activity_id === activityId);
     setNoteModalTarget(existing || { activity_id: activityId, activity: { name: activityName } });
     setNoteModalDraft(existing ? existing.note : '');
-  };
+  }, [userId]);
 
   const saveNoteModal = async () => {
     if (!noteModalTarget || !userId) return;
@@ -521,14 +545,26 @@ export default function ActivitiesScreen() {
       : null,
   }), [rankedResult, filters.location]);
 
-  const filteredActivities = useMemo(
+  // enrichedActivities/filteredActivities פוצלו לשתי שכבות (2026-09-20, "Performance Phase 1"
+  // audit סעיף 4C, בעקבות המדידה: "one 'visited' toggle -> 118ms main-thread stall"): קודם
+  // הכל היה useMemo אחד שתלוי גם ב-favoriteIds/visitedIds - כלומר סימון-מועדף/ביקרתי בודד היה
+  // מריץ מחדש haversineKm כפול + buildMatchReasons/formatBenefitCardTag על *כל* הפעילויות
+  // המדורגות (עד ~5,585), לא רק על זו שסומנה. עכשיו: enrichedActivities (למטה) מחשב את כל מה
+  // שיקר (distance/distanceKm/benefitTag/matchReason) ותלוי רק ב-hiddenIds+קלט-החיפוש עצמו - לא
+  // ב-favoriteIds/visitedIds/notesByActivity בכלל. filteredActivities (אחריו) הוא רק "מיפוי-הצמדה"
+  // זול (Set.has פעמיים + Map.has פעם) שמריץ מחדש בכל toggle - אבל בלי אף חישוב יקר. שום שינוי-
+  // סמנטיקה: אותם activities/distance/matchReason/favorite/visited/hasNote בדיוק כמו קודם, רק
+  // מפוצלים לשני useMemo נפרדים במקום אחד.
+  const enrichedActivities = useMemo(
     () => rankedResult.activities
       .filter((a) => !hiddenIds.has(a.id))
-      // "מה קרוב?" (nearMe==='true') - חוסם, לא רק ממיין: בקשת המשתמש המפורשת: "רק פעילויות
-      // פתוחות, בתוספת פעילויות שייפתחו תוך 30 דקות" - לא ג'ימבורי סגור/הצגה לא-פעילה גם אם
-      // קרובים. מוחל כאן (לא רק על sortedActivities למטה) כדי שכל מה שתלוי ב-filteredActivities -
-      // מונה-התוצאות בכותרת, מסך-ריק, תצוגת-מפה - יישאר עקבי איתו, במקום לסנן רק את מה שמוצג בפועל.
-      .filter((a) => nearMe !== 'true' || isOpenOrOpeningSoon(a, NEARME_OPEN_WITHIN_MINUTES))
+      // "מה קרוב?" (nearMe==='true') - תיקון-סמנטיקה (2026-09-20, "post-reliability follow-up"):
+      // עד עכשיו הייתה כאן חסימה-קשיחה של פעילויות סגורות/לא-נפתחות-בקרוב (בקשת משתמש קודמת,
+      // isOpenOrOpeningSoon+NEARME_OPEN_WITHIN_MINUTES) - הוסרה במפורש: ההגדרה הנוכחית והמאושרת
+      // של "מה קרוב?" היא "פעילויות זכאיות-גיאוגרפית, ממוינות הכי-קרוב-קודם, עד 50 תוצאות" בלבד -
+      // בלי סינון-זמינות סמוי. זמינות עדיין *מוצגת* על הכרטיס ("✓ פתוח עכשיו", getOpenNowInfo
+      // דרך lib/matchReasons.js) בדיוק כמו בכל מסך אחר - רק הפכה מ"תנאי-סף מוסתר" ל"עובדה
+      // מוצגת", לא נעלמה. שאר כללי-הזכאות (מאושר/לא-מוסתר וכו') לא נגעו.
       .map((a) => {
         // ספונטני פעיל: מרחק אמיתי (ק"מ) מהמיקום החי, לא שם-העיר הכללי (סעיף 11 בבקשה) - רק
         // כשיש בפועל קואורדינטות לשני הצדדים, אחרת נופל לאותה formatDistance הרגילה כמו היום.
@@ -556,9 +592,6 @@ export default function ActivitiesScreen() {
           // ספונטני פעיל -> אותה נקודת-ייחוס בדיוק שכבר מוצגת למשתמש כ"distance" למעלה (לא
           // origin אחר "מאחורי הקלעים" שהיה נראה כמו באג - סדר-המיון תמיד תואם את המספר המוצג).
           distanceKm: spontaneousKm != null ? spontaneousKm : searchOriginKm,
-          favorite: favoriteIds.has(a.id),
-          visited: visitedIds.has(a.id),
-          hasNote: notesByActivity.has(a.id),
           benefitTag: formatBenefitCardTag(a.benefits, benefitClubs),
           // "✓ למה זה מתאים" - שורה אחת משותפת (לא שתי שורות-הסבר מקבילות על הכרטיס, ראו
           // components/ActivityCard.js): ספונטני פעיל שומר את הניסוח הקיים שלו בדיוק
@@ -567,7 +600,18 @@ export default function ActivitiesScreen() {
         };
       }),
     // locale: {...a} מעתיק את ערכי ה-getters (ageRange/price/hours) - חישוב מחדש בהחלפת שפה.
-    [rankedResult, hiddenIds, favoriteIds, visitedIds, notesByActivity, benefitClubs, spontaneousActive, spontaneousCoords, searchOriginCoords, filters.location?.mode, locale, childAges, nearMe]
+    // בכוונה *בלי* favoriteIds/visitedIds/notesByActivity - ראו ההערה למעלה.
+    [rankedResult, hiddenIds, benefitClubs, spontaneousActive, spontaneousCoords, searchOriginCoords, filters.location?.mode, locale, childAges, nearMe]
+  );
+
+  const filteredActivities = useMemo(
+    () => enrichedActivities.map((a) => ({
+      ...a,
+      favorite: favoriteIds.has(a.id),
+      visited: visitedIds.has(a.id),
+      hasNote: notesByActivity.has(a.id),
+    })),
+    [enrichedActivities, favoriteIds, visitedIds, notesByActivity]
   );
 
   // סעיף N בבקשה: "יש הבדל בין 'לא מצאנו מספיק תוצאות באזור' לבין 'הפילטרים מגבילים מאוד'" -
@@ -600,6 +644,13 @@ export default function ActivitiesScreen() {
   // (עבר להיות trigger מעמוד הבית, ראו handleSpontaneous/useEffect(spontaneous) - סעיף 6
   // בתוכנית), אז אין לו ייצוג בתקציר-הסינון.
   const filterSummary = useMemo(() => activitiesFilterSummary(filters), [filters, locale]);
+  // "מציג כעת..." - תקציר-חיפוש בשפה טבעית (TURU — ACTIVITY RESULTS SEARCH SUMMARY, 2026-09-20).
+  // buildResultsSummary (lib/filterSummaries.js) הוא הפונקציה הטהורה היחידה שמפרשת filters לתקציר
+  // הזה - ראו ההערה המלאה שם. אותו filters קנוני בדיוק כמו activitiesFilterSummary למעלה (לא
+  // עוד מערכת-פרשנות מקבילה) - חיפוש חופשי/בחירה מהירה/"מה קרוב?" כולם כבר מתכנסים אליו לפני
+  // שהמסך הזה בכלל נטען, אז אין כאן טיפול-מיוחד לפי route param. null כשאין הקשר משמעותי
+  // (מסך בלי שום פילטר) - ה-JSX למטה פשוט לא מרנדר כלום במקרה הזה.
+  const resultsSummaryText = useMemo(() => buildResultsSummary(filters), [filters, locale]);
   const hiddenCategoryCount = new Set([...excludedCategories, ...(filters.excludeCategory || [])]).size;
   const hiddenCityCount = new Set([...excludedCities, ...(filters.excludeCity || [])]).size;
   const hiddenRegionCount = new Set([...excludedRegions, ...(filters.excludeRegion || [])]).size;
@@ -631,284 +682,355 @@ export default function ActivitiesScreen() {
   // לסוף בסדר-היציבות המקורי שלהן, ותוצאות עם מרחק-שווה נשארות באותו סדר-מומלץ יחסי ביניהן
   // (secondary sort key) - בדיוק "distance ASC, then existingRank ASC" מהבקשה, בלי צורך
   // בקומפרטור-משני מפורש.
+  // NEARME_RESULT_LIMIT = 50 (2026-09-20, "CENTRAL RADAR update" - בקשת המשתמש: "50 is a RESULT
+  // LIMIT, not a distance rule... return up to 50 activities ordered by proximity"). חל רק
+  // כשהגענו דרך "מה קרוב?" (nearMe==='true', route param קבוע לכל חיי המסך הזה) - לא על מיון-
+  // לפי-מרחק הרגיל שזמין תמיד דרך תפריט התצוגה. גם מסנן החוצה תוצאות בלי distanceKm (לא ניתן
+  // לדרג גיאוגרפית - בלי lat/lng תקין) לפני החיתוך, כדי לא "לרפד" את ה-50 בתוצאות-מרחק-לא-ידוע
+  // רק כדי להגיע למכסה (בקשת המשתמש: "Do not pad the list with irrelevant activities"). שאר
+  // כללי-הזכאות (מאושר/לא-מוסתר/וכו') כבר מוחלים למעלה ב-filteredActivities - לא נוגעים בהם כאן.
+  // (זמינות/"פתוח עכשיו" הוסרה מכאן כתנאי-סף ב-2026-09-20 "post-reliability follow-up" - ראו
+  // ההערה ליד filteredActivities למעלה - לא עוד חלק מ"כללי-הזכאות" של מה קרוב?).
+  const NEARME_RESULT_LIMIT = 50;
   const sortedActivities = useMemo(() => {
-    if (sortMode !== 'distance') return filteredActivities;
-    return [...filteredActivities].sort((a, b) => (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity));
-  }, [filteredActivities, sortMode]);
+    const base = sortMode !== 'distance'
+      ? filteredActivities
+      : [...filteredActivities].sort((a, b) => (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity));
+    if (nearMe !== 'true') return base;
+    return base.filter((a) => a.distanceKm != null).slice(0, NEARME_RESULT_LIMIT);
+  }, [filteredActivities, sortMode, nearMe]);
 
   const setField = (key, value) => setFilters((prev) => ({ ...prev, [key]: value }));
   const clearAll = () => setFilters(DEFAULT_FILTERS);
 
+  // רשימת-הכרטיסים בפועל (2026-09-20, "reliability pass" audit סעיף 3: "~5,585 results rendered
+  // through .map() inside a ScrollView") - reproduced by reading the code: כל הכרטיסים (יכולים
+  // להגיע לאלפים במסך-ללא-סינון, "כל הארץ") נבנו עד עכשיו כולם בבת-אחת בתוך ScrollView יחיד,
+  // בלי windowing. showCardsList/listData/renderActivityCard למטה מזינים FlatList *רק* כש-בפועל
+  // עומדים להיות כרטיסים לרינדור (לא מפה/loading/שגיאה/מצב-ריק/ספונטני-ריק) - כל שאר המצבים
+  // ממשיכים ב-ScrollView הרגיל בדיוק כמו קודם (topContent משותף לשני הענפים - JSX זהה, לא
+  // שכפול, ראו למטה). FlatList הוא תמיד ה-scroll-container החיצוני ביותר (לא מקונן בתוך
+  // ScrollView קיים) - בדיוק אחד משני הענפים מתרנדר בכל רגע נתון, לעולם לא שניהם יחד. שום שינוי
+  // בסמנטיקת-תוצאות (אילו פעילויות/סדר/ספירה/מצבי-ריקה/טעינה/שגיאה) - אותם listData/
+  // filteredActivities/sortedActivities/spontaneousVisibleActivities בדיוק, אותם handlers.
+  const showCardsList = !loading && !loadError && filteredActivities.length > 0
+    && viewMode !== 'map' && !(spontaneousActive && spontaneousOpenCount === 0);
+  const listData = spontaneousActive ? spontaneousVisibleActivities : sortedActivities;
+  // renderActivityCard (2026-09-20, "Performance Phase 1" audit סעיף 4A/4B) - useCallback + מזין
+  // ל-ActivityCard את ה-handlers היציבים (handleToggleFavorite וכו', עצמם useCallback([userId])
+  // למעלה) *ישירות*, לא עטופים ב-closure חדש per-item per-render (`() => handleToggleFavorite(a.id)`
+  // הישן). ActivityCard עצמו (React.memo, ראו components/ActivityCard.js) קורא ל-onToggleFavorite(id)
+  // עם ה-id כפרמטר - כך שאותה פונקציה-יחידה-ויציבה מוזנת לכל הכרטיסים, וה-memo *באמת* יכול לבדוק
+  // שוויון-props ולדלג על רינדור-מחדש לכרטיסים לא-קשורים כשמישהו מסמן מועדף/ביקר בכרטיס אחר.
+  const renderActivityCard = useCallback(({ item: a }) => (
+    <ActivityCard
+      {...a}
+      onToggleFavorite={handleToggleFavorite}
+      onToggleVisited={handleToggleVisited}
+      onOpenNote={openNoteModal}
+      onHide={handleHide}
+    />
+  ), [handleToggleFavorite, handleToggleVisited, openNoteModal, handleHide]);
+
+  const topContent = (
+    <>
+      <Header showBack onMenuPress={() => {}} />
+
+      {/* כותרת = זהות קבועה ("כל הפעילויות") + ספירה קומפקטית צמודה. בכוונה בלי אייקון/אמוג'י
+          ליד הכותרת (בקשת המשתמש: "clean/stable/functional/quiet", בניגוד לכותרות-section
+          המשחקיות בעמוד הבית) ובלי טקסט-הזמנה חלופי ("פעילויות שכדאי לגלות") - הספירה תמיד
+          מספר, גם ב-Discovery Mode; ה"הזמנה לגלות" כבר מגיעה מהכותרת הראשית עצמה + מהתוכן. */}
+      <View style={styles.titleBlock}>
+        <View style={styles.titleRow}>
+          <Text style={styles.pageTitle} numberOfLines={1}>{t('activities.header.title')}</Text>
+          <Text style={styles.titleCount} numberOfLines={1}>
+            {t('activities.header.count', { count: filteredActivities.length })}
+          </Text>
+        </View>
+        {/* תקציר-חיפוש בשפה טבעית ("מציג כעת...", ראו buildResultsSummary/lib/filterSummaries.js) -
+            משני-חזותית ל"כל הפעילויות" (fontSize/color עדינים יותר, ראו הסטייל למטה), לא כרטיס/
+            רקע כבד ולא עוד שורת-chips - טקסט בלבד, עד 2 שורות. מוצג רק כשיש הקשר משמעותי לתאר
+            (resultsSummaryText הוא null במסך-ברירת-מחדל בלי שום פילטר - ה"כל הפעילויות" הקבוע
+            כבר אומר את זה, לא צריך עוד "מציג כעת פעילויות" ריק). */}
+        {resultsSummaryText ? (
+          <Text style={styles.resultsSummaryText} numberOfLines={2}>{resultsSummaryText}</Text>
+        ) : null}
+      </View>
+
+      {/* TOOLBAR - שלושה controls בלבד: סינון (תקציר-מצב קומפקט במקום badge+שורת-chips נפרדת
+          מתחת, ראו activitiesFilterSummary למעלה), תצוגה/מיון (מאחד את "📍 לפי מרחק" + "רשימה/
+          מפה" הישנים לכפתור אחד), חיפוש. Filter מקבל flex:1 (הכי הרבה מקום, לתקציר הארוך
+          מבין השלושה) - Search/תצוגה-ומיון בגודל-תוכן בלבד, לא flex:1 שווה כמו קודם. */}
+      <View style={styles.toolbarRow}>
+        <Pressable
+          style={[styles.toolbarChip, styles.toolbarChipFlexible, styles.toolbarChipPrimary, activeCount > 0 && styles.toolbarChipPrimaryActive]}
+          onPress={() => { setDisplaySheetOpen(false); setSheetOpen((v) => !v); }}
+          accessibilityRole="button"
+          accessibilityLabel={activeCount > 0 ? t('activities.header.filterA11yWithCount', { count: activeCount }) : t('activities.header.filterLabel')}
+        >
+          <Text style={styles.toolbarChipIcon}>🎯</Text>
+          <Text style={styles.toolbarChipTextPrimary} numberOfLines={1} ellipsizeMode="tail">
+            {filterSummary ? `${filterSummary}` : t('activities.header.filterLabel')}
+          </Text>
+        </Pressable>
+
+        {/* "תצוגה/מיון" - מאחד את "📍 לפי מרחק" (toggle בינארי) ואת "רשימה/מפה" (היה בשורת-
+            הכותרת) לכפתור אחד קומפקטי; פותח sheet קטן (displaySheetOpen) עם שני radio-groups
+            (סעיף 9-10 בבקשה) במקום דרישה תמידית לשני controls נפרדים. כברירת מחדל: ⚙️ + המילה
+            "תצוגה" (מפתח viewTitle הקיים, לא מפתח חדש) - לא ⚙️ לבדו, שנקרא כ"הגדרות" מעורפל
+            (בקשת המשתמש: "a user should not have to guess"); בדקנו גם אימוג'י-סליידר (🎚️)
+            במקום ⚙️, אבל הוא עצמו נראה מטושטש/חד-גוני בדפדפן בפועל - הבעיה האמיתית לא הייתה
+            זהות האייקון אלא היעדר מילה לצידו, אז המילה עצמה פותרת את זה בלי לסכן עקביות-רינדור.
+            אותו פורמט אייקון+מילה בדיוק כמו שני האחים שלו (🎯 סינון/🔍 חיפוש), לא עוד היוצא-מן-
+            הכלל היחיד. מציג את המצב הלא-ברירת-מחדל בטקסט כשיש (אותו אימוג'י שכבר קיים ל"מרחק"/
+            "מפה", אותו toolbarChipPrimaryActive שכבר קיים ל-active). סוגר את sheetOpen
+            (הפילטרים) אם פתוח - לעולם לא שני Modal-ים יחד. */}
+        <Pressable
+          style={[styles.toolbarChip, styles.toolbarChipCompact, (sortMode === 'distance' || viewMode === 'map') && styles.toolbarChipPrimaryActive]}
+          onPress={() => { setSheetOpen(false); setDisplaySheetOpen(true); }}
+          accessibilityRole="button"
+          accessibilityLabel={t('activities.display.a11y', {
+            view: t(viewMode === 'map' ? 'activities.display.map' : 'activities.display.list'),
+            sort: t(sortMode === 'distance' ? 'activities.display.byDistance' : 'activities.display.recommended'),
+          })}
+        >
+          <Text
+            style={[styles.toolbarChipText, (sortMode === 'distance' || viewMode === 'map') && styles.toolbarChipTextPrimary]}
+            numberOfLines={1}
+          >
+            {viewMode === 'map' && sortMode === 'distance'
+              ? t('activities.display.chipMapDistance')
+              : viewMode === 'map'
+                ? t('activities.display.chipMap')
+                : sortMode === 'distance'
+                  ? t('activities.display.chipDistance')
+                  : `⚙️ ${t('activities.display.viewTitle')}`}
+          </Text>
+        </Pressable>
+
+        {/* 🔎 חיפוש חופשי - גישה מהירה לאותו Smart Search Engine, פותח/סוגר inline מתחת ל-
+            toolbar, בלי ניווט למסך חדש - ראו handleFreeSearch/applyFreeSearchIntent למעלה. */}
+        <Pressable style={[styles.toolbarChip, styles.toolbarChipCompact]} onPress={() => setFreeSearchOpen((v) => !v)} accessibilityRole="button">
+          <Text style={styles.toolbarChipIcon}>🔍</Text>
+          <Text style={styles.toolbarChipText} numberOfLines={1}>{t('common.actions.search')}</Text>
+        </Pressable>
+      </View>
+
+      {/* "⚡ עכשיו" - הטריגר עבר לעמוד הבית (משתמשים מחוברים בלבד, ראו app/index.js), אבל
+          כל עוד המצב פעיל (הגיע דרך route param spontaneous=true) חייבת להישאר דרך לכבות
+          אותו בלי לחזור לעמוד הבית - הצ'יפ הישן (FiltersSheet) ושורת ה-active-chips (שגם
+          אפשרה את זה) שניהם נעלמו. שקט/מותנה לגמרי (כמו radiusExpandedBanner מתחת) - לא
+          תופס מקום כשלא רלוונטי. */}
+      {spontaneousActive ? (
+        <Pressable onPress={toggleSpontaneous} hitSlop={8} style={styles.spontaneousOffLink}>
+          <Text style={styles.spontaneousOffLinkText}>{t('activities.spontaneous.offLink')}</Text>
+        </Pressable>
+      ) : null}
+
+      {freeSearchOpen && (
+        <View style={styles.freeSearchBox}>
+          {/* הבהרת-מיקום (2026-09-16, בקשת המשתמש): במקום תיבת-עיר מקומית ("📍 באיזה אזור לחפש?"
+              + CityAutocomplete) נפתח *אותו* LocationQuickPicker כמו "איפה נח לכם?" בעמוד הבית
+              (ראו ה-Modal למטה ליד ה-gate, ו-handleClarifyPickerClose). כאן נשארת רק שורת-ההסבר,
+              שורת-החיפוש עצמה נשארת גלויה מתחתיה. */}
+          {freeSearchClarify ? (
+            <Text style={styles.freeSearchClarifyText}>{t(freeSearchClarify.messageKey)}</Text>
+          ) : null}
+          <View style={styles.freeSearchInputRow}>
+              <TextInput
+                style={styles.freeSearchInput}
+                placeholder={t('activities.freeSearch.placeholder')}
+                placeholderTextColor={colors.textMuted}
+                value={freeSearchText}
+                onChangeText={setFreeSearchText}
+                onSubmitEditing={() => handleFreeSearch()}
+                returnKeyType="search"
+                editable={!freeSearchLoading}
+              />
+              <Pressable
+                style={[styles.freeSearchBtn, (freeSearchLoading || !freeSearchText.trim()) && styles.freeSearchBtnDisabled]}
+                onPress={() => handleFreeSearch()}
+                disabled={freeSearchLoading || !freeSearchText.trim()}
+              >
+                {freeSearchLoading ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.freeSearchBtnText}>{t('common.actions.search')}</Text>}
+              </Pressable>
+          </View>
+          {freeSearchError ? <Text style={styles.freeSearchErrorText}>{t(freeSearchError)}</Text> : null}
+        </View>
+      )}
+
+      {/* שורת ה-active-filter-chips הקבועה הוסרה (בקשת המשתמש 2026-09-16 השנייה: "the user
+          came here to see activities" - כל המידע שהיא נשאה עבר לתקציר בכפתור "🎯 סינון"
+          עצמו, ראו activitiesFilterSummary למעלה). FiltersSheet נשאר המקום היחיד לערוך/
+          להסיר פילטר בודד - אין יותר × על המסך הזה. */}
+      {spontaneousError ? <Text style={styles.freeSearchErrorText}>{t(spontaneousError)}</Text> : null}
+
+      {/* 🚗 Smart Radius Expansion - חיווי משני, לא modal ולא warning (סעיף M בבקשה): מוצג רק
+          כשבאמת הורחב הרדיוס (searchMetadata.radiusExpanded), נעלם לגמרי אם לא היה צורך. */}
+      {!loading && !loadError && searchMetadata.radiusExpanded ? (
+        <View style={styles.radiusExpandedBanner}>
+          <Text style={styles.radiusExpandedBannerText}>
+            {searchMetadata.effectiveRadiusKm === 10
+              ? t('activities.smartRadius.expandedSmall')
+              : t('activities.smartRadius.expandedTo15')}
+          </Text>
+        </View>
+      ) : null}
+
+      {/* הפרדה עדינה בין הבקרות לתוצאות (בקשת המשתמש: "the controls end here; the results
+          begin here" - whitespace + קו דק אחד, לא מיכל/רקע/כותרת חדשה). מוצג רק כשבאמת עומדים
+          להיות כרטיסים/מפה מתחתיו - לא מעל spinner, הודעת-שגיאה, מצב-ריק, או מצב "ספונטני
+          ושום דבר לא פתוח עכשיו" (גם הוא מוצג כמו מצב-ריק, ראו סעיף 20 בבקשה) - קו מרחף מעל
+          הודעת-ריק היה נראה כמו טעות, לא כמו מעבר. */}
+      {!loading && !loadError && filteredActivities.length > 0 && !(spontaneousActive && spontaneousOpenCount === 0) ? (
+        <View style={styles.resultsDivider} />
+      ) : null}
+    </>
+  );
+
+  const nonListBody = loading ? (
+    <View style={styles.emptyState}>
+      <ActivityIndicator color={colors.accent} />
+    </View>
+  ) : loadError ? (
+    <View style={styles.emptyState}>
+      <Text style={styles.emptyTitle}>{t('activities.results.loadError')}</Text>
+    </View>
+  ) : filteredActivities.length === 0 ? (
+    <View style={styles.emptyState}>
+      <Text style={styles.emptyTitle}>
+        {filters.location?.travelMode === 'walking'
+          ? t('activities.results.emptyWalking')
+          : t('activities.results.empty')}
+      </Text>
+      <View style={styles.emptyWidenRow}>
+        {/* "הליכה" הוא explicit constraint של המשתמש (בקשת המשתמש: "אל תרחיב את החיפוש ללא
+            ידיעת המשתמש") - לא מרחיבים רדיוס אוטומטית, רק מציעים כאן פעולה מפורשת שהמשתמש
+            צריך ללחוץ עליה. locationWithDrivingTime (lib/filterActivities.js) היא אותה
+            טרנספורמציה בדיוק שגם components/LocationQuickPicker.js משתמש בה כשעוזבים
+            הליכה - לא לוגיקה כפולה. */}
+        {filters.location?.travelMode === 'walking' && (
+          <Pressable style={styles.emptyWidenChip} onPress={() => setField('location', locationWithDrivingTime(filters.location, 10))}>
+            <Text style={styles.emptyWidenChipText}>{t('activities.results.widen.driving10')}</Text>
+          </Pressable>
+        )}
+        {filters.location?.mode && (
+          <Pressable style={styles.emptyWidenChip} onPress={() => setField('location', DEFAULT_FILTERS.location)}>
+            <Text style={styles.emptyWidenChipText}>
+              {widenPreviewCounts.location != null
+                ? t('activities.results.widen.withCount', { label: t('activities.results.widen.nationwide'), count: widenPreviewCounts.location })
+                : t('activities.results.widen.nationwide')}
+            </Text>
+          </Pressable>
+        )}
+        {(filters.hour?.option || filters.hour?.custom) && (
+          <Pressable style={styles.emptyWidenChip} onPress={() => setField('hour', DEFAULT_FILTERS.hour)}>
+            <Text style={styles.emptyWidenChipText}>
+              {widenPreviewCounts.hour != null
+                ? t('activities.results.widen.withCount', { label: t('activities.results.widen.hours'), count: widenPreviewCounts.hour })
+                : t('activities.results.widen.hours')}
+            </Text>
+          </Pressable>
+        )}
+        {filters.category?.length > 0 && (
+          <Pressable style={styles.emptyWidenChip} onPress={() => setField('category', DEFAULT_FILTERS.category)}>
+            <Text style={styles.emptyWidenChipText}>
+              {widenPreviewCounts.category != null
+                ? t('activities.results.widen.withCount', { label: t('activities.results.widen.allCategories'), count: widenPreviewCounts.category })
+                : t('activities.results.widen.allCategories')}
+            </Text>
+          </Pressable>
+        )}
+        {filters.when?.options?.length > 0 && (
+          <Pressable style={styles.emptyWidenChip} onPress={() => setField('when', DEFAULT_FILTERS.when)}>
+            <Text style={styles.emptyWidenChipText}>
+              {widenPreviewCounts.when != null
+                ? t('activities.results.widen.withCount', { label: t('activities.results.widen.anyDay'), count: widenPreviewCounts.when })
+                : t('activities.results.widen.anyDay')}
+            </Text>
+          </Pressable>
+        )}
+      </View>
+      <Pressable style={styles.emptyBtn} onPress={clearAll}>
+        <Text style={styles.emptyBtnText}>{t('activities.results.clearAllFilters')}</Text>
+      </Pressable>
+    </View>
+  ) : viewMode === 'map' ? (
+    // רשימה/מפה - הבחירה עצמה עברה לשורת ה-subtitle למעלה (ליד מספר התוצאות), כאן רק
+    // המשך-הרינדור לפי viewMode - אותו state/behavior בדיוק.
+    <ActivitiesMap activities={sortedActivities} deviceCoords={deviceCoords} />
+  ) : (
+    // 🪄 ספונטני, אבל שום דבר לא פתוח ברגע זה (סעיף 13 בבקשה) - לא מסך ריק: הודעה
+    // ידידותית, ואם יש מידע אמיתי על "נפתח בקרוב" (spontaneousOpensSoon, לא ניחוש) -
+    // מציגים אותו; אחרת מציעים להרחיב פילטרים, בלי להמציא פעילויות. (showCardsList===false
+    // מבטיח שהענף היחיד שנשאר כאן הוא בדיוק spontaneousActive && spontaneousOpenCount===0).
+    <View style={styles.emptyState}>
+      <Text style={styles.emptyTitle}>{t('activities.spontaneous.emptyTitle')}</Text>
+      {spontaneousOpensSoon.length > 0 ? (
+        <>
+          <Text style={styles.spontaneousSoonTitle}>{t('activities.spontaneous.opensSoonTitle')}</Text>
+          {spontaneousOpensSoon.map((a) => (
+            <ActivityCard
+              key={a.id}
+              {...a}
+              onToggleFavorite={() => handleToggleFavorite(a.id)}
+              onToggleVisited={() => handleToggleVisited(a.id)}
+              onOpenNote={() => openNoteModal(a.id, a.title)}
+              onHide={() => handleHide(a.id)}
+            />
+          ))}
+        </>
+      ) : (
+        <Text style={styles.emptyWidenChipText}>{t('activities.spontaneous.emptyHint')}</Text>
+      )}
+    </View>
+  );
+
   return (
     <View style={styles.screen}>
       <SkyBackground />
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Header showBack onMenuPress={() => {}} />
-
-        {/* כותרת = זהות קבועה ("כל הפעילויות") + ספירה קומפקטית צמודה. בכוונה בלי אייקון/אמוג'י
-            ליד הכותרת (בקשת המשתמש: "clean/stable/functional/quiet", בניגוד לכותרות-section
-            המשחקיות בעמוד הבית) ובלי טקסט-הזמנה חלופי ("פעילויות שכדאי לגלות") - הספירה תמיד
-            מספר, גם ב-Discovery Mode; ה"הזמנה לגלות" כבר מגיעה מהכותרת הראשית עצמה + מהתוכן. */}
-        <View style={styles.titleBlock}>
-          <View style={styles.titleRow}>
-            <Text style={styles.pageTitle} numberOfLines={1}>{t('activities.header.title')}</Text>
-            <Text style={styles.titleCount} numberOfLines={1}>
-              {t('activities.header.count', { count: filteredActivities.length })}
-            </Text>
-          </View>
-        </View>
-
-        {/* TOOLBAR - שלושה controls בלבד: סינון (תקציר-מצב קומפקט במקום badge+שורת-chips נפרדת
-            מתחת, ראו activitiesFilterSummary למעלה), תצוגה/מיון (מאחד את "📍 לפי מרחק" + "רשימה/
-            מפה" הישנים לכפתור אחד), חיפוש. Filter מקבל flex:1 (הכי הרבה מקום, לתקציר הארוך
-            מבין השלושה) - Search/תצוגה-ומיון בגודל-תוכן בלבד, לא flex:1 שווה כמו קודם. */}
-        <View style={styles.toolbarRow}>
-          <Pressable
-            style={[styles.toolbarChip, styles.toolbarChipFlexible, styles.toolbarChipPrimary, activeCount > 0 && styles.toolbarChipPrimaryActive]}
-            onPress={() => { setDisplaySheetOpen(false); setSheetOpen((v) => !v); }}
-            accessibilityRole="button"
-            accessibilityLabel={activeCount > 0 ? t('activities.header.filterA11yWithCount', { count: activeCount }) : t('activities.header.filterLabel')}
-          >
-            <Text style={styles.toolbarChipIcon}>🎯</Text>
-            <Text style={styles.toolbarChipTextPrimary} numberOfLines={1} ellipsizeMode="tail">
-              {filterSummary ? `${filterSummary}` : t('activities.header.filterLabel')}
-            </Text>
-          </Pressable>
-
-          {/* "תצוגה/מיון" - מאחד את "📍 לפי מרחק" (toggle בינארי) ואת "רשימה/מפה" (היה בשורת-
-              הכותרת) לכפתור אחד קומפקטי; פותח sheet קטן (displaySheetOpen) עם שני radio-groups
-              (סעיף 9-10 בבקשה) במקום דרישה תמידית לשני controls נפרדים. כברירת מחדל: ⚙️ + המילה
-              "תצוגה" (מפתח viewTitle הקיים, לא מפתח חדש) - לא ⚙️ לבדו, שנקרא כ"הגדרות" מעורפל
-              (בקשת המשתמש: "a user should not have to guess"); בדקנו גם אימוג'י-סליידר (🎚️)
-              במקום ⚙️, אבל הוא עצמו נראה מטושטש/חד-גוני בדפדפן בפועל - הבעיה האמיתית לא הייתה
-              זהות האייקון אלא היעדר מילה לצידו, אז המילה עצמה פותרת את זה בלי לסכן עקביות-רינדור.
-              אותו פורמט אייקון+מילה בדיוק כמו שני האחים שלו (🎯 סינון/🔍 חיפוש), לא עוד היוצא-מן-
-              הכלל היחיד. מציג את המצב הלא-ברירת-מחדל בטקסט כשיש (אותו אימוג'י שכבר קיים ל"מרחק"/
-              "מפה", אותו toolbarChipPrimaryActive שכבר קיים ל-active). סוגר את sheetOpen
-              (הפילטרים) אם פתוח - לעולם לא שני Modal-ים יחד. */}
-          <Pressable
-            style={[styles.toolbarChip, styles.toolbarChipCompact, (sortMode === 'distance' || viewMode === 'map') && styles.toolbarChipPrimaryActive]}
-            onPress={() => { setSheetOpen(false); setDisplaySheetOpen(true); }}
-            accessibilityRole="button"
-            accessibilityLabel={t('activities.display.a11y', {
-              view: t(viewMode === 'map' ? 'activities.display.map' : 'activities.display.list'),
-              sort: t(sortMode === 'distance' ? 'activities.display.byDistance' : 'activities.display.recommended'),
-            })}
-          >
-            <Text
-              style={[styles.toolbarChipText, (sortMode === 'distance' || viewMode === 'map') && styles.toolbarChipTextPrimary]}
-              numberOfLines={1}
-            >
-              {viewMode === 'map' && sortMode === 'distance'
-                ? t('activities.display.chipMapDistance')
-                : viewMode === 'map'
-                  ? t('activities.display.chipMap')
-                  : sortMode === 'distance'
-                    ? t('activities.display.chipDistance')
-                    : `⚙️ ${t('activities.display.viewTitle')}`}
-            </Text>
-          </Pressable>
-
-          {/* 🔎 חיפוש חופשי - גישה מהירה לאותו Smart Search Engine, פותח/סוגר inline מתחת ל-
-              toolbar, בלי ניווט למסך חדש - ראו handleFreeSearch/applyFreeSearchIntent למעלה. */}
-          <Pressable style={[styles.toolbarChip, styles.toolbarChipCompact]} onPress={() => setFreeSearchOpen((v) => !v)} accessibilityRole="button">
-            <Text style={styles.toolbarChipIcon}>🔍</Text>
-            <Text style={styles.toolbarChipText} numberOfLines={1}>{t('common.actions.search')}</Text>
-          </Pressable>
-        </View>
-
-        {/* "⚡ עכשיו" - הטריגר עבר לעמוד הבית (משתמשים מחוברים בלבד, ראו app/index.js), אבל
-            כל עוד המצב פעיל (הגיע דרך route param spontaneous=true) חייבת להישאר דרך לכבות
-            אותו בלי לחזור לעמוד הבית - הצ'יפ הישן (FiltersSheet) ושורת ה-active-chips (שגם
-            אפשרה את זה) שניהם נעלמו. שקט/מותנה לגמרי (כמו radiusExpandedBanner מתחת) - לא
-            תופס מקום כשלא רלוונטי. */}
-        {spontaneousActive ? (
-          <Pressable onPress={toggleSpontaneous} hitSlop={8} style={styles.spontaneousOffLink}>
-            <Text style={styles.spontaneousOffLinkText}>{t('activities.spontaneous.offLink')}</Text>
-          </Pressable>
-        ) : null}
-
-        {freeSearchOpen && (
-          <View style={styles.freeSearchBox}>
-            {/* הבהרת-מיקום (2026-09-16, בקשת המשתמש): במקום תיבת-עיר מקומית ("📍 באיזה אזור לחפש?"
-                + CityAutocomplete) נפתח *אותו* LocationQuickPicker כמו "איפה נח לכם?" בעמוד הבית
-                (ראו ה-Modal למטה ליד ה-gate, ו-handleClarifyPickerClose). כאן נשארת רק שורת-ההסבר,
-                שורת-החיפוש עצמה נשארת גלויה מתחתיה. */}
-            {freeSearchClarify ? (
-              <Text style={styles.freeSearchClarifyText}>{t(freeSearchClarify.messageKey)}</Text>
-            ) : null}
-            <View style={styles.freeSearchInputRow}>
-                <TextInput
-                  style={styles.freeSearchInput}
-                  placeholder={t('activities.freeSearch.placeholder')}
-                  placeholderTextColor={colors.textMuted}
-                  value={freeSearchText}
-                  onChangeText={setFreeSearchText}
-                  onSubmitEditing={() => handleFreeSearch()}
-                  returnKeyType="search"
-                  editable={!freeSearchLoading}
-                />
-                <Pressable
-                  style={[styles.freeSearchBtn, (freeSearchLoading || !freeSearchText.trim()) && styles.freeSearchBtnDisabled]}
-                  onPress={() => handleFreeSearch()}
-                  disabled={freeSearchLoading || !freeSearchText.trim()}
-                >
-                  {freeSearchLoading ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.freeSearchBtnText}>{t('common.actions.search')}</Text>}
-                </Pressable>
-            </View>
-            {freeSearchError ? <Text style={styles.freeSearchErrorText}>{t(freeSearchError)}</Text> : null}
-          </View>
-        )}
-
-        {/* שורת ה-active-filter-chips הקבועה הוסרה (בקשת המשתמש 2026-09-16 השנייה: "the user
-            came here to see activities" - כל המידע שהיא נשאה עבר לתקציר בכפתור "🎯 סינון"
-            עצמו, ראו activitiesFilterSummary למעלה). FiltersSheet נשאר המקום היחיד לערוך/
-            להסיר פילטר בודד - אין יותר × על המסך הזה. */}
-        {spontaneousError ? <Text style={styles.freeSearchErrorText}>{t(spontaneousError)}</Text> : null}
-
-        {/* 🚗 Smart Radius Expansion - חיווי משני, לא modal ולא warning (סעיף M בבקשה): מוצג רק
-            כשבאמת הורחב הרדיוס (searchMetadata.radiusExpanded), נעלם לגמרי אם לא היה צורך. */}
-        {!loading && !loadError && searchMetadata.radiusExpanded ? (
-          <View style={styles.radiusExpandedBanner}>
-            <Text style={styles.radiusExpandedBannerText}>
-              {searchMetadata.effectiveRadiusKm === 10
-                ? t('activities.smartRadius.expandedSmall')
-                : t('activities.smartRadius.expandedTo15')}
-            </Text>
-          </View>
-        ) : null}
-
-        {/* הפרדה עדינה בין הבקרות לתוצאות (בקשת המשתמש: "the controls end here; the results
-            begin here" - whitespace + קו דק אחד, לא מיכל/רקע/כותרת חדשה). מוצג רק כשבאמת עומדים
-            להיות כרטיסים/מפה מתחתיו - לא מעל spinner, הודעת-שגיאה, מצב-ריק, או מצב "ספונטני
-            ושום דבר לא פתוח עכשיו" (גם הוא מוצג כמו מצב-ריק, ראו סעיף 20 בבקשה) - קו מרחף מעל
-            הודעת-ריק היה נראה כמו טעות, לא כמו מעבר. */}
-        {!loading && !loadError && filteredActivities.length > 0 && !(spontaneousActive && spontaneousOpenCount === 0) ? (
-          <View style={styles.resultsDivider} />
-        ) : null}
-
-        {loading ? (
-          <View style={styles.emptyState}>
-            <ActivityIndicator color={colors.accent} />
-          </View>
-        ) : loadError ? (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyTitle}>{t('activities.results.loadError')}</Text>
-          </View>
-        ) : filteredActivities.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyTitle}>
-              {filters.location?.travelMode === 'walking'
-                ? t('activities.results.emptyWalking')
-                : t('activities.results.empty')}
-            </Text>
-            <View style={styles.emptyWidenRow}>
-              {/* "הליכה" הוא explicit constraint של המשתמש (בקשת המשתמש: "אל תרחיב את החיפוש ללא
-                  ידיעת המשתמש") - לא מרחיבים רדיוס אוטומטית, רק מציעים כאן פעולה מפורשת שהמשתמש
-                  צריך ללחוץ עליה. locationWithDrivingTime (lib/filterActivities.js) היא אותה
-                  טרנספורמציה בדיוק שגם components/LocationQuickPicker.js משתמש בה כשעוזבים
-                  הליכה - לא לוגיקה כפולה. */}
-              {filters.location?.travelMode === 'walking' && (
-                <Pressable style={styles.emptyWidenChip} onPress={() => setField('location', locationWithDrivingTime(filters.location, 10))}>
-                  <Text style={styles.emptyWidenChipText}>{t('activities.results.widen.driving10')}</Text>
-                </Pressable>
+      {showCardsList ? (
+        <FlatList
+          data={listData}
+          keyExtractor={keyExtractor}
+          renderItem={renderActivityCard}
+          ListHeaderComponent={(
+            <>
+              {topContent}
+              {spontaneousActive && (
+                <Text style={styles.spontaneousTopTitle}>{t('activities.spontaneous.topTitle')}</Text>
               )}
-              {filters.location?.mode && (
-                <Pressable style={styles.emptyWidenChip} onPress={() => setField('location', DEFAULT_FILTERS.location)}>
-                  <Text style={styles.emptyWidenChipText}>
-                    {widenPreviewCounts.location != null
-                      ? t('activities.results.widen.withCount', { label: t('activities.results.widen.nationwide'), count: widenPreviewCounts.location })
-                      : t('activities.results.widen.nationwide')}
-                  </Text>
-                </Pressable>
-              )}
-              {(filters.hour?.option || filters.hour?.custom) && (
-                <Pressable style={styles.emptyWidenChip} onPress={() => setField('hour', DEFAULT_FILTERS.hour)}>
-                  <Text style={styles.emptyWidenChipText}>
-                    {widenPreviewCounts.hour != null
-                      ? t('activities.results.widen.withCount', { label: t('activities.results.widen.hours'), count: widenPreviewCounts.hour })
-                      : t('activities.results.widen.hours')}
-                  </Text>
-                </Pressable>
-              )}
-              {filters.category?.length > 0 && (
-                <Pressable style={styles.emptyWidenChip} onPress={() => setField('category', DEFAULT_FILTERS.category)}>
-                  <Text style={styles.emptyWidenChipText}>
-                    {widenPreviewCounts.category != null
-                      ? t('activities.results.widen.withCount', { label: t('activities.results.widen.allCategories'), count: widenPreviewCounts.category })
-                      : t('activities.results.widen.allCategories')}
-                  </Text>
-                </Pressable>
-              )}
-              {filters.when?.options?.length > 0 && (
-                <Pressable style={styles.emptyWidenChip} onPress={() => setField('when', DEFAULT_FILTERS.when)}>
-                  <Text style={styles.emptyWidenChipText}>
-                    {widenPreviewCounts.when != null
-                      ? t('activities.results.widen.withCount', { label: t('activities.results.widen.anyDay'), count: widenPreviewCounts.when })
-                      : t('activities.results.widen.anyDay')}
-                  </Text>
-                </Pressable>
-              )}
-            </View>
-            <Pressable style={styles.emptyBtn} onPress={clearAll}>
-              <Text style={styles.emptyBtnText}>{t('activities.results.clearAllFilters')}</Text>
-            </Pressable>
-          </View>
-        ) : (
-          <>
-            {/* רשימה/מפה - הבחירה עצמה עברה לשורת ה-subtitle למעלה (ליד מספר התוצאות), כאן רק
-                המשך-הרינדור לפי viewMode - אותו state/behavior בדיוק. */}
-            {viewMode === 'map' ? (
-              <ActivitiesMap activities={sortedActivities} deviceCoords={deviceCoords} />
-            ) : spontaneousActive && spontaneousOpenCount === 0 ? (
-              // 🪄 ספונטני, אבל שום דבר לא פתוח ברגע זה (סעיף 13 בבקשה) - לא מסך ריק: הודעה
-              // ידידותית, ואם יש מידע אמיתי על "נפתח בקרוב" (spontaneousOpensSoon, לא ניחוש) -
-              // מציגים אותו; אחרת מציעים להרחיב פילטרים, בלי להמציא פעילויות.
-              <View style={styles.emptyState}>
-                <Text style={styles.emptyTitle}>{t('activities.spontaneous.emptyTitle')}</Text>
-                {spontaneousOpensSoon.length > 0 ? (
-                  <>
-                    <Text style={styles.spontaneousSoonTitle}>{t('activities.spontaneous.opensSoonTitle')}</Text>
-                    {spontaneousOpensSoon.map((a) => (
-                      <ActivityCard
-                        key={a.id}
-                        {...a}
-                        onToggleFavorite={() => handleToggleFavorite(a.id)}
-                        onToggleVisited={() => handleToggleVisited(a.id)}
-                        onOpenNote={() => openNoteModal(a.id, a.title)}
-                        onHide={() => handleHide(a.id)}
-                      />
-                    ))}
-                  </>
-                ) : (
-                  <Text style={styles.emptyWidenChipText}>{t('activities.spontaneous.emptyHint')}</Text>
-                )}
-              </View>
-            ) : (
-              <>
-                {spontaneousActive && (
-                  <Text style={styles.spontaneousTopTitle}>{t('activities.spontaneous.topTitle')}</Text>
-                )}
-                {(spontaneousActive ? spontaneousVisibleActivities : sortedActivities).map((a) => (
-                  <ActivityCard
-                    key={a.id}
-                    {...a}
-                    onToggleFavorite={() => handleToggleFavorite(a.id)}
-                    onToggleVisited={() => handleToggleVisited(a.id)}
-                    onOpenNote={() => openNoteModal(a.id, a.title)}
-                    onHide={() => handleHide(a.id)}
-                  />
-                ))}
-                {spontaneousActive && !showAllSpontaneous && filteredActivities.length > SPONTANEOUS_TOP_COUNT && (
-                  <Pressable style={styles.showMoreBtn} onPress={() => setShowAllSpontaneous(true)}>
-                    <Text style={styles.showMoreBtnText}>{t('activities.spontaneous.showMore', { count: filteredActivities.length - SPONTANEOUS_TOP_COUNT })}</Text>
-                  </Pressable>
-                )}
-              </>
-            )}
-          </>
-        )}
-      </ScrollView>
+            </>
+          )}
+          ListFooterComponent={
+            spontaneousActive && !showAllSpontaneous && filteredActivities.length > SPONTANEOUS_TOP_COUNT ? (
+              <Pressable style={styles.showMoreBtn} onPress={() => setShowAllSpontaneous(true)}>
+                <Text style={styles.showMoreBtnText}>{t('activities.spontaneous.showMore', { count: filteredActivities.length - SPONTANEOUS_TOP_COUNT })}</Text>
+              </Pressable>
+            ) : null
+          }
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+          // כוונון-FlatList (2026-09-20, "Performance Phase 1" audit סעיף 4D) - initialNumToRender
+          // מוריד מהערך-הכללי של RN (10) ל-6 כדי לצמצם את עלות-הרינדור הראשוני על מסכים ללא
+          // סינון (אלפי תוצאות פוטנציאליות); windowSize/maxToRenderPerBatch/removeClippedSubviews
+          // הם רק הידוק-מתון של ברירות-המחדל, לא ערכים אגרסיביים.
+          // getItemLayout - בכוונה *לא* נוסף: components/ActivityCard.js מכיל לפחות שלושה
+          // מקורות-גובה משתנה שנבדקו בפועל - title בלי numberOfLines (יכול לגלוש לשתי שורות),
+          // cityText מותנה (showCityLine), recommendedRow מותנה, matchReasonRow מותנה - גובה-כרטיס
+          // הוא *לא* קבוע-אמיתי, אז getItemLayout היה מחשב מיקומי-גלילה שגויים (במיוחד אחרי
+          // סינון/מיון-מחדש). נדחה במפורש - לא "נשכח", ראו הדוח.
+          initialNumToRender={6}
+          maxToRenderPerBatch={8}
+          windowSize={7}
+          removeClippedSubviews
+        />
+      ) : (
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+          {topContent}
+          {nonListBody}
+        </ScrollView>
+      )}
       <LoginRequiredModal visible={showLoginPrompt} onClose={() => setShowLoginPrompt(false)} />
 
       <Modal visible={!!noteModalTarget} transparent animationType="fade" onRequestClose={() => setNoteModalTarget(null)}>
@@ -1190,6 +1312,14 @@ const styles = createStyles((d) => ({
   // isDiscoveryMode (הזמנה-לגלות, לא מספר) יושב באותו slot בדיוק.
   titleRow: { flexDirection: d.row, alignItems: 'baseline', gap: 8 },
   titleCount: { fontFamily: fonts.medium, fontSize: 14, color: colors.textSecondary, flexShrink: 1 },
+  // תקציר-חיפוש בשפה טבעית ("מציג כעת...", TURU — ACTIVITY RESULTS SEARCH SUMMARY 2026-09-20) -
+  // משני-חזותית ל-pageTitle/titleCount מעליו (fontSize/color עדינים יותר, לא extraBold/textPrimary) -
+  // "keep the summary visually secondary... but clearly readable" (סעיף 10 בבקשה). marginTop
+  // קטן מפריד אותו משורת-הכותרת בלי ליצור עוד "בלוק" נפרד - עדיין בתוך אותו titleBlock.
+  resultsSummaryText: {
+    fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, textAlign: d.textAlign,
+    lineHeight: 18, marginTop: 4,
+  },
 
   freeSearchBox: {
     backgroundColor: colors.card, borderWidth: 1, borderColor: colors.borderLight,
@@ -1218,8 +1348,12 @@ const styles = createStyles((d) => ({
   // קו-הפרדה עדין בין הבקרות לתוצאות: 1px בצבע-הגבול הרגיל של המערכת (colors.border, אותו
   // צבע שכבר משמש למסגרות toolbarChip/gateCard וכו') - בלי מסגרת/רקע/צל/תווית משלו. אין
   // marginHorizontal - מיושר אוטומטית עם ריפוד-התוכן הרגיל (content.padding), לא full-bleed.
-  // marginVertical:spacing.md (14) משני הצדדים - "12-16px נשימה" מהבקשה, בערך אותו טוקן קיים.
-  resultsDivider: { height: 1, backgroundColor: colors.border, marginVertical: spacing.md },
+  // marginTop/marginBottom אסימטריים בכוונה (בקשת המשתמש 2026-09-19: "מרחק שווה מכל מה שמעליו
+  // וכל מה שמתחתיו"): toolbarRow שמעל נושא כבר marginBottom:10 משלו, וה-View/ActivityCard/
+  // ActivitiesMap הראשון שמתחת (loading/map/spontaneous/הרשימה הרגילה) לא נושא marginTop
+  // משלו בכלל - מרווח סימטרי (spacing.md משני הצדדים) היה יוצא ויזואלית לא-שווה (24 מעל מול
+  // 14 מתחת). marginTop כאן משלים את ה-10 של toolbarRow לאותו סה"כ (spacing.md) כמו למטה.
+  resultsDivider: { height: 1, backgroundColor: colors.border, marginTop: spacing.xs, marginBottom: spacing.md },
   toolbarChip: {
     flexDirection: d.row, alignItems: 'center', justifyContent: 'center', gap: 5,
     borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card,

@@ -32,6 +32,34 @@
     "expandedSmall": "הרחבנו קצת את החיפוש כדי למצוא לכם עוד פעילויות ✨",
     "expandedTo15": "הרחבנו את החיפוש עד 15 ק״מ כדי למצוא לכם עוד פעילויות ✨"
   },
+  "resultsSummary": {
+    "prefix": "מציג כעת",
+    "genericWhat": "פעילויות",
+    "freeTextWhat": "פעילויות לפי \"{{query}}\"",
+    "near": "קרוב אליי",
+    "nearPlace": "ליד {{place}}",
+    "inArea": "באזור {{place}}",
+    "nationwide": "בכל הארץ",
+    "walking": "במרחק הליכה",
+    "drivingMinutes": "עד {{minutes}} דקות נסיעה",
+    "onDate": "בתאריך {{date}}",
+    "hourRange": "בין {{start}} ל-{{end}}",
+    "when": {
+      "now": "עכשיו",
+      "today": "היום",
+      "tomorrow": "מחר",
+      "weekend": "בסוף השבוע",
+      "week": "השבוע",
+      "nextWeek": "בשבוע הבא"
+    },
+    "hour": {
+      "morning": "בבוקר",
+      "noon": "בצהריים",
+      "afternoon": "אחר הצהריים",
+      "evening": "בערב",
+      "night": "בלילה"
+    }
+  },
   "results": {
     "loadError": "לא הצלחנו לטעון פעילויות",
     "emptyWalking": "לא מצאנו פעילויות ממש במרחק הליכה 🚶",
