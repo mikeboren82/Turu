@@ -36,6 +36,9 @@ yarn-error.*
 
 # local session/runtime state - not project content, changes every run
 .claude/scheduled_tasks.lock
+# per-developer Claude Code tool-permission allowlist - local config, not TURU product source
+# (narrow on purpose: the rest of .claude/ stays tracked and shared)
+.claude/settings.local.json
 supabase/.temp/
 
 # typescript
