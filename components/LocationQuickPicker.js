@@ -3,7 +3,7 @@ import { Modal, View, Text, Pressable, ScrollView, Platform, Linking, LayoutAnim
 import * as Location from 'expo-location';
 import { LocationPinIcon, ChevronDownIcon } from './icons';
 import CityAutocomplete from './CityAutocomplete';
-import { locationWithDrivingTime, locationWithAnyDistance, locationWithNoRestriction, travelSelection } from '../lib/filterActivities';
+import { locationWithDrivingTime, locationWithNoRestriction, locationWithNoTravelPreference, travelSelection } from '../lib/filterActivities';
 import { requestCurrentPosition, applyCurrentPositionResult, CURRENT_POSITION_ERROR_KEYS } from '../lib/currentPosition';
 import { WALKING_RADIUS_KM, REGION_OPTIONS } from '../constants/filterSchema';
 import { colors, fonts, radii, spacing } from '../constants/theme';
@@ -22,15 +22,11 @@ const animate = () => LayoutAnimation.configureNext(LayoutAnimation.create(220, 
 // 750 מטר קבועים (WALKING_RADIUS_KM, constants/filterSchema.js) - מרחק אמיתי. "🚗 נסיעה" 15/30/45
 // נשאר display-only (travelMinutes לא ממופה ל-radiusKm - לטורו אין מנוע ניווט/ETA): במיקום מדויק
 // (current/address) כל אחד מהם = רדיוס DEFAULT_PRECISE_RADIUS_KM, בעיר/אזור = גבול העיר/האזור.
-// "ללא הגבלת זמן" = travelMode 'any' הקיים (locationWithAnyDistance) - לא אותו מצב כמו נסיעה בלי
-// דקות: במיקום מדויק הוא מסיר את הרדיוס לגמרי (הכל, ממוין לפי מרחק מנקודת-המוצא), בעוד נסיעה
-// שומרת רדיוס DEFAULT_PRECISE_RADIUS_KM. לכן הוא נשאר יכולת נפרדת, אבל מוצג *בתוך* שורת הנסיעה
-// (עוד אפשרות-זמן) ולא כשורה שלישית לצד הליכה/נסיעה - אין "הליכה ללא הגבלה".
+// "ללא הגבלת זמן" (travelMode:'any'/locationWithAnyDistance) הוסר מכאן כאפשרות-בחירה (2026-09-20,
+// בקשת המשתמש: "להשאיר רק את 3 האפשרויות של הזמנים... ולא שום דבר אחר") - "לא רלוונטי" הוא
+// עכשיו ברירת-המחדל עצמה (locationWithNoTravelPreference, ראו commitLocation/selectDrivingMinutes
+// למטה), לא עוד צ'יפ נפרד לבחור.
 const DRIVING_TIME_OPTIONS = [15, 30, 45];
-
-// "10" הוסר מהאפשרויות (מיוצג כבר ע"י 🚶 הליכה) - ערך ישן/זכור מ-state קודם נופל בחזרה ל-15
-// בלי לשבור כלום, במקום להישאר "תקוע" על ערך שאין לו יותר צ'יפ תואם.
-const normalizeDrivingMinutes = (minutes) => (DRIVING_TIME_OPTIONS.includes(minutes) ? minutes : 15);
 
 // Full location summary in the active locale (see lib/i18n/format.js).
 export function locationSummary(location) {
@@ -110,27 +106,23 @@ export default function LocationQuickPicker({ visible, value, onChange, onCoords
   const [gpsError, setGpsError] = useState('');
   useEffect(() => { if (visible) { setDrivingOpen(false); setGpsError(''); } }, [visible]);
 
-  // מגדיר ברירת מחדל של נסיעה+15 דקות ברגע שהמיקום הופך לתקין לראשונה (travelMode עדיין
-  // undefined) - אם כבר יש בחירה, לא דורסים אותה. זה גם המקום שמבטל "🚶 הליכה" אם המיקום השתנה
-  // למשהו שכבר לא מדויק מספיק (city-level) - נופל בחזרה לאותה ברירת-מחדל בדיוק (נסיעה, הזמן
-  // האחרון שנבחר או 15), במקום להשאיר "אין בחירה" שהיה דורש מהמשתמש ללחוץ שוב. "any" לא צריך
-  // guard דומה - הוא valid גם ב-city וגם ב-precise (סעיפים 12/13 בבקשה), אף פעם לא נפסל.
-  // freshCoords - קואורדינטות שהתקבלו זה עתה (useCurrentLocation), לפני שה-prop deviceCoords התעדכן.
+  // ברירת-מחדל (2026-09-20, בקשת המשתמש: "אם לא נבחרה שום אפשרות, הדיפולט הוא שמרחק נסיעה לא
+  // רלוונטי") - לא עוד "נסיעה+15 דקות" אוטומטי: travelMode פשוט נשאר undefined כל עוד המשתמש
+  // לא בחר מפורשות אחת מ-15/30/45 (שורת "🚗 בנסיעה" מוצגת ניטרלית/לא-נבחרת - travelSelection
+  // למטה כבר מטפל נכון ב-travelMode undefined). זה גם המקום שמבטל "🚶 הליכה" אם המיקום השתנה
+  // למשהו שכבר לא מדויק מספיק (city-level) - נופל בחזרה לאותה ברירת-מחדל החדשה (locationWithNoTravelPreference,
+  // lib/filterActivities.js) ולא ל"נסיעה 15" הישנה, כדי שההתנהגות תישאר עקבית עם הדיפולט
+  // החדש בכל מקום. freshCoords - קואורדינטות שהתקבלו זה עתה (useCurrentLocation), לפני שה-prop
+  // deviceCoords התעדכן.
   const commitLocation = (next, freshCoords) => {
     animate();
     setGpsError('');
     const coordsForPrecision = freshCoords || deviceCoords;
     let out = next;
-    // 'nationwide' - אין מרחק להגדיר בכלל (אין נקודת-מוצא), אז לא נוגעים ב-travelMode: לא מגדירים
-    // ברירת-מחדל של נסיעה, ולא "מתקנים" הליכה. travelMode נשאר undefined כדי שמעבר עתידי לעיר/GPS
-    // יקבל שוב את ברירת-המחדל הרגילה (נסיעה 15) בדיוק כמו בפעם הראשונה.
+    // 'nationwide' - אין מרחק להגדיר בכלל (אין נקודת-מוצא), אז לא נוגעים ב-travelMode כלל.
     if (out.mode === 'nationwide') { onChange(out); return; }
-    if (isValidLocation(out)) {
-      if (out.travelMode === 'walking' && !isPreciseLocation(out, coordsForPrecision)) {
-        out = locationWithDrivingTime(out, normalizeDrivingMinutes(out.travelMinutes));
-      } else if (out.travelMode === undefined) {
-        out = locationWithDrivingTime(out, 15);
-      }
+    if (isValidLocation(out) && out.travelMode === 'walking' && !isPreciseLocation(out, coordsForPrecision)) {
+      out = locationWithNoTravelPreference(out);
     }
     onChange(out);
   };
@@ -196,9 +188,19 @@ export default function LocationQuickPicker({ visible, value, onChange, onCoords
     : null;
   const nationwideSelected = value.mode === 'nationwide';
 
+  // לחיצה חוזרת על "🚶 הליכה" כשהוא כבר נבחר מבטלת אותו (2026-09-20, בקשת המשתמש: "לחיצה נוספת
+  // על 'הליכה' צריכה לבטל את הבחירה") - אותה טכניקה בדיוק כמו הצ'יפים ב"בנסיעה" למטה
+  // (locationWithNoTravelPreference, lib/filterActivities.js) - לא רק travelMode אחר, גם
+  // radiusKm חוזר ל-null כדי שלא יישאר תקוע על WALKING_RADIUS_KM בלי שום UI שמראה את זה.
+  // travelSelection ישירות על value (לא על ה-selection המחושב למטה) - הפונקציה הזו מוגדרת
+  // לפניו בקובץ, ואין סיבה לשכפל את הבדיקה custom.
   const selectWalking = () => {
     if (!precise) return;
     animate();
+    if (travelSelection(value).walking) {
+      onChange(locationWithNoTravelPreference(value));
+      return;
+    }
     onChange({ ...value, travelMode: 'walking', radiusKm: WALKING_RADIUS_KM });
   };
 
@@ -209,24 +211,22 @@ export default function LocationQuickPicker({ visible, value, onChange, onCoords
     setDrivingOpen((o) => !o);
   };
 
-  // לחיצה על צ'יפ-דקות שכבר נבחר מבטלת רק אותו (בקשת המשתמש הקודמת: "לחיצה על כפתור שנבחר
-  // מבטלת את הבחירה של אותו הכפתור בלבד") - travelMode נשאר 'driving', travelMinutes מתאפס ל-null,
-  // והשורה נשארת פתוחה כדי לבחור אחר. בחירה חדשה סוגרת את השורה - הערך מוצג בשורה עצמה.
+  // לחיצה על צ'יפ-דקות שכבר נבחר מבטלת אותה לגמרי (2026-09-20, בקשת המשתמש: "לחיצה נוספת על
+  // אותה אפשרות מבטלת אותה לגמרי ומחזירה את הכל למצב הקודם") - locationWithNoTravelPreference
+  // (lib/filterActivities.js) מסירה travelMode/travelMinutes/radiusKm לגמרי, לא רק travelMinutes
+  // (כמו קודם - שהיה משאיר radiusKm תקוע על DEFAULT_PRECISE_RADIUS_KM בטעות, בלי שום צ'יפ
+  // מסומן שמסביר את זה).
+  // setDrivingOpen(false) הוסר (2026-09-20, תיקון-באג, בקשת המשתמש: "הבחירה צריכה להיות מסומנת
+  // אבל החלון לא אמור להיסגר עד שאני לא מחליט לסגור אותו") - השורה נשארת פתוחה אחרי כל בחירה
+  // (גם בחירה חדשה וגם ביטול), עם הצ'יפ הנבחר מודגש (selected, ראו ה-JSX למטה) - נסגרת רק
+  // בלחיצה מפורשת על כותרת-השורה עצמה (toggleDriving למעלה, אותו handler בדיוק).
   const selectDrivingMinutes = (minutes) => {
     animate();
     if (travelMode === 'driving' && value.travelMinutes === minutes) {
-      onChange({ ...value, travelMinutes: null });
+      onChange(locationWithNoTravelPreference(value));
       return;
     }
     onChange(locationWithDrivingTime(value, minutes));
-    setDrivingOpen(false);
-  };
-
-  // "ללא הגבלת זמן" - travelMode 'any' הקיים (לא מצב חדש), ראו ההערה ליד DRIVING_TIME_OPTIONS.
-  const selectNoTimeLimit = () => {
-    animate();
-    if (travelMode !== 'any') onChange(locationWithAnyDistance(value));
-    setDrivingOpen(false);
   };
 
   // הבחירה הנוכחית מוצגת פעם אחת - בצד השורה (travelSelection, lib/filterActivities.js).
@@ -249,6 +249,15 @@ export default function LocationQuickPicker({ visible, value, onChange, onCoords
           {/* ScrollView: במצב המורחב (עיר + סעיף מרחק) הכרטיס גבוה ממסך 320x568 - בלי גלילה
               הכותרת נחתכה וה-CTA יצא מהמסך ולא היה נגיש. */}
           <ScrollView contentContainerStyle={styles.cardContent} keyboardShouldPersistTaps="handled">
+          {/* X לסגירה בלי לבחור (2026-09-20, בקשת המשתמש: "צריך להיות... X בצד למעלה שאפשר לסגור
+              את החלון בלי לבצע בחירה") - קורא ל-onClose (לא onConfirm) בכוונה: אותו handler-סגירה
+              טהור שרקע/כפתור-מכשיר-אחורה כבר קוראים לו, לא נוגע בבחירה/לא מנווט לשום מקום. אותו
+              דפוס עיצוב בדיוק כמו components/LanguageSheet.js (closeBtn/closeBtnText). */}
+          <View style={styles.closeRow}>
+            <Pressable style={styles.closeBtn} onPress={onClose} hitSlop={8} accessibilityRole="button" accessibilityLabel={t('common.actions.close')}>
+              <Text style={styles.closeBtnText}>✕</Text>
+            </Pressable>
+          </View>
           <Text style={styles.title}>{t('location.picker.title')}</Text>
           <Text style={styles.subtitle}>{t('location.picker.subtitle')}</Text>
 
@@ -364,9 +373,6 @@ export default function LocationQuickPicker({ visible, value, onChange, onCoords
                           </Pressable>
                         );
                       })}
-                      <Pressable onPress={selectNoTimeLimit} style={[styles.chip, selection.noTimeLimit && styles.chipSelected]} accessibilityRole="radio" aria-checked={selection.noTimeLimit}>
-                        <Text style={[styles.chipText, selection.noTimeLimit && styles.chipTextSelected]}>{t('location.picker.noTimeLimit')}</Text>
-                      </Pressable>
                     </View>
                   </View>
                 ) : null}
@@ -388,6 +394,12 @@ const styles = createStyles((d) => ({
   backdrop: { flex: 1, backgroundColor: 'rgba(20,30,35,0.4)', justifyContent: 'center', padding: spacing.xl },
   card: { backgroundColor: colors.card, borderRadius: radii.xl, maxHeight: '100%', overflow: 'hidden' },
   cardContent: { padding: spacing.xl },
+  closeRow: { flexDirection: 'row', justifyContent: d.alignStart, marginBottom: 4 },
+  closeBtn: {
+    width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: colors.bg, borderWidth: 1, borderColor: colors.border,
+  },
+  closeBtnText: { fontFamily: fonts.bold, fontSize: 14, color: colors.textSecondary },
   title: { fontFamily: fonts.extraBold, fontSize: 17, color: colors.textPrimary, textAlign: 'center' },
   subtitle: { fontFamily: fonts.regular, fontSize: 12.5, color: colors.textSecondary, textAlign: 'center', marginTop: 4, marginBottom: 14 },
   modeBtn: {

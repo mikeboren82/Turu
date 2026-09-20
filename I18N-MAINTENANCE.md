@@ -15,7 +15,7 @@ healthy as the app grows.
 | Strings | `lib/i18n/locales/{he,en}/<namespace>.json` | One file per namespace, identical key trees in every locale |
 | Domain display helpers | `lib/i18n/format.js` | `categoryLabel`, `regionLabel`, `placeName`, `relativeDate`, `locationSummaryText`, `compactLocationText`, `categoriesSummary`, `scheduleHoursLabel`, `dayLetterLabel`, `formatKm` |
 | English place names | `constants/placeNamesEn.json` | Hebrew settlement name (normalized) → canonical English name. Generated from `settlements.name_en` + manual overrides |
-| Language switcher | `components/LanguageSwitcher.js` | Compact `עב \| EN` control on Home (via `Header showLanguageSwitcher`) |
+| Language switcher | `components/LanguageSheet.js` | Small bottom sheet (full native names), opened from the "🌐 שפה" row in the side menu (`components/Header.js`) - available with no login required |
 | Settings row | `app/profile.js` | "Language" row (logged-in settings and logged-out card), same `setLocale` |
 | Guardrails | `scripts/i18n-check.js`, `scripts/i18n-scan.js` | Key parity + hard-coded-Hebrew scanner |
 | Tests | `tests/i18n.test.js` | Node tests (`npm run test:i18n`) |
@@ -160,7 +160,7 @@ string literals too.
 5. **Domain data**:
    - Place names: extend `constants/placeNamesEn.json` into a per-locale map (e.g. `placeNames.ar.json`) and branch in `placeName()`.
    - Category/region labels come from `domain.categories` / `domain.regions` — translate them in the new `domain.json`.
-6. **Switcher**: `LanguageSwitcher` and the Profile row iterate `SUPPORTED_LOCALES`; with three locales, check the Home pill still fits at 320px (consider a menu instead).
+6. **Switcher**: `LanguageSheet` and the Profile row iterate `SUPPORTED_LOCALES`; with three locales, check the sheet's option row still fits at 320px (wrap to two rows if needed).
 7. **Search**: add a short glossary line for the new language to the `smart-search` prompt if test queries map to the wrong category.
 8. **Legal**: the legal namespace needs a faithful translation plus the `bindingNotice` value.
 9. Add the locale to `tests/i18n.test.js` expectations (parity test already loops over all locales) and QA every screen at 320/360/375px.

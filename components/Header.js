@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { View, Text, Pressable, Modal, Image } from 'react-native';
+import { View, Text, Pressable, Modal, Image, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Svg, { Line } from 'react-native-svg';
@@ -7,11 +7,13 @@ import { useRouter, usePathname } from 'expo-router';
 import { colors, fonts, radii, spacing } from '../constants/theme';
 import { supabase } from '../lib/supabase';
 import { clearPin } from '../lib/pin';
-import { HomeIcon, HeartIcon, UserIcon, ChatIcon, InfoIcon, MailIcon, LogOutIcon, NoteIcon, AlertIcon } from './icons';
+import {
+  HomeIcon, HeartIcon, UserIcon, ChatIcon, InfoIcon, MailIcon, LogOutIcon, NoteIcon, HelpIcon, GlobeIcon, ChevronLeftIcon,
+} from './icons';
 import LoginRequiredModal from './LoginRequiredModal';
 import FeedbackButton from './FeedbackButton';
-import LanguageSwitcher from './LanguageSwitcher';
-import { useI18n, createStyles } from '../lib/i18n';
+import LanguageSheet from './LanguageSheet';
+import { useI18n, createStyles, LOCALES } from '../lib/i18n';
 
 // Points left in both languages: the header geometry is physical (back button top-left).
 function BackIcon() {
@@ -23,9 +25,11 @@ function BackIcon() {
   );
 }
 
-function MenuIcon() {
+// size (2026-09-20, בקשת המשתמש: "כפתור התפריט... גדול יותר") - פרמטר חדש, ברירת-מחדל 16 כמו
+// קודם (BackIcon למעלה לא נגע - נשאר 16 קבוע, רק כפתור-התפריט גדל, ראו menuBtn/menuIconSize למטה).
+function MenuIcon({ size = 16 }) {
   return (
-    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={colors.ink} strokeWidth={1.8} strokeLinecap="round">
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={colors.ink} strokeWidth={1.8} strokeLinecap="round">
       <Line x1="4" y1="7" x2="20" y2="7" />
       <Line x1="4" y1="12" x2="20" y2="12" />
       <Line x1="4" y1="17" x2="20" y2="17" />
@@ -33,12 +37,21 @@ function MenuIcon() {
   );
 }
 
-export default function Header({ showBack = false, onMenuPress, hideLogo = false, onHeaderLayout, onNicknameResolved, showLanguageSwitcher = false }) {
+export default function Header({
+  showBack = false, onMenuPress, hideLogo = false, onHeaderLayout, onNicknameResolved, largeLogo = false,
+}) {
   const router = useRouter();
-  const { t } = useI18n();
+  const { t, locale, dir } = useI18n();
   const pathname = usePathname();
   const insets = useSafeAreaInsets();
+  // logoCompact (2026-09-20) - נמדד בפועל ב-320px: logoImage (250x108, "הלוגו... יותר גדול")
+  // גלש פיזית מעבר לקצה המסך וחתך את כפתור-התפריט (right:354 מול viewport 320, docScrollWidth
+  // עדיין 320 - clip ע"י overflow:hidden של אב, לא scroll אמיתי). אותו breakpoint/סף בדיוק כמו
+  // heroCompact ב-app/index.js (windowWidth<360) - עקביות עם התבנית הקיימת באפליקציה.
+  const { width: windowWidth } = useWindowDimensions();
+  const logoCompact = windowWidth < 360;
   const [menuOpen, setMenuOpen] = useState(false);
+  const [languageSheetOpen, setLanguageSheetOpen] = useState(false);
   const [session, setSession] = useState(null);
   const [nickname, setNickname] = useState('');
   const [stars, setStars] = useState(0);
@@ -125,12 +138,17 @@ export default function Header({ showBack = false, onMenuPress, hideLogo = false
   ];
 
   const secondaryItems = [
-    { key: 'chat', labelKey: 'nav.menu.chat', path: '/chat', Icon: ChatIcon },
+    // /chat (app/chat/index.js) הוא עדיין PlaceholderScreen ("המסך הזה עוד ייבנה") - הניווט
+    // עצמו נשאר (לא מפעילים פיצ'ר לא-גמור), אבל תג "בקרוב" הופך את זה למכוון ונגיש במקום
+    // "עמום סתם" (היה זהה חזותית לשאר השורות, בלי שום סימון שמסביר את זה).
+    { key: 'chat', labelKey: 'nav.menu.chat', path: '/chat', Icon: ChatIcon, comingSoon: true },
     { key: 'about', labelKey: 'nav.menu.about', path: '/about', Icon: InfoIcon },
     { key: 'contact', labelKey: 'nav.menu.contact', path: '/contact', Icon: MailIcon },
     // "משהו לא עובד?" - מתחת ל"צור קשר" בדיוק (בקשת המשתמש), action במקום path: פותח את
-    // מודל-הדיווח (FeedbackButton) במקום לנווט לעמוד.
-    { key: 'feedback', labelKey: 'nav.menu.feedback', action: 'openFeedback', Icon: AlertIcon },
+    // מודל-הדיווח (FeedbackButton) במקום לנווט לעמוד. HelpIcon ("?") ולא AlertIcon - זה האחרון
+    // כמעט זהה ויזואלית ל-InfoIcon ("עלינו") בגודל אייקון-תפריט, ומרגיש כמו אזהרת-מערכת ולא
+    // דיווח/עזרה ידידותיים.
+    { key: 'feedback', labelKey: 'nav.menu.feedback', action: 'openFeedback', Icon: HelpIcon },
   ];
 
   // בלי session - במקום ניווט לעמוד ריק, פותחים LoginRequiredModal עם הסבר מותאם-הקשר לפריט
@@ -164,6 +182,11 @@ export default function Header({ showBack = false, onMenuPress, hideLogo = false
         >
           {t(item.labelKey)}
         </Text>
+        {item.comingSoon ? (
+          <View style={styles.comingSoonBadge}>
+            <Text style={styles.comingSoonText}>{t('nav.menu.comingSoon')}</Text>
+          </View>
+        ) : null}
       </Pressable>
     );
   };
@@ -187,21 +210,31 @@ export default function Header({ showBack = false, onMenuPress, hideLogo = false
 
       {!hideLogo && (
         <Pressable style={styles.logoWrap} onPress={() => router.push('/')} accessibilityLabel={t('nav.header.logoA11y')}>
-          <Image source={require('../assets/turu-logo.png')} style={styles.logoImage} resizeMode="contain" />
+          {/* resizeMode="stretch" (היה "contain") - בקשת המשתמש: "מעט יותר גדול אבל יותר מתוח
+              לצדדים" - contain היה שומר על יחס-הרוחב/גובה המקורי של קובץ-התמונה עצמו (ריבוע
+              logoImage רחב יותר היה רק מוסיף שוליים ריקים משני הצדדים, לא מותח את הלוגו עצמו).
+              stretch ממלא את הקופסה בדיוק (רוחב/גובה בנפרד) - עיוות-קל ומכוון, לא תקלה. */}
+          <Image
+            source={require('../assets/turu-logo.png')}
+            style={[
+              styles.logoImage,
+              logoCompact && styles.logoImageCompact,
+              largeLogo && styles.logoImageLarge,
+              largeLogo && logoCompact && styles.logoImageLargeCompact,
+            ]}
+            resizeMode="stretch"
+          />
         </Pressable>
       )}
 
-      {/* בורר-שפה (רק בעמוד הבית): absolute מעל כפתור התפריט, באותו צד - לא דוחף תוכן ולא נוגע
-          בלוגו או ב-SunMascot של app/index.js (שיושב בצד הנגדי). מרונדר לפני כפתור התפריט כדי שבחפיפת
-          hitSlop הכפתור יישאר עליון. */}
-      {showLanguageSwitcher ? <LanguageSwitcher style={styles.languageSwitcher} /> : null}
-
+      {/* menuBtn (חדש) - לא עוד iconBtn/side המשותף עם כפתור-החזרה (זה נשאר 38px, ללא שינוי) -
+          בקשת המשתמש: "כפתור התפריט... גדול יותר", ספציפית לכפתור הזה בלבד. */}
       <Pressable
-        style={[styles.iconBtn, styles.side, styles.sideRight]}
+        style={[styles.iconBtn, styles.menuBtn, styles.sideRight]}
         onPress={handleMenuPress}
         accessibilityLabel={t('nav.header.menuA11y')}
       >
-        <MenuIcon />
+        <MenuIcon size={18} />
       </Pressable>
 
       <Modal visible={menuOpen} transparent animationType="fade" onRequestClose={() => setMenuOpen(false)}>
@@ -236,6 +269,27 @@ export default function Header({ showBack = false, onMenuPress, hideLogo = false
 
             <View style={styles.dropdownDivider} />
             {primaryItems.map((item) => renderMenuRow(item, { primary: true }))}
+
+            <View style={styles.dropdownDivider} />
+            {/* שפה - זמינה גם למשתמש אנונימי (לא בתוך אזור מחייב-חיבור), עם שם-שפה מלא ("עברית"/
+                "English", לא "עב"/"EN") וה-scheme/persist/RTL-LTR הקיימים דרך LanguageSheet
+                (setLocale אחד, מקור-אמת יחיד - lib/i18n). פותח sheet קטן במקום מסך Settings שלם. */}
+            <Pressable
+              style={({ pressed }) => [styles.dropdownItem, styles.languageRow, pressed && styles.itemPressed]}
+              onPress={() => { setMenuOpen(false); setLanguageSheetOpen(true); }}
+              accessibilityRole="button"
+              accessibilityLabel={`${t('common.language.label')} - ${t('common.language.current', { language: LOCALES[locale].nativeName })}`}
+            >
+              <GlobeIcon size={17} color={colors.textSecondary} />
+              <Text style={[styles.secondaryItemText, styles.languageRowLabel]}>{t('common.language.label')}</Text>
+              <View style={styles.languageRowRight}>
+                <Text style={styles.languageRowValue}>{LOCALES[locale].nativeName}</Text>
+                <View style={{ transform: [{ rotate: dir.forwardRotate }] }}>
+                  <ChevronLeftIcon size={12} color={colors.textMuted} />
+                </View>
+              </View>
+            </Pressable>
+
             <View style={styles.dropdownDivider} />
             {secondaryItems.map((item) => renderMenuRow(item, { primary: false }))}
 
@@ -289,6 +343,8 @@ export default function Header({ showBack = false, onMenuPress, hideLogo = false
       </Modal>
 
       <FeedbackButton visible={feedbackOpen} onClose={() => setFeedbackOpen(false)} />
+
+      <LanguageSheet visible={languageSheetOpen} onClose={() => setLanguageSheetOpen(false)} />
     </View>
   );
 }
@@ -313,10 +369,35 @@ const styles = createStyles((d) => ({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  // menuBtn (חדש) - גדול מ-side הרגיל (38px), רק לכפתור-התפריט (בקשת המשתמש: "כפתור התפריט...
+  // גדול יותר", ספציפית - לא כפתור-החזרה, שנשאר side/38px ללא שינוי). borderRadius עצמאי (24,
+  // לא ה-19 המשותף של iconBtn) כדי להישאר עיגול מושלם בגודל החדש.
+  // 44x44 (היה 48x48) - בקשת המשתמש: "אפשר גם להקטין את הכפתור, אבל מעט" - יחד עם הלוגו שהתרחב
+  // (logoImage למטה), הכפתור נשאר קטן משמעותית מהלוגו כך שהלוגו ממשיך לקבוע את גובה-השורה
+  // וה-centerY של שניהם נשאר זהה (alignItems:'center' ב-header, נבדק במדידה בפועל).
+  menuBtn: { width: 44, height: 44, borderRadius: 22 },
   logoWrap: { alignItems: 'center' },
-  logoImage: { width: 132, height: 92 },
-  // מעל כפתור התפריט (38px, ממורכז בשורה של ~104px → מתחיל ב-~33px): גובה הבורר 30, top:-4 → ~7px רווח מעל הכפתור.
-  languageSwitcher: { position: 'absolute', right: 0, top: -4 },
+  // 212x92 (היה 250x108) - סבב "hero area visual refinement" (2026-09-19, בקשת המשתמש: "the logo
+  // occupies a lot of visual space... reduce the logo block modestly. Do NOT make it tiny") -
+  // כיווץ עדין (~85%) ששומר על אותו יחס-מתיחה בערך (2.304, היה 2.315), לא צמצום דרסטי.
+  logoImage: { width: 212, height: 92 },
+  // logoCompact (<360px, ראו ההערה המלאה ליד ה-state למעלה) - כווץ באותו יחס בדיוק (~85%) כמו
+  // logoImage הרגיל, כדי שהיחס בין שני המצבים יישאר עקבי.
+  logoImageCompact: { width: 162, height: 70 },
+  // largeLogo (2026-09-20, "TURU HOME SCREEN — SMALL VISUAL POLISH", בקשת המשתמש: "the logo...
+  // should feel more prominent... keep its aspect ratio") - Home בלבד מזין largeLogo (ראו
+  // app/index.js), שאר המסכים ממשיכים ב-logoImage הרגיל. ×1.10 בדיוק על שני הממדים (212x92 →
+  // 233x101, 162x70 → 178x77) - נבחר לא ב-הרגשה אלא נמדד מול הרוחב הפנוי בפועל בשורת ה-header
+  // (side:38 + menuBtn:44 + ריפוד-content spacing.xl*2, ב-320px וב-375px כאחד) כדי שהלוגו המוגדל
+  // לא יתנגש בכפתור-התפריט (הבאג ההיסטורי שתועד למעלה עם 250x108) - נבדק בפועל בדפדפן בשני
+  // הרוחבים. יחס-המתיחה (233/101≈2.307, 178/77≈2.312) נשאר כמעט זהה ל-logoImage/logoImageCompact
+  // המקוריים (2.304/2.314 בהתאמה) - "keep aspect ratio" מתקיים.
+  // 240x104 / 184x80 (היה 233x101 / 178x77, "small visual polish" round 3, 2026-09-20, בקשת
+  // המשתמש: "להגדיל אותו ממש מעט" - עוד קצת, זהירות: נבדק שוב בפועל בדפדפן בשני הרוחבים (320/375)
+  // שהלוגו המוגדל-נוסף עדיין לא מתנגש בכפתור-התפריט. יחס-המתיחה (240/104≈2.308, 184/80=2.3)
+  // עדיין קרוב ל-2.304/2.314 המקוריים.
+  logoImageLarge: { width: 240, height: 104 },
+  logoImageLargeCompact: { width: 184, height: 80 },
 
   backdrop: { flex: 1, alignItems: 'flex-end' },
   dropdown: {
@@ -360,6 +441,16 @@ const styles = createStyles((d) => ({
   primaryItemText: { flexShrink: 1, fontFamily: fonts.bold, fontSize: 14.5, color: colors.textPrimary, textAlign: d.textAlign },
   secondaryItemText: { flexShrink: 1, fontFamily: fonts.semiBold, fontSize: 13, color: colors.textSecondary, textAlign: d.textAlign },
   itemTextActive: { color: colors.accent },
+  comingSoonBadge: { backgroundColor: colors.yellowTint, borderRadius: radii.pill, paddingVertical: 2, paddingHorizontal: 8 },
+  comingSoonText: { fontFamily: fonts.bold, fontSize: 10, color: colors.yellow },
+
+  // "שפה" - אותה שורה בדיוק כמו dropdownItem, רק עם ערך-נוכחי+שברון בקצה הנגדי: התווית מקבלת
+  // flex:1 (לא רק flexShrink כמו secondaryItemText הרגיל) כדי "לספוג" את השטח הפנוי ולדחוף את
+  // languageRowRight לקצה הנגדי - בלי position:absolute וממשיך לעבוד נכון גם RTL וגם LTR.
+  languageRow: {},
+  languageRowLabel: { flex: 1 },
+  languageRowRight: { flexDirection: d.row, alignItems: 'center', gap: 4 },
+  languageRowValue: { fontFamily: fonts.semiBold, fontSize: 13, color: colors.textMuted },
 
   logoutItemText: { fontFamily: fonts.semiBold, fontSize: 13.5, color: colors.textSecondary, textAlign: d.textAlign },
 
