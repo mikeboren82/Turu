@@ -943,9 +943,9 @@ export default function ProfileScreen() {
                 <View style={styles.noteCardTop}>
                   {thumb ? (
                     <Image source={{ uri: thumb }} style={styles.noteThumb} />
-                  ) : placeholderImageFor(note.activity.placeholder_group) ? (
+                  ) : placeholderImageFor(note.activity.placeholder_group, note.activity.id) ? (
                     <Image
-                      source={placeholderImageFor(note.activity.placeholder_group)}
+                      source={placeholderImageFor(note.activity.placeholder_group, note.activity.id)}
                       resizeMode="contain"
                       style={[styles.noteThumb, { backgroundColor: placeholderBgColorFor(note.activity.placeholder_group) }]}
                     />
