@@ -17,7 +17,10 @@ test('parity: recurring / fixed_hours / single one_time rows summarize as before
   // a single past row (cron has not archived it yet) still summarizes as before
   const past = summarizeSchedules([{ schedule_type: 'one_time', one_time_date: '2026-09-01', start_time: null, end_time: null }], today);
   assert.equal(past.hours, new Date('2026-09-01').toLocaleDateString('he-IL'));
-  assert.deepEqual(summarizeSchedules([], today), { availableDays: [], openHours: null, hours: 'שעות לא צוינו', occurrences: [], nextDate: null, hoursByDay: {} });
+  // intervalsByDay: {} (2026-09-20, Opening Hours foundation, architecture audit section 7) -
+  // purely additive field alongside hoursByDay, see lib/scheduleSummary.js - updated here
+  // deliberately, not a silent contract drift.
+  assert.deepEqual(summarizeSchedules([], today), { availableDays: [], openHours: null, hours: 'שעות לא צוינו', occurrences: [], nextDate: null, hoursByDay: {}, intervalsByDay: {} });
 });
 
 test('multi-occurrence: only upcoming rows count, next one leads, count shown, past ones ignored', () => {
