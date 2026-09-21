@@ -638,6 +638,10 @@ export default function ActivitiesScreen() {
       hour: (filters.hour?.option || filters.hour?.custom) ? { ...filters, hour: DEFAULT_FILTERS.hour } : null,
       category: filters.category?.length > 0 ? { ...filters, category: DEFAULT_FILTERS.category } : null,
       when: filters.when?.options?.length > 0 ? { ...filters, when: DEFAULT_FILTERS.when } : null,
+      // q (2026-09-21): the free-text constraint has the same "explicit relaxation, not silent
+      // drop" treatment as every other dimension here - matchesFreeText (lib/filterActivities.js)
+      // is the one thing zero-results could be blaming with no widen option at all before this.
+      q: (filters.q || '').trim() ? { ...filters, q: '' } : null,
     };
     const counts = {};
     for (const [key, relaxed] of Object.entries(candidates)) {
@@ -662,6 +666,17 @@ export default function ActivitiesScreen() {
   // שהמסך הזה בכלל נטען, אז אין כאן טיפול-מיוחד לפי route param. null כשאין הקשר משמעותי
   // (מסך בלי שום פילטר) - ה-JSX למטה פשוט לא מרנדר כלום במקרה הזה.
   const resultsSummaryText = useMemo(() => buildResultsSummary(filters), [filters, locale]);
+  // 🔍 Search-intent chip (unified search state, 2026-09-21) - filters.q is the ONE dimension with
+  // no editing surface anywhere else: FILTER_SCHEMA (constants/filterSchema.js) has no 'q' section,
+  // so FiltersSheet cannot show or clear it, and resultsWhatPhrase (lib/filterSummaries.js) hides it
+  // entirely once a category is also set - "חוות סוסים עם פינת ליטוף" resolves both category:'חווה'
+  // and q:'עם פינת ליטוף', and the residual text becomes invisible even though matchesFreeText
+  // (lib/filterActivities.js) still silently applies it. This chip is the one exception to the
+  // 2026-09-16 "no × on this screen, FiltersSheet only" decision (see the comment above the removed
+  // active-chips row below) - narrowly scoped to q specifically, because q is not reachable through
+  // FiltersSheet at all, not a reversal of that decision for every other filter.
+  const searchIntentText = (filters.q || '').trim();
+  const clearSearchIntent = () => setField('q', '');
   const hiddenCategoryCount = new Set([...excludedCategories, ...(filters.excludeCategory || [])]).size;
   const hiddenCityCount = new Set([...excludedCities, ...(filters.excludeCity || [])]).size;
   const hiddenRegionCount = new Set([...excludedRegions, ...(filters.excludeRegion || [])]).size;
@@ -767,6 +782,26 @@ export default function ActivitiesScreen() {
           <Text style={styles.resultsSummaryText} numberOfLines={2}>{resultsSummaryText}</Text>
         ) : null}
       </View>
+
+      {/* 🔍 Search-intent chip - the persistent Free Search text, shown independently of category/
+          location/other filters (see the comment by searchIntentText above). Never rendered when q
+          is empty. Removing it clears q ONLY via setField - location/age/date/opening/category are
+          untouched, exactly like every other setField call on this screen. */}
+      {searchIntentText ? (
+        <View style={styles.searchIntentRow}>
+          <Pressable
+            style={styles.searchIntentChip}
+            onPress={clearSearchIntent}
+            accessibilityRole="button"
+            accessibilityLabel={t('activities.header.searchIntentChipRemoveA11y', { query: searchIntentText })}
+          >
+            <Text style={styles.searchIntentChipText} numberOfLines={1} ellipsizeMode="tail">
+              {t('activities.header.searchIntentChip', { query: searchIntentText })}
+            </Text>
+            <Text style={styles.searchIntentChipRemove}>✕</Text>
+          </Pressable>
+        </View>
+      ) : null}
 
       {/* TOOLBAR - שלושה controls בלבד: סינון (תקציר-מצב קומפקט במקום badge+שורת-chips נפרדת
           מתחת, ראו activitiesFilterSummary למעלה), תצוגה/מיון (מאחד את "📍 לפי מרחק" + "רשימה/
@@ -961,6 +996,15 @@ export default function ActivitiesScreen() {
             </Text>
           </Pressable>
         )}
+        {(filters.q || '').trim() ? (
+          <Pressable style={styles.emptyWidenChip} onPress={() => setField('q', '')}>
+            <Text style={styles.emptyWidenChipText}>
+              {widenPreviewCounts.q != null
+                ? t('activities.results.widen.withCount', { label: t('activities.results.widen.searchText'), count: widenPreviewCounts.q })
+                : t('activities.results.widen.searchText')}
+            </Text>
+          </Pressable>
+        ) : null}
       </View>
       <Pressable style={styles.emptyBtn} onPress={clearAll}>
         <Text style={styles.emptyBtnText}>{t('activities.results.clearAllFilters')}</Text>
@@ -1377,6 +1421,18 @@ const styles = createStyles((d) => ({
   toolbarChipIcon: { fontSize: 13 },
   toolbarChipText: { fontFamily: fonts.semiBold, fontSize: 13, color: colors.textSecondary },
   toolbarChipTextPrimary: { fontFamily: fonts.bold, fontSize: 13, color: colors.accent },
+
+  // 🔍 Search-intent chip - same pill visual language as toolbarChip/emptyWidenChip (border/card/
+  // radii.pill), own row so it never competes with the fixed-width toolbar controls above/below it
+  // (section 19: no new horizontal overflow, one-row chip, no layout redesign).
+  searchIntentRow: { flexDirection: d.row, marginBottom: 10 },
+  searchIntentChip: {
+    flexDirection: d.row, alignItems: 'center', gap: 6, alignSelf: d.alignStart, maxWidth: '100%',
+    borderWidth: 1.5, borderColor: colors.accent, backgroundColor: colors.accentTintLight,
+    borderRadius: radii.pill, paddingVertical: 7, paddingHorizontal: 12,
+  },
+  searchIntentChipText: { fontFamily: fonts.bold, fontSize: 13, color: colors.accent, flexShrink: 1 },
+  searchIntentChipRemove: { fontFamily: fonts.bold, fontSize: 12, color: colors.accent },
 
   // "⚡ עכשיו פעיל · כבה" - קישור שקט/מותנה-לגמרי (כמו radiusExpandedBanner מתחת), הדרך
   // היחידה שנשארה לכבות עכשיו בלי לחזור לעמוד הבית אחרי שהצ'יפ הישן הוסר.

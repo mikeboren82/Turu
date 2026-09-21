@@ -6,7 +6,10 @@
     "filterLabel": "סינון",
     "filterA11yWithCount_other": "סינון, {{count}} סינונים פעילים",
     "filterSummaryCountOnly": "סינון +{{count}}",
-    "filterSummaryMore": "{{summary}} +{{count}}"
+    "filterSummaryMore": "{{summary}} +{{count}}",
+    "searchIntentChip": "🔍 {{query}}",
+    "searchIntentChipA11y": "חיפוש חופשי פעיל: {{query}}. הקש כדי להסיר",
+    "searchIntentChipRemoveA11y": "הסר חיפוש חופשי {{query}}"
   },
   "display": {
     "a11y": "תצוגה ומיון, תצוגת {{view}}, מיון {{sort}}",
@@ -73,7 +76,8 @@
       "nationwide": "📍 הראה בכל הארץ",
       "hours": "🕐 הרחבת שעות",
       "allCategories": "🎯 הצגת כל הפעילויות",
-      "anyDay": "📅 בדיקת כל יום"
+      "anyDay": "📅 בדיקת כל יום",
+      "searchText": "🔍 הסרת מילות החיפוש"
     }
   },
   "spontaneous": {

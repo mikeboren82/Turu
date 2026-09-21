@@ -7,7 +7,10 @@
     "filterA11yWithCount_one": "Filters, 1 active filter",
     "filterA11yWithCount_other": "Filters, {{count}} active filters",
     "filterSummaryCountOnly": "Filters +{{count}}",
-    "filterSummaryMore": "{{summary}} +{{count}}"
+    "filterSummaryMore": "{{summary}} +{{count}}",
+    "searchIntentChip": "🔍 {{query}}",
+    "searchIntentChipA11y": "Free search active: {{query}}. Tap to remove",
+    "searchIntentChipRemoveA11y": "Remove free search {{query}}"
   },
   "display": {
     "a11y": "Display and sort, view: {{view}}, sort: {{sort}}",
@@ -74,7 +77,8 @@
       "nationwide": "📍 Show all of Israel",
       "hours": "🕐 Widen hours",
       "allCategories": "🎯 Show all activities",
-      "anyDay": "📅 Check any day"
+      "anyDay": "📅 Check any day",
+      "searchText": "🔍 Remove search text"
     }
   },
   "spontaneous": {
