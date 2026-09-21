@@ -15,6 +15,7 @@
 require('dotenv').config();
 const { getClient } = require('./supabase');
 const { generatePlaygroundDisplayName, isGenericPlaygroundName } = require('./playgroundNaming');
+const { verifiedConditionalUpdate, isSuccess, describe } = require('./lib/verifiedWrite');
 
 const APPLY = process.argv.includes('--apply');
 const PREVIEW_COUNT = 20;
@@ -24,15 +25,19 @@ function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
 // ~5700 קריאות רשת רצופות על המכונה הזו נתקלות לפעמים ב"TypeError: fetch failed" חולף (נצפה
 // בפועל בהרצה קודמת - 3128/5474 נכשלו ככה, לא שגיאת-נתונים) - כנראה יציבות-רשת, לא קשור
 // לתוכן הבקשה. רטריי קצר עם backoff לפני שמוותרים ורושמים כישלון אמיתי.
-async function updateWithRetry(client, id, patch, attempts = 3) {
-  let lastError = null;
+// אימות-כתיבה (2026-09-21): הגרסה הקודמת חזרה "הצלחה" (null) על error=null גם כש-0 שורות הותאמו
+// בפועל (RLS/מירוץ-מקביל) - בדיוק אותה ריצה-בשקט שדוח מיגרציה שקטה יכול להחמיץ. מסווגים כל תוצאה;
+// רטריי רק על OTHER_FAILURE (תקלת-רשת/transport, בדיוק המקרה שהתיעוד למעלה מתאר) - WRITE_DENIED/
+// PRECONDITION_CHANGED/ROW_NOT_FOUND דטרמיניסטיים, רטריי לא עוזר, וממשיכים לחכות מקטין תפוקה לחינם.
+async function updateWithRetry(client, id, patch, expectedOld, attempts = 3) {
+  let lastResult = null;
   for (let i = 0; i < attempts; i++) {
-    const { error } = await client.from('activities').update(patch).eq('id', id);
-    if (!error) return null;
-    lastError = error;
+    const r = await verifiedConditionalUpdate(client, { table: 'activities', id, patch, expectedOld });
+    if (r.outcome !== 'OTHER_FAILURE') return r;
+    lastResult = r;
     if (i < attempts - 1) await sleep(500 * (i + 1));
   }
-  return lastError;
+  return lastResult;
 }
 
 async function main() {
@@ -110,6 +115,7 @@ async function main() {
   console.log('\n=== מבצע שינויים בפועל ===');
   let updated = 0;
   let failed = 0;
+  let alreadySatisfied = 0;
   const auditLog = [];
   for (const r of rows) {
     if (!r.changes) continue;
@@ -118,21 +124,23 @@ async function main() {
     // שכבר עברו מיגרציה פעם (original_source_name כבר מחזיק את השם *האמיתי* מלפני כל מיגרציה,
     // לא את התוצר-הביניים בפורמט הישן).
     if (!r.activity.original_source_name) patch.original_source_name = r.activity.name;
-    const error = await updateWithRetry(client, r.activity.id, patch);
+    const result = await updateWithRetry(client, r.activity.id, patch, { name: r.activity.name });
     // הרצה קודמת (בלי ה-delay הזה) נתקלה ב"TypeError: fetch failed" ב-70%+ מהבקשות - סבב
     // רצוף בלי שום מרווח, לא בעיית-תוכן. מרווח קצר בין בקשות (לא רק ברטריי) הוא המיטיגציה
     // המקובלת לתשישות-חיבורים/פורטים-זמניים בריצה עם אלפי fetch רצופים.
     await sleep(80);
-    if (error) {
-      failed++;
-      console.error(`נכשל: ${r.activity.name} (${r.activity.id}) - ${error.message}`);
-    } else {
+    if (isSuccess(result)) {
       updated++;
       auditLog.push({
         activity_id: r.activity.id, old_name: r.activity.name, new_name: r.name,
         tier: r.tier, name_source: r.nameSource, timestamp: new Date().toISOString(),
         reason: 'Generated descriptive playground name because no official name was available.',
       });
+    } else if (result.outcome === 'NO_CHANGE_ALREADY_SATISFIED') {
+      alreadySatisfied++;
+    } else {
+      failed++;
+      console.error(`נכשל: ${r.activity.name} (${r.activity.id}) - ${describe(result)}`);
     }
   }
 
@@ -140,13 +148,17 @@ async function main() {
   // 'official' כדי שההרצה הבאה (ואישור-מנהל עתידי) ידעו שזה לא-לגעת בלי לעבור שוב על כל הרשומות.
   const needsOfficialBackfill = rows.filter((r) => !r.changes && !r.protected && !r.activity.name_source && r.tier === 'official');
   let backfilled = 0;
+  let backfillIssues = 0;
   for (const r of needsOfficialBackfill) {
-    const { error } = await client.from('activities').update({ name_source: 'official' }).eq('id', r.activity.id);
-    if (!error) backfilled++;
+    const result = await verifiedConditionalUpdate(client, { table: 'activities', id: r.activity.id, patch: { name_source: 'official' }, expectedOld: { name_source: null } });
+    if (isSuccess(result)) backfilled++;
+    else if (result.outcome !== 'NO_CHANGE_ALREADY_SATISFIED') { backfillIssues++; console.error(`מילוי-בדיעבד נכשל: ${r.activity.id} - ${describe(result)}`); }
   }
 
   console.log('\n=== APPLY SUMMARY ===');
   console.log(`עודכנו: ${updated}`);
+  console.log(`כבר עדכני (no-op): ${alreadySatisfied}`);
+  console.log(`מילוי-בדיעבד שנכשל (RLS/precondition): ${backfillIssues}`);
   console.log(`נכשלו: ${failed}`);
   console.log(`name_source='official' מולא-בדיעבד לרשומות עם שם תקין קיים: ${backfilled}`);
 

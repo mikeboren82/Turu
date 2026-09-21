@@ -15,6 +15,7 @@ const { getClient } = require('./supabase');
 const { all } = require('./cleaner/discover');
 const { samePlace } = require('./lib/placeIdentity');
 const { archiveActivity, isArchived, describe } = require('./lib/activityArchive');
+const { verifiedConditionalUpdate, isSuccess, describe: describeWrite } = require('./lib/verifiedWrite');
 
 const APPLY = process.argv.includes('--apply');
 const richness = (a) => (a.activity_images || []).length * 3 + (a.venue_id ? 3 : 0) + (a.source_id ? 2 : 0) + (a.activity_sources || []).length + (a.description ? 1 : 0) + (a.official_url ? 1 : 0);
@@ -48,8 +49,18 @@ const richness = (a) => (a.activity_images || []).length * 3 + (a.venue_id ? 3 :
     for (const s of loser.activity_sources || []) await client.from('activity_sources').upsert({ activity_id: keeper.id, source_id: s.source_id, page_url: s.page_url, relation: 'seen', url_role: s.url_role || null, last_seen_at: now }, { onConflict: 'activity_id,page_url' });
     if (loser.source_url) await client.from('activity_sources').upsert({ activity_id: keeper.id, source_id: loser.source_id || null, page_url: loser.source_url, relation: 'seen', last_seen_at: now }, { onConflict: 'activity_id,page_url' });
     if (!(keeper.activity_images || []).length) for (const i of loser.activity_images || []) await client.from('activity_images').insert({ activity_id: keeper.id, url: i.url, uploaded_by: userId || null, status: 'approved', image_source_url: i.image_source_url, image_source_type: i.image_source_type, needs_rights_review: i.needs_rights_review, image_kind: i.image_kind, image_page_url: i.image_page_url });
-    for (const col of ['description', 'min_age', 'max_age', 'official_url', 'venue_id']) if (keeper[col] == null && loser[col] != null) await client.from('activities').update({ [col]: loser[col] }).eq('id', keeper.id).is(col, null);
-    if (keeper.price_type == null && loser.price_type != null) await client.from('activities').update({ price_type: loser.price_type, price_amount: loser.price_amount }).eq('id', keeper.id).is('price_type', null);
+    // אימות-כתיבה (2026-09-21): שני מילויי ה-NULL-בלבד האלה כבר שמרו על התנאי (.is(col, null)) אבל
+    // לא בדקו שורות-מושפעות - 0 שורות שקטות (RLS/מירוץ) היו עוברות בלי עקבות.
+    for (const col of ['description', 'min_age', 'max_age', 'official_url', 'venue_id']) {
+      if (keeper[col] == null && loser[col] != null) {
+        const r = await verifiedConditionalUpdate(client, { table: 'activities', id: keeper.id, patch: { [col]: loser[col] }, expectedOld: { [col]: null } });
+        if (!isSuccess(r) && r.outcome !== 'NO_CHANGE_ALREADY_SATISFIED') console.log(`  field-fill (${col}) not written for keeper ${keeper.id}: ${describeWrite(r)}`);
+      }
+    }
+    if (keeper.price_type == null && loser.price_type != null) {
+      const r = await verifiedConditionalUpdate(client, { table: 'activities', id: keeper.id, patch: { price_type: loser.price_type, price_amount: loser.price_amount }, expectedOld: { price_type: null } });
+      if (!isSuccess(r) && r.outcome !== 'NO_CHANGE_ALREADY_SATISFIED') console.log(`  price fill not written for keeper ${keeper.id}: ${describeWrite(r)}`);
+    }
     await client.from('cleaner_cases').update({ status: 'resolved', resolution: { outcome: 'subject_merged_into', keeper: keeper.id }, resolved_at: now, updated_at: now, claimed_by: null, claimed_at: null, lease_until: null }).eq('subject_kind', 'activity').eq('subject_id', loser.id).eq('status', 'open');
   }
   review.slice(0, 40).forEach((p) => console.log(`  [REVIEW] "${p.a.name}" / "${p.b.name}" | ${p.a.city} | ${Math.round(p.v.km * 1000)} m | names ${p.v.agreement}`));

@@ -13,6 +13,7 @@ const { getClient } = require('./supabase');
 const { normalizeCityName } = require('./cityNaming');
 const { resolveVenue, normalizeVenueAlias } = require('./venueNaming');
 const { haversineKm } = require('./cleaner/matching');
+const { verifiedConditionalUpdate, isNoopOk, describe } = require('./lib/verifiedWrite');
 
 const APPLY = process.argv.includes('--apply');
 const MIN_ACTS = 3;
@@ -65,9 +66,19 @@ const median = (xs) => { const s = [...xs].sort((a, b) => a - b); return s[Math.
     const v = res.venue;
     if (res.created) created++;
     const ids = p.acts.map((a) => a.id), locIds = p.acts.map((a) => a.location_id).filter(Boolean);
-    await client.from('activities').update({ venue_id: v.id }).in('id', ids);
-    if (locIds.length) await client.from('locations').update({ venue_id: v.id }).in('id', locIds);
-    linked += ids.length;
+    // אימות-כתיבה (2026-09-21): update().in(...) בלי .select() לא יכול להבחין "כל ה-ids נכתבו" מ
+    // "חלקם/אף אחד לא, error=null" - linked ספר בעבר את כל ids בעיוורון. עדכון-לפי-id בודד (לא
+    // bulk) עם הפרימיטיב המאומת - אותו תנאי-סינון כמו השאילתה למעלה (.is('venue_id', null)).
+    let groupLinked = 0;
+    for (const id of ids) {
+      const r = await verifiedConditionalUpdate(client, { table: 'activities', id, patch: { venue_id: v.id }, expectedOld: { venue_id: null } });
+      if (isNoopOk(r)) groupLinked++; else console.error(`  קישור-venue נכשל: activity ${id} - ${describe(r)}`);
+    }
+    for (const id of locIds) {
+      const r = await verifiedConditionalUpdate(client, { table: 'locations', id, patch: { venue_id: v.id }, expectedOld: {} });
+      if (!isNoopOk(r)) console.error(`  קישור-venue נכשל: location ${id} - ${describe(r)}`);
+    }
+    linked += groupLinked;
   }
   console.log(`created ${created} venues, linked ${linked} activities`);
 })().catch((e) => { console.error(e); process.exit(1); });

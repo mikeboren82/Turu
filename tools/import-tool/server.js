@@ -23,6 +23,7 @@ const { findPlaceDuplicate } = require('./lib/placeIdentity');
 const { classifyPlaceholderGroup } = require('./placeholderGroup');
 const { sanitizeCategory } = require('./lib/categoryValidation');
 const { archiveActivity, isArchived, describe } = require('./lib/activityArchive');
+const { verifiedFieldUpdate, isSuccess } = require('./lib/verifiedWrite');
 const { ineligibleForPublicCatalogue } = require('./lib/catalogueEligibility');
 const { assessAccessType, approvalDecision, sanitizeAccessType, ACCESS_LABEL_HE, ACCESS_ISSUE_LABEL } = require('./lib/accessType');
 const { normalizeIncomingCandidate } = require('./incomingShape');
@@ -2144,8 +2145,25 @@ app.post('/api/manage/update', async (req, res) => {
     }
 
     if (Object.keys(safeFields).length > 0) {
-      const { error: updErr } = await client.from('activities').update(safeFields).eq('id', id);
-      if (updErr) throw updErr;
+      // Zero-row hardening (2026-09-21): a plain .update().eq('id', id) with no verification is
+      // exactly the shape that let this endpoint return ok:true with an unchanged row whenever RLS
+      // silently filtered the row out (activities_update = created_by=auth.uid() OR is_admin(); the
+      // 55 created_by-IS-NULL legacy rows match neither for this bot). verifiedFieldUpdate re-reads
+      // on a 0-row result and tells WRITE_DENIED apart from a genuine no-op or a changed precondition -
+      // it never lets a silent 0-row write through as success.
+      const result = await verifiedFieldUpdate(client, {
+        table: 'activities', id, patch: safeFields,
+        // no expected-old guard here - /api/manage/update always writes the admin's current edit
+        // regardless of the row's prior values (that is this endpoint's existing, unchanged
+        // semantics); the guard only needs to prove the row still EXISTS with the SAME id, which
+        // .eq('id', id) already does. A 0-row result here can only be ROW_NOT_FOUND or WRITE_DENIED -
+        // there is no "already satisfied" concept for a free-form multi-field admin edit.
+        guardStillHolds: () => true,
+      });
+      if (!isSuccess(result)) {
+        const status = result.outcome === 'ROW_NOT_FOUND' ? 404 : result.outcome === 'WRITE_DENIED' ? 403 : 409;
+        return res.status(status).json({ error: 'העדכון לא בוצע (' + result.outcome + ') - הפעילות לא השתנתה', outcome: result.outcome });
+      }
     }
 
     const { data: updated, error: fetchErr } = await client

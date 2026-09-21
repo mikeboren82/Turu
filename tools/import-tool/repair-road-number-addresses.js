@@ -17,6 +17,7 @@ const path = require('path');
 const { getClient } = require('./supabase');
 const { all } = require('./cleaner/discover');
 const { generatePlaygroundDisplayName } = require('./playgroundNaming');
+const { verifiedConditionalUpdate, isSuccess, describe } = require('./lib/verifiedWrite');
 
 const APPLY = process.argv.includes('--apply');
 const ROAD_ADDR = /^\s*\d{2,4}\s*(,|$)/;
@@ -36,16 +37,34 @@ const DERIVED = new Set([null, undefined, '', 'cleaner:reverse_geocode', 'cleane
     if (generated) { const g = generatePlaygroundDisplayName({ officialName: null, address: null, city: L.city }); if (g.name && g.name !== a.name) { p.newName = g.name; p.nameSource = g.nameSource; counts.titleRegenerated++; } else counts.titleKept++; } else counts.titleKept++;
     p.locationId = L.id; plan.push(p);
   }
+  const verified = { addressWritten: 0, addressWriteIssue: 0, nameWritten: 0, nameWriteIssue: 0 };
   if (APPLY) {
     const cleared = new Set();
     for (const p of plan) {
-      if (p.clearAddress && !cleared.has(p.locationId)) { cleared.add(p.locationId); let q = client.from('locations').update({ address: null }).eq('id', p.locationId).eq('address', p.address); q = p.address_source ? q.eq('address_source', p.address_source) : q.is('address_source', null); const { error } = await q; if (error) console.log('  address write failed', p.id, error.message); }
-      if (p.newName) { const { error } = await client.from('activities').update({ name: p.newName, name_source: p.nameSource }).eq('id', p.id).eq('name', p.name); if (error) console.log('  name write failed', p.id, error.message); }
+      // אימות-כתיבה (2026-09-21): שני העדכונים כאן כבר שמרו על ערך-קודם מדויק (.eq('address',...)/
+      // .eq('name',...)) - זה בדיוק expectedOld. מה שחסר היה רק לבדוק שורות-מושפעות, לא רק error.
+      if (p.clearAddress && !cleared.has(p.locationId)) {
+        cleared.add(p.locationId);
+        const r = await verifiedConditionalUpdate(client, {
+          table: 'locations', id: p.locationId, patch: { address: null },
+          expectedOld: { address: p.address, address_source: p.address_source },
+        });
+        if (isSuccess(r)) verified.addressWritten++;
+        else if (r.outcome !== 'NO_CHANGE_ALREADY_SATISFIED') { verified.addressWriteIssue++; console.log('  address write failed', p.id, describe(r)); }
+      }
+      if (p.newName) {
+        const r = await verifiedConditionalUpdate(client, {
+          table: 'activities', id: p.id, patch: { name: p.newName, name_source: p.nameSource },
+          expectedOld: { name: p.name },
+        });
+        if (isSuccess(r)) verified.nameWritten++;
+        else if (r.outcome !== 'NO_CHANGE_ALREADY_SATISFIED') { verified.nameWriteIssue++; console.log('  name write failed', p.id, describe(r)); }
+      }
     }
   }
   const file = path.join(__dirname, `road-number-address-repair-${new Date().toISOString().slice(0, 10)}${APPLY ? '-applied' : '-dryrun'}.json`);
-  fs.writeFileSync(file, JSON.stringify({ generatedAt: new Date().toISOString(), applied: APPLY, counts, plan }, null, 2));
-  console.log(`${APPLY ? 'APPLIED' : 'DRY RUN'}`, JSON.stringify(counts), '->', path.basename(file));
+  fs.writeFileSync(file, JSON.stringify({ generatedAt: new Date().toISOString(), applied: APPLY, counts, verified, plan }, null, 2));
+  console.log(`${APPLY ? 'APPLIED' : 'DRY RUN'}`, JSON.stringify(counts), APPLY ? JSON.stringify(verified) : '', '->', path.basename(file));
   plan.filter((p) => p.category !== 'גן שעשועים').forEach((p) => console.log(`  non-playground: ${p.name} | "${p.address}" (city ${p.city}) -> address ${p.clearAddress ? 'NULL' : 'kept (' + p.address_source + ')'}`));
   plan.filter((p) => p.newName).slice(0, 8).forEach((p) => console.log(`  title: "${p.name}" -> "${p.newName}"`));
 })().catch((e) => { console.error(e); process.exit(1); });

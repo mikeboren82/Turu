@@ -23,6 +23,7 @@ const { getClient } = require('./supabase');
 const { normalizeForMatch } = require('./eventFingerprint');
 const { isGenericTitle } = require('./lib/eventIdentity');
 const { archiveActivity, isArchived, describe } = require('./lib/activityArchive');
+const { verifiedConditionalUpdate, isSuccess, describe: describeWrite } = require('./lib/verifiedWrite');
 const { fetchHtml } = require('./lib/fetchPage');
 const { extractOccurrences, pageText, containsScore } = require('./lib/pageExtract');
 
@@ -131,7 +132,15 @@ const t5 = (t) => (t ? String(t).slice(0, 5) : '');
       const newImgs = (loser.activity_images || []).filter((i) => !keeperUrls.has(i.url)).slice(0, 3).map((i) => ({ activity_id: keeper.id, url: i.url, uploaded_by: userId }));
       if (newImgs.length) { const { error } = await client.from('activity_images').insert(newImgs); if (!error) imgMoved += newImgs.length; }
       const patch = {}; if (!keeper.official_url && loser.official_url) patch.official_url = loser.official_url; if (!keeper.event_key && loser.event_key) { patch.event_key = loser.event_key; patch.event_key_kind = loser.event_key_kind; }
-      if (Object.keys(patch).length) await client.from('activities').update(patch).eq('id', keeper.id);
+      if (Object.keys(patch).length) {
+        // אימות-כתיבה (2026-09-21): קודם לא נבדק error כלל - 0 שורות שקטות על ה-keeper לא היו
+        // נראות בשום מקום. expectedOld שומר בדיוק את תנאי ה-!keeper.xxx שכבר קבע את ה-patch.
+        const expectedOld = {};
+        if ('official_url' in patch) expectedOld.official_url = null;
+        if ('event_key' in patch) expectedOld.event_key = null;
+        const r = await verifiedConditionalUpdate(client, { table: 'activities', id: keeper.id, patch, expectedOld });
+        if (!isSuccess(r) && r.outcome !== 'NO_CHANGE_ALREADY_SATISFIED') console.log(`  keeper field-fill not written for ${keeper.id}: ${describeWrite(r)}`);
+      }
       const now = new Date().toISOString();
       const { error: incErr } = await client.from('incoming_activities').update({ status: 'rejected', existing_activity_id: keeper.id, reviewed_by: userId, reviewed_at: now, reject_reason: 'מועד נוסף של אותו אירוע - אוחד לפעילות ' + keeper.id }).eq('created_activity_id', loser.id);
       if (!incErr) incRepointed++;

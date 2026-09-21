@@ -18,6 +18,7 @@ require('dotenv').config();
 const { getClient } = require('./supabase');
 const { generatePlaygroundDisplayName, isGenericPlaygroundName } = require('./playgroundNaming');
 const { normalizeCityName } = require('./cityNaming');
+const { verifiedConditionalUpdate, isSuccess, isNoopOk, describe } = require('./lib/verifiedWrite');
 
 const BATCH_LIMIT = Number(process.argv.find((a) => a.startsWith('--limit='))?.split('=')[1]) || 250;
 
@@ -146,10 +147,12 @@ async function main() {
     if (t.name_source !== 'generated_from_address' && !isGenericPlaygroundName(t.name)) return;
     const naming = generatePlaygroundDisplayName({ officialName: t.name_source ? null : t.name, address, city: city || t.location.city });
     if (!naming.name || naming.name === t.name) return;
-    await client.from('activities').update({
-      name: naming.name, name_source: naming.nameSource,
-      original_source_name: t.name_source ? undefined : (t.name || null),
-    }).eq('id', t.id);
+    const patch = { name: naming.name, name_source: naming.nameSource };
+    if (!t.name_source) patch.original_source_name = t.name || null;
+    // אימות-כתיבה (2026-09-21): קודם לא נבדק error בכלל כאן - best-effort, אז 0-שורות שקטות לא
+    // עוצרות את הסבב, אבל צריכות להיות גלויות ב-log ולא נספרות כהצלחה.
+    const r = await verifiedConditionalUpdate(client, { table: 'activities', id: t.id, patch, expectedOld: {} });
+    if (!isSuccess(r)) console.error(`  (שינוי-שם לגן-שעשועים לא נכתב: ${t.id} - ${describe(r)})`);
   }
 
   let enriched = 0;
@@ -168,8 +171,11 @@ async function main() {
         const address = [result.street, result.city].filter(Boolean).join(', ');
         const update = { address };
         if (result.city && !t.location.city) update.city = result.city;
-        const { error } = await client.from('locations').update(update).eq('id', t.location.id);
-        if (error) { failed++; } else { enriched++; await maybeRenamePlayground(t, address, result.city); }
+        // אימות-כתיבה (2026-09-21): update().eq() בלי .select() לא יכול להבחין "נכתב" מ"0 שורות,
+        // error=null" (RLS/מחיקה-מקבילה) - expectedOld:{} כי אין ערך-ישן אחיד לשמור עליו (query
+        // הסינון מבוסס JS-truthy על address, לא ערך-DB עקבי בין null ל-'').
+        const r = await verifiedConditionalUpdate(client, { table: 'locations', id: t.location.id, patch: update, expectedOld: {} });
+        if (!isNoopOk(r)) { failed++; console.error(`  ${t.location.id}: ${describe(r)}`); } else { enriched++; await maybeRenamePlayground(t, address, result.city); }
       }
     } else {
       const result = await forwardGeocode(t.location.name, t.location.city);
@@ -182,8 +188,8 @@ async function main() {
         const update = { lat: result.lat, lng: result.lng };
         if (reverse?.street) update.address = [reverse.street, reverse.city].filter(Boolean).join(', ');
         if (reverse?.city && !t.location.city) update.city = reverse.city;
-        const { error } = await client.from('locations').update(update).eq('id', t.location.id);
-        if (error) { failed++; }
+        const r = await verifiedConditionalUpdate(client, { table: 'locations', id: t.location.id, patch: update, expectedOld: {} });
+        if (!isNoopOk(r)) { failed++; console.error(`  ${t.location.id}: ${describe(r)}`); }
         else if (update.address) { enriched++; await maybeRenamePlayground(t, update.address, reverse?.city); }
         else { coordsOnlyFound++; } // מיקום נמצא אך בלי רחוב מזוהה - קואורדינטות בכל זאת שימושיות
       }

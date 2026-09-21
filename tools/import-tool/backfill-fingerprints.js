@@ -4,6 +4,7 @@
 require('dotenv').config();
 const { getClient } = require('./supabase');
 const { computeEventFingerprint } = require('./eventFingerprint');
+const { verifiedConditionalUpdate, isSuccess, describe } = require('./lib/verifiedWrite');
 const APPLY = process.argv.includes('--apply');
 
 (async () => {
@@ -18,7 +19,7 @@ const APPLY = process.argv.includes('--apply');
   }
   const targets = all.filter((a) => !a.event_fingerprint && (a.activity_schedules || []).some((s) => s.schedule_type === 'one_time' || s.schedule_type === 'recurring'));
   console.log(`activities: ${all.length}, candidates for fingerprint: ${targets.length} (${APPLY ? 'APPLY' : 'DRY RUN'})`);
-  let done = 0;
+  let done = 0, skipped = 0, denied = 0, failed = 0;
   for (const a of targets) {
     // occurrence model (0091): rows are unordered and there may be several dated ones - the LEGACY
     // fingerprint is the earliest occurrence's (never rotated afterwards; event_key is the event identity)
@@ -30,9 +31,19 @@ const APPLY = process.argv.includes('--apply');
       oneTimeDate: first.one_time_date, recurringDays: s.map((x) => x.day_of_week).filter(Boolean), startTime: first.start_time,
     });
     if (!fp) continue;
-    if (APPLY) { const { error } = await client.from('activities').update({ event_fingerprint: fp }).eq('id', a.id); if (error) console.error(a.id, error.message); }
-    else if (done < 5) console.log('  ', a.name, '->', fp);
-    done++;
+    if (APPLY) {
+      // אימות-כתיבה (2026-09-21): error=null + 0 שורות לא יכול להיחשב "נכתב" - expectedOld שומר על
+      // אותו תנאי-הסינון (event_fingerprint עדיין null) כדי ש-0-שורות יסווג נכון בין "כבר מולא ע"י
+      // תהליך אחר" ל"RLS חסם" ולא ייספר בשקט בתוך done.
+      const r = await verifiedConditionalUpdate(client, { table: 'activities', id: a.id, patch: { event_fingerprint: fp }, expectedOld: { event_fingerprint: null } });
+      if (isSuccess(r)) { done++; }
+      else if (r.outcome === 'NO_CHANGE_ALREADY_SATISFIED' || r.outcome === 'PRECONDITION_CHANGED' || r.outcome === 'ROW_NOT_FOUND') { skipped++; }
+      else if (r.outcome === 'WRITE_DENIED') { denied++; console.error(a.id, describe(r)); }
+      else { failed++; console.error(a.id, describe(r)); }
+    } else {
+      if (done < 5) console.log('  ', a.name, '->', fp);
+      done++;
+    }
   }
-  console.log(`fingerprints ${APPLY ? 'written' : 'computed'}: ${done}`);
+  console.log(`fingerprints ${APPLY ? 'written' : 'computed'}: ${done}${APPLY ? `, skipped: ${skipped}, denied: ${denied}, failed: ${failed}` : ''}`);
 })().catch((e) => { console.error(e); process.exit(1); });
