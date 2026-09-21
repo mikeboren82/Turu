@@ -43,6 +43,54 @@ export function categoryGuidanceBlock(): string {
     '"פארק שעשועים" גם אם הוא גדול, ממותג ובתשלום.',
   ].join('\n');
 }
+// --- CATEGORY ALLOW-LIST ENFORCEMENT (Phase E, 2026-09-21) ------------------------------------
+// Phase D found two non-canonical values in production ('גן חיות', 'חדשנות בחקלאות'), both from
+// an AI extraction path that never checked the model's answer against CATEGORY_VALUES. The list
+// was only ever used to BUILD the prompt. supabase/functions/scan-source already guarded itself
+// (inList(raw.category, CATEGORY_VALUES)); tools/import-tool/server.js did not.
+//
+// Behaviour, deliberately conservative:
+//   canonical value        -> accepted as-is
+//   known explicit alias   -> normalized to the canonical value (deterministic, from
+//                             categorySemantics.json aliases only - never a guess)
+//   anything else          -> REJECTED to null + a reason, so the row is flagged for review
+//                             rather than silently inventing a mapping.
+// It never falls back to 'אחר': that is a real category a model can legitimately choose, so using
+// it as a dumping ground for unrecognised strings would hide exactly the corruption we are fixing.
+const CANONICAL_SET = new Set<string>(categoryValues.categories);
+const ALIAS_TO_CANONICAL = new Map<string, string>();
+for (const concept of Object.values(SEMANTIC_CONCEPTS)) {
+  for (const alias of (concept.aliases || [])) {
+    ALIAS_TO_CANONICAL.set(String(alias).trim().toLowerCase(), concept.dbValue);
+  }
+}
+
+export type CategoryVerdict = {
+  category: string | null;
+  normalizedFrom: string | null;
+  rejected: boolean;
+  reason: string | null;
+};
+
+export function sanitizeCategory(raw: unknown): CategoryVerdict {
+  if (raw === null || raw === undefined || raw === '') {
+    return { category: null, normalizedFrom: null, rejected: false, reason: null };
+  }
+  if (typeof raw !== 'string') {
+    return { category: null, normalizedFrom: null, rejected: true, reason: 'category_not_a_string' };
+  }
+  const trimmed = raw.trim();
+  if (!trimmed) return { category: null, normalizedFrom: null, rejected: false, reason: null };
+  if (CANONICAL_SET.has(trimmed)) {
+    return { category: trimmed, normalizedFrom: null, rejected: false, reason: null };
+  }
+  const aliased = ALIAS_TO_CANONICAL.get(trimmed.toLowerCase());
+  if (aliased && CANONICAL_SET.has(aliased)) {
+    return { category: aliased, normalizedFrom: trimmed, rejected: false, reason: 'normalized_from_alias' };
+  }
+  return { category: null, normalizedFrom: null, rejected: true, reason: `non_canonical_category:${trimmed}` };
+}
+
 export const ARCHIVE_CATEGORIES: string[] = categoryValues.archiveCategories;
 export const REGION_VALUES: string[] = categoryValues.regions;
 export const WEATHER_VALUES = ['מתאים ליום חם', 'מתאים ליום גשום', 'ממוזג', 'מוצל', 'מקורה', 'פעילות בחוץ בלבד'];

@@ -7,6 +7,13 @@ const DIRECT_MAP = {
   'פארק שעשועים': 'PLAY_AND_FUN', 'טרמפולינות': 'PLAY_AND_FUN',
 
   'חווה': 'NATURE_AND_ANIMALS', 'פינת חי': 'NATURE_AND_ANIMALS', 'בעלי חיים': 'NATURE_AND_ANIMALS',
+  // VISUAL GROUPING IS NOT TAXONOMY (Phase E, 2026-09-21): several canonical categories share one
+  // placeholder IMAGE set because the mascot artwork suits them, and that must never be read back
+  // as 'these categories mean the same thing'. חיות וגני חיות / פינת חי / חווה are three separate
+  // concepts (see constants/categorySemantics.json) that happen to share NATURE_AND_ANIMALS art,
+  // exactly as פארק שעשועים (=מתחם אטרקציות) shares PLAY_AND_FUN art with גן שעשועים while being a
+  // different concept entirely. Only this file maps category -> artwork; nothing else may.
+  'חיות וגני חיות': 'NATURE_AND_ANIMALS',
   'טבע': 'NATURE_AND_ANIMALS',
 
   'סדנה': 'CULTURE_CREATIVITY', 'הצגה': 'CULTURE_CREATIVITY', 'מוזיאון לילדים': 'CULTURE_CREATIVITY',

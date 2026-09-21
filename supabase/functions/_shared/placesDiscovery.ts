@@ -37,7 +37,90 @@ export function classifyPlace({ primaryType, types, name }: { primaryType: strin
   return 'NOT_RELEVANT';
 }
 
-const COMPARISON_ONLY_STOPWORDS = new Set(['park', 'playground', 'פארק', 'גן', 'שעשועים', 'ציבורי']);
+// --- PlaceKind -> canonical category (Phase E, 2026-09-21) ------------------------------------
+// The Phase D audit traced the corruption path: classifyPlace above produces a useful four-way
+// verdict, and scan-settlement-gaps then wrote EVERY imported row as 'גן שעשועים' regardless.
+// (Precisely: PARK and UNCERTAIN were already diverted to review, so the real collapse was
+// PARK_WITH_PLAYGROUND -> גן שעשועים, which is how ordinary municipal parks that happen to contain
+// play equipment became playgrounds.)
+//
+// PARK_WITH_PLAYGROUND is genuinely ambiguous, so it is decided by PRIMARY EXPERIENCE using the
+// only authoritative signal Google gives us for that: primaryType. Google's primaryType is its own
+// answer to "what is this place mainly", which is exactly the question. When primaryType does not
+// settle it, we do NOT guess - the caller is told to send the place to review.
+//
+// Deliberately NOT decided by the word 'פארק' appearing in the name: that is the single most
+// common false-positive source in this whole domain (Phase D found dozens).
+export type PlaceCategoryVerdict = {
+  category: string | null;
+  requiresReview: boolean;
+  confidence: 'HIGH' | 'MEDIUM' | 'LOW';
+  reason: string;
+};
+
+export function resolvePlaceCategory(
+  { kind, primaryType, name, types }:
+  { kind: PlaceKind; primaryType: string | null; name: string | null; types?: string[] | null },
+): PlaceCategoryVerdict {
+  if (kind === 'NOT_RELEVANT') {
+    return { category: null, requiresReview: false, confidence: 'HIGH', reason: 'not a relevant place type' };
+  }
+
+  // Did GOOGLE type this place, or did classifyPlace only see a word in the name? classifyPlace
+  // treats a name keyword and a real Places type as equivalent evidence, which is fine for "is this
+  // worth looking at" but NOT for assigning a category: "גרביטי פארק" is an attraction complex, and
+  // the word "פארק" in its name is the single most common false positive in this whole domain
+  // (Phase D found dozens). A verdict resting only on a name keyword goes to review.
+  const typeSet = new Set(types || []);
+  if (primaryType) typeSet.add(primaryType);
+  const hasParkType = [...typeSet].some((t) => PARK_TYPES.has(t));
+  const hasPlaygroundType = [...typeSet].some((t) => PLAYGROUND_TYPES.has(t));
+
+  if (kind === 'PLAYGROUND') {
+    if (!hasPlaygroundType) {
+      return {
+        category: null, requiresReview: true, confidence: 'LOW',
+        reason: 'playground inferred from the NAME only, with no google playground type - needs review, not a guess',
+      };
+    }
+    return { category: 'גן שעשועים', requiresReview: false, confidence: 'HIGH', reason: 'google playground type with no park signal' };
+  }
+  if (kind === 'PARK') {
+    if (!hasParkType) {
+      return {
+        category: null, requiresReview: true, confidence: 'LOW',
+        reason: 'park inferred from the NAME only (the word "פארק"), with no google park type - needs review, not a guess',
+      };
+    }
+    return { category: 'פארק', requiresReview: false, confidence: 'HIGH', reason: 'google park type with no playground signal' };
+  }
+  if (kind === 'PARK_WITH_PLAYGROUND') {
+    if (primaryType && PLAYGROUND_TYPES.has(primaryType)) {
+      return { category: 'גן שעשועים', requiresReview: false, confidence: 'MEDIUM', reason: 'park+playground, google primaryType=playground -> playground is the primary experience' };
+    }
+    if (primaryType && PARK_TYPES.has(primaryType)) {
+      return { category: 'פארק', requiresReview: false, confidence: 'MEDIUM', reason: 'park+playground, google primaryType=park -> a park that contains play equipment stays a park' };
+    }
+    return {
+      category: null, requiresReview: true, confidence: 'LOW',
+      reason: `park+playground and google primaryType (${primaryType ?? 'none'}) does not settle the primary experience - needs review, not a guess`,
+    };
+  }
+  return { category: null, requiresReview: true, confidence: 'LOW', reason: 'uncertain place kind - needs review' };
+}
+
+// Words dropped before comparing two venue names for duplicate detection.
+//
+// Phase E correction: 'שעשועים' and 'playground' used to be dropped here too. That was actively
+// dangerous - it erased the ONLY difference between "גן שעשועים" (playground) and
+// "פארק שעשועים" (the attraction-complex value), and between a park and a playground on the same
+// street, so two semantically different venues could compare as identical. We now drop only the
+// truly generic space-words ('גן', 'ציבורי', 'park', 'פארק'), which are common to many venue
+// names, and keep every token that carries category meaning.
+//
+// Dropping 'park'/'פארק' remains correct and necessary: it is the single most-repeated word in
+// Israeli venue names and keeping it would make every park look like every other park.
+const COMPARISON_ONLY_STOPWORDS = new Set(['park', 'פארק', 'גן', 'ציבורי']);
 
 function normalizeForMatch(s: string | null | undefined): string {
   if (!s) return '';
@@ -423,4 +506,91 @@ export function extractCityFromAddress(address: string | null | undefined): stri
   const last = parts[parts.length - 1].replace(/^\d{5,7}\s+/, '').replace(/\s+\d{5,7}$/, '').trim();
   if (!last || /^\d+$/.test(last)) return null;
   return normalizeCityName(last);
+}
+
+// --- Coordinate-proximity duplicate CANDIDATE signal (Phase E, 2026-09-21) --------------------
+// The Midbarium case: three approved rows at byte-identical coordinates (30.6119687/34.8012169),
+// same domain, three different names ("מדבריום", "מדבריום - פארק החיות", "אירועים במדבריום") and
+// three different categories. Every existing dedupe axis keyed on name and/or category, so all
+// three axes failed at once and the triplicate survived.
+//
+// This adds the missing axis - position - but deliberately NOT as an auto-merge rule. Shared
+// coordinates are completely legitimate: a zoo and its events programme, a museum and its cafe, a
+// mall and an activity inside it, several attractions in one complex. So proximity alone yields
+// nothing; it must be corroborated by at least one independent identity signal (same registered
+// domain, or strongly overlapping names). The output is a CANDIDATE for review, never a decision.
+export type DuplicateCandidateSignal = {
+  isCandidate: boolean;
+  distanceM: number | null;
+  score: number;
+  signals: string[];
+  reason: string;
+};
+
+const COORDINATE_DUPLICATE_RADIUS_M = 60;
+
+function registrableDomain(url: string | null | undefined): string | null {
+  if (!url) return null;
+  try {
+    const host = new URL(url).hostname.toLowerCase().replace(/^www\./, '');
+    return host || null;
+  } catch {
+    return null;
+  }
+}
+
+// Token overlap AFTER dropping only the generic space-words - category-bearing tokens are kept,
+// so "מדבריום" vs "אירועים במדבריום" still overlaps while "פארק X" vs "גן שעשועים X" does not
+// collapse into a false match.
+function nameOverlapRatio(a: string | null | undefined, b: string | null | undefined): number {
+  const toks = (s: string | null | undefined) => new Set(
+    normalizeForMatch(s).split(' ').filter((w) => w.length > 1 && !COMPARISON_ONLY_STOPWORDS.has(w)),
+  );
+  const wa = toks(a); const wb = toks(b);
+  if (wa.size === 0 || wb.size === 0) return 0;
+  let common = 0;
+  wa.forEach((w) => { if (wb.has(w)) common++; });
+  return common / Math.min(wa.size, wb.size);
+}
+
+export function coordinateDuplicateSignal(
+  a: { name?: string | null; lat?: number | null; lon?: number | null; sourceUrl?: string | null; address?: string | null },
+  b: { name?: string | null; lat?: number | null; lon?: number | null; sourceUrl?: string | null; address?: string | null },
+  opts: { radiusM?: number } = {},
+): DuplicateCandidateSignal {
+  const radius = opts.radiusM ?? COORDINATE_DUPLICATE_RADIUS_M;
+  if (a.lat == null || a.lon == null || b.lat == null || b.lon == null) {
+    return { isCandidate: false, distanceM: null, score: 0, signals: [], reason: 'missing coordinates on one side' };
+  }
+  const distanceM = haversineKm(a.lat, a.lon, b.lat, b.lon) * 1000;
+  if (distanceM > radius) {
+    return { isCandidate: false, distanceM, score: 0, signals: [], reason: `beyond ${radius}m` };
+  }
+
+  const signals = ['coordinates_within_radius'];
+  let score = 1;
+
+  const domA = registrableDomain(a.sourceUrl);
+  const domB = registrableDomain(b.sourceUrl);
+  if (domA && domB && domA === domB) { signals.push(`same_domain:${domA}`); score += 2; }
+
+  const overlap = nameOverlapRatio(a.name, b.name);
+  if (overlap >= 0.5) { signals.push(`name_overlap:${overlap.toFixed(2)}`); score += 2; }
+  else if (overlap > 0) { signals.push(`weak_name_overlap:${overlap.toFixed(2)}`); score += 1; }
+
+  const addrA = normalizeForMatch(a.address); const addrB = normalizeForMatch(b.address);
+  if (addrA && addrA === addrB) { signals.push('same_address'); score += 1; }
+
+  // Proximity ALONE is never enough - that is what keeps a venue and its separate events listing,
+  // or two genuinely different attractions in one complex, out of the candidate queue.
+  const isCandidate = score >= 3;
+  return {
+    isCandidate,
+    distanceM,
+    score,
+    signals,
+    reason: isCandidate
+      ? 'co-located AND corroborated by an independent identity signal - review as possible duplicate'
+      : 'co-located but nothing else corroborates it - not a duplicate candidate',
+  };
 }

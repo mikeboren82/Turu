@@ -21,6 +21,7 @@ const { normalizeCityName } = require('./cityNaming');
 const { canonicalCityFallback } = require('./lib/canonicalSettlement');
 const { findPlaceDuplicate } = require('./lib/placeIdentity');
 const { classifyPlaceholderGroup } = require('./placeholderGroup');
+const { sanitizeCategory } = require('./lib/categoryValidation');
 const { normalizeIncomingCandidate } = require('./incomingShape');
 const { repairModelJson, resolveVenue, normalizeVenueAlias } = require('./venueNaming');
 const { computeEventFingerprint } = require('./eventFingerprint');
@@ -1026,9 +1027,22 @@ async function saveNewActivity(client, userId, sourceUrl, activity, meta = {}) {
     // למטה). לא נקבע כלל אם יש כבר תמונה שהגיעה עם הפעילות (images/image_urls).
     const hasProvidedImage = (Array.isArray(activity.images) && activity.images.length > 0)
       || (Array.isArray(activity.image_urls) && activity.image_urls.length > 0);
+    // CATEGORY ALLOW-LIST (Phase E, 2026-09-21): the model's category is validated against the
+    // canonical list BEFORE it can reach activities.category. This is the exact hole that let
+    // 'גן חיות' and 'חדשנות בחקלאות' into production - the list was in the prompt, but the answer
+    // was never checked. A known alias is normalized deterministically; anything unrecognised
+    // becomes null and is reported, rather than being invented into a mapping or dumped into 'אחר'.
+    const categoryVerdict = sanitizeCategory(activity.category);
+    if (categoryVerdict.rejected) {
+      console.warn(`[category] rejected non-canonical value for "${finalName}": ${categoryVerdict.reason}`);
+    } else if (categoryVerdict.normalizedFrom) {
+      console.warn(`[category] normalized "${categoryVerdict.normalizedFrom}" -> "${categoryVerdict.category}" for "${finalName}"`);
+    }
+    const safeCategory = categoryVerdict.category;
+
     const placeholderGroup = hasProvidedImage
       ? null
-      : classifyPlaceholderGroup({ category: activity.category, name: finalName, description: activity.description });
+      : classifyPlaceholderGroup({ category: safeCategory, name: finalName, description: activity.description });
 
     const { data: savedActivity, error: actErr } = await client
       .from('activities')
@@ -1044,7 +1058,7 @@ async function saveNewActivity(client, userId, sourceUrl, activity, meta = {}) {
         max_age: activity.max_age ?? null,
         price_type: activity.price_type || null,
         price_amount: activity.price_amount ?? null,
-        category: activity.category || null,
+        category: safeCategory,
         placeholder_group: placeholderGroup,
         duration_minutes: activity.duration_minutes ?? null,
         indoor_outdoor: activity.indoor_outdoor || null,

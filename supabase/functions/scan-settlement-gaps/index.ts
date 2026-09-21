@@ -38,7 +38,7 @@
 // והמייל נשלח מתוך try/catch נפרד.
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
-import { classifyPlace, matchAgainstExisting, extractCityFromAddress, fetchAllPaginatedResults, findSameStreetReviewMatch, checkExactPlaceIdDuplicate, nextReviewCaseState, type ExistingForMatch } from '../_shared/placesDiscovery.ts';
+import { classifyPlace, resolvePlaceCategory, matchAgainstExisting, extractCityFromAddress, fetchAllPaginatedResults, findSameStreetReviewMatch, checkExactPlaceIdDuplicate, nextReviewCaseState, type ExistingForMatch } from '../_shared/placesDiscovery.ts';
 import { generatePlaygroundDisplayName, isGenericPlaygroundName } from '../_shared/playgroundNaming.ts';
 import { normalizeCityName } from '../_shared/cityNaming.ts';
 
@@ -740,7 +740,14 @@ Deno.serve(async (req: Request) => {
 
       // outcome === 'NEW_CANDIDATE' מכאן - "לגיטימי" = סוג-מקום ברור (לא PARK/UNCERTAIN,
       // שדורשים עין אדם: פארק בלי סימן-משחקים מובהק, או סוג לא-חד-משמעי) + יש כתובת בפועל.
-      const legitType = kind === 'PLAYGROUND' || kind === 'PARK_WITH_PLAYGROUND';
+      // PHASE E (2026-09-21): the discovery verdict now decides the CATEGORY instead of every
+      // imported row being written as 'גן שעשועים'. resolvePlaceCategory applies primary-experience
+      // reasoning to PARK_WITH_PLAYGROUND (Google primaryType decides) and refuses to guess when it
+      // cannot tell - such rows join the same review queue as PARK/UNCERTAIN rather than silently
+      // becoming playgrounds. This was the exact path that turned municipal parks containing play
+      // equipment into 4,373 'גן שעשועים' rows.
+      const categoryVerdict = resolvePlaceCategory({ kind, primaryType: p.primaryType ?? null, name, types: p.types || [] });
+      const legitType = (kind === 'PLAYGROUND' || kind === 'PARK_WITH_PLAYGROUND') && !!categoryVerdict.category;
       if (!legitType || !address) {
         await queueForReview({
           pageUrl: p.googleMapsUri ?? null, matchType: 'new', existingActivityId: null,
@@ -795,7 +802,7 @@ Deno.serve(async (req: Request) => {
 
       const { data: actRow, error: actErr } = await client.from('activities').insert({
         name: finalName, name_source: nameSource, entity_type: 'מקום_קבוע', location_id: (locRow as { id: string }).id,
-        category: 'גן שעשועים', placeholder_group: 'PLAY_AND_FUN', price_type: 'free', price_amount: 0,
+        category: categoryVerdict.category, placeholder_group: 'PLAY_AND_FUN', price_type: 'free', price_amount: 0,
         indoor_outdoor: 'outdoor', booking_requirement: 'none', status: 'approved', source: 'scraped',
         source_url: p.googleMapsUri ?? null, google_place_id: placeId, created_by: null,
       }).select('id').single();

@@ -161,32 +161,156 @@
         "לונהפארק",
         "luna park"
       ]
+    },
+    "ANIMALS_ZOO": {
+      "dbValue": "חיות וגני חיות",
+      "labelHe": "חיות וגני חיות",
+      "pluralHe": "חיות וגני חיות",
+      "definition": "A destination whose PRIMARY experience is seeing, observing or interacting with animals at zoo / safari / aquarium / wildlife-park scale. Being large, ticketed or multi-activity is irrelevant - an animal destination that also has rides, lawns or a cafe is still an animal destination.",
+      "aliases": [
+        "חיות וגני חיות",
+        "גן חיות",
+        "גני חיות",
+        "גן החיות",
+        "ספארי",
+        "אקווריום",
+        "פארק חיות",
+        "פארק החיות",
+        "zoo",
+        "safari",
+        "aquarium",
+        "wildlife park"
+      ],
+      "recallAliases": [
+        "גן חיות",
+        "גני חיות",
+        "גן החיות",
+        "ספארי",
+        "אקווריום",
+        "פארק חיות",
+        "פארק החיות",
+        "zoo",
+        "safari",
+        "aquarium"
+      ],
+      "positiveSignals": [
+        "גן חיות",
+        "ספארי",
+        "אקווריום",
+        "פארק חיות",
+        "חיות מדבר",
+        "זוחלים",
+        "קופים",
+        "דגים",
+        "wildlife"
+      ],
+      "negativeSignals": [
+        "רכבת הרים",
+        "גלגל ענק",
+        "מכוניות מתנגשות",
+        "מדשאה",
+        "פיקניק",
+        "קטיף",
+        "חליבה",
+        "טרקטור"
+      ],
+      "notEvidence": [
+        "חיות",
+        "בעלי חיים",
+        "ליטוף",
+        "חווה",
+        "פינת חי",
+        "סדנה",
+        "כרטיס כניסה",
+        "גדול"
+      ]
+    },
+    "PETTING_CORNER": {
+      "dbValue": "פינת חי",
+      "labelHe": "פינת חי",
+      "pluralHe": "פינות חי",
+      "definition": "A small petting / animal corner - a compact animal area, usually INSIDE something else (a park, a school, a community centre). Distinguished from ANIMALS_ZOO by scale and by not being a destination in its own right.",
+      "aliases": [
+        "פינת חי",
+        "פינות חי",
+        "פינת ליטוף",
+        "petting zoo",
+        "petting corner"
+      ],
+      "recallAliases": [
+        "פינת חי",
+        "פינות חי",
+        "פינת ליטוף"
+      ],
+      "positiveSignals": [
+        "פינת חי",
+        "פינת ליטוף",
+        "ליטוף",
+        "ארנבים",
+        "עזים"
+      ],
+      "negativeSignals": [
+        "ספארי",
+        "אקווריום",
+        "גן חיות"
+      ],
+      "notEvidence": [
+        "חיות",
+        "בעלי חיים"
+      ]
+    },
+    "FARM": {
+      "dbValue": "חווה",
+      "labelHe": "חווה",
+      "pluralHe": "חוות",
+      "definition": "A working / agricultural farm experience. Primary experience is farm life and agriculture - picking, milking, tractors, fields - not viewing collected animals.",
+      "aliases": [
+        "חווה",
+        "חוות",
+        "farm"
+      ],
+      "recallAliases": [
+        "חוות",
+        "חווה חקלאית"
+      ],
+      "positiveSignals": [
+        "קטיף",
+        "חליבה",
+        "טרקטור",
+        "שדה",
+        "מטע",
+        "חקלאי",
+        "חקלאות",
+        "כרם"
+      ],
+      "negativeSignals": [
+        "ספארי",
+        "אקווריום",
+        "גן חיות",
+        "רכבת הרים"
+      ],
+      "notEvidence": [
+        "חיות",
+        "בעלי חיים",
+        "ליטוף"
+      ]
     }
   },
   "_animalsNote": [
-    "There is deliberately NO canonical animal/zoo concept implemented here yet - this is a decision",
-    "record for the upcoming reclassification/taxonomy phase, not a new concept, alias or code path.",
+    "RESOLVED 2026-09-21 (Phase E): חיות וגני חיות is now a CANONICAL category (added to",
+    "categoryValues.json) and is implemented above as ANIMALS_ZOO. The three animal concepts are",
+    "deliberately kept SEPARATE and must never be auto-merged:",
+    "  ANIMALS_ZOO (חיות וגני חיות) - a destination built around animals (zoo/safari/aquarium).",
+    "  PETTING_CORNER (פינת חי)     - a small animal corner, usually inside something else.",
+    "  FARM (חווה)                  - a working agricultural experience.",
+    "Each lists the others under negativeSignals/notEvidence, so no one of them can absorb another.",
     "",
-    "PRODUCT DECISION (2026-09-21 review): the future canonical category is",
-    "    חיות וגני חיות",
-    "covering places whose PRIMARY experience is zoo / wildlife / animal-focused. מדבריום belongs",
-    "here conceptually (NOT ATTRACTION_COMPLEX, however large, ticketed, popular or multi-experience -",
-    "same primary-experience principle as every other concept in this file). Also conceptually here:",
-    "גן החיות ואקווריום ירושלים.",
+    "The bare words חיות / בעלי חיים are notEvidence for ALL THREE on purpose: they appear constantly",
+    "in workshops, story hours and event copy that have no animal venue behind them at all.",
     "",
-    "Explicitly NOT decided yet, and NOT to be inferred or auto-applied: whether existing 'פינת חי'",
-    "and 'חווה' rows merge into חיות וגני חיות, stay separate, or become its sub-cases. Production",
-    "already carries those two plus one non-canonical 'גן חיות' row (see the Phase report's audit).",
-    "",
-    "Two more conceptual notes from the same review, for the same future phase, not implemented now:",
-    "  - מיני ישראל conceptually belongs to ATTRACTION_COMPLEX.",
-    "  - פארק ומוזיאון המדע should NOT become ATTRACTION_COMPLEX merely for being a destination - its",
-    "    primary museum/science experience should decide its category (candidates: PARK, or a future",
-    "    museum/science concept - not decided here).",
-    "",
-    "What this file DOES already guarantee, in code, today: animal words are NEGATIVE signals for",
-    "ATTRACTION_COMPLEX (see ATTRACTION_COMPLEX.negativeSignals above), so no animal-primary venue can",
-    "be matched or scored as an attraction complex by the current implementation, regardless of when",
-    "or whether חיות וגני חיות itself is ever built."
+    "The legacy בעלי חיים category (13 production rows) is TRANSITIONAL and is not modelled here -",
+    "its rows split across the three concepts above during the later cleanup phase. Likewise אטרקציה",
+    "(35 rows) is transitional and is NOT equivalent to ATTRACTION_COMPLEX - the Phase D audit found",
+    "only 2 of its 35 rows are ride-based; the dominant real meaning is adventure/extreme experiences."
   ]
 }

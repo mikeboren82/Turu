@@ -24,6 +24,7 @@ import {
   CATEGORY_VALUES, REGION_VALUES, WEATHER_VALUES, AMENITIES_VALUES,
   FAMILY_FIT_VALUES, ENTITY_TYPE_VALUES, PRICE_TYPE_VALUES, INDOOR_OUTDOOR_VALUES, BOOKING_VALUES,
   ARCHIVE_CATEGORIES,
+  sanitizeCategory,
 } from '../_shared/extraction.ts';
 import { discoverListingLinks } from '../_shared/discovery.ts';
 import { extractJsonLdEvents, applyJsonLdToCandidate, type JsonLdEvent } from '../_shared/jsonld.ts';
@@ -303,7 +304,11 @@ function sanitizeCandidate(raw: any, pageUrl: string): { candidate: any; issues:
     organizer_name: typeof raw.organizer_name === 'string' && raw.organizer_name.trim() ? raw.organizer_name.trim() : null,
     registration_url: httpUrl(raw.registration_url),
     audience: inList(raw.audience, AUDIENCE_VALUES) || 'unknown',
-    category: inList(raw.category, CATEGORY_VALUES),
+    // Phase E: the shared sanitizer instead of a bare inList. Same rejection outcome for an
+    // unknown string (null, never invented), but it additionally normalizes a DECLARED alias to its
+    // canonical value - so a model answering "גן חיות" or "מתחם אטרקציות" lands on the right stored
+    // value instead of being silently dropped. Single source of truth with the import-tool twin.
+    category: sanitizeCategory(raw.category).category,
     duration_minutes: typeof raw.duration_minutes === 'number' ? raw.duration_minutes : null,
     indoor_outdoor: inList(raw.indoor_outdoor, INDOOR_OUTDOOR_VALUES),
     booking_requirement: inList(raw.booking_requirement, BOOKING_VALUES),

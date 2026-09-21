@@ -5,8 +5,9 @@
 const { normalizeCityName } = require('../cityNaming');
 const { isMissingCity, loadSettlementIndex, classifyCityValue } = require('../lib/canonicalSettlement');
 const { classifyPlayVenue } = require('../lib/playVenueClassifier');
+const { sanitizeCategory } = require('../lib/categoryValidation');
 
-const BASE_PRIORITY = { missing_location: 10, rejected_missing_address: 12, unverified_location: 15, missing_city: 22, city_not_canonical: 23, misclassified: 24, missing_schedule: 25, incomplete_address: 30, missing_required_metadata: 35, missing_venue: 40, missing_region: 45, missing_image: 50, broken_image: 52, low_quality_description: 60 };
+const BASE_PRIORITY = { category_noncanonical: 20, missing_location: 10, rejected_missing_address: 12, unverified_location: 15, missing_city: 22, city_not_canonical: 23, misclassified: 24, missing_schedule: 25, incomplete_address: 30, missing_required_metadata: 35, missing_venue: 40, missing_region: 45, missing_image: 50, broken_image: 52, low_quality_description: 60 };
 // 'ימי פעילות' (2026-09-19): a recurring event the extractor returned without weekdays - temporal evidence the
 // approval gate requires; the metadata resolver looks for the weekdays on the event's card / detail page
 const META_ISSUES = new Set(['קטגוריה', 'תאריך', 'סוג ישות', 'קהל יעד לא ברור', 'ימי פעילות']);
@@ -95,6 +96,15 @@ async function discoverCases(client, { today }) {
     // (indoor play centre / amusement park) or no venue at all (an equipment company). HIGH and MEDIUM both
     // open a case; only HIGH is ever written.
     if (pg) { const k = classifyPlayVenue(a.name); if (k) add({ subject_kind: 'activity', subject_id: a.id, issue: 'misclassified', priority: priorityFor('misclassified', ctx), event_date: null, source_id: a.source_id, opened_reason: `playground by category, ${k.kind} by name ("${k.token}")` }); }
+    // Phase E: a stored category that is not in constants/categoryValues.json at all. Deterministic
+    // and evidence-complete - sanitizeCategory reports whether a canonical destination exists
+    // (a declared alias, e.g. 'גן חיות' -> 'חיות וגני חיות') or whether a human must decide.
+    const catVerdict = sanitizeCategory(a.category);
+    if (a.category && catVerdict.rejected) {
+      add({ subject_kind: 'activity', subject_id: a.id, issue: 'category_noncanonical', priority: priorityFor('category_noncanonical', ctx), event_date: null, source_id: a.source_id, opened_reason: `non-canonical category "${a.category}" - no deterministic canonical destination` });
+    } else if (catVerdict.normalizedFrom) {
+      add({ subject_kind: 'activity', subject_id: a.id, issue: 'category_noncanonical', priority: priorityFor('category_noncanonical', ctx), event_date: null, source_id: a.source_id, opened_reason: `alias "${catVerdict.normalizedFrom}" -> canonical "${catVerdict.category}"` });
+    }
     if (!pg && !a.venue_id) add({ subject_kind: 'activity', subject_id: a.id, issue: 'missing_venue', priority: priorityFor('missing_venue', ctx), event_date: eventDate, source_id: a.source_id, opened_reason: 'no canonical venue' });
     if (!pg && !(a.activity_images || []).length && !a.photo_skipped) add({ subject_kind: 'activity', subject_id: a.id, issue: 'missing_image', priority: priorityFor('missing_image', ctx), event_date: eventDate, source_id: a.source_id, opened_reason: a.placeholder_group ? 'placeholder ' + a.placeholder_group : 'no image' });
     if (!pg && !sched.length) add({ subject_kind: 'activity', subject_id: a.id, issue: 'missing_schedule', priority: priorityFor('missing_schedule', ctx), event_date: null, source_id: a.source_id, opened_reason: 'no schedule rows' });
@@ -111,7 +121,16 @@ async function discoverCases(client, { today }) {
 
 // issues introduced by a migration that widens cleaner_cases_issue_check; until that migration is applied
 // the constraint rejects them - they are skipped (reported), never allowed to fail the whole discovery
-const MIGRATION_GATED_ISSUES = { city_not_canonical: '0100' };
+// Phase E taxonomy/data-integrity issues are gated on 0101, which is PREPARED BUT NOT APPLIED.
+// Until it is, cleaner_cases_issue_check rejects them and they are skipped-and-reported rather than
+// failing the whole discovery pass - the same treatment city_not_canonical got while 0100 was pending.
+const MIGRATION_GATED_ISSUES = {
+  city_not_canonical: '0100',
+  category_noncanonical: '0101',
+  category_primary_experience_mismatch: '0101',
+  scanner_place_kind_mismatch: '0101',
+  possible_coordinate_duplicate: '0101',
+};
 const isIssueCheckViolation = (error) => error && (error.code === '23514' || /cleaner_cases_issue_check/.test(error.message || ''));
 
 // upsert without touching attempts/status of existing open cases; re-open nothing here (reopen.js does)
