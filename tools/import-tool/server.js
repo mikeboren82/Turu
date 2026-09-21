@@ -23,6 +23,8 @@ const { findPlaceDuplicate } = require('./lib/placeIdentity');
 const { classifyPlaceholderGroup } = require('./placeholderGroup');
 const { sanitizeCategory } = require('./lib/categoryValidation');
 const { archiveActivity, isArchived, describe } = require('./lib/activityArchive');
+const { ineligibleForPublicCatalogue } = require('./lib/catalogueEligibility');
+const { assessAccessType, approvalDecision, sanitizeAccessType, ACCESS_LABEL_HE, ACCESS_ISSUE_LABEL } = require('./lib/accessType');
 const { normalizeIncomingCandidate } = require('./incomingShape');
 const { repairModelJson, resolveVenue, normalizeVenueAlias } = require('./venueNaming');
 const { computeEventFingerprint } = require('./eventFingerprint');
@@ -192,6 +194,9 @@ function buildExtractionSystemPrompt() {
 const ARCHIVE_ENTITY_TYPES = new Set(['פעילות']);
 const ARCHIVE_CATEGORIES = new Set(categoryValues.archiveCategories);
 
+// Commitment axis only - kept for the callers that ask specifically about commitment. The catalogue
+// gate is ineligibleForPublicCatalogue (lib/catalogueEligibility.js): commitment OR a final human
+// private_group access verdict, two independent axes.
 function shouldArchiveForCommitment(activity) {
   return ARCHIVE_ENTITY_TYPES.has(activity.entity_type) || ARCHIVE_CATEGORIES.has(activity.category);
 }
@@ -642,7 +647,7 @@ async function scrapeAndExtract(urlString) {
   const matchCache = new Map();
   for (const a of activities) {
     a.possibleMatches = await findSimilarActivities(client, a.name, a.city, matchCache);
-    a.willArchive = shouldArchiveForCommitment(a);
+    a.willArchive = ineligibleForPublicCatalogue(a).ineligible;
   }
 
   return { sourceUrl: parsedUrl.toString(), activities, truncated };
@@ -981,7 +986,10 @@ async function requireVerifiedLocation(client, rawActivity) {
 // (0078) work for admin-approved activities too, not only for scan-source auto-approvals.
 async function saveNewActivity(client, userId, sourceUrl, activity, meta = {}) {
   {
-    const archived = shouldArchiveForCommitment(activity);
+    // Catalogue gate: commitment policy (unchanged) OR a FINAL human private_group verdict. Both are
+    // inserted as archived with their own reason - the row exists for dedupe/history, never for users.
+    const eligibility = ineligibleForPublicCatalogue(activity);
+    const archived = eligibility.ineligible;
     // WHERE: canonical venue via curated aliases (conservative - ambiguous => no link).
     if (!activity.venue_id && activity.location_name) {
       const venue = await resolveVenue(client, { locationName: activity.location_name, city: activity.city });
@@ -1071,8 +1079,10 @@ async function saveNewActivity(client, userId, sourceUrl, activity, meta = {}) {
         amenities: activity.amenities || [],
         family_fit: activity.family_fit || [],
         status: archived ? 'archived' : 'approved',
-        archive_reason: archived ? 'commitment_policy' : null,
+        archive_reason: archived ? eligibility.reason : null,
         archived_at: archived ? new Date().toISOString() : null,
+        // null stays null (= today's behaviour); a value is stored only after validation
+        offering_access_type: activity.offering_access_type == null ? null : sanitizeAccessType(activity.offering_access_type).access,
         source: 'scraped',
         source_url: sourceUrl || null,
         source_id: meta.sourceId || null,
@@ -1748,6 +1758,7 @@ const ACTIVITY_UPDATE_FIELDS = new Set([
   'name', 'description', 'entity_type', 'min_age', 'max_age', 'price_type', 'price_amount',
   'category', 'duration_minutes', 'indoor_outdoor', 'booking_requirement',
   'weather_suitable', 'amenities', 'family_fit', 'status', 'location_detail', 'photo_skipped',
+  'offering_access_type',
 ]);
 
 app.get('/manage', (req, res) => {
@@ -2097,13 +2108,22 @@ app.post('/api/manage/update', async (req, res) => {
         if (ACTIVITY_UPDATE_FIELDS.has(key)) safeFields[key] = value;
       }
     }
+    if (Object.prototype.hasOwnProperty.call(safeFields, 'offering_access_type')) {
+      const v = sanitizeAccessType(safeFields.offering_access_type);
+      if (v.rejected) return res.status(400).json({ error: 'סיווג גישה לא חוקי: ' + safeFields.offering_access_type });
+      safeFields.offering_access_type = safeFields.offering_access_type == null ? null : v.access;
+    }
     if (locationId) safeFields.location_id = locationId;
     // Restore-to-approved (archive page) goes through the same publish gate as every other path:
     // a verified location (coordinates) and not a commitment activity. Found by the Cleaner audit
     // 2026-09-13 - this was the only path that could publish without them.
     if (safeFields.status === 'approved') {
-      const { data: cur } = await client.from('activities').select('entity_type, category, location_id, locations(lat, lng)').eq('id', id).maybeSingle();
+      const { data: cur } = await client.from('activities').select('entity_type, category, offering_access_type, location_id, locations(lat, lng)').eq('id', id).maybeSingle();
       if (cur && shouldArchiveForCommitment(cur)) return res.status(400).json({ error: 'פעילות הדורשת רישום/התחייבות נשארת בארכיון (מדיניות "בלי התחייבות")' });
+      // ACCESS axis (Phase 1): a row whose FINAL verdict is private_group cannot be restored into the
+      // public catalogue by flipping status. Change the verdict first (an explicit, separate edit), then restore.
+      const effectiveAccess = Object.prototype.hasOwnProperty.call(safeFields, 'offering_access_type') ? safeFields.offering_access_type : cur?.offering_access_type;
+      if (cur && effectiveAccess === 'private_group') return res.status(400).json({ error: 'פעילות שסווגה כשירות פרטי/לקבוצה נשארת מחוץ לקטלוג (מדיניות גישה) - שנו קודם את סיווג הגישה במפורש' });
       if (cur && (cur.locations?.lat == null || cur.locations?.lng == null)) return res.status(400).json({ error: 'אי אפשר לפרסם בלי מיקום מאומת (קואורדינטות) - השלימו כתובת קודם' });
       safeFields.archive_reason = null; safeFields.archived_at = null;
     } else if (safeFields.status === 'archived') {
@@ -2797,6 +2817,35 @@ app.post('/api/incoming/:id/approve', async (req, res) => {
     if (item.match_type === 'new') {
       // Both extracted_data shapes (page extraction / Google Places) are accepted - see incomingShape.js.
       const payload = normalizeIncomingCandidate(item.extracted_data);
+
+      // WHO MAY ATTEND (Phase 1, 2026-09-21). A generic Approve click is never read as an access
+      // verdict. When the row looks like a private-hire / booking wrapper the reviewer must choose
+      // explicitly; the choice is persisted and only 'private_group' makes the row catalogue-
+      // ineligible (inserted as archived, private_hire_policy). 'mixed' is held, never archived.
+      const accessAssessment = assessAccessType({ ...(item.extracted_data || {}), ...payload });
+      const ack = req.body && req.body.acknowledged_access_type;
+      const decision = approvalDecision({ assessment: accessAssessment, acknowledgedAccessType: ack ?? null });
+      if (decision.kind === 'invalid_acknowledgement') return res.status(400).json({ error: decision.error });
+      if (decision.kind === 'needs_access_acknowledgement') {
+        return res.status(428).json({
+          needs_access_acknowledgement: true,
+          proposed: decision.proposed, proposedLabel: ACCESS_LABEL_HE[decision.proposed], suspicious: decision.suspicious,
+          evidence: decision.evidence, suppressors: decision.suppressors, choices: decision.choices,
+          error: 'נדרשת הכרעה על סיווג הגישה לפני אישור',
+        });
+      }
+      if (decision.kind === 'hold_mixed') {
+        const ed = { ...(item.extracted_data || {}), offering_access_type: 'mixed', offering_access_verdict: { by: userId, at: new Date().toISOString(), value: 'mixed' } };
+        const issues = Array.from(new Set([...(item.validation_issues || []), ACCESS_ISSUE_LABEL]));
+        const { error: holdErr } = await client.from('incoming_activities').update({ extracted_data: ed, validation_issues: issues, status: 'needs_review' }).eq('id', id);
+        if (holdErr) throw holdErr;
+        return res.json({ ok: true, held: 'mixed', message: 'סומן "מעורב" - נשאר בבדיקה, לא פורסם ולא אורכב' });
+      }
+      payload.offering_access_type = decision.access;
+      if (decision.kind === 'ineligible') {
+        const ed = { ...(item.extracted_data || {}), offering_access_type: 'private_group', offering_access_verdict: { by: userId, at: new Date().toISOString(), value: 'private_group' } };
+        await client.from('incoming_activities').update({ extracted_data: ed }).eq('id', id);
+      }
       // Exact-identity guards BEFORE creating anything: google_place_id, then event_fingerprint.
       // The fingerprint guard closes the gap found 2026-09-13: the scanner dedups only against
       // activities that existed at scan time, so two queue rows for the same event (two scans minutes

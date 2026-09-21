@@ -26,6 +26,7 @@ import {
   ARCHIVE_CATEGORIES,
   sanitizeCategory,
 } from '../_shared/extraction.ts';
+import { sanitizeAccessType, assessAccessType, blocksAutoPublish, ACCESS_ISSUE_LABEL } from '../_shared/accessType.ts';
 import { discoverListingLinks } from '../_shared/discovery.ts';
 import { extractJsonLdEvents, applyJsonLdToCandidate, type JsonLdEvent } from '../_shared/jsonld.ts';
 import { findEventDetailLinks, findEventDetailLinksCheap, detailLinkFor, sharedLinkUrls, type DetailLink, type DetailMatch, type DetailTraversalConfig } from '../_shared/detailLinks.ts';
@@ -79,6 +80,9 @@ function autoApproveEligible(candidate: Record<string, unknown>, issues: string[
   const trusted = !!source.is_trusted || (source.source_trust_score != null && Number(source.source_trust_score) >= gate.minTrust);
   if (!trusted || issues.length > 0 || !candidate.city || !candidate.location_name) return false;
   if (missingTemporalEvidence(candidate)) return false;
+  // (7) ACCESS (Phase 1): only 'public' may auto-publish; private_group / mixed / suspicious unknown
+  //     wait for a human. An ordinary unknown keeps today's behaviour.
+  if (blocksAutoPublish(assessAccessType(candidate))) return false;
   if (candidate.schedule_type === 'one_time' && !isPlausibleEventDate(candidate.one_time_date as string | null, gate.today, gate.maxDaysAhead)) return false;
   if (looksLikeStaleRepost(candidate as { schedule_type?: string | null; one_time_date?: string | null; source_published_date?: string | null }, gate.today)) return false;
   return true;
@@ -191,6 +195,8 @@ async function autoApproveNewActivity(
       organizer_name: (candidate.organizer_name as string | null) || null,
       // registration_url = an explicit booking/registration action only (never the detail page)
       official_url: (candidate.registration_url as string | null) || null,
+      // only 'public' reaches this insert (autoApproveEligible); an ordinary unknown is stored as such
+      offering_access_type: (candidate.offering_access_type as string | null) || null,
       created_by: createdBy, last_seen_at: new Date().toISOString(),
     })
     .select('id').single();
@@ -345,6 +351,14 @@ function sanitizeCandidate(raw: any, pageUrl: string): { candidate: any; issues:
   // schedule): a GATING issue -> review queue / Cleaner metadata resolver, never a silent approval
   if (candidate.entity_type) { const t = missingTemporalEvidence(candidate); const label = t ? TEMPORAL_ISSUE_LABEL[t] : null; if (label && !issues.includes(label)) issues.push(label); }
   if (!candidate.city) issues.push('עיר');
+  // WHO MAY ATTEND (Phase 1, 2026-09-21): the model's answer is validated, then assessed against
+  // structural evidence. private_group / mixed / a suspicious unknown are a GATING issue -> review
+  // queue with the evidence attached. This never archives and never rejects; see _shared/accessType.ts.
+  candidate.offering_access_type = sanitizeAccessType(raw.offering_access_type).access;
+  const accessAssessment = assessAccessType(candidate);
+  candidate.offering_access_type = accessAssessment.access;
+  candidate.offering_access_evidence = { evidence: accessAssessment.evidence, suppressors: accessAssessment.suppressors, model: accessAssessment.modelAccess, suspicious: accessAssessment.suspicious };
+  if (blocksAutoPublish(accessAssessment) && !issues.includes(ACCESS_ISSUE_LABEL)) issues.push(ACCESS_ISSUE_LABEL);
 
   return { candidate, issues };
 }

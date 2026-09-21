@@ -20,6 +20,7 @@ const { computeEventFingerprint } = require('../eventFingerprint');
 const { bestMatch } = require('./matching');
 const { isMissingCity } = require('../lib/canonicalSettlement');
 const { missingTemporalEvidence } = require('../lib/temporalEvidence');
+const { assessAccessType, blocksAutoPublish } = require('../lib/accessType');
 
 const SOFT = new Set(['מחיר']);
 const ADMIN_BASE = process.env.ADMIN_BASE || 'http://localhost:4321';
@@ -100,12 +101,17 @@ async function handBackIncoming(client, row, { settings, userId, cache, today, c
   const rel = assessChildRelevance(c);
   if (rel === 'reject') { await client.from('incoming_activities').update({ status: 'rejected', archive_reason: 'invalid_event', reject_reason: 'קהל יעד למבוגרים (THE CLEANER)', reviewed_at: now }).eq('id', row.id).in('status', OPEN_INCOMING); return { outcome: 'archived', reason: 'invalid_event' }; }
   if (!(trusted && gating.length === 0 && dateOk && !temporal && rel === 'ok')) return { outcome: 'awaiting_policy', why: !trusted ? 'untrusted_source' : gating.length ? 'issues:' + gating.join(',') : !dateOk ? 'date' : temporal ? 'temporal:' + temporal : 'relevance_' + rel };
+  // WHO MAY ATTEND (Phase 1): the automated hand-back never answers the access question. A row the
+  // access assessment holds stays in the queue for a human (policy hold, same as temporal evidence).
+  const accessA = assessAccessType(c);
+  if (blocksAutoPublish(accessA)) return { outcome: 'awaiting_policy', why: 'access:' + accessA.access + (accessA.suspicious ? '_suspicious' : '') };
   if (!(await adminUp())) return { outcome: 'error', error: 'admin server not reachable at ' + ADMIN_BASE + ' - publish deferred' };
   let res;
   try { res = await fetch(`${ADMIN_BASE}/api/incoming/${row.id}/approve`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: AbortSignal.timeout(120000) }); }
   catch (e) { return { outcome: 'error', error: 'approve call failed (' + (e.message || e) + ') - publish deferred' }; } // transient network error: defer, the location is already patched
   const body = await res.json().catch(() => ({}));
   if (res.status === 409) return { outcome: 'duplicate_merged', activity_id: body.duplicateOf || null, via: 'approve_guard' };
+  if (res.status === 428) return { outcome: 'awaiting_policy', why: 'access:needs_acknowledgement' };
   if (!res.ok) return { outcome: 'error', error: body.error || ('approve HTTP ' + res.status) };
   return { outcome: 'published', activity_id: body.activityId };
 }

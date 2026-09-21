@@ -23,7 +23,12 @@
     "would have fixed the constraint by telling every AI classifier to start generating camps.",
     "Keeping it storage-only fixes the integrity layer and changes no classifier behaviour.",
     "Contrast 'חוג', which is in BOTH `categories` and `archiveCategories`: a model may assign it and",
-    "the record is then auto-archived. That stays exactly as it was."
+    "the record is then auto-archived. That stays exactly as it was.",
+    "",
+    "  accessTypes            WHO MAY ATTEND (Phase 1, 2026-09-21). An orthogonal axis to all three sets",
+    "                         above: public / private_group / mixed / unknown. Validated by",
+    "                         sanitizeAccessType() in both runtimes; only a FINAL human verdict of",
+    "                         private_group makes a row catalogue-ineligible (private_hire_policy)."
   ],
   "categories": [
     "גן שעשועים",
@@ -75,5 +80,11 @@
     "השפלה",
     "הדרום והנגב",
     "יו\"ש והבנימין"
+  ],
+  "accessTypes": [
+    "public",
+    "private_group",
+    "mixed",
+    "unknown"
   ]
 }

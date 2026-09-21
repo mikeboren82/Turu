@@ -31,6 +31,7 @@ const ARCHIVE_REASONS = Object.freeze([
   'outside_service_area',
   'commitment_policy',
   'wrong_entity_type',
+  'private_hire_policy',
 ]);
 
 const OUTCOME = Object.freeze({

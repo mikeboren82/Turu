@@ -51,6 +51,11 @@ function renderIncomingPage() {
     border: none; border-radius: 999px; padding: 6px 14px; cursor: pointer;
   }
   .bulk-approve-btn:disabled { opacity: 0.45; cursor: default; }
+  .access-row, .access-decision { flex-direction: column; align-items: flex-start; gap: 6px; }
+  .access-why { font-size: 12.5px; color: oklch(0.45 0.02 235); }
+  .access-decision { border: 1px solid oklch(0.85 0.08 60); background: oklch(0.98 0.03 80); border-radius: 12px; padding: 10px 12px; margin-top: 8px; }
+  .access-choices { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+  .danger-btn { background: oklch(0.55 0.18 25); color: white; border-color: oklch(0.55 0.18 25); }
   .item-list { display: flex; flex-direction: column; gap: 12px; }
   .item-card {
     background: oklch(1 0 0); border: 1px solid oklch(0.9 0.01 230); border-radius: 14px;
@@ -230,6 +235,22 @@ function renderIncomingPage() {
     '</div>';
   }
 
+  // WHO MAY ATTEND (Phase 1): the reviewer must see the verdict AND why, never raw JSON.
+  const ACCESS_LABEL = { public: 'ציבורי', private_group: 'פרטי / לקבוצה', mixed: 'מעורב', unknown: 'לא ברור' };
+  function renderAccess(c) {
+    const access = c.offering_access_type || 'unknown';
+    const ev = c.offering_access_evidence || {};
+    const reasons = (ev.evidence || []).map((e) => e.label);
+    const sup = (ev.suppressors || []).map((e) => e.label);
+    const concern = access === 'private_group' || access === 'mixed' || ev.suspicious;
+    if (access === 'unknown' && !reasons.length) return '';
+    return '<div class="issues-row access-row">' +
+      '<span class="badge ' + (concern ? 'issue' : 'trust') + '">גישה: ' + escapeHtml(ACCESS_LABEL[access] || access) + (ev.suspicious ? ' (חשד לשירות פרטי)' : '') + '</span>' +
+      (reasons.length ? '<span class="access-why">למה: ' + reasons.map(escapeHtml).join(' · ') + '</span>' : '') +
+      (sup.length ? '<span class="access-why">נגד: ' + sup.map(escapeHtml).join(' · ') + '</span>' : '') +
+      '</div>';
+  }
+
   function renderCard(r) {
     const c = r.extracted_data || {};
     const conf = Math.round((r.confidence_score || 0) * 100);
@@ -254,6 +275,7 @@ function renderIncomingPage() {
       (r.validation_issues && r.validation_issues.length
         ? '<div class="issues-row">' + r.validation_issues.map((i) => '<span class="badge issue">⚠️ חסר: ' + escapeHtml(i) + '</span>').join('') + '</div>'
         : '') +
+      renderAccess(c) +
       renderImageWarnings(c) +
       (r.match_type === 'update' ? renderDiff(r.diff) : (r.match_type === 'missing' ? '' : renderFieldsSummary(c))) +
       renderActions(r) +
@@ -295,10 +317,12 @@ function renderIncomingPage() {
     if (ids.length === 0) return;
     $bulkApproveBtn.disabled = true;
     $bulkApproveBtn.textContent = 'מאשר...';
-    let failCount = 0;
+    let failCount = 0, needsDecision = 0;
     for (const id of ids) {
       try {
-        const res = await fetch('/api/incoming/' + id + '/approve', { method: 'POST' });
+        const res = await fetch('/api/incoming/' + id + '/approve', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+        // bulk never decides access on the reviewer's behalf - such items are skipped and counted
+        if (res.status === 428) { needsDecision++; continue; }
         if (!res.ok) throw new Error();
       } catch {
         failCount++;
@@ -306,7 +330,10 @@ function renderIncomingPage() {
     }
     selectedIds.clear();
     await load();
-    if (failCount > 0) alert('אושרו בהצלחה, חוץ מ-' + failCount + ' פריטים שנכשלו.');
+    const notes = [];
+    if (failCount > 0) notes.push(failCount + ' פריטים נכשלו');
+    if (needsDecision > 0) notes.push(needsDecision + ' פריטים דורשים הכרעה על סיווג הגישה (אשרו אותם אחד-אחד)');
+    if (notes.length) alert('אושרו בהצלחה, חוץ מ: ' + notes.join('; ') + '.');
   });
 
   $list.addEventListener('change', (e) => {
@@ -321,12 +348,42 @@ function renderIncomingPage() {
     if (sel) reclassifyItem(sel.dataset.id, sel.value);
   });
 
-  async function approveItem(id, btn) {
+  // 428 = the server wants an explicit access verdict. The choice is made HERE, by the human, and
+  // re-posted; a generic Approve is never turned into a verdict on the reviewer's behalf.
+  function askAccessVerdict(id, btn, data) {
+    const card = btn.closest('.item-card-body');
+    const old = card.querySelector('.access-decision'); if (old) old.remove();
+    const panel = document.createElement('div');
+    panel.className = 'issues-row access-decision';
+    const why = (data.evidence || []).map((e) => e.label).join(' · ');
+    const against = (data.suppressors || []).map((e) => e.label).join(' · ');
+    panel.innerHTML = '<div><b>נדרשת הכרעה על הגישה</b> - הצעת המערכת: ' + escapeHtml(data.proposedLabel || data.proposed) + '</div>' +
+      (why ? '<div class="access-why">למה: ' + escapeHtml(why) + '</div>' : '') +
+      (against ? '<div class="access-why">נגד: ' + escapeHtml(against) + '</div>' : '') +
+      '<div class="access-choices">' +
+      '<button type="button" class="primary-btn success-btn" data-ack="public">ציבורי - פרסם</button>' +
+      '<button type="button" class="primary-btn" data-ack="mixed">מעורב - השאר בבדיקה</button>' +
+      '<button type="button" class="primary-btn danger-btn" data-ack="private_group">פרטי / לקבוצה - לא לקטלוג</button>' +
+      '</div>';
+    panel.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-ack]'); if (!b) return;
+      approveItem(id, btn, b.dataset.ack);
+    });
+    card.appendChild(panel);
+    btn.disabled = false;
+  }
+
+  async function approveItem(id, btn, acknowledgedAccessType) {
     btn.disabled = true;
     try {
-      const res = await fetch('/api/incoming/' + id + '/approve', { method: 'POST' });
+      const res = await fetch('/api/incoming/' + id + '/approve', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(acknowledgedAccessType ? { acknowledged_access_type: acknowledgedAccessType } : {}),
+      });
       const data = await res.json();
+      if (res.status === 428 && data.needs_access_acknowledgement) return askAccessVerdict(id, btn, data);
       if (!res.ok) throw new Error(data.error || 'שגיאה לא ידועה');
+      if (data.held === 'mixed') alert(data.message || 'נשאר בבדיקה');
       await load();
     } catch (err) {
       alert('שגיאה באישור: ' + err.message);

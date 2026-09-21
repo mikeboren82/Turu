@@ -17,6 +17,7 @@
 import categoryValues from './categoryValues.json' with { type: 'json' };
 import categorySemantics from './categorySemantics.json' with { type: 'json' };
 import { classifyFetchFailure, type FailureKind } from './sourceHealth.ts';
+import { accessGuidanceBlock } from './accessType.ts';
 
 export const CATEGORY_VALUES: string[] = categoryValues.categories;
 
@@ -157,6 +158,8 @@ export function buildExtractionSystemPrompt(): string {
 - organizer_name: שם הגוף שמארגן/מפעיל את הפעילות אם מצוין (עירייה, מתנ״ס, חברת הפקות, הקניון עצמו), אחרת null
 - registration_url: קישור להרשמה/רכישת כרטיסים אם מופיע בטקסט ככתובת מלאה, אחרת null
 - audience: קהל היעד לפי הטקסט - בדיוק אחד מ- "children" (לילדים/פעוטות/תינוקות) | "family" (לכל המשפחה / הורים וילדים) | "adults" (מבוגרים, גיל הזהב, ותיקים, נשים, הרצאה/סטנדאפ/קונצרט למבוגרים, מנויים) | "unknown" (לא ברור). לוחות אירועים עירוניים מערבבים הכל - סמן בזהירות; אירוע למבוגרים חייב להיות "adults" גם אם הוא מופיע ליד אירועי ילדים
+
+${accessGuidanceBlock()}
 
 בנוסף, סווג את הפעילות לפי השדות הבאים - **רק אם ניתן להסיק אותם בביטחון סביר מהטקסט**. אל תנחש - אם אין רמז ברור, השאר null (או מערך ריק [] עבור שדות מסוג מערך).
 
