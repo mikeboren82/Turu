@@ -46,7 +46,7 @@ const MAX_HTML_BYTES = 1_500_000;
 import { geocodeAddress } from '../_shared/geocoding.ts';
 import {
   findSimilarActivities, computeConfidence, computeFieldDiff, getConfidenceThresholds, computeEventFingerprint,
-  mapExistingRow, EXISTING_ACTIVITY_SELECT, normalizeForMatch, type ExistingActivity,
+  computeEventFingerprintProbes, mapExistingRow, EXISTING_ACTIVITY_SELECT, normalizeForMatch, type ExistingActivity,
 } from '../_shared/matching.ts';
 import { generatePlaygroundDisplayName } from '../_shared/playgroundNaming.ts';
 import { normalizeCityName } from '../_shared/cityNaming.ts';
@@ -915,11 +915,20 @@ Deno.serve(async (req: Request) => {
             // (24 Ramot-mall items sat in review with a valid city because of it, 2026-09-13)
             if (candidate.city) { const i = issues.indexOf('עיר'); if (i >= 0) issues.splice(i, 1); }
           }
-          // LEGACY occurrence-level fingerprint (first/earliest occurrence): exact pre-check only
-          candidate.event_fingerprint = computeEventFingerprint({
+          // LEGACY occurrence-level fingerprint (first/earliest occurrence): exact pre-check only.
+          // STORED value is unchanged (still the single canonical venue-if-known-else-city form) -
+          // fingerprintProbes below is a LOOKUP-only widening, never written to the candidate/row.
+          const fingerprintInput = {
             name: candidate.name, venueId: candidate.venue_id, city: candidate.city, scheduleType: candidate.schedule_type,
             oneTimeDate: candidate.one_time_date, recurringDays: candidate.recurring_days, startTime: candidate.start_time,
-          });
+          };
+          candidate.event_fingerprint = computeEventFingerprint(fingerprintInput);
+          // DUAL-PROBE (2026-09-21): when this candidate's venue is now known, an EARLIER ingestion of
+          // the exact same occurrence may have stored the city-form fingerprint (its own venue was
+          // unresolved at the time) - probe for both forms, never just the candidate's own canonical
+          // one. See computeEventFingerprintProbes (_shared/matching.ts) for the full rationale and why
+          // the reverse direction (candidate venue-less, existing row venue-keyed) is not attempted.
+          const fingerprintProbes = computeEventFingerprintProbes(fingerprintInput);
           // EVENT identity, stable across occurrences (eventIdentity.ts): provider id > verified detail URL >
           // provider key > exact title + canonical venue + source (conservative fallback)
           {
@@ -928,19 +937,26 @@ Deno.serve(async (req: Request) => {
           }
 
           // Exact pre-check (the events' google_place_id): identical fingerprint already live => same event.
+          // Probed with BOTH candidate-compatible forms (fingerprintProbes) so a candidate whose venue
+          // just resolved still finds an older row stored under the city-form - see the dual-probe note
+          // above computeEventFingerprintProbes for what this does and does not cover.
           let fingerprintMatchId: string | null = null;
-          if (candidate.event_fingerprint) {
-            // (a) same event twice within this scan => count as duplicate, no second queue row
-            if (seenFingerprints.has(candidate.event_fingerprint)) { counters.duplicateCount++; listing.skipped_in_scan_duplicate++; continue; }
-            seenFingerprints.add(candidate.event_fingerprint);
-            const { data: fpRow } = await client.from('activities').select('id').eq('event_fingerprint', candidate.event_fingerprint).eq('status', 'approved').limit(1).maybeSingle();
+          if (fingerprintProbes.length) {
+            // (a) same event twice within this scan => count as duplicate, no second queue row. Checked
+            // against every probe and added under every probe, so it doesn't matter which form (city or
+            // venue) two same-scan candidates for the same occurrence happen to land on.
+            if (fingerprintProbes.some((fp) => seenFingerprints.has(fp))) { counters.duplicateCount++; listing.skipped_in_scan_duplicate++; continue; }
+            for (const fp of fingerprintProbes) seenFingerprints.add(fp);
+            // one indexed lookup (idx_activities_event_fingerprint) via IN, not a scan - bounded to
+            // at most 2 values regardless of catalogue size.
+            const { data: fpRow } = await client.from('activities').select('id').in('event_fingerprint', fingerprintProbes).eq('status', 'approved').limit(1).maybeSingle();
             fingerprintMatchId = (fpRow as { id: string } | null)?.id ?? null;
             // (b) already waiting in the review queue from an earlier scan (cron + relay + scan-now can
             // hit the same page minutes apart) => don't queue it again. The 2026-09-13 bulk approval
             // turned exactly these twins into 57 duplicate activities.
             if (!fingerprintMatchId) {
               const { data: pendingRow } = await client.from('incoming_activities').select('id')
-                .eq('extracted_data->>event_fingerprint', candidate.event_fingerprint)
+                .in('extracted_data->>event_fingerprint', fingerprintProbes)
                 .in('status', ['new', 'needs_review']).limit(1).maybeSingle();
               if (pendingRow) { counters.duplicateCount++; listing.skipped_pending_in_queue++; continue; }
             }

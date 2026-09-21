@@ -4,7 +4,7 @@
 // must not defeat matching. Run with `npx deno test supabase/functions/_shared/`.
 
 import { assertEquals, assert } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { computeConfidence, distinctiveSharedWords, hhmm, descriptionMateriallyDiffers, placeLabelChanged, computeEventFingerprint, computeFieldDiff, getConfidenceThresholds, type ExistingActivity } from "./matching.ts";
+import { computeConfidence, distinctiveSharedWords, hhmm, descriptionMateriallyDiffers, placeLabelChanged, computeEventFingerprint, computeEventFingerprintProbes, computeFieldDiff, getConfidenceThresholds, type ExistingActivity } from "./matching.ts";
 
 const thresholds = getConfidenceThresholds({});
 const existingBase: ExistingActivity = {
@@ -38,6 +38,129 @@ Deno.test("fingerprint is stable across city spelling, day order, time precision
   assertEquals(a, b);
   assertEquals(computeEventFingerprint({ name: "גן שעשועים", city: "חולון", scheduleType: "fixed_hours" }), null);
   assertEquals(computeEventFingerprint({ name: "אירוע", city: "חולון", scheduleType: "one_time", oneTimeDate: null }), null);
+});
+
+// --- computeEventFingerprintProbes (2026-09-21, "Stabilize Event Fingerprint Matching") ----------
+// The WHERE segment of the stored fingerprint is venue-if-known-else-city, so the SAME occurrence
+// gets a DIFFERENT fingerprint depending on whether venue resolution had already run when each side
+// was ingested. This is what produced the live Beit Ariela duplicates: an old row stored city-form,
+// a later scan's candidate resolved a venue and stored venue-form, and the exact pre-check compared
+// two different strings for one event. These tests cover the LOOKUP widening only - storage
+// (computeEventFingerprint itself, tested above) is untouched.
+
+Deno.test("dual-probe: venue known + city known -> [canonical venue-form, city-form an unresolved-venue ingestion would have stored]", () => {
+  const input = { name: "הקוסם מארץ עוץ", venueId: "venue-renanim", city: "רעננה", scheduleType: "one_time", oneTimeDate: "2026-09-27", startTime: "17:00" } as const;
+  const probes = computeEventFingerprintProbes(input);
+  const canonical = computeEventFingerprint(input);
+  const cityForm = computeEventFingerprint({ ...input, venueId: null });
+  assertEquals(probes, [canonical, cityForm]);
+  assertEquals(probes[0], "הקוסם מארץ עוץ|v:venue-renanim|2026-09-27|17:00");
+  assertEquals(probes[1], "הקוסם מארץ עוץ|c:רעננה|2026-09-27|17:00");
+});
+
+Deno.test("dual-probe: no venue -> a single probe (the canonical IS already the city-form, nothing to widen)", () => {
+  const probes = computeEventFingerprintProbes({ name: "שעת סיפור", city: "חולון", scheduleType: "one_time", oneTimeDate: "2026-09-27", startTime: "10:00" });
+  assertEquals(probes.length, 1);
+  assertEquals(probes[0], computeEventFingerprint({ name: "שעת סיפור", city: "חולון", scheduleType: "one_time", oneTimeDate: "2026-09-27", startTime: "10:00" }));
+});
+
+Deno.test("dual-probe: venue known but NO city -> a single probe (never a degenerate 'c:' empty-city probe that could over-match unrelated events)", () => {
+  const probes = computeEventFingerprintProbes({ name: "שעת סיפור", venueId: "venue-x", city: null, scheduleType: "one_time", oneTimeDate: "2026-09-27", startTime: "10:00" });
+  assertEquals(probes.length, 1);
+  assert(probes[0].includes("v:venue-x"));
+});
+
+Deno.test("dual-probe: no name/no date -> empty (nothing to probe with, matches computeEventFingerprint's own null cases)", () => {
+  assertEquals(computeEventFingerprintProbes({ name: "", venueId: "v1", city: "חולון", scheduleType: "one_time", oneTimeDate: "2026-09-27" }), []);
+  assertEquals(computeEventFingerprintProbes({ name: "אירוע", venueId: "v1", city: "חולון", scheduleType: "one_time", oneTimeDate: null }), []);
+});
+
+Deno.test("POSITIVE REGRESSION: scan 1 stores city-form (venue unresolved), scan 2's candidate resolves a venue - the probe set must contain scan 1's exact stored fingerprint", () => {
+  // Scan 1: same event, same date/time, city known, venue NOT yet resolved for this publisher.
+  const scan1Fingerprint = computeEventFingerprint({
+    name: "גלגולו של זחל - שעת סיפור", city: "תל אביב יפו", scheduleType: "one_time", oneTimeDate: "2026-10-29", startTime: "17:00",
+  });
+  const existingRow = { ...existingBase, id: "old-row", venue_id: null, city: "תל אביב יפו", event_fingerprint: scan1Fingerprint, event_key: null };
+  assertEquals(scan1Fingerprint, "גלגולו של זחל שעת סיפור|c:תל אביב יפו|2026-10-29|17:00");
+
+  // Scan 2: identical event, identical date/time - but this time venue resolution succeeds.
+  const scan2Input = { name: "גלגולו של זחל - שעת סיפור", venueId: "af47029d-venue", city: "תל אביב יפו", scheduleType: "one_time", oneTimeDate: "2026-10-29", startTime: "17:00" };
+  const scan2Probes = computeEventFingerprintProbes(scan2Input);
+
+  // Expected: existing row matched (its stored fingerprint appears in the probe set) - NO new activity.
+  assert(scan2Probes.includes(existingRow.event_fingerprint!), "scan 2's probe set must include scan 1's stored city-form fingerprint");
+  assertEquals(scan2Probes.length, 2);
+});
+
+Deno.test("HOUSE (BEIT ARIELA) PATTERN, replayed generically without hardcoding a specific publisher: a real production shape (title with quotes/punctuation, Tel-Aviv-Yafo spelling) matches through the probe", () => {
+  const oldStored = computeEventFingerprint({ name: "“גלגולו של זחל” שעת סיפור עם רומי מורן גונן", city: "תל אביב-יפו", scheduleType: "one_time", oneTimeDate: "2026-10-29", startTime: "17:00" });
+  const newCandidateProbes = computeEventFingerprintProbes({ name: "“גלגולו של זחל” שעת סיפור עם רומי מורן גונן", venueId: "af47029d-3b57-4103-82e5-6cdc439212dc", city: "תל אביב יפו", scheduleType: "one_time", oneTimeDate: "2026-10-29", startTime: "17:00" });
+  assert(newCandidateProbes.includes(oldStored!));
+});
+
+// --- NEGATIVE CONTROLS: the dual-probe must never widen matching along date, time, venue identity
+// or title - only the venue-vs-city REPRESENTATION of an otherwise-identical occurrence. ---
+
+Deno.test("NEGATIVE: same title, same venue, DIFFERENT DATE -> no probe overlap", () => {
+  const a = computeEventFingerprintProbes({ name: "הקוסם מארץ עוץ", venueId: "v1", city: "רעננה", scheduleType: "one_time", oneTimeDate: "2026-09-27", startTime: "17:00" });
+  const b = computeEventFingerprintProbes({ name: "הקוסם מארץ עוץ", venueId: "v1", city: "רעננה", scheduleType: "one_time", oneTimeDate: "2026-10-05", startTime: "17:00" });
+  assertEquals(a.filter((fp) => b.includes(fp)), []);
+});
+
+Deno.test("NEGATIVE: same title, same venue, same date, DIFFERENT TIME -> no probe overlap", () => {
+  const a = computeEventFingerprintProbes({ name: "הקוסם מארץ עוץ", venueId: "v1", city: "רעננה", scheduleType: "one_time", oneTimeDate: "2026-09-27", startTime: "17:00" });
+  const b = computeEventFingerprintProbes({ name: "הקוסם מארץ עוץ", venueId: "v1", city: "רעננה", scheduleType: "one_time", oneTimeDate: "2026-09-27", startTime: "18:00" });
+  assertEquals(a.filter((fp) => b.includes(fp)), []);
+});
+
+Deno.test("NEGATIVE: same title/city/date/time but the EXISTING row already has its OWN resolved (different) venue -> no match, because a resolved row is never STORED under the city-form to begin with", () => {
+  // This mirrors the real lookup shape: candidate probes vs. the ONE fingerprint a real row has
+  // stored - not two candidates' probe lists compared to each other (a resolved venue's stored
+  // fingerprint is always its venue-form; it is never left as a city-form once a venue is known, so
+  // there is nothing for a candidate's city-form probe to accidentally match here).
+  const existingStoredFingerprint = computeEventFingerprint({ name: "הקוסם מארץ עוץ", venueId: "venue-b", city: "רעננה", scheduleType: "one_time", oneTimeDate: "2026-09-27", startTime: "17:00" });
+  const candidateProbes = computeEventFingerprintProbes({ name: "הקוסם מארץ עוץ", venueId: "venue-a", city: "רעננה", scheduleType: "one_time", oneTimeDate: "2026-09-27", startTime: "17:00" });
+  assert(!candidateProbes.includes(existingStoredFingerprint!));
+});
+
+Deno.test("KNOWN RESIDUAL RISK (pre-existing, not introduced by this fix, documented not hidden): two DIFFERENT events sharing title/city/date/time both fall back to the city-form when NEITHER side has a resolved venue - unchanged from before this task", () => {
+  // If both sides lack a venue, city-form matching was already exact-pre-check identity before this
+  // task (venue distinction was never part of that comparison). Dual-probe does not add this risk -
+  // it only extends the SAME already-accepted city-scoped identity to also match a later-resolved
+  // candidate against an still-unresolved historical row. Recorded explicitly so this tradeoff is
+  // never mistaken for something the fix newly introduced.
+  const oldRowNeverResolved = computeEventFingerprint({ name: "הקוסם מארץ עוץ", city: "רעננה", scheduleType: "one_time", oneTimeDate: "2026-09-27", startTime: "17:00" });
+  const otherCandidateAlsoUnresolved = computeEventFingerprintProbes({ name: "הקוסם מארץ עוץ", city: "רעננה", scheduleType: "one_time", oneTimeDate: "2026-09-27", startTime: "17:00" });
+  assert(otherCandidateAlsoUnresolved.includes(oldRowNeverResolved!)); // true both before and after this task's change
+});
+
+Deno.test("NEGATIVE: similar-but-not-identical titles at the same venue/date/time -> no probe overlap (the exact fingerprint still requires an EXACT normalized title, dual-probe does not loosen that)", () => {
+  const a = computeEventFingerprintProbes({ name: "הקוסם מארץ עוץ", venueId: "v1", city: "רעננה", scheduleType: "one_time", oneTimeDate: "2026-09-27", startTime: "17:00" });
+  const b = computeEventFingerprintProbes({ name: "הקוסם מארץ עוץ - מופע מיוחד", venueId: "v1", city: "רעננה", scheduleType: "one_time", oneTimeDate: "2026-09-27", startTime: "17:00" });
+  assertEquals(a.filter((fp) => b.includes(fp)), []);
+});
+
+Deno.test("NEGATIVE / documentation: event_fingerprint was never source-scoped before this change and still is not - dual-probe does not add or remove that boundary", () => {
+  // Unlike event_key's tvs: kind (which embeds s:<sourceId>), computeEventFingerprint never took a
+  // source as input. Two different sources describing the exact same occurrence already produced the
+  // same fingerprint before this task (by design - see the file header: "the same children's event
+  // published by a venue site and by a municipality... must resolve to ONE activity"). Recorded here
+  // so a future reader does not mistake dual-probe for a source-scoping change in either direction.
+  const probesX = computeEventFingerprintProbes({ name: "הקוסם מארץ עוץ", venueId: "v1", city: "רעננה", scheduleType: "one_time", oneTimeDate: "2026-09-27", startTime: "17:00" });
+  const probesY = computeEventFingerprintProbes({ name: "הקוסם מארץ עוץ", venueId: "v1", city: "רעננה", scheduleType: "one_time", oneTimeDate: "2026-09-27", startTime: "17:00" });
+  assertEquals(probesX, probesY); // no source parameter exists to make these differ
+});
+
+Deno.test("REVERSE DIRECTION (reported, not implemented): a venue-keyed existing row cannot be safely probed from a venue-less candidate", () => {
+  // If venue resolution regresses (existing row already has v:<venue>, a later candidate has none),
+  // the candidate has no venueId to construct that key with - inventing one would mean guessing WHICH
+  // venue in the city is meant, which this task forbids. computeEventFingerprintProbes therefore
+  // returns exactly the city-form-only single probe here; it does NOT attempt to reconstruct a
+  // venue-form key. This is a property test, not a gap left untested - the fix is intentionally
+  // one-directional (see the rationale comment on computeEventFingerprintProbes).
+  const probes = computeEventFingerprintProbes({ name: "הקוסם מארץ עוץ", venueId: null, city: "רעננה", scheduleType: "one_time", oneTimeDate: "2026-09-27", startTime: "17:00" });
+  assertEquals(probes.length, 1);
+  assert(probes[0].startsWith("הקוסם מארץ עוץ|c:"));
 });
 
 Deno.test("city spelling variant no longer breaks city_match", () => {

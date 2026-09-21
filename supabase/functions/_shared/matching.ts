@@ -163,6 +163,38 @@ export function computeEventFingerprint(input: {
   return `${name}|${where}|${when}|${time}`;
 }
 
+// DUAL-PROBE LOOKUP (2026-09-21, "Stabilize Event Fingerprint Matching" task): the WHERE segment of
+// the fingerprint is venue-if-known-else-city, so the SAME occurrence gets a DIFFERENT fingerprint
+// depending on whether venue resolution had already run when each side was ingested. This produced
+// all 13 live Beit Ariela duplicates: an old row stored city-form (its venue was unresolved at
+// ingestion), the second scan's candidate resolved a venue and stored venue-form - the exact
+// pre-check compared two different strings for one event and missed.
+//
+// This function does NOT change what gets STORED (computeEventFingerprint/its call sites are
+// untouched) - it only widens the LOOKUP: when the candidate has both a venue and a city, return
+// the canonical (venue-form) fingerprint PLUS the city-form an older, not-yet-venue-resolved
+// ingestion of the same occurrence would have produced, so the pre-check can probe for either.
+//
+// One-directional by design (forward: city -> venue). The reverse (an existing row already carries
+// a venue-form fingerprint, but today's candidate has NOT resolved a venue) cannot be made safe the
+// same way: probing requires a concrete venueId, and a candidate with no venue has none to plug in -
+// constructing one would mean GUESSING which venue in the city is meant, which this task explicitly
+// forbids inventing. That direction is left to the existing similarity fallback (computeConfidence),
+// which already carries the same "no venue" uncertainty instead of a fabricated identity match.
+//
+// Date, time and normalized title are never touched - only the WHERE segment varies between the
+// returned probes, so a different date/time/title always produces no overlap between them.
+export function computeEventFingerprintProbes(input: Parameters<typeof computeEventFingerprint>[0]): string[] {
+  const canonical = computeEventFingerprint(input);
+  if (!canonical) return [];
+  // No venue -> canonical is already the city-form (nothing to widen). No city -> the alternate would
+  // be a degenerate "c:" (empty city) that could over-match unrelated same-name/day/time candidates
+  // across every city with an unresolved venue - never probe with it.
+  if (!input.venueId || !input.city) return [canonical];
+  const cityForm = computeEventFingerprint({ ...input, venueId: null });
+  return cityForm && cityForm !== canonical ? [canonical, cityForm] : [canonical];
+}
+
 // deno-lint-ignore no-explicit-any
 export async function getExistingActivitiesForCity(client: any, city: string, cache: Map<string, ExistingActivity[]>): Promise<ExistingActivity[]> {
   const norm = normalizeCityName(city) || city;

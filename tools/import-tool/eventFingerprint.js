@@ -22,4 +22,16 @@ function computeEventFingerprint({ name, venueId, city, scheduleType, oneTimeDat
   return `${n}|${where}|${when}|${time}`;
 }
 
-module.exports = { computeEventFingerprint, normalizeForMatch };
+// DUAL-PROBE LOOKUP (2026-09-21, "Stabilize Event Fingerprint Matching" task) - Node twin of
+// supabase/functions/_shared/matching.ts#computeEventFingerprintProbes. Keep in lockstep; see the
+// Deno twin for the full rationale (the Beit Ariela city->venue duplicate pattern, why the reverse
+// direction is intentionally NOT probed, and why storage is unaffected - this is lookup-only).
+function computeEventFingerprintProbes(input) {
+  const canonical = computeEventFingerprint(input);
+  if (!canonical) return [];
+  if (!input.venueId || !input.city) return [canonical];
+  const cityForm = computeEventFingerprint({ ...input, venueId: null });
+  return cityForm && cityForm !== canonical ? [canonical, cityForm] : [canonical];
+}
+
+module.exports = { computeEventFingerprint, computeEventFingerprintProbes, normalizeForMatch };
