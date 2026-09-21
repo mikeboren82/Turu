@@ -574,8 +574,10 @@ const COORDINATE_DUPLICATE_RADIUS_M = 60;
 // asserts it is still a member of ENTITY_TYPE_VALUES so the two cannot drift.
 export const PLACE_ENTITY_TYPE = 'מקום_קבוע';
 
-type EntityKind = 'place' | 'offering' | 'unknown';
-function entityKind(entityType: string | null | undefined): EntityKind {
+export type EntityKind = 'place' | 'offering' | 'unknown';
+// exported (2026-09-21) so duplicateCandidates.ts's offering<->offering routing gate can reuse this
+// exact classification instead of a second copy - same reuse relationship as GENRE_WORDS above.
+export function entityKind(entityType: string | null | undefined): EntityKind {
   const t = (entityType || '').trim();
   if (!t) return 'unknown';
   return t === PLACE_ENTITY_TYPE ? 'place' : 'offering';

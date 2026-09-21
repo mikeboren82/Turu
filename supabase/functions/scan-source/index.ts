@@ -38,6 +38,7 @@ import { hintCategory } from '../_shared/categoryHints.ts';
 import { computeEventKey, findEventMatch, type EventKeyKind } from '../_shared/eventIdentity.ts';
 import { fetchJsonApiText, type JsonApiConfig } from '../_shared/adapters.ts';
 import { computeContentHash } from '../_shared/hashing.ts';
+import { detectFutureDuplicates } from '../_shared/duplicateCandidates.ts';
 
 // Largest HTML document we are willing to parse per page (see the CPU-guard note in the page loop).
 const MAX_HTML_BYTES = 1_500_000;
@@ -1055,6 +1056,11 @@ Deno.serve(async (req: Request) => {
                 });
                 cityCache.set(candidate.city, list);
               }
+              // FUTURE DUPLICATE DETECTION (best-effort, non-destructive - see _shared/duplicateCandidates.ts).
+              // A DEDICATED try/catch: a failure here must never fall into the outer catch below, which
+              // would wrongly roll this already-committed, already-approved activity back into the manual
+              // review queue over an unrelated review-queue write failure.
+              try { await detectFutureDuplicates(client, approved.id, { reason: 'new-activity' }); } catch { /* never affects the just-approved activity */ }
             } catch (saveErr) {
               autoApprovedActivityId = null;
               console.error('אישור אוטומטי נכשל, נופל בחזרה לתור בדיקה ידנית:', saveErr);

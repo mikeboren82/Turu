@@ -28,6 +28,9 @@ const { computeEventFingerprint } = require('./eventFingerprint');
 // EVENT identity (stable across occurrences) + occurrence persistence planning (0091 model)
 const { computeEventKey } = require('./lib/eventIdentity');
 const { planScheduleChange, occurrencesPersisted, normalizeOccurrence, occKey } = require('./lib/occurrences');
+// best-effort future duplicate-candidate detection (2026-09-21 activation) - see the module header
+// for why this can never fail the ingestion it runs after.
+const { detectFutureDuplicates, isMaterialIdentityChange } = require('./lib/futureDuplicateDetection');
 
 // Supabase/PostgREST מגביל תגובת select ל-1000 שורות כברירת מחדל בשקט (בלי שגיאה!) - באג
 // שנתקלנו בו שוב ושוב במקומות נפרדים בקובץ הזה (activities/contributors/duplicates/geocode-
@@ -1213,6 +1216,14 @@ async function saveNewActivity(client, userId, sourceUrl, activity, meta = {}) {
       }
     }
 
+    // FUTURE DUPLICATE DETECTION (best-effort, non-destructive - see lib/futureDuplicateDetection.js).
+    // Runs AFTER the activity has fully committed; only evaluated when it is eligible (approved),
+    // exactly like the historical generator. An archived insert (commitment policy) is skipped -
+    // it never appears in the app and never entered the historical queue either. Awaited (not
+    // fire-and-forget) so a process restart can never silently drop detection for this activity;
+    // the function itself guarantees it never throws, and this catch is belt-and-suspenders on top.
+    try { await detectFutureDuplicates(client, savedActivity.id, { reason: 'new-activity' }); } catch { /* never fails the save */ }
+
     return { activityId: savedActivity.id, archived };
   }
 }
@@ -1462,6 +1473,12 @@ async function applyIncomingUpdate(client, userId, existingActivityId, diff, can
   const { error: verifyErr } = await client
     .from('activities').update({ last_verified_at: new Date().toISOString() }).eq('id', existingActivityId);
   if (verifyErr) throw verifyErr;
+
+  // FUTURE DUPLICATE DETECTION (best-effort, non-destructive) - only when this update could plausibly
+  // change the outcome of the duplicate signal; see isMaterialIdentityChange in lib/futureDuplicateDetection.js.
+  if (isMaterialIdentityChange(diff)) {
+    try { await detectFutureDuplicates(client, existingActivityId, { reason: 'material-update' }); } catch { /* never fails the update */ }
+  }
 }
 
 // שני מעברי זיהוי: (1) exact - כמו קודם, אותו שם+שם מיקום מדויק (case-insensitive). (2) proximity -
