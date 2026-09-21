@@ -3081,6 +3081,10 @@ app.get('/api/settlement-review/:id', async (req, res) => {
           .select('lat, lng, activities!inner(id, name, category)')
           .gte('lat', anchorLat - 0.03).lte('lat', anchorLat + 0.03)
           .gte('lng', anchorLng - 0.03).lte('lng', anchorLng + 0.03)
+          // Two values for DEDUPE REACH only, not because they mean the same thing (corrected
+          // 2026-09-21, taxonomy Phase C): 'פארק שעשועים' is the stored value of ATTRACTION_COMPLEX
+          // ("מתחם אטרקציות"), historically also used for playgrounds. A proximity duplicate check
+          // must still see rows under both values; see constants/categorySemantics.json.
           .in('activities.category', ['גן שעשועים', 'פארק שעשועים']);
         if (boxErr) throw boxErr;
         const toRad = (d) => (d * Math.PI) / 180;

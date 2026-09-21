@@ -198,6 +198,11 @@ export const DEFAULT_FILTERS = {
   location: { mode: null, city: '', region: [], radiusKm: null, coords: null },
   age: [],
   category: [],
+  // Soft recall channel that travels WITH `category` (Phase B, 2026-09-21) - the alias phrases of
+  // the recognised concept (lib/categorySemantics.js). Not a user-facing filter and never counted
+  // as one (see countActiveFilters / countForKey): it only widens `category`, never narrows it,
+  // and is empty for every search that did not resolve to a known concept.
+  categoryAliasPhrases: [],
   excludeCategory: [],
   excludeCity: [],
   // "⛔ לאן לא תרצו להגיע?" (components/ExcludeAreasPicker.js) - מקביל ל-excludeCity, אבל

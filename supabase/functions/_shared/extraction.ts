@@ -15,9 +15,34 @@
 // windows-1255 pages instead of assuming UTF-8.
 
 import categoryValues from './categoryValues.json' with { type: 'json' };
+import categorySemantics from './categorySemantics.json' with { type: 'json' };
 import { classifyFetchFailure, type FailureKind } from './sourceHealth.ts';
 
 export const CATEGORY_VALUES: string[] = categoryValues.categories;
+
+// Concise semantic guidance for the few flat category strings that were provably being confused
+// (Phase C, 2026-09-21). A bare JSON list of Hebrew strings gave the model no way to tell
+// 'פארק' from 'גן שעשועים' from 'פארק שעשועים', and it showed in production: ordinary municipal
+// parks with play equipment were filed as 'פארק שעשועים' (the ATTRACTION_COMPLEX value), and an
+// animal park was too. The governing rule is PRIMARY EXPERIENCE - what the visitor is mainly there
+// to do - never the venue's name, size, ticket price or popularity.
+// deno-lint-ignore no-explicit-any
+const SEMANTIC_CONCEPTS: Record<string, any> = categorySemantics.concepts;
+export function categoryGuidanceBlock(): string {
+  const lines = Object.values(SEMANTIC_CONCEPTS).map((c) => {
+    const parts = [`- "${c.dbValue}": ${c.definition}`];
+    if (c.notEvidence?.length) parts.push(`  אינו ראיה מספקת: ${c.notEvidence.join(', ')}`);
+    if (c.negativeSignals?.length) parts.push(`  סותר: ${c.negativeSignals.join(', ')}`);
+    return parts.join('\n');
+  });
+  return [
+    'הבחנה סמנטית בין קטגוריות שמתבלבלות בקלות - הכלל הקובע הוא החוויה המרכזית במקום,',
+    'לא שם המקום, לא הגודל, לא מחיר הכניסה ולא הפופולריות:',
+    ...lines,
+    'פארק ציבורי שיש בו מתקני משחקים הוא עדיין "פארק". אתר שהחוויה בו היא בעלי חיים אינו',
+    '"פארק שעשועים" גם אם הוא גדול, ממותג ובתשלום.',
+  ].join('\n');
+}
 export const ARCHIVE_CATEGORIES: string[] = categoryValues.archiveCategories;
 export const REGION_VALUES: string[] = categoryValues.regions;
 export const WEATHER_VALUES = ['מתאים ליום חם', 'מתאים ליום גשום', 'ממוזג', 'מוצל', 'מקורה', 'פעילות בחוץ בלבד'];
@@ -88,6 +113,7 @@ export function buildExtractionSystemPrompt(): string {
 בנוסף, סווג את הפעילות לפי השדות הבאים - **רק אם ניתן להסיק אותם בביטחון סביר מהטקסט**. אל תנחש - אם אין רמז ברור, השאר null (או מערך ריק [] עבור שדות מסוג מערך).
 
 - category: בדיוק אחת מהאפשרויות הבאות (המתאימה ביותר), אחרת null: ${JSON.stringify(CATEGORY_VALUES)}
+${categoryGuidanceBlock()}
   שים לב: category הוא שדה שונה לגמרי מ-entity_type! לעולם אל תחזיר כאן "מקום_קבוע"/"פעילות"/"אירוע_קבוע"/"אירוע" - אלה שייכים רק לשדה entity_type. category מתאר את סוג התוכן (למשל "בישול", "פעילות קהילתית", "אחר")
 - duration_minutes: משך הפעילות המשוער בדקות (מספר), אחרת null
 - indoor_outdoor: אחד מ- "indoor" | "outdoor" | "both", אחרת null

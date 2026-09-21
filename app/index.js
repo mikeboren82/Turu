@@ -1055,15 +1055,18 @@ export default function HomeScreen() {
   // 🔎 חיפוש חכם - טקסט חופשי → Edge Function (ניתוח-שפה) → intentToFilters (טהור, קליינט,
   // lib/smartSearch.js) → אותו filters שכל שאר המסך כבר משתמש בו. שום דבר כאן לא מדלג על
   // rankActivities/applyFilters הקיימים ב-app/activities.js.
-  const goToSmartSearchResults = (intent) => {
+  // options.explicitLocation - PHASE A (2026-09-21). Previously this passed the screen's ambient
+  // WHERE state (`filters.location`) on every single Free Search, which is exactly how a "בחירה
+  // מהירה" selection (ינוב + 15 דקות) became a hidden constraint on an unrelated free-text query.
+  // Free Search without geographic intent is nationwide now; a location is only forwarded when the
+  // user picked one FOR THIS SEARCH in the clarification picker (handleClarifyConfirm below).
+  const goToSmartSearchResults = (intent, options = {}) => {
     const builtFilters = intentToFilters(intent, {
       children,
-      // מיקום המסך (WHERE / מה שנבחר זה עתה בבורר-ההבהרה / GPS / ברירת-מחדל) הוא מיקום מפורש -
-      // עובר בערוץ fallbackLocation, לא כעיר בתוך ה-intent של המודל.
-      fallbackLocation: filters.location?.mode ? filters.location : null,
+      explicitLocation: options.explicitLocation?.mode ? options.explicitLocation : null,
       // כרטיס-חיפוש מאוחד (2026-09-16): בחירת "מה עושים?" המובנית לא נמחקת בשקט כשהטקסט עצמו
-      // לא ציין קטגוריה - אותו דפוס עדיפות בדיוק כמו fallbackLocation למעלה (טקסט מפורש מנצח,
-      // אחרת נופלים לבחירה המובנית הקיימת). ראו lib/smartSearch.js.
+      // לא ציין קטגוריה (טקסט מפורש מנצח, אחרת נופלים לבחירה המובנית הקיימת) - שלא כמו המיקום,
+      // "מה עושים?" הוא בחירת-תוכן ולא אילוץ גאוגרפי, ולא נמדדה ממנו הדלפת-מצב. ראו lib/smartSearch.js.
       fallbackCategory: filters.category?.length ? filters.category : null,
     });
     // כמו כל שאר הניווטים מהבית (handleAdvancedFilters/handleSpontaneous/navigateToCategoryResults):
@@ -1125,7 +1128,7 @@ export default function HomeScreen() {
   // "הציגו לי פעילויות" בבורר-המיקום של החיפוש הממתין. הבורר כבר כתב את הבחירה ל-filters.location
   // (אותו state של WHERE), ומכאן ממשיכים את החיפוש שהמשתמש הקליד - אותה לוגיקה בדיוק כמו
   // handleClarifyPickerClose במסך התוצאות:
-  //  - המיקום עובר בערוץ המפורש (fallbackLocation = filters.location, ב-goToSmartSearchResults) -
+  //  - המיקום עובר בערוץ המפורש (explicitLocation, ב-goToSmartSearchResults) -
   //    לא מוזרק ל-intent.location.city, שם הוא נראה כמו ניחוש-מודל ומודח לטקסט (a609e5b).
   //  - 'street' + עיר: סבב-הבהרה לשרת עם cityOverride (גאוקודינג רחוב+עיר; העיר מסומנת
   //    citySource:'user' ב-parseSmartSearchQuery). בחירה אחרת (אזור/GPS/בלי מיקום) - אין עיר לגאוקד,
@@ -1145,7 +1148,7 @@ export default function HomeScreen() {
           setSmartSearchClarify(null);
           return;
         }
-        goToSmartSearchResults(data.intent);
+        goToSmartSearchResults(data.intent, { explicitLocation: loc });
       } catch (err) {
         setSmartSearchError(friendlySearchError(err, 'home.search.errorParseShort'));
         setSmartSearchClarify(null);
@@ -1154,7 +1157,9 @@ export default function HomeScreen() {
       }
       return;
     }
-    goToSmartSearchResults(clarify.pendingIntent);
+    // The user answered Free Search's own "📍 באיזה אזור לחפש?" picker - that IS intent for this
+    // search, so it is the one case that legitimately supplies a location the query did not carry.
+    goToSmartSearchResults(clarify.pendingIntent, { explicitLocation: loc });
   };
 
   // סגירה בלי "הציגו לי פעילויות" (רקע/חזרה) - זה *לא* "בלי מיקום": חוזרים למסך הבית, הטקסט

@@ -179,10 +179,18 @@ test('generated summaries are built per locale, not concatenated', () => {
     assert.equal(format.categoriesSummary(['גן שעשועים', 'מוזיאון לילדים']), "Playground and Children's museum");
     assert.match(format.categoriesSummary(['a', 'b', 'c', 'd']), /4/);
     assert.equal(format.locationSummaryText({ mode: 'city', city: 'חיפה' }), 'Haifa');
+    // A city + driving selection no longer promises a travel TIME (Phase A item 7: travelMinutes
+    // never reaches matchesLocation, so "up to 30 min" was a claim nothing implemented). The city
+    // summary is name-based + Smart Radius, phrased as "and nearby" - still locale-built, still
+    // interpolating the place name.
     const drive = format.locationSummaryText({ mode: 'city', city: 'נתניה', travelMode: 'driving', travelMinutes: 30 });
-    assert.match(drive, /30/);
     assert.match(drive, /Netanya/);
+    assert.doesNotMatch(drive, /30/, 'no travel-time promise for a city-name match');
     assert.doesNotMatch(drive, /[֐-׿]/);
+    // A precise origin DOES carry a real radius, so a number is still interpolated per locale.
+    const precise = format.locationSummaryText({ mode: 'current', travelMode: 'driving', travelMinutes: 30, radiusKm: 10 });
+    assert.match(precise, /10/);
+    assert.doesNotMatch(precise, /[֐-׿]/);
     assert.doesNotMatch(format.compactLocationText(null), /[֐-׿]/);
   });
   assert.equal(format.locationSummaryText({ mode: 'city', city: 'חיפה' }), 'חיפה');

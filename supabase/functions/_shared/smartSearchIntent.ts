@@ -3,7 +3,7 @@
 // (smartSearchIntent.test.ts) and so offline evaluation runs against the EXACT production prompt.
 // index.ts keeps only I/O: auth, rate-limit, the model call, date arithmetic, geocoding, logging.
 
-import { CATEGORY_VALUES, ARCHIVE_CATEGORIES, REGION_VALUES } from './extraction.ts';
+import { CATEGORY_VALUES, ARCHIVE_CATEGORIES, REGION_VALUES, categoryGuidanceBlock } from './extraction.ts';
 import { normalizeHebrewText } from './regionAliases.ts';
 import { WEEKDAY_LABEL_TO_DOW, NEXT_WEEKDAY_LABEL_TO_DOW } from './temporalResolve.ts';
 
@@ -37,6 +37,8 @@ export function buildSystemPrompt(todayISO: string, todayHebrewDay: string): str
 החזר אובייקט JSON יחיד עם השדות הבאים בדיוק (null לכל שדה שלא הוזכר או לא ברור - לעולם אל תנחש/תמציא):
 
 - category: *סוג הפעילות* שהמשתמש ביקש, כערך מדויק מהרשימה הבאה, אחרת null: ${JSON.stringify(SEARCHABLE_CATEGORIES)}
+${categoryGuidanceBlock()}
+  שים לב: "מתחם אטרקציות"/"מתחמי אטרקציות" הוא השם המוצג של הערך המאוחסן "פארק שעשועים" - אותו מושג.
   category מתאר *איזה סוג פעילות* המשתמש רוצה לעשות - לא את הנושא, הדמויות, החפצים או העלילה של משהו שהוא הזכיר. מלא אותו רק אם בשאילתה יש מילה/ביטוי שמביעים סוג-פעילות: שם הקטגוריה עצמה, מילה נרדפת או תת-סוג שלה (למשל "שחייה" → "בריכה", "מופע" → "הצגה"). אל תסיק קטגוריה משם של הצגה/אירוע/ספר/דמות או מהנושא שלהם: שם של הצגה על אריה אינו בקשה לפעילות בעלי חיים, ושם של ספר אינו בקשה להצגה. כשהשאילתה נראית כשם ספציפי ואין בה מילה שמביעה סוג-פעילות - החזר null ושמור את השם ב-residual_query. null עדיף תמיד על קטגוריה שגויה.
   חשוב: קטגוריה יכולה להופיע צמודה לשם עיר/יישוב *בלי* מילת-יחס כמו "ב-"/"באזור" ביניהן - "גן שעשועים צורן" הוא category:"גן שעשועים" + location.city:"צורן" (לא ביטוי אחד בלתי-ניתן-לפירוק, ולא שם ספציפי של מקום). אותו דבר ל"משחקייה רעננה", "חוג ציור חיפה" וכו' - שם היישוב בסוף המשפט, בלי חיבור מפורש, הוא עדיין location.city, לא חלק מהקטגוריה.
   הבקשה יכולה להגיע גם באנגלית (האפליקציה דו-לשונית) - תמיד החזר את הערכים הקנוניים בעברית מהרשימה (וגם שם עיר בעברית). מילון למונחים שנוטים להתבלבל: "playground" = "גן שעשועים" (מתקני חוץ); "play center"/"indoor playground"/"soft play" = "משחקייה"; "kids' gym"/"gymboree" = "ג'ימבורי"; "class"/"after-school class" = "חוג"; "day camp" = "קייטנה"; "show" = "הצגה".

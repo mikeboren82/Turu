@@ -23,7 +23,7 @@
     "בעלי חיים": "Animals",
     "פעילות מים": "Water activities",
     "טרמפולינות": "Trampolines",
-    "פארק שעשועים": "Amusement park",
+    "פארק שעשועים": "Attraction complex",
     "קולנוע לילדים": "Kids' cinema",
     "ספרייה": "Library",
     "שעת סיפור": "Story time",
@@ -165,8 +165,14 @@
       "walking": "Walking distance",
       "anyDistance": "Any distance",
       "minutesFromMe": "{{minutes}} min from me",
-      "minutesFromPlace": "{{minutes}} min from {{place}}"
-    }
+      "minutesFromPlace": "{{minutes}} min from {{place}}",
+      "kmFromMe": "{{km}} km from me",
+      "kmFromPlace": "{{km}} km from {{place}}",
+      "placeAndNearby": "{{place}} & nearby"
+    },
+    "upToKmFromMe": "Up to {{km}} km from me",
+    "upToKmFromPlace": "Up to {{km}} km from {{place}}",
+    "placeAndNearby": "In {{place}} and nearby"
   },
   "distance": {
     "fromYou": "{{km}} km from you",

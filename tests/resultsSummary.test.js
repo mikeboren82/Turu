@@ -106,11 +106,11 @@ test('age alone (no category/location) is still meaningful context -> summary sh
 
 // --- 5. travel time (distance) ---------------------------------------------------------------------
 
-test('driving minutes -> "עד N דקות נסיעה", trailing with a comma', () => {
+test('driving in a CITY -> truthful "ובסביבה" (city-name match + Smart Radius), never a travel-time promise', () => {
   let loc = { ...base().location, mode: 'city', city: 'נתניה' };
   loc = locationWithDrivingTime(loc, 15);
   const f = { ...base(), category: ['גן שעשועים'], location: loc };
-  assert.equal(buildResultsSummary(f), 'מציג כעת גן שעשועים באזור נתניה, עד 15 דקות נסיעה');
+  assert.equal(buildResultsSummary(f), 'מציג כעת גן שעשועים באזור נתניה, ובסביבה');
 });
 
 test('walking -> "במרחק הליכה"', () => {
@@ -166,7 +166,7 @@ test('full combination -> matches the shape of the request\'s own example almost
   let loc = { ...base().location, mode: 'city', city: 'נתניה' };
   loc = locationWithDrivingTime(loc, 15);
   const f = { ...base(), category: ['גן שעשועים'], location: loc, age: ['0-1', '2-3'] };
-  assert.equal(buildResultsSummary(f), 'מציג כעת גן שעשועים באזור נתניה, לגילאי 0–3, עד 15 דקות נסיעה');
+  assert.equal(buildResultsSummary(f), 'מציג כעת גן שעשועים באזור נתניה, לגילאי 0–3, ובסביבה');
 });
 
 test('advanced-filter change after the original search updates the summary deterministically (same inputs -> same output, different inputs -> different output)', () => {
@@ -178,7 +178,7 @@ test('advanced-filter change after the original search updates the summary deter
   loc = locationWithDrivingTime(loc, 15);
   const after = { ...before, location: loc, age: ['0-1', '2-3'] };
   const afterSummary = buildResultsSummary(after);
-  assert.equal(afterSummary, 'מציג כעת גן שעשועים באזור נתניה, לגילאי 0–3, עד 15 דקות נסיעה');
+  assert.equal(afterSummary, 'מציג כעת גן שעשועים באזור נתניה, לגילאי 0–3, ובסביבה');
   assert.notEqual(beforeSummary, afterSummary);
 });
 
@@ -275,5 +275,5 @@ test('a long combination of every fragment still produces one well-formed senten
   assert.ok(!summary.includes(' ,'), 'no space-before-comma artifacts');
   // הקטגוריות מצטרפות עם "ו" (listJoin, אותו מנגנון בדיוק כמו categorySummary בכל מקום אחר
   // באפליקציה - לא פסיק) - "גן שעשועים ופארק", לא "גן שעשועים, פארק".
-  assert.equal(summary, 'מציג כעת גן שעשועים ופארק בסוף השבוע בבוקר באזור השרון, גוש דן והמרכז, לגילאי 2–6, עד 30 דקות נסיעה');
+  assert.equal(summary, 'מציג כעת גן שעשועים ופארק בסוף השבוע בבוקר באזור השרון, גוש דן והמרכז, לגילאי 2–6, ובסביבה');
 });

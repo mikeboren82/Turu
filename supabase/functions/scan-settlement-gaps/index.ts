@@ -48,13 +48,18 @@ const DISCOVERY_FIELD_MASK = 'places.id,places.displayName,places.formattedAddre
 // גבולות ישראל הרחבים - זהים בדיוק ל-DEFAULT_ISRAEL_BOUNDS (tools/playground-discovery/israel_geo.py) -
 // לא שכפול-בטעות, שני runtimes (Python CLI מקומי מול Deno Edge Function) לא יכולים לחלוק קובץ אחד.
 const ISRAEL_BOUNDS = { minLat: 29.45, maxLat: 33.35, minLon: 34.20, maxLon: 35.95 };
-// 2026-09-12 (batch-3 validation): נמצא בפועל שיש 9 activities עם category='פארק שעשועים'
-// (מילה נרדפת ל-'גן שעשועים' - אותו מושג ממש, ניסוח אחר) - היו בלתי-נראים לחלוטין למניעת-
-// כפילויות, בלי קשר לתיקון ה-pagination (שני באגים שונים לגמרי: זה סינון-לפי-ערך, לא חיתוך-
-// שורות). גרם בפועל לניסיון-ייבוא כפול של "פארק יהורם גאון" ב-Batch 3. לא כולל 'פארק' הכללי
-// (35 שורות) או 'משחקייה' (13 שורות, סוג-מקום שונה - חדר-משחקים מקורה, לא גן-שעשועים חיצוני) -
-// אלה מושגים אחרים בפועל, לא מילים-נרדפות לאותו דבר.
-const PLAYGROUND_CATEGORIES = ['גן שעשועים', 'פארק שעשועים'];
+// DUPLICATE-PREVENTION SCOPE - NOT a semantic claim (corrected 2026-09-21, taxonomy Phase C).
+// The 2026-09-12 version of this comment asserted that 'פארק שעשועים' is "מילה נרדפת ל-'גן שעשועים'
+// - אותו מושג ממש". That assertion is now INVALID and was the root of a real misclassification
+// chain: 'פארק שעשועים' is the stored value of the ATTRACTION_COMPLEX concept (displayed as
+// "מתחם אטרקציות"), a rides/entertainment venue - see constants/categorySemantics.json.
+//
+// This list stays two-valued anyway, for the narrow reason it was actually needed: the scanner must
+// not re-import a place that already exists under EITHER value, and historic rows are filed under
+// both (the 2026-09-12 finding: a duplicate import attempt of "פארק יהורם גאון"). Widening a
+// dedupe lookup is safe in a way that merging two meanings is not. Nothing here classifies
+// anything - the scanner's own writes are 'גן שעשועים' (see below) and are unchanged in this phase.
+const PLAYGROUND_DEDUPE_CATEGORIES = ['גן שעשועים', 'פארק שעשועים'];
 
 const CORS_HEADERS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type' };
 function jsonResponse(body: unknown, status = 200) {
@@ -345,7 +350,7 @@ Deno.serve(async (req: Request) => {
     do {
       const { data, error } = await client.from('activities')
         .select('category, location:locations(city)')
-        .in('category', PLAYGROUND_CATEGORIES)
+        .in('category', PLAYGROUND_DEDUPE_CATEGORIES)
         .range(offset, offset + pageSize - 1);
       if (error) throw error;
       page = data || [];
@@ -444,7 +449,7 @@ Deno.serve(async (req: Request) => {
   for (let from = 0; ; from += PAGE_SIZE) {
     const { data: page, error: pageErr } = await client.from('activities')
       .select('id, name, google_place_id, location:locations(lat, lng, address)')
-      .in('category', PLAYGROUND_CATEGORIES)
+      .in('category', PLAYGROUND_DEDUPE_CATEGORIES)
       .range(from, from + PAGE_SIZE - 1);
     if (pageErr) { console.error('Failed to page existing activities:', pageErr.message); break; }
     existingRows.push(...(page || []) as typeof existingRows);

@@ -1,0 +1,192 @@
+{
+  "_doc": [
+    "TuRu - SEMANTIC layer for the flat category strings in categoryValues.json (Phase A+B+C, 2026-09-21).",
+    "categoryValues.json stays the source of truth for WHICH strings are legal; this file says what a",
+    "few of them MEAN, what a user may call them, and how a classifier should tell them apart.",
+    "",
+    "dbValue is the value actually stored in activities.category. It is deliberately NOT renamed when",
+    "the product label changes - 'פארק שעשועים' remains the stored value for ATTRACTION_COMPLEX while",
+    "the product concept is displayed as 'מתחם אטרקציות' (see lib/i18n/locales/*/domain.json). Renaming",
+    "persisted values needs a dedicated, dry-runnable data phase, not a code edit.",
+    "",
+    "MIRROR: supabase/functions/_shared/categorySemantics.json is a byte-identical copy (Edge Functions",
+    "deploy as a self-contained bundle and cannot import from the repo root - the same deliberate-copy",
+    "arrangement categoryValues.json already uses). tests/categorySemantics.test.js fails if they drift.",
+    "",
+    "PRIMARY EXPERIENCE is the governing principle for every concept here: what is the visitor mainly",
+    "there to do. Size, ticketing, popularity and 'being a destination' are NOT classification signals.",
+    "",
+    "recallAliases: the subset of aliases specific enough to be TEXT evidence about a record (the soft",
+    "recall channel in lib/filterActivities.js). Deliberately narrower than aliases: a bare generic",
+    "word like \"פארק\" is a fine thing for a USER to type, but a terrible thing to conclude a record",
+    "FROM - plenty of venue names contain it without being public parks (\"גרביטי פארק\"). An empty",
+    "list means the concept recalls on its stored category only."
+  ],
+  "concepts": {
+    "PARK": {
+      "dbValue": "פארק",
+      "labelHe": "פארק",
+      "pluralHe": "פארקים",
+      "definition": "A public or municipal recreational park. Primary experience: open green space - walking, lawns, picnics, trails, spending time outdoors. A park may contain playground equipment, a petting corner or a water feature and still be primarily a PARK.",
+      "aliases": [
+        "פארק",
+        "פארקים",
+        "פארק עירוני",
+        "גן ציבורי"
+      ],
+      "positiveSignals": [
+        "דונם",
+        "מדשאה",
+        "מדשאות",
+        "פיקניק",
+        "מנגלים",
+        "טיילת",
+        "מסלול הליכה",
+        "שבילי הליכה",
+        "פארק עירוני",
+        "גן ציבורי",
+        "אמפי"
+      ],
+      "negativeSignals": [
+        "רכבת הרים",
+        "גלגל ענק",
+        "מכוניות מתנגשות",
+        "קרוסלה",
+        "לונה פארק"
+      ],
+      "notEvidence": [
+        "שעשועים",
+        "מתקני משחקים",
+        "ציוד משחקים"
+      ],
+      "recallAliases": []
+    },
+    "PLAYGROUND": {
+      "dbValue": "גן שעשועים",
+      "labelHe": "גן שעשועים",
+      "pluralHe": "גני שעשועים",
+      "definition": "A children's playground. Primary experience: children playing on playground equipment. Typically free, unstaffed and open to the public, often inside a larger park or neighbourhood.",
+      "aliases": [
+        "גן שעשועים",
+        "גני שעשועים",
+        "גן משחקים",
+        "גני משחקים",
+        "מגרש משחקים",
+        "פלייגראונד",
+        "playground"
+      ],
+      "positiveSignals": [
+        "מתקני משחקים",
+        "ציוד משחקים",
+        "מגלשה",
+        "מגלשות",
+        "נדנדה",
+        "נדנדות",
+        "מתקני טיפוס",
+        "ארגז חול"
+      ],
+      "negativeSignals": [
+        "רכבת הרים",
+        "גלגל ענק",
+        "מכוניות מתנגשות",
+        "כרטיס כניסה",
+        "דמי כניסה"
+      ],
+      "notEvidence": [
+        "פארק"
+      ],
+      "recallAliases": [
+        "גן שעשועים",
+        "גני שעשועים",
+        "מגרש משחקים",
+        "גן משחקים"
+      ]
+    },
+    "ATTRACTION_COMPLEX": {
+      "dbValue": "פארק שעשועים",
+      "labelHe": "מתחם אטרקציות",
+      "pluralHe": "מתחמי אטרקציות",
+      "legacyLabelHe": "פארק שעשועים",
+      "definition": "An amusement / ride / entertainment attraction complex. Primary experience: rides and built entertainment installations - rollercoasters, ferris wheels, bumper cars, carousels, or a comparable dedicated entertainment attraction. Requires an actual ride/entertainment-installation signal. A venue is NOT an attraction complex merely because it is large, ticketed, popular with families, a destination, or made of several experiences.",
+      "aliases": [
+        "מתחם אטרקציות",
+        "מתחמי אטרקציות",
+        "פארק שעשועים",
+        "פארקי שעשועים",
+        "לונה פארק",
+        "לונה-פארק",
+        "לונהפארק",
+        "luna park",
+        "lunapark"
+      ],
+      "positiveSignals": [
+        "רכבת הרים",
+        "גלגל ענק",
+        "מכוניות מתנגשות",
+        "קרוסלה",
+        "קרוסלות",
+        "מתקנים",
+        "אטרקציות",
+        "לונה פארק",
+        "פארק אתגרים",
+        "מתקני שעשועים"
+      ],
+      "negativeSignals": [
+        "גן חיות",
+        "ספארי",
+        "פינת חי",
+        "בעלי חיים",
+        "חיות מדבר",
+        "אקווריום",
+        "מדשאה",
+        "פיקניק",
+        "מסלול הליכה",
+        "שמורת טבע"
+      ],
+      "notEvidence": [
+        "פארק",
+        "מתחם",
+        "משפחתי",
+        "כרטיס כניסה",
+        "דמי כניסה",
+        "גדול"
+      ],
+      "recallAliases": [
+        "מתחם אטרקציות",
+        "מתחמי אטרקציות",
+        "פארק שעשועים",
+        "פארקי שעשועים",
+        "לונה פארק",
+        "לונה-פארק",
+        "לונהפארק",
+        "luna park"
+      ]
+    }
+  },
+  "_animalsNote": [
+    "There is deliberately NO canonical animal/zoo concept implemented here yet - this is a decision",
+    "record for the upcoming reclassification/taxonomy phase, not a new concept, alias or code path.",
+    "",
+    "PRODUCT DECISION (2026-09-21 review): the future canonical category is",
+    "    חיות וגני חיות",
+    "covering places whose PRIMARY experience is zoo / wildlife / animal-focused. מדבריום belongs",
+    "here conceptually (NOT ATTRACTION_COMPLEX, however large, ticketed, popular or multi-experience -",
+    "same primary-experience principle as every other concept in this file). Also conceptually here:",
+    "גן החיות ואקווריום ירושלים.",
+    "",
+    "Explicitly NOT decided yet, and NOT to be inferred or auto-applied: whether existing 'פינת חי'",
+    "and 'חווה' rows merge into חיות וגני חיות, stay separate, or become its sub-cases. Production",
+    "already carries those two plus one non-canonical 'גן חיות' row (see the Phase report's audit).",
+    "",
+    "Two more conceptual notes from the same review, for the same future phase, not implemented now:",
+    "  - מיני ישראל conceptually belongs to ATTRACTION_COMPLEX.",
+    "  - פארק ומוזיאון המדע should NOT become ATTRACTION_COMPLEX merely for being a destination - its",
+    "    primary museum/science experience should decide its category (candidates: PARK, or a future",
+    "    museum/science concept - not decided here).",
+    "",
+    "What this file DOES already guarantee, in code, today: animal words are NEGATIVE signals for",
+    "ATTRACTION_COMPLEX (see ATTRACTION_COMPLEX.negativeSignals above), so no animal-primary venue can",
+    "be matched or scored as an attraction complex by the current implementation, regardless of when",
+    "or whether חיות וגני חיות itself is ever built."
+  ]
+}

@@ -58,7 +58,9 @@
       "afternoon": "אחר הצהריים",
       "evening": "בערב",
       "night": "בלילה"
-    }
+    },
+    "drivingKm": "עד {{km}} ק\"מ",
+    "nearbyArea": "ובסביבה"
   },
   "results": {
     "loadError": "לא הצלחנו לטעון פעילויות",

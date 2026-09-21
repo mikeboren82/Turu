@@ -205,6 +205,11 @@ export default function ActivitiesScreen() {
     if (mode === 'current') return deviceCoords ? { lat: deviceCoords.latitude, lng: deviceCoords.longitude } : null;
     if (mode === 'address') return filters.location.coords || null;
     if (mode === 'city') return settlementCoords;
+    // No location MODE at all (a nationwide Free Search) - the device position, when we have it,
+    // is still useful as RANKING context so nearer relevant results come first (Phase A, product
+    // decision 1). It cannot narrow anything: matchesLocation returns true for every activity when
+    // mode is null, and Smart Radius expansion only ever ADDS records to an under-filled result set.
+    if (!mode && deviceCoords) return { lat: deviceCoords.latitude, lng: deviceCoords.longitude };
     return null;
   }, [filters.location?.mode, filters.location?.coords, deviceCoords, settlementCoords]);
 
@@ -391,8 +396,12 @@ export default function ActivitiesScreen() {
   // handleClarifyCity), רק שבמקום לנווט ל-/activities עם homeFilters (אנחנו כבר כאן), כותבים
   // ישירות ל-filters הקיים דרך applyFreeSearchIntent - "מעדכן את עמוד הפעילויות" כמו שהתבקש,
   // לא פותח מסך נפרד.
-  const applyFreeSearchIntent = (intent) => {
-    const built = intentToFilters(intent, { fallbackLocation: filters.location?.mode ? filters.location : null });
+  // options.explicitLocation - same Phase A rule as app/index.js#goToSmartSearchResults: a new free
+  // text search here starts from ITS OWN geographic intent, and does not silently inherit whatever
+  // location the results screen happens to be showing. Without this, "לונה פארק" typed on a results
+  // page that was already narrowed to a city would stay narrowed to that city forever.
+  const applyFreeSearchIntent = (intent, options = {}) => {
+    const built = intentToFilters(intent, { explicitLocation: options.explicitLocation?.mode ? options.explicitLocation : null });
     setFilters(normalizeFilters(built));
     if (built.location.mode === 'address' && built.location.coords) {
       setDeviceCoords({ latitude: built.location.coords.lat, longitude: built.location.coords.lng });
@@ -433,7 +442,8 @@ export default function ActivitiesScreen() {
   // הפיקר כבר כתב את הבחירה ל-filters.location בזמן-אמת (אותו חיווט כמו ה-gate), אז כאן רק
   // ממשיכים את החיפוש שהמשתמש הקליד:
   //  - 'plain' (לא הוזכר מיקום בטקסט): applyFreeSearchIntent עם ה-intent המקורי - intentToFilters
-  //    כבר נופל ל-fallbackLocation=filters.location כשב-intent אין מיקום, בלי להמציא עיר.
+  //    מקבל explicitLocation=הבחירה בפיקר (Phase A 2026-09-21) - רק בחירה מפורשת עבור החיפוש
+  //    הזה, לא מיקום סביבתי של המסך, ובלי להמציא עיר.
   //  - 'street' (רחוב בלי עיר, הפונקציה ביקשה "באיזו עיר?"): אם נבחרה עיר בפיקר - סבב-הבהרה לשרת
   //    עם cityOverride (גאוקודינג של רחוב+עיר, בדיוק כמו קודם); אם נבחר משהו אחר (אזור/GPS/בכל
   //    הארץ) - אין עיר לגאוקד, מחפשים לפי המיקום שנבחר ומוותרים על הרחוב (לא מנחשים עיר).
@@ -453,7 +463,7 @@ export default function ActivitiesScreen() {
           setFreeSearchClarify(null);
           return;
         }
-        applyFreeSearchIntent(data.intent);
+        applyFreeSearchIntent(data.intent, { explicitLocation: loc });
       } catch {
         setFreeSearchError('activities.freeSearch.errorUnderstand');
         setFreeSearchClarify(null);
@@ -462,7 +472,8 @@ export default function ActivitiesScreen() {
       }
       return;
     }
-    applyFreeSearchIntent(clarify.pendingIntent);
+    // Answering Free Search's own location picker IS intent for this search (Phase A note above).
+    applyFreeSearchIntent(clarify.pendingIntent, { explicitLocation: loc });
   };
 
   // מועדפים/"כבר הייתי כאן"/הסתרה - הלוגיקה המשותפת (אופטימי+שחזור-בכשל+הודעה) עברה ל-

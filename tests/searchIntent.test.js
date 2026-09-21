@@ -231,7 +231,7 @@ test('residual_query is rejected unless it is quoted verbatim from the query (an
 
 test('I. explicit WHERE=נתניה + query "זהבה" -> Netanya stays the location, זהבה stays text', () => {
   const intent = intentOf({ location: { city: 'זהבה', cityVerified: false }, rawQuery: 'זהבה' });
-  const filters = intentToFilters(intent, { fallbackLocation: { mode: 'city', city: 'נתניה', region: [], radiusKm: null, coords: null } });
+  const filters = intentToFilters(intent, { explicitLocation: { mode: 'city', city: 'נתניה', region: [], radiusKm: null, coords: null } });
   assert.equal(filters.location.mode, 'city');
   assert.equal(filters.location.city, 'נתניה', 'הבחירה המפורשת נשארת');
   assert.equal(filters.q, 'זהבה');
@@ -239,7 +239,7 @@ test('I. explicit WHERE=נתניה + query "זהבה" -> Netanya stays the locat
 
 test('J. explicit WHERE=חיפה + "פעילות באילת" -> the verified city from the text still wins (unchanged)', () => {
   const intent = intentOf({ location: { city: 'אילת', cityVerified: true }, rawQuery: 'פעילות באילת' });
-  const filters = intentToFilters(intent, { fallbackLocation: { mode: 'city', city: 'חיפה', region: [], radiusKm: null, coords: null } });
+  const filters = intentToFilters(intent, { explicitLocation: { mode: 'city', city: 'חיפה', region: [], radiusKm: null, coords: null } });
   assert.equal(filters.location.mode, 'city');
   assert.equal(filters.location.city, 'אילת');
   assert.equal(filters.q, '');
@@ -340,7 +340,7 @@ test('mixed 10. explicit WHERE=נתניה + "פיטר פן ליד חיפה" -> t
   const intent = intentOf({
     category: 'הצגה', location: { city: 'חיפה', cityVerified: true }, residualQuery: 'פיטר פן', rawQuery: 'פיטר פן ליד חיפה',
   });
-  const filters = intentToFilters(intent, { fallbackLocation: { mode: 'city', city: 'נתניה', region: [], radiusKm: null, coords: null } });
+  const filters = intentToFilters(intent, { explicitLocation: { mode: 'city', city: 'נתניה', region: [], radiusKm: null, coords: null } });
   assert.equal(filters.q, 'פיטר פן', 'הטקסט נשמר גם בתוך קונפליקט מיקום');
   assert.equal(filters.location.city, 'חיפה', 'התנהגות קיימת: הטקסט המפורש גובר');
 });
@@ -511,7 +511,7 @@ test('J. explicit WHAT + text-inferred category: current precedence preserved (k
 });
 
 test('K. explicit WHERE + conflicting text location: current behaviour preserved (conflict UX deferred)', () => {
-  const filters = intentToFilters(prod('זהבה ליד חיפה'), { fallbackLocation: { mode: 'city', city: 'נתניה', region: [], radiusKm: null, coords: null } });
+  const filters = intentToFilters(prod('זהבה ליד חיפה'), { explicitLocation: { mode: 'city', city: 'נתניה', region: [], radiusKm: null, coords: null } });
   assert.equal(filters.location.city, 'חיפה');
   assert.equal(filters.q, 'זהבה');
 });
@@ -520,7 +520,8 @@ test('K. explicit WHERE + conflicting text location: current behaviour preserved
 // אינטגרציית מסך הבית: חיפוש חופשי בלי הקשר גאוגרפי → בורר-המיקום הקנוני (LocationQuickPicker).
 // הזרימה המלאה: טקסט → intent אמיתי של v19 → השער (needsAreaClarification) → הבחירה בבורר נכתבת
 // ל-filters.location (אותו state של WHERE) → handleClarifyConfirm → goToSmartSearchResults →
-// intentToFilters עם fallbackLocation = filters.location. המיקומים כאן נבנים *בדיוק* כמו שהבורר
+// intentToFilters עם explicitLocation = הבחירה בבורר (Phase A, 2026-09-21: רק בחירה מפורשת
+// *עבור החיפוש הזה* עוברת בערוץ הזה - מיקום סביבתי של המסך כבר לא). המיקומים כאן נבנים *בדיוק* כמו שהבורר
 // בונה אותם (commitLocation → locationWithDrivingTime; "בלי מיקום" → locationWithNoRestriction).
 // ---------------------------------------------------------------------------
 
@@ -535,7 +536,7 @@ for (const [query, expectedQ] of [['זהבה', 'זהבה'], ['שלושת הדו�
   test(`HOME CLARIFY: "${query}" + picker city חולון -> q="${expectedQ}", location=חולון`, () => {
     const pending = prod(query);
     assert.equal(needsAreaClarification(pending, PICKED_NOTHING), true, 'unknown location: the canonical picker opens');
-    const filters = intentToFilters(pending, { children: [], fallbackLocation: pickCity('חולון') });
+    const filters = intentToFilters(pending, { children: [], explicitLocation: pickCity('חולון') });
     assert.equal(filters.q, expectedQ, 'the original search text is preserved');
     assert.equal(filters.location.mode, 'city');
     assert.equal(filters.location.city, 'חולון', 'the user-selected city is the location, not text');
@@ -545,7 +546,7 @@ for (const [query, expectedQ] of [['זהבה', 'זהבה'], ['שלושת הדו�
 for (const minutes of [15, 30, 45]) {
   test(`PICKER A-C: "זהבה" + חולון + driving ${minutes} min -> q=זהבה, existing driving semantics kept`, () => {
     const picked = pickCity('חולון', minutes);
-    const filters = intentToFilters(prod('זהבה'), { children: [], fallbackLocation: picked });
+    const filters = intentToFilters(prod('זהבה'), { children: [], explicitLocation: picked });
     assert.equal(filters.q, 'זהבה');
     assert.equal(filters.location.city, 'חולון');
     assert.equal(filters.location.travelMode, 'driving');
@@ -555,14 +556,14 @@ for (const minutes of [15, 30, 45]) {
 }
 
 test('PICKER D: "זהבה" + use my location -> q=זהבה, GPS mode kept', () => {
-  const filters = intentToFilters(prod('זהבה'), { children: [], fallbackLocation: pickGps() });
+  const filters = intentToFilters(prod('זהבה'), { children: [], explicitLocation: pickGps() });
   assert.equal(filters.q, 'זהבה');
   assert.equal(filters.location.mode, 'current');
 });
 
 for (const [query, expectedQ] of [['זהבה', 'זהבה'], ['שלושת הדובים', 'שלושת הדובים'], ['ספר הג׳ונגל', 'ספר הג׳ונגל']]) {
   test(`PICKER E-G: "${query}" + בלי מיקום -> q preserved, explicit nationwide, no geographic reference`, () => {
-    const filters = intentToFilters(prod(query), { children: [], fallbackLocation: pickNoLocation() });
+    const filters = intentToFilters(prod(query), { children: [], explicitLocation: pickNoLocation() });
     assert.equal(filters.q, expectedQ);
     assert.equal(filters.location.mode, 'nationwide');
     assert.equal(filters.location.city, '');
@@ -574,7 +575,7 @@ for (const [query, expectedQ] of [['זהבה', 'זהבה'], ['שלושת הדו�
 }
 
 test('PICKER E: "זהבה" + בלי מיקום finds the Goldilocks shows in every city (no geographic restriction)', () => {
-  const filters = intentToFilters(prod('זהבה'), { children: [], fallbackLocation: pickNoLocation() });
+  const filters = intentToFilters(prod('זהבה'), { children: [], explicitLocation: pickNoLocation() });
   assert.deepEqual(search(filters), ['1', '2'], 'תל אביב and רעננה both included');
 });
 
@@ -726,7 +727,7 @@ test('TRAVEL L: tapping an already-selected minutes chip again (selectDrivingMin
 
 test('SMART SEARCH: "זהבה" + חולון + no time limit keeps q and the origin city', () => {
   const picked = noTimeLimit({ ...PICKED_NOTHING, mode: 'city', city: 'חולון' });
-  const filters = intentToFilters(prod('זהבה'), { children: [], fallbackLocation: picked });
+  const filters = intentToFilters(prod('זהבה'), { children: [], explicitLocation: picked });
   assert.equal(filters.q, 'זהבה');
   assert.equal(filters.location.city, 'חולון');
   assert.equal(filters.location.travelMode, 'any');
@@ -852,16 +853,16 @@ test('GPS F-H: "זהבה" + GPS denied keeps q pending; then חולון or בל�
   const { location: afterDenied } = await tapMyLocation(PICKED_NOTHING, fakeLocation({ status: 'denied' }));
   assert.equal(needsAreaClarification(pending, afterDenied), true, 'F: still no location - the picker stays open, nothing to confirm yet');
   // G
-  const withCity = intentToFilters(pending, { children: [], fallbackLocation: pickCity('חולון', 15) });
+  const withCity = intentToFilters(pending, { children: [], explicitLocation: pickCity('חולון', 15) });
   assert.deepEqual([withCity.q, withCity.location.mode, withCity.location.city], ['זהבה', 'city', 'חולון']);
   // H
-  const nationwide = intentToFilters(pending, { children: [], fallbackLocation: pickNoLocation(afterDenied) });
+  const nationwide = intentToFilters(pending, { children: [], explicitLocation: pickNoLocation(afterDenied) });
   assert.deepEqual([nationwide.q, nationwide.location.mode], ['זהבה', 'nationwide']);
 });
 
 test('GPS I: "זהבה" + GPS success -> q kept, current mode, no hard distance filter by default (but ranking still prefers close activities)', async () => {
   const { location, coords } = await tapMyLocation(PICKED_NOTHING, fakeLocation());
-  const filters = intentToFilters(prod('זהבה'), { children: [], fallbackLocation: location });
+  const filters = intentToFilters(prod('זהבה'), { children: [], explicitLocation: location });
   assert.equal(filters.q, 'זהבה');
   assert.equal(filters.location.mode, 'current');
   assert.equal(filters.location.radiusKm, null, 'no travel preference chosen - not relevant, ראו commitLocation');
@@ -908,7 +909,7 @@ test('PROVENANCE: the same unverified city is kept when it came from the user (c
 test('PROVENANCE: explicit WHERE chosen before the search is authoritative and skips the area question', () => {
   const where = { mode: 'city', city: 'נתניה', region: [], radiusKm: null, coords: null };
   assert.equal(needsAreaClarification(prod('זהבה'), where), false);
-  const filters = intentToFilters(prod('זהבה'), { children: [], fallbackLocation: where });
+  const filters = intentToFilters(prod('זהבה'), { children: [], explicitLocation: where });
   assert.equal(filters.location.city, 'נתניה');
   assert.equal(filters.q, 'זהבה');
 });

@@ -59,7 +59,9 @@
       "afternoon": "in the afternoon",
       "evening": "in the evening",
       "night": "at night"
-    }
+    },
+    "drivingKm": "Up to {{km}} km",
+    "nearbyArea": "and nearby"
   },
   "results": {
     "loadError": "We couldn't load activities",
