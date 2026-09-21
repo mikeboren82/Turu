@@ -9,6 +9,7 @@
 //   node dedupe-fingerprint-activities.js [--apply]
 require('dotenv').config();
 const { getClient } = require('./supabase');
+const { archiveActivity, isArchived, describe } = require('./lib/activityArchive');
 
 const APPLY = process.argv.includes('--apply');
 
@@ -44,8 +45,10 @@ async function all(client, table, select, fn) {
       reject_reason: 'כפילות - אותה טביעת אצבע של אירוע; מוזגה לפעילות ' + keeper.id,
     }).eq('created_activity_id', loser.id);
     if (!incErr) incRepointed++;
-    const { error: archErr } = await client.from('activities').update({ status: 'archived' }).eq('id', loser.id);
-    if (archErr) { console.log('  archive failed', loser.id, archErr.message); continue; }
+    // now also stamps archive_reason/archived_at, which this script used to leave null - the
+    // controlled transition requires a reason, and this script's reason is exactly this one.
+    const arch = await archiveActivity(client, { activityId: loser.id, expectedStatus: loser.status || 'approved', archiveReason: 'duplicate_of_existing_activity', keeperActivityId: keeper.id });
+    if (!isArchived(arch)) { console.log('  archive failed -', describe(arch)); continue; }
     archived++;
   }
   console.log(`done: archived ${archived}, provenance rows moved ${provMoved}, images copied ${imgMoved}, incoming rows re-pointed ${incRepointed}`);

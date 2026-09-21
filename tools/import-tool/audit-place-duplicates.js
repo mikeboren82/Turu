@@ -14,6 +14,7 @@ const path = require('path');
 const { getClient } = require('./supabase');
 const { all } = require('./cleaner/discover');
 const { samePlace } = require('./lib/placeIdentity');
+const { archiveActivity, isArchived, describe } = require('./lib/activityArchive');
 
 const APPLY = process.argv.includes('--apply');
 const richness = (a) => (a.activity_images || []).length * 3 + (a.venue_id ? 3 : 0) + (a.source_id ? 2 : 0) + (a.activity_sources || []).length + (a.description ? 1 : 0) + (a.official_url ? 1 : 0);
@@ -42,8 +43,8 @@ const richness = (a) => (a.activity_images || []).length * 3 + (a.venue_id ? 3 :
     console.log(`  [HIGH] keep "${keeper.name}" (${richness(keeper)}) <- "${loser.name}" (${richness(loser)}) | ${keeper.city} | ${Math.round(p.v.km * 1000)} m | names ${p.v.agreement}`);
     if (!APPLY) continue;
     const now = new Date().toISOString();
-    const { data: arch } = await client.from('activities').update({ status: 'archived', archive_reason: 'duplicate_of_existing_activity', archived_at: now }).eq('id', loser.id).eq('status', 'approved').select('id');
-    if (!arch || !arch.length) continue;
+    const arch = await archiveActivity(client, { activityId: loser.id, expectedStatus: 'approved', archiveReason: 'duplicate_of_existing_activity', keeperActivityId: keeper.id });
+    if (!isArchived(arch)) { console.log('  archive skipped -', describe(arch)); continue; }
     for (const s of loser.activity_sources || []) await client.from('activity_sources').upsert({ activity_id: keeper.id, source_id: s.source_id, page_url: s.page_url, relation: 'seen', url_role: s.url_role || null, last_seen_at: now }, { onConflict: 'activity_id,page_url' });
     if (loser.source_url) await client.from('activity_sources').upsert({ activity_id: keeper.id, source_id: loser.source_id || null, page_url: loser.source_url, relation: 'seen', last_seen_at: now }, { onConflict: 'activity_id,page_url' });
     if (!(keeper.activity_images || []).length) for (const i of loser.activity_images || []) await client.from('activity_images').insert({ activity_id: keeper.id, url: i.url, uploaded_by: userId || null, status: 'approved', image_source_url: i.image_source_url, image_source_type: i.image_source_type, needs_rights_review: i.needs_rights_review, image_kind: i.image_kind, image_page_url: i.image_page_url });

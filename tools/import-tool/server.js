@@ -22,6 +22,7 @@ const { canonicalCityFallback } = require('./lib/canonicalSettlement');
 const { findPlaceDuplicate } = require('./lib/placeIdentity');
 const { classifyPlaceholderGroup } = require('./placeholderGroup');
 const { sanitizeCategory } = require('./lib/categoryValidation');
+const { archiveActivity, isArchived, describe } = require('./lib/activityArchive');
 const { normalizeIncomingCandidate } = require('./incomingShape');
 const { repairModelJson, resolveVenue, normalizeVenueAlias } = require('./venueNaming');
 const { computeEventFingerprint } = require('./eventFingerprint');
@@ -2926,8 +2927,9 @@ app.post('/api/incoming/:id/resolve-missing', async (req, res) => {
 
     if (item.existing_activity_id) {
       if (action === 'archive') {
-        const { error } = await client.from('activities').update({ status: 'archived', archive_reason: 'missing_from_source', archived_at: new Date().toISOString() }).eq('id', item.existing_activity_id);
-        if (error) throw error;
+        const { data: cur } = await client.from('activities').select('status').eq('id', item.existing_activity_id).maybeSingle();
+        const arch = await archiveActivity(client, { activityId: item.existing_activity_id, expectedStatus: cur?.status || 'approved', archiveReason: 'missing_from_source' });
+        if (!isArchived(arch)) throw new Error(describe(arch));
       } else {
         const { error } = await client.from('activities')
           .update({ consecutive_missing_scans: 0, last_seen_at: new Date().toISOString() })

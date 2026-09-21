@@ -22,6 +22,7 @@ const fs = require('fs');
 const { getClient } = require('./supabase');
 const { normalizeForMatch } = require('./eventFingerprint');
 const { isGenericTitle } = require('./lib/eventIdentity');
+const { archiveActivity, isArchived, describe } = require('./lib/activityArchive');
 const { fetchHtml } = require('./lib/fetchPage');
 const { extractOccurrences, pageText, containsScore } = require('./lib/pageExtract');
 
@@ -137,8 +138,8 @@ const t5 = (t) => (t ? String(t).slice(0, 5) : '');
       await client.from('incoming_activities').update({ existing_activity_id: keeper.id }).eq('existing_activity_id', loser.id);
       await client.from('cleaner_cases').update({ status: 'archived', archive_reason: 'duplicate_of_existing_activity', resolution: { outcome: 'archived', reason: 'duplicate_of_existing_activity', merged_into: keeper.id, by: 'merge-occurrence-duplicates', explanation: { missing: 'nothing - the subject itself was a duplicate', methods_tried: ['occurrence_merge'], methods_unavailable: [], evidence_found: { merged_into: keeper.id, rule: c.why }, why_insufficient: 'the activity was the same event as the keeper and was archived; its open issues continue on the keeper', external_limit: null, reopen_when: ['the merge is reverted (the archived activity is restored)'] } }, updated_at: new Date().toISOString() }).eq('subject_id', loser.id).eq('status', 'open');
       for (const t of ['favorites', 'planned_activities']) { const { error } = await client.from(t).update({ activity_id: keeper.id }).eq('activity_id', loser.id); if (error && !/duplicate|unique/i.test(error.message)) console.log(`  ${t} re-point skipped for ${loser.id}: ${error.message.slice(0, 60)}`); }
-      const { error: archErr } = await client.from('activities').update({ status: 'archived', archive_reason: 'duplicate_of_existing_activity', archived_at: now }).eq('id', loser.id);
-      if (archErr) { console.log('  archive failed', loser.id, archErr.message); continue; }
+      const arch = await archiveActivity(client, { activityId: loser.id, expectedStatus: loser.status || 'approved', archiveReason: 'duplicate_of_existing_activity', keeperActivityId: keeper.id });
+      if (!isArchived(arch)) { console.log('  archive failed -', describe(arch)); continue; }
       archived++;
     }
   }

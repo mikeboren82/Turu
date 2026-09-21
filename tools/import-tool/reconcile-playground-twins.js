@@ -21,6 +21,7 @@ const { haversineKm } = require('./cleaner/matching');
 const { nominatim } = require('./cleaner/nominatimClient');
 const { parseAddress, nameSim, existingStreet } = require('./cleaner/settlementResolver');
 const { normalizeCityName } = require('./cityNaming');
+const { archiveActivity, isArchived, describe } = require('./lib/activityArchive');
 
 const APPLY = process.argv.includes('--apply');
 const LEISURE = new Set(['playground', 'park', 'garden', 'recreation_ground']);
@@ -72,8 +73,8 @@ async function mergePair(client, userId, rc, osmRow, googleRow, verdict) {
   if (!googleRow.locations.region && osmRow.locations.region) fills.region = osmRow.locations.region;
   if (!googleRow.locations.address && osmRow.locations.address) Object.assign(fills, { address: osmRow.locations.address, address_source: 'cleaner:twin_merge', address_confidence: 'MEDIUM', address_resolved_at: now });
   if (Object.keys(fills).length) await client.from('locations').update(fills).eq('id', googleRow.location_id);
-  const { data: a } = await client.from('activities').update({ status: 'archived', archive_reason: 'duplicate_of_existing_activity', archived_at: now }).eq('id', osmRow.id).eq('status', 'approved').select('id');
-  if (!a || !a.length) return { merged: false, why: 'OSM row no longer approved' };
+  const arch = await archiveActivity(client, { activityId: osmRow.id, expectedStatus: 'approved', archiveReason: 'duplicate_of_existing_activity', keeperActivityId: googleRow.id });
+  if (!isArchived(arch)) return { merged: false, why: describe(arch) };
   await client.from('settlement_scan_review_cases').update({ resolution: { ...(rc.resolution || {}), twin: { outcome: verdict.outcome, decisive: verdict.decisive, signals: verdict.signals, keeper: googleRow.id, archived: osmRow.id, provenance_rows_copied: provMoved, images_copied: imgs.length, fills: Object.keys(fills), at: now, rule: 'reconcile-playground-twins v1' } }, updated_at: now }).eq('id', rc.id);
   return { merged: true, provMoved, imgs: imgs.length, fills: Object.keys(fills) };
 }
