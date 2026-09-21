@@ -18,7 +18,7 @@ import { fetchUserActivityFlags, toggleFavorite, toggleVisited, savePersonalNote
 import { fetchUserPreferences, saveExcludedCategories, saveExcludedCities, saveExcludedRegions } from '../lib/preferences';
 import { supabase } from '../lib/supabase';
 import { DEFAULT_FILTERS, CATEGORY_FILTER_OPTIONS } from '../constants/filterSchema';
-import { categorySummary, buildResultsSummary } from '../lib/filterSummaries';
+import { categorySummary, buildResultsSummary, buildActiveChips, shouldReopenLocationChooser } from '../lib/filterSummaries';
 import { rankActivitiesWithSmartRadius, countActiveFilters, normalizeFilters, getOpenNowInfo, haversineKm, locationWithDrivingTime } from '../lib/filterActivities';
 import { formatBenefitCardTag } from '../lib/benefits';
 import { buildMatchReasons } from '../lib/matchReasons';
@@ -59,23 +59,14 @@ function parseJson(value, fallback) {
   try { return JSON.parse(String(value)); } catch { return fallback; }
 }
 
-// כפתור "🎯 סינון" - סיכום קומפקטי במקום צ'יפים נפרדים (בקשת המשתמש 2026-09-16: "the first
-// real Activity card should appear as early as possible" - שורת-chips קבועה מתחת ל-toolbar
-// הוסרה, ה-FilterSheet עצמו נשאר המקום היחיד לערוך/להסיר פילטר בודד). מיקום קודם (geographic
-// scope), אחריו קטגוריה, ואז +N לכל שאר הסינונים הפעילים - "N" מגיע מ-countActiveFilters (אותו
-// מונה בדיוק שמזין את ה-badge הישן), לא ספירה מקבילה. תמיד תצוגה בלבד מ-state קנוני - לעולם
-// לא פרסינג הפוך של הטקסט חזרה לפילטר.
+// כפתור "🎯 סינון" - תקציר-ספירה בלבד, לא עוד תיאור-ערכים (עד 2026-09-21 הציג כאן מיקום/קטגוריה
+// כטקסט - "Active Search Constraints Chips" task, req 6 "avoid duplicate UI": מאז שלכל מימד-פילטר
+// פעיל (כולל מיקום/קטגוריה) יש עכשיו צ'יפ עצמאי-להסרה משלו בשורה מעל ה-toolbar (buildActiveChips,
+// lib/filterSummaries.js), חזרה על אותו ערך כאן הייתה מציגה את אותו אילוץ פעמיים - "N" ממשיך
+// להגיע מ-countActiveFilters (אותו מונה בדיוק שמזין את הצ'יפים ואת ה-badge הישן), לא ספירה מקבילה.
 function activitiesFilterSummary(filters) {
-  const segments = [];
-  if (filters.location?.mode) segments.push(locationSummary(filters.location));
-  if (filters.category?.length) segments.push(categorySummary(filters.category));
-  if (segments.length === 0) {
-    const total = countActiveFilters(filters);
-    return total > 0 ? t('activities.header.filterSummaryCountOnly', { count: total }) : null;
-  }
-  const remaining = countActiveFilters(filters) - segments.length;
-  const joined = segments.join(' · ');
-  return remaining > 0 ? t('activities.header.filterSummaryMore', { summary: joined, count: remaining }) : joined;
+  const total = countActiveFilters(filters);
+  return total > 0 ? t('activities.header.filterSummaryCountOnly', { count: total }) : null;
 }
 
 export default function ActivitiesScreen() {
@@ -666,17 +657,38 @@ export default function ActivitiesScreen() {
   // שהמסך הזה בכלל נטען, אז אין כאן טיפול-מיוחד לפי route param. null כשאין הקשר משמעותי
   // (מסך בלי שום פילטר) - ה-JSX למטה פשוט לא מרנדר כלום במקרה הזה.
   const resultsSummaryText = useMemo(() => buildResultsSummary(filters), [filters, locale]);
-  // 🔍 Search-intent chip (unified search state, 2026-09-21) - filters.q is the ONE dimension with
-  // no editing surface anywhere else: FILTER_SCHEMA (constants/filterSchema.js) has no 'q' section,
-  // so FiltersSheet cannot show or clear it, and resultsWhatPhrase (lib/filterSummaries.js) hides it
-  // entirely once a category is also set - "חוות סוסים עם פינת ליטוף" resolves both category:'חווה'
-  // and q:'עם פינת ליטוף', and the residual text becomes invisible even though matchesFreeText
-  // (lib/filterActivities.js) still silently applies it. This chip is the one exception to the
-  // 2026-09-16 "no × on this screen, FiltersSheet only" decision (see the comment above the removed
-  // active-chips row below) - narrowly scoped to q specifically, because q is not reachable through
-  // FiltersSheet at all, not a reversal of that decision for every other filter.
+  // 🔍 Search-intent chip - filters.q is the ONE dimension with no editing surface anywhere else:
+  // FILTER_SCHEMA (constants/filterSchema.js) has no 'q' section, so FiltersSheet cannot show or
+  // clear it, and resultsWhatPhrase (lib/filterSummaries.js) hides it entirely once a category is
+  // also set - "חוות סוסים עם פינת ליטוף" resolves both category:'חווה' and q:'עם פינת ליטוף', and
+  // the residual text becomes invisible even though matchesFreeText (lib/filterActivities.js) still
+  // silently applies it. Rendered together with activeChips below in one row (Active Search
+  // Constraints Chips, 2026-09-21) - see that render block for the rest.
   const searchIntentText = (filters.q || '').trim();
   const clearSearchIntent = () => setField('q', '');
+  // tapping the q chip's BODY (not its ×) reopens the same inline Free Search box already on this
+  // screen, prefilled with the current text, for editing (task req 9) - not a new screen, not a
+  // re-run of the parse yet (the user still has to submit again via handleFreeSearch, exactly like
+  // typing it fresh).
+  const openFreeSearchForEdit = () => {
+    setFreeSearchText(searchIntentText);
+    setFreeSearchOpen(true);
+  };
+
+  // 🔍📍👶 Active Search Constraints Chips (2026-09-21) - every structured filter dimension gets an
+  // always-visible, independently-removable chip (buildActiveChips, lib/filterSummaries.js - pure,
+  // tested there). Removal is per-dimension (setField(key, DEFAULT_FILTERS[key]) resets ONLY that
+  // one field, req 4) except location, which has one extra rule: if the Free Search text (q) is
+  // still active once location is cleared, there is no geographic context left for it at all - the
+  // existing standard location chooser (gateLocationOpen, same Modal the entry gate already uses)
+  // reopens instead of silently leaving the search nationwide-by-omission (req 3). Never falls back
+  // to filters.location.mode:'nationwide' - that is a distinct EXPLICIT choice made inside the
+  // chooser itself, not something this removal ever sets on its own.
+  const activeChips = useMemo(() => buildActiveChips(filters), [filters, locale]);
+  const handleRemoveChip = (key) => {
+    setField(key, DEFAULT_FILTERS[key]);
+    if (key === 'location' && shouldReopenLocationChooser(filters)) setGateLocationOpen(true);
+  };
   const hiddenCategoryCount = new Set([...excludedCategories, ...(filters.excludeCategory || [])]).size;
   const hiddenCityCount = new Set([...excludedCities, ...(filters.excludeCity || [])]).size;
   const hiddenRegionCount = new Set([...excludedRegions, ...(filters.excludeRegion || [])]).size;
@@ -783,24 +795,60 @@ export default function ActivitiesScreen() {
         ) : null}
       </View>
 
-      {/* 🔍 Search-intent chip - the persistent Free Search text, shown independently of category/
-          location/other filters (see the comment by searchIntentText above). Never rendered when q
-          is empty. Removing it clears q ONLY via setField - location/age/date/opening/category are
-          untouched, exactly like every other setField call on this screen. */}
-      {searchIntentText ? (
-        <View style={styles.searchIntentRow}>
-          <Pressable
-            style={styles.searchIntentChip}
-            onPress={clearSearchIntent}
-            accessibilityRole="button"
-            accessibilityLabel={t('activities.header.searchIntentChipRemoveA11y', { query: searchIntentText })}
-          >
-            <Text style={styles.searchIntentChipText} numberOfLines={1} ellipsizeMode="tail">
-              {t('activities.header.searchIntentChip', { query: searchIntentText })}
-            </Text>
-            <Text style={styles.searchIntentChipRemove}>✕</Text>
-          </Pressable>
-        </View>
+      {/* Active Search Constraints Chips (2026-09-21) - every active search constraint visible and
+          independently removable without leaving this screen: q first (searchIntentChip - distinct
+          border/tint so it reads as "search intent" rather than a structured filter, req 8, but same
+          chip family/row as everything else, not its own separate row anymore), then one chip per
+          active structured dimension (activeChips, buildActiveChips in lib/filterSummaries.js).
+          Collapses completely (no row, no gap) when nothing is active, matching every other
+          conditional block on this screen - not an empty scroller. Single horizontal, RTL-aware
+          (styles use d.row) scrollable row - req 7. */}
+      {(searchIntentText || activeChips.length > 0) ? (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.activeChipsRow}
+          contentContainerStyle={styles.activeChipsContent}
+        >
+          {searchIntentText ? (
+            <View style={styles.searchIntentChip}>
+              {/* body: opens Free Search prefilled for editing (req 9) - never removes q */}
+              <Pressable
+                style={styles.searchIntentChipBody}
+                onPress={openFreeSearchForEdit}
+                accessibilityRole="button"
+                accessibilityLabel={t('activities.header.searchIntentChipA11y', { query: searchIntentText })}
+              >
+                <Text style={styles.searchIntentChipText} numberOfLines={1} ellipsizeMode="tail">
+                  {t('activities.header.searchIntentChip', { query: searchIntentText })}
+                </Text>
+              </Pressable>
+              {/* ×: clears filters.q ONLY via setField - location/age/date/opening/category/sort are
+                  untouched, exactly like every other setField call on this screen (req 2). */}
+              <Pressable
+                onPress={clearSearchIntent}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel={t('activities.header.searchIntentChipRemoveA11y', { query: searchIntentText })}
+              >
+                <Text style={styles.searchIntentChipRemove}>✕</Text>
+              </Pressable>
+            </View>
+          ) : null}
+          {activeChips.map((c) => (
+            <View key={c.key} style={styles.activeChip}>
+              <Text style={styles.activeChipText} numberOfLines={1} ellipsizeMode="tail">{c.icon} {c.text}</Text>
+              <Pressable
+                onPress={() => handleRemoveChip(c.key)}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel={t('activities.header.activeChipRemoveA11y', { label: `${c.icon} ${c.text}` })}
+              >
+                <Text style={styles.activeChipRemove}>✕</Text>
+              </Pressable>
+            </View>
+          ))}
+        </ScrollView>
       ) : null}
 
       {/* TOOLBAR - שלושה controls בלבד: סינון (תקציר-מצב קומפקט במקום badge+שורת-chips נפרדת
@@ -864,8 +912,9 @@ export default function ActivitiesScreen() {
 
       {/* "⚡ עכשיו" - הטריגר עבר לעמוד הבית (משתמשים מחוברים בלבד, ראו app/index.js), אבל
           כל עוד המצב פעיל (הגיע דרך route param spontaneous=true) חייבת להישאר דרך לכבות
-          אותו בלי לחזור לעמוד הבית - הצ'יפ הישן (FiltersSheet) ושורת ה-active-chips (שגם
-          אפשרה את זה) שניהם נעלמו. שקט/מותנה לגמרי (כמו radiusExpandedBanner מתחת) - לא
+          אותו בלי לחזור לעמוד הבית. spontaneousActive הוא state נפרד מ-filters (לא שדה
+          ב-DEFAULT_FILTERS) אז אין לו ייצוג בשורת ה-Active Search Constraints Chips למטה -
+          נשאר קישור ייעודי משלו. שקט/מותנה לגמרי (כמו radiusExpandedBanner מתחת) - לא
           תופס מקום כשלא רלוונטי. */}
       {spontaneousActive ? (
         <Pressable onPress={toggleSpontaneous} hitSlop={8} style={styles.spontaneousOffLink}>
@@ -905,10 +954,6 @@ export default function ActivitiesScreen() {
         </View>
       )}
 
-      {/* שורת ה-active-filter-chips הקבועה הוסרה (בקשת המשתמש 2026-09-16 השנייה: "the user
-          came here to see activities" - כל המידע שהיא נשאה עבר לתקציר בכפתור "🎯 סינון"
-          עצמו, ראו activitiesFilterSummary למעלה). FiltersSheet נשאר המקום היחיד לערוך/
-          להסיר פילטר בודד - אין יותר × על המסך הזה. */}
       {spontaneousError ? <Text style={styles.freeSearchErrorText}>{t(spontaneousError)}</Text> : null}
 
       {/* 🚗 Smart Radius Expansion - חיווי משני, לא modal ולא warning (סעיף M בבקשה): מוצג רק
@@ -1425,14 +1470,33 @@ const styles = createStyles((d) => ({
   // 🔍 Search-intent chip - same pill visual language as toolbarChip/emptyWidenChip (border/card/
   // radii.pill), own row so it never competes with the fixed-width toolbar controls above/below it
   // (section 19: no new horizontal overflow, one-row chip, no layout redesign).
-  searchIntentRow: { flexDirection: d.row, marginBottom: 10 },
+  // Active Search Constraints Chips (2026-09-21) - one horizontal row, bleeds to the screen edges
+  // (negative marginHorizontal cancels `content`'s own padding, same trick used for every other
+  // full-bleed horizontal scroller on this screen) so the row can scroll under the padded content.
+  // Collapses to nothing when not rendered at all (see the JSX condition) - no reserved space.
+  activeChipsRow: { marginHorizontal: -spacing.xl, marginBottom: 10 },
+  activeChipsContent: { flexDirection: d.row, gap: 8, paddingHorizontal: spacing.xl },
+  // q's chip: thicker border + accent tint sets it apart as "search intent" rather than a structured
+  // filter (req 8), while sharing the same pill shape/size/family as activeChip below. Two nested
+  // Pressables (body vs ×, req 9) instead of one - the outer View only carries the shared visual
+  // container style, it is not itself pressable.
   searchIntentChip: {
-    flexDirection: d.row, alignItems: 'center', gap: 6, alignSelf: d.alignStart, maxWidth: '100%',
+    flexDirection: d.row, alignItems: 'center', gap: 6,
     borderWidth: 1.5, borderColor: colors.accent, backgroundColor: colors.accentTintLight,
     borderRadius: radii.pill, paddingVertical: 7, paddingHorizontal: 12,
   },
-  searchIntentChipText: { fontFamily: fonts.bold, fontSize: 13, color: colors.accent, flexShrink: 1 },
+  searchIntentChipBody: { flexDirection: d.row, alignItems: 'center', flexShrink: 1 },
+  searchIntentChipText: { fontFamily: fonts.bold, fontSize: 13, color: colors.accent, flexShrink: 1, maxWidth: 200 },
   searchIntentChipRemove: { fontFamily: fonts.bold, fontSize: 12, color: colors.accent },
+  // every other active dimension (location/age/date/opening/category/...) - same chip family as
+  // searchIntentChip (pill shape, accent color) but the plain/neutral member, not the highlighted one.
+  activeChip: {
+    flexDirection: d.row, alignItems: 'center', gap: 6,
+    borderWidth: 1, borderColor: colors.accent, backgroundColor: colors.accentTintLight,
+    borderRadius: radii.pill, paddingVertical: 6, paddingHorizontal: 11,
+  },
+  activeChipText: { fontFamily: fonts.semiBold, fontSize: 12.5, color: colors.accent, maxWidth: 160 },
+  activeChipRemove: { fontFamily: fonts.bold, fontSize: 11.5, color: colors.accent },
 
   // "⚡ עכשיו פעיל · כבה" - קישור שקט/מותנה-לגמרי (כמו radiusExpandedBanner מתחת), הדרך
   // היחידה שנשארה לכבות עכשיו בלי לחזור לעמוד הבית אחרי שהצ'יפ הישן הוסר.

@@ -1,16 +1,12 @@
 import { useState } from 'react';
 import { Modal, View, Text, Pressable } from 'react-native';
 import { AGE_OPTIONS } from '../constants/filterSchema';
-import { listJoin } from '../lib/filterSummaries';
 import { colors, fonts, radii, spacing } from '../constants/theme';
 import { t, useI18n, createStyles } from '../lib/i18n';
 
-export function ageSummary(selectedIds) {
-  if (!selectedIds || selectedIds.length === 0) return t('common.actions.all');
-  const labels = selectedIds.map((id) => AGE_OPTIONS.find((o) => o.id === id)?.label ?? id);
-  if (labels.length <= 3) return listJoin(labels);
-  return t('filters.age.rangesCount', { count: labels.length });
-}
+// moved to lib/filterSummaries.js (2026-09-21) - it was a pure function stranded here; re-exported
+// for anything still importing it from this file's old location.
+export { ageSummary } from '../lib/filterSummaries';
 
 export default function AgeQuickPicker({ visible, value, onChange, onClose }) {
   const { t } = useI18n();

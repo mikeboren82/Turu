@@ -9,8 +9,9 @@
     "filterSummaryCountOnly": "Filters +{{count}}",
     "filterSummaryMore": "{{summary}} +{{count}}",
     "searchIntentChip": "🔍 {{query}}",
-    "searchIntentChipA11y": "Free search active: {{query}}. Tap to remove",
-    "searchIntentChipRemoveA11y": "Remove free search {{query}}"
+    "searchIntentChipA11y": "Free search active: {{query}}. Tap to edit",
+    "searchIntentChipRemoveA11y": "Remove free search {{query}}",
+    "activeChipRemoveA11y": "Remove {{label}}"
   },
   "display": {
     "a11y": "Display and sort, view: {{view}}, sort: {{sort}}",

@@ -8,8 +8,9 @@
     "filterSummaryCountOnly": "סינון +{{count}}",
     "filterSummaryMore": "{{summary}} +{{count}}",
     "searchIntentChip": "🔍 {{query}}",
-    "searchIntentChipA11y": "חיפוש חופשי פעיל: {{query}}. הקש כדי להסיר",
-    "searchIntentChipRemoveA11y": "הסר חיפוש חופשי {{query}}"
+    "searchIntentChipA11y": "חיפוש חופשי פעיל: {{query}}. הקש לעריכה",
+    "searchIntentChipRemoveA11y": "הסר חיפוש חופשי {{query}}",
+    "activeChipRemoveA11y": "הסר {{label}}"
   },
   "display": {
     "a11y": "תצוגה ומיון, תצוגת {{view}}, מיון {{sort}}",

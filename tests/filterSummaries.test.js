@@ -30,8 +30,8 @@ addHook(
   { exts: ['.js'], matcher: (f) => f.startsWith(path.join(ROOT, 'lib')) || f.startsWith(path.join(ROOT, 'constants')) },
 );
 
-const { chipsSelectionLabels, whenSelectionLabels, firstValuePlusN } = require('../lib/filterSummaries');
-const { AGE_OPTIONS, PLACE_TYPE_OPTIONS } = require('../constants/filterSchema');
+const { chipsSelectionLabels, whenSelectionLabels, firstValuePlusN, buildActiveChips, shouldReopenLocationChooser, ageSummary } = require('../lib/filterSummaries');
+const { AGE_OPTIONS, PLACE_TYPE_OPTIONS, DEFAULT_FILTERS } = require('../constants/filterSchema');
 
 // --- firstValuePlusN: the one shared "VALUE" / "VALUE +N" formatting rule ---
 
@@ -106,4 +106,89 @@ test('whenSelectionLabels: custom picked time reuses the exact "hourAt" i18n cop
 
 test('whenSelectionLabels: neither day nor hour -> empty list (count 0, no summary)', () => {
   assert.deepEqual(whenSelectionLabels({ options: [] }, { option: null, custom: null }), []);
+});
+
+// --- ageSummary: moved here from components/AgeQuickPicker.js (2026-09-21) - it was a pure
+// function stranded in a component file; this is its first direct test (previously untested).
+
+test('ageSummary: no selection -> "הכל" (matches common.actions.all, same as every other unselected chips filter)', () => {
+  assert.equal(ageSummary([]), 'הכל');
+  assert.equal(ageSummary(undefined), 'הכל');
+});
+
+test('ageSummary: <=3 selections -> joined labels', () => {
+  assert.equal(ageSummary(['2-3']), '2–3');
+});
+
+test('ageSummary: >3 selections -> a count phrase, not a wall of labels', () => {
+  const summary = ageSummary(['0-1', '2-3', '4-6', '7-9']);
+  assert.match(summary, /4/);
+});
+
+// --- buildActiveChips / shouldReopenLocationChooser: Active Search Constraints Chips
+// (app/activities.js, 2026-09-21) - "the user must be able to see and independently remove every
+// active search constraint without going back to Home". q itself is NOT covered here (it has no
+// FILTER_SCHEMA section and is rendered as its own distinct chip by the caller) - only the
+// structured filter dimensions countActiveFilters already counts.
+
+test('buildActiveChips: nothing active -> no chips at all', () => {
+  assert.deepEqual(buildActiveChips(DEFAULT_FILTERS), []);
+});
+
+test('buildActiveChips: q alone (no structured filter) produces zero chips - q is the caller\'s job, not this function\'s', () => {
+  assert.deepEqual(buildActiveChips({ ...DEFAULT_FILTERS, q: 'סוס' }), []);
+});
+
+test('buildActiveChips: location -> one 📍 chip carrying the same text as locationSummaryText/locationSummary', () => {
+  const filters = { ...DEFAULT_FILTERS, location: { ...DEFAULT_FILTERS.location, mode: 'city', city: 'כפר סבא' } };
+  const chips = buildActiveChips(filters);
+  assert.equal(chips.length, 1);
+  assert.equal(chips[0].key, 'location');
+  assert.equal(chips[0].icon, '📍');
+  assert.match(chips[0].text, /כפר סבא/);
+});
+
+test('buildActiveChips: q + location together -> exactly one chip (location) from this function; q is added by the caller separately', () => {
+  const filters = { ...DEFAULT_FILTERS, q: 'סוס', location: { ...DEFAULT_FILTERS.location, mode: 'city', city: 'כפר סבא' } };
+  const chips = buildActiveChips(filters);
+  assert.deepEqual(chips.map((c) => c.key), ['location']);
+});
+
+test('buildActiveChips: age/when/hour/category all active at once -> one independent chip per dimension, in a stable order', () => {
+  const filters = {
+    ...DEFAULT_FILTERS,
+    age: ['4-6'],
+    when: { options: ['weekend'], date: null },
+    hour: { option: 'morning', custom: null },
+    category: ['חווה'],
+  };
+  const chips = buildActiveChips(filters);
+  assert.deepEqual(chips.map((c) => c.key), ['age', 'when', 'hour', 'category']);
+});
+
+test('buildActiveChips: excludeCategory/excludeCity/excludeRegion/categoryAliasPhrases never produce a chip - they already have their own dedicated UI (matches countActiveFilters\' exclusion exactly)', () => {
+  const filters = {
+    ...DEFAULT_FILTERS,
+    excludeCategory: ['גן שעשועים'], excludeCity: ['תל אביב'], excludeRegion: ['השרון'], categoryAliasPhrases: ['חוות סוסים'],
+  };
+  assert.deepEqual(buildActiveChips(filters), []);
+});
+
+test('buildActiveChips: removing one field from the returned chip list leaves the value unrelated to any other dimension (independence, task req 4)', () => {
+  const filters = { ...DEFAULT_FILTERS, age: ['4-6'], category: ['חווה'] };
+  const chips = buildActiveChips(filters);
+  const withoutAge = buildActiveChips({ ...filters, age: DEFAULT_FILTERS.age });
+  assert.deepEqual(withoutAge.map((c) => c.key), ['category']);
+  assert.deepEqual(chips.map((c) => c.key), ['age', 'category']);
+});
+
+test('shouldReopenLocationChooser: q active -> true (the standard location chooser must reopen once location is cleared)', () => {
+  assert.equal(shouldReopenLocationChooser({ q: 'סוס' }), true);
+  assert.equal(shouldReopenLocationChooser({ q: '  סוס  ' }), true);
+});
+
+test('shouldReopenLocationChooser: no q (empty/whitespace/missing) -> false, removing location is an ordinary filter removal', () => {
+  assert.equal(shouldReopenLocationChooser({ q: '' }), false);
+  assert.equal(shouldReopenLocationChooser({ q: '   ' }), false);
+  assert.equal(shouldReopenLocationChooser({}), false);
 });
