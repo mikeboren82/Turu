@@ -33,6 +33,7 @@ const {
   hoursStatusText, hoursTodayWarningText, hoursDayWarningText, hoursDayLabelParts, hoursDayHolidayName,
   hoursSharedWarningNote, hoursDayValueText,
 } = require('../lib/i18n/format.js');
+const { jerusalemInstant: jerusalem } = require('./support/jerusalemInstant.js');
 const { buildTodayStatus, buildUpcomingDays } = require('../lib/hoursDisplay.js');
 const { setLocale } = require('../lib/i18n/index.js');
 
@@ -41,50 +42,50 @@ test.after(() => setLocale('he'));
 
 test('open now with a known closing time', () => {
   const activity = { hoursByDay: { ד: { start: '09:00', end: '18:00' } }, openHours: { start: '09:00', end: '18:00' } };
-  const status = buildTodayStatus(activity, { now: new Date('2026-06-17T10:00:00') });
+  const status = buildTodayStatus(activity, { now: jerusalem('2026-06-17', '10:00') });
   assert.equal(hoursStatusText(status), '🟢 פתוח עכשיו · עד 18:00');
 });
 
 test('closed now, opens later the same day (lunch-break-style gap)', () => {
   const activity = { intervalsByDay: { ד: [{ start: '09:00', end: '12:00' }, { start: '16:00', end: '20:00' }] }, hoursByDay: { ד: { start: '16:00', end: '20:00' } }, openHours: { start: '09:00', end: '20:00' } };
-  const status = buildTodayStatus(activity, { now: new Date('2026-06-17T14:00:00') });
+  const status = buildTodayStatus(activity, { now: jerusalem('2026-06-17', '14:00') });
   assert.equal(hoursStatusText(status), 'סגור עכשיו · נפתח היום ב־16:00');
 });
 
 test('closed now, opens tomorrow', () => {
   const activity = { hoursByDay: { ה: { start: '09:00', end: '18:00' } }, openHours: { start: '09:00', end: '18:00' } };
-  const status = buildTodayStatus(activity, { now: new Date('2026-06-17T20:00:00') }); // Wed 20:00, Wed has no hours, Thu (tomorrow) does
+  const status = buildTodayStatus(activity, { now: jerusalem('2026-06-17', '20:00') }); // Wed 20:00, Wed has no hours, Thu (tomorrow) does
   assert.equal(hoursStatusText(status), 'סגור עכשיו · נפתח מחר ב־09:00');
 });
 
 test('closed now, opens on a later weekday (not tomorrow)', () => {
   const activity = { hoursByDay: { א: { start: '09:00', end: '12:00' } }, openHours: { start: '09:00', end: '12:00' } };
-  const status = buildTodayStatus(activity, { now: new Date('2026-06-16T10:00:00') }); // Tuesday; next opening is Sunday (offset 5)
+  const status = buildTodayStatus(activity, { now: jerusalem('2026-06-16', '10:00') }); // Tuesday; next opening is Sunday (offset 5)
   assert.equal(hoursStatusText(status), 'סגור עכשיו · נפתח ביום ראשון ב־09:00');
 });
 
 test('always open', () => {
   const activity = { hoursByDay: { ד: { start: '00:00', end: '23:59' } }, openHours: { start: '00:00', end: '23:59' } };
-  const status = buildTodayStatus(activity, { now: new Date('2026-06-17T03:00:00') });
+  const status = buildTodayStatus(activity, { now: jerusalem('2026-06-17', '03:00') });
   assert.equal(hoursStatusText(status), '🟢 פתוח 24 שעות');
 });
 
 test('unknown hours falls back to the shared "hours not specified" string', () => {
-  const status = buildTodayStatus({ hoursByDay: {}, openHours: null }, { now: new Date('2026-06-17T10:00:00') });
+  const status = buildTodayStatus({ hoursByDay: {}, openHours: null }, { now: jerusalem('2026-06-17', '10:00') });
   assert.equal(hoursStatusText(status), 'שעות לא צוינו');
 });
 
 test('closed with nothing known to open within the horizon', () => {
   const activity = { occurrences: [{ date: '2099-01-01', start: '10:00', end: '11:00' }], openHours: { start: '10:00', end: '11:00' }, hoursByDay: {} };
-  const status = buildTodayStatus(activity, { now: new Date('2026-06-17T10:00:00') });
+  const status = buildTodayStatus(activity, { now: jerusalem('2026-06-17', '10:00') });
   assert.equal(hoursStatusText(status), 'סגור עכשיו');
 });
 
 test('today holiday warning line - present only when a warning applies', () => {
-  const withWarning = buildTodayStatus({ hoursByDay: { א: { start: '09:00', end: '14:00' } }, openHours: { start: '09:00', end: '14:00' } }, { now: new Date('2026-09-20T10:00:00') }); // Erev Yom Kippur
+  const withWarning = buildTodayStatus({ hoursByDay: { א: { start: '09:00', end: '14:00' } }, openHours: { start: '09:00', end: '14:00' } }, { now: jerusalem('2026-09-20', '10:00') }); // Erev Yom Kippur
   assert.equal(hoursTodayWarningText(withWarning), '⚠️ היום ערב יום כיפור · השעות עשויות להשתנות');
 
-  const noWarning = buildTodayStatus({ hoursByDay: { ד: { start: '09:00', end: '18:00' } }, openHours: { start: '09:00', end: '18:00' } }, { now: new Date('2026-06-17T10:00:00') });
+  const noWarning = buildTodayStatus({ hoursByDay: { ד: { start: '09:00', end: '18:00' } }, openHours: { start: '09:00', end: '18:00' } }, { now: jerusalem('2026-06-17', '10:00') });
   assert.equal(hoursTodayWarningText(noWarning), null);
 });
 
@@ -93,14 +94,14 @@ test('per-day warning line is compact and generic', () => {
 });
 
 test('day label parts: today/tomorrow get a prefix, later days none - weekday is always separate', () => {
-  const days = buildUpcomingDays({ hoursByDay: {}, openHours: null }, { now: new Date('2026-06-17T10:00:00') }); // Wed
+  const days = buildUpcomingDays({ hoursByDay: {}, openHours: null }, { now: jerusalem('2026-06-17', '10:00') }); // Wed
   assert.deepEqual(hoursDayLabelParts(days[0]), { prefix: 'היום', weekday: 'רביעי' });
   assert.deepEqual(hoursDayLabelParts(days[1]), { prefix: 'מחר', weekday: 'חמישי' });
   assert.deepEqual(hoursDayLabelParts(days[2]), { prefix: null, weekday: 'שישי' });
 });
 
 test('holiday name is returned separately from the day label, not concatenated onto it', () => {
-  const days = buildUpcomingDays({ hoursByDay: {}, openHours: null }, { now: new Date('2026-09-17T10:00:00') }); // includes Erev Yom Kippur (09-20) and Yom Kippur (09-21)
+  const days = buildUpcomingDays({ hoursByDay: {}, openHours: null }, { now: jerusalem('2026-09-17', '10:00') }); // includes Erev Yom Kippur (09-20) and Yom Kippur (09-21)
   const erev = days.find((d) => d.date === '2026-09-20');
   const yk = days.find((d) => d.date === '2026-09-21');
   const ordinary = days.find((d) => d.date === '2026-09-17');
@@ -137,8 +138,8 @@ test('day value text: intervals win, then closed, then unknown - never conflated
 
 test('English locale produces English strings for the same data', () => {
   setLocale('en');
-  const status = buildTodayStatus({ hoursByDay: { ד: { start: '09:00', end: '18:00' } }, openHours: { start: '09:00', end: '18:00' } }, { now: new Date('2026-06-17T10:00:00') });
+  const status = buildTodayStatus({ hoursByDay: { ד: { start: '09:00', end: '18:00' } }, openHours: { start: '09:00', end: '18:00' } }, { now: jerusalem('2026-06-17', '10:00') });
   assert.equal(hoursStatusText(status), '🟢 Open now · until 18:00');
-  const days = buildUpcomingDays({ hoursByDay: {}, openHours: null }, { now: new Date('2026-06-17T10:00:00') });
+  const days = buildUpcomingDays({ hoursByDay: {}, openHours: null }, { now: jerusalem('2026-06-17', '10:00') });
   assert.deepEqual(hoursDayLabelParts(days[0]), { prefix: 'Today', weekday: 'Wed' });
 });

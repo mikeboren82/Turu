@@ -5,6 +5,12 @@
 // `npm test` - it needs live network access to the production Supabase REST endpoint (read-only, the
 // public anon key), which the rest of this project's test suite deliberately never depends on.
 //
+// SUPERSEDED FOR BEHAVIOUR ANALYSIS BY scripts/diff-hours-phase3.js (2026-09-20). Now that
+// getOpenNowInfo delegates to getOpenStatus, this script compares a function with itself and will
+// always report 0 - it is kept as a cheap regression guard that getOpenNowInfo remains a thin
+// wrapper. Real old-vs-new behaviour analysis lives in the Phase 3 harness, which diffs against a
+// FROZEN pre-Phase-3 implementation pulled straight out of git.
+//
 // Run: node scripts/diff-hours-resolver.js
 const path = require('path');
 const babel = require('@babel/core');

@@ -32,6 +32,7 @@ addHook(
 
 const { applyFilters, matchesWhenAndHour, __setClockForTests, isOpenOrOpeningSoon, getOpenNowInfo } = require('../lib/filterActivities');
 const { isBareTemporalPhrase } = require('../lib/searchIntent');
+const { jerusalemInstant } = require('./support/jerusalemInstant.js');
 const { HOUR_OPTIONS } = require('../constants/filterSchema');
 
 // "היום" קבוע = רביעי, 2026-09-16 (נבחר כדי שיהיה בדיוק באמצע השבוע - גם ימים-שכבר-עברו וגם
@@ -274,7 +275,17 @@ test('D3: a temporal phrase combined with a real search term is NOT bare (the te
 // Date.now()-relative hh() helper (real-wall-clock-relative fixtures, which carried a small but
 // real flakiness window near midnight - this removes that entirely; nowDate() still equals the
 // real Date() in production, so this is test-only, no runtime behavior change).
-function setNow(iso) { __setClockForTests(() => new Date(iso)); }
+// Phase 3 (2026-09-20): setNow pins a JERUSALEM wall-clock moment, not a device-local one.
+// getOpenNowInfo is Jerusalem-anchored now, so '2026-09-20T15:00:00' has to mean "Sunday 15:00
+// in Israel" on every machine - read as a device-local literal it silently meant something else
+// on any non-Israeli CI box, and these fixtures would have quietly tested the wrong hour there.
+// The search-path tests in this file (weekday offsets via nowDate().getDay()) are unaffected in
+// practice: their anchors are mid-day, far from any date boundary.
+function setNow(iso) {
+  const [date, time] = iso.split('T');
+  const at = jerusalemInstant(date, time.slice(0, 5));
+  __setClockForTests(() => at);
+}
 
 test('isOpenOrOpeningSoon: OSM playground with no schedule is always "open" (D2 exemption reused)', () => {
   const pg = { category: 'גן שעשועים', entity_type: 'מקום_קבוע', sourceUrl: 'https://www.openstreetmap.org/node/1', openHours: null, availableDays: [], occurrences: [] };
@@ -441,30 +452,36 @@ test('unknown/malformed schedule: today\'s own hoursByDay entry exists but is it
   assert.equal(info.isOpen, false, 'an incomplete hour range for today must never be treated as evidence of being open');
 });
 
-test('day-specific hours 6: two schedule rows for the same weekday - documents the existing single-range-per-day data model (last one wins), not a new limitation from this fix', () => {
-  // scheduleSummary.js#summarizeSchedules assigns hoursByDay[letter] = {start,end} per row in
-  // schedule order (a plain overwrite, not an array) - a genuine multi-slot same-day schedule
-  // (e.g. 09:00-12:00 AND 16:00-19:00 on the same Sunday) is not representable today. This test
-  // pins the actual current behavior so a future data-model change is a deliberate, visible diff.
-  setNow('2026-09-20T14:00:00'); // Sunday 14:00 - inside the second/"winning" range only
+// UPDATED BY OPENING HOURS PHASE 3 (2026-09-20). The two tests below used to PIN two known legacy
+// gaps ("last row wins" and '"00:00" end is not end-of-day'). Phase 3 fixes both, so they now
+// assert the corrected behavior instead. Their original assertions are kept in the comments as
+// the record of what changed - this is an intentional differential, not a regression.
+test('day-specific hours 6 (CORRECTED by Phase 3): two schedule rows for the same weekday are both honored via intervalsByDay, no longer "last one wins"', () => {
+  // scheduleSummary.js#summarizeSchedules still assigns hoursByDay[letter] by plain overwrite,
+  // but it ALSO accumulates every row into intervalsByDay - and getOpenStatus now reads that
+  // (useIntervalsByDay:true). Was: isOpen false at 14:00 because only 16:00-19:00 survived.
+  setNow('2026-09-20T14:00:00'); // Sunday 14:00 - between the two slots
   const act = {
     availableDays: ['א'],
     hoursByDay: { א: { start: '16:00', end: '19:00' } }, // whichever row was processed last
+    intervalsByDay: { א: [{ start: '09:00', end: '12:00' }, { start: '16:00', end: '19:00' }] },
     openHours: { start: '09:00', end: '19:00' },
     occurrences: [],
   };
-  assert.equal(getOpenNowInfo(act).isOpen, false, '14:00 falls in the (unrepresented) morning slot, not the one hoursByDay actually kept');
+  const gap = getOpenNowInfo(act);
+  assert.equal(gap.isOpen, false, '14:00 is genuinely between the two slots - closed, but for the right reason now');
+  assert.equal(gap.minutesUntilOpenToday, 120, 'and it knows the 16:00 slot is still coming, rather than treating the day as over');
+
+  setNow('2026-09-20T10:00:00'); // Sunday 10:00 - inside the FIRST slot, invisible before Phase 3
+  assert.equal(getOpenNowInfo(act).isOpen, true, 'the morning slot is no longer discarded by "last one wins"');
 });
 
-// "existing overnight behavior if supported" (task instructions, conditionally) - verified by
-// reading the code, NOT assumed: getOpenNowInfo compares via plain toMinutes() on both ends, not
-// via the file's own toEndMinutes() helper (that "00:00" end-of-day special case is only wired
-// into hourRangeOverlaps, for the separate "מתי"/hour-range SEARCH FILTER - a different function).
-// So getOpenNowInfo has never actually supported an overnight/end-of-day "00:00" window: this
-// test pins the real current behavior (a pre-existing, unrelated gap - not introduced or touched
-// by this fix, and out of this task's Priority 1 scope, which is specifically the day-envelope
-// bug) rather than asserting behavior that was never implemented.
-test('day-specific hours 7 (existing behavior, unchanged by this fix): getOpenNowInfo does NOT special-case "end":"00:00" as end-of-day - a separate, pre-existing gap from the hour-range SEARCH filter\'s own handling', () => {
+// Overnight/end-of-day "00:00": getOpenNowInfo used to compare via plain toMinutes() on both ends
+// rather than the file's own toEndMinutes() helper, so a 20:00-00:00 window read as closed all
+// evening (toMinutes('00:00') === 0, and 1380 <= 0 is false). Phase 3 moved that end-of-day
+// correction into the shared resolver (lib/hoursResolver.js#intervalBounds), so the live open-now
+// path and the hour-range SEARCH filter finally agree about what "00:00" as an END time means.
+test('day-specific hours 7 (CORRECTED by Phase 3): an "end":"00:00" window is open-until-midnight, not closed all evening', () => {
   setNow('2026-09-20T23:00:00'); // Sunday 23:00, inside a 20:00-00:00 "night" window
   const act = {
     availableDays: ['א'],
@@ -472,7 +489,28 @@ test('day-specific hours 7 (existing behavior, unchanged by this fix): getOpenNo
     openHours: { start: '20:00', end: '00:00' },
     occurrences: [],
   };
-  assert.equal(getOpenNowInfo(act).isOpen, false, 'documents the real (pre-existing, unfixed) behavior - see comment above');
+  const info = getOpenNowInfo(act);
+  assert.equal(info.isOpen, true, 'was: false (the pre-Phase-3 gap this test used to pin)');
+  assert.equal(info.minutesUntilClose, 60, 'closes at midnight, 60 minutes away');
+});
+
+test('overnight window (Phase 3): a 20:00-02:00 Friday venue is open late Friday AND after midnight on Saturday', () => {
+  const act = {
+    availableDays: ['ו', 'ש'],
+    hoursByDay: { ו: { start: '20:00', end: '02:00' } },
+    openHours: { start: '20:00', end: '02:00' },
+    occurrences: [],
+  };
+  setNow('2026-09-18T19:00:00'); // Friday 19:00 - before it opens
+  assert.equal(getOpenNowInfo(act).isOpen, false);
+  setNow('2026-09-18T23:30:00'); // Friday 23:30
+  assert.equal(getOpenNowInfo(act).isOpen, true);
+  setNow('2026-09-19T00:30:00'); // Saturday 00:30 - Friday's interval, resolved from YESTERDAY
+  const afterMidnight = getOpenNowInfo(act);
+  assert.equal(afterMidnight.isOpen, true, 'previous-day spillover: Saturday has no hours of its own here');
+  assert.equal(afterMidnight.minutesUntilClose, 90);
+  setNow('2026-09-19T02:30:00'); // Saturday 02:30 - after Friday's window has closed
+  assert.equal(getOpenNowInfo(act).isOpen, false);
 });
 
 test('day-specific hours: no schedule data at all -> unknown, never guessed open (unchanged)', () => {

@@ -15,20 +15,21 @@ addHook(
 );
 
 const { buildUpcomingDays, buildTodayStatus } = require('../lib/hoursDisplay.js');
+const { jerusalemInstant: jerusalem } = require('./support/jerusalemInstant.js');
 
 // Fixed reference instants - all device-local time is irrelevant here (hoursDisplay anchors to
 // Jerusalem-calendar dates), but Date's own constructor still needs an explicit time to avoid
 // ambiguity, so every "now" below is written as a full local Date, not just a date string.
-const WEDNESDAY_10AM = new Date('2026-06-17T10:00:00'); // ordinary weekday, no holiday fact at all
-const FRIDAY_10AM = new Date('2026-06-19T10:00:00');
-const SATURDAY_10AM = new Date('2026-06-20T10:00:00');
-const THURSDAY_NOON = new Date('2026-06-18T12:00:00'); // week-boundary-crossing anchor
+const WEDNESDAY_10AM = jerusalem('2026-06-17', '10:00'); // ordinary weekday, no holiday fact at all
+const FRIDAY_10AM = jerusalem('2026-06-19', '10:00');
+const SATURDAY_10AM = jerusalem('2026-06-20', '10:00');
+const THURSDAY_NOON = jerusalem('2026-06-18', '12:00'); // week-boundary-crossing anchor
 // Yom Kippur 2026 civil dates (independently verified against hebcal.com: "Sun, 20 September
 // sunset - Mon, 21 September nightfall" - see tests/holidayCivilDate.test.js for the full
 // cross-check that caught and fixed the 2026-09-20 off-by-one holiday-date bug).
-const EREV_YOM_KIPPUR_10AM = new Date('2026-09-20T10:00:00'); // Sunday, holiday eve
-const YOM_KIPPUR_10AM = new Date('2026-09-21T10:00:00'); // Monday, yom tov
-const ROSH_CHODESH_10AM = new Date('2026-06-15T10:00:00'); // Monday, non-warning minor calendar date
+const EREV_YOM_KIPPUR_10AM = jerusalem('2026-09-20', '10:00'); // Sunday, holiday eve
+const YOM_KIPPUR_10AM = jerusalem('2026-09-21', '10:00'); // Monday, yom tov
+const ROSH_CHODESH_10AM = jerusalem('2026-06-15', '10:00'); // Monday, non-warning minor calendar date
 
 test('ordinary weekday: open during hours, todayHolidays empty, no warning', () => {
   const activity = { hoursByDay: { ד: { start: '09:00', end: '18:00' } }, openHours: { start: '09:00', end: '18:00' } };
@@ -124,16 +125,16 @@ test('multiple intervals in one day: both are represented, and status picks the 
   const days = buildUpcomingDays(activity, { now: WEDNESDAY_10AM });
   assert.deepEqual(days[0].intervals, [{ start: '09:00', end: '12:00' }, { start: '16:00', end: '20:00' }]);
 
-  const duringMorning = buildTodayStatus(activity, { now: new Date('2026-06-17T10:00:00') });
+  const duringMorning = buildTodayStatus(activity, { now: jerusalem('2026-06-17', '10:00') });
   assert.equal(duringMorning.isOpen, true);
   assert.equal(duringMorning.minutesUntilClose, 120);
 
-  const betweenIntervals = buildTodayStatus(activity, { now: new Date('2026-06-17T14:00:00') });
+  const betweenIntervals = buildTodayStatus(activity, { now: jerusalem('2026-06-17', '14:00') });
   assert.equal(betweenIntervals.isOpen, false);
   assert.equal(betweenIntervals.opensAt, '16:00');
   assert.equal(betweenIntervals.minutesUntilOpen, 120);
 
-  const duringEvening = buildTodayStatus(activity, { now: new Date('2026-06-17T17:00:00') });
+  const duringEvening = buildTodayStatus(activity, { now: jerusalem('2026-06-17', '17:00') });
   assert.equal(duringEvening.isOpen, true);
   assert.equal(duringEvening.minutesUntilClose, 180);
 });
@@ -143,7 +144,7 @@ test('missing weekday (no data for today, other days known) -> state unknown, NO
     hoursByDay: { א: { start: '09:00', end: '12:00' }, ב: { start: '15:00', end: '20:00' } },
     openHours: { start: '09:00', end: '20:00' },
   };
-  const status = buildTodayStatus(activity, { now: new Date('2026-06-16T10:00:00') }); // Tuesday - no entry
+  const status = buildTodayStatus(activity, { now: jerusalem('2026-06-16', '10:00') }); // Tuesday - no entry
   assert.equal(status.state, 'unknown');
   assert.notEqual(status.state, 'closed');
 });
@@ -155,7 +156,7 @@ test('missing weekday still reports the next KNOWN opening within the horizon, n
   };
   // Tuesday 2026-06-16 has no entry; Wednesday/Thursday/Friday/Saturday also have none; the
   // following Sunday (2026-06-21, offset 5) is the next date with hoursByDay data.
-  const status = buildTodayStatus(activity, { now: new Date('2026-06-16T10:00:00') });
+  const status = buildTodayStatus(activity, { now: jerusalem('2026-06-16', '10:00') });
   assert.ok(status.nextOpening);
   assert.equal(status.nextOpening.date, '2026-06-21');
   assert.equal(status.nextOpening.time, '09:00');

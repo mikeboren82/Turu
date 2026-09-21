@@ -15,6 +15,7 @@ addHook(
 );
 
 const { resolveHoursForDate, getOpenStatus } = require('../lib/hoursResolver.js');
+const { jerusalemInstant: jerusalem } = require('./support/jerusalemInstant.js');
 
 // ---- resolveHoursForDate: general per-date resolution --------------------------------------
 
@@ -136,7 +137,7 @@ test('day-specific hours 1: Sunday 09-12 vs Monday 09-20 - Sunday 15:00 must be 
     openHours: { start: '09:00', end: '20:00' },
     availableDays: ['א', 'ב'],
   };
-  const sunday3pm = new Date('2026-06-14T15:00:00'); // 2026-06-14 is a Sunday
+  const sunday3pm = jerusalem('2026-06-14', '15:00'); // 2026-06-14 is a Sunday
   const status = getOpenStatus(activity, { now: sunday3pm });
   assert.equal(status.isOpen, false);
   assert.equal(status.hasScheduleData, true);
@@ -144,14 +145,14 @@ test('day-specific hours 1: Sunday 09-12 vs Monday 09-20 - Sunday 15:00 must be 
 
 test('day-specific hours 2: currently inside today\'s own range -> open', () => {
   const activity = { hoursByDay: { א: { start: '09:00', end: '12:00' } }, openHours: { start: '09:00', end: '12:00' }, availableDays: ['א'] };
-  const status = getOpenStatus(activity, { now: new Date('2026-06-14T10:00:00') });
+  const status = getOpenStatus(activity, { now: jerusalem('2026-06-14', '10:00') });
   assert.equal(status.isOpen, true);
   assert.equal(status.minutesUntilClose, 120);
 });
 
 test('day-specific hours 3: outside today\'s own range (before opening) -> closed, with opens-in estimate', () => {
   const activity = { hoursByDay: { א: { start: '09:00', end: '12:00' } }, openHours: { start: '09:00', end: '12:00' }, availableDays: ['א'] };
-  const status = getOpenStatus(activity, { now: new Date('2026-06-14T08:00:00') });
+  const status = getOpenStatus(activity, { now: jerusalem('2026-06-14', '08:00') });
   assert.equal(status.isOpen, false);
   assert.equal(status.minutesUntilOpenToday, 60);
 });
@@ -162,50 +163,55 @@ test('day-specific hours 4: another weekday\'s later closing time must not leak 
     openHours: { start: '09:00', end: '22:00' },
     availableDays: ['א', 'ב'],
   };
-  const status = getOpenStatus(activity, { now: new Date('2026-06-14T13:00:00') }); // Sunday 13:00 - after Sunday's own 12:00 close
+  const status = getOpenStatus(activity, { now: jerusalem('2026-06-14', '13:00') }); // Sunday 13:00 - after Sunday's own 12:00 close
   assert.equal(status.isOpen, false);
   assert.equal(status.minutesUntilClose, null);
 });
 
 test('day-specific hours 5: recurring venue open Monday, no Sunday entry - queried Sunday must NOT borrow Monday\'s hours', () => {
   const activity = { hoursByDay: { ב: { start: '09:00', end: '20:00' } }, openHours: { start: '09:00', end: '20:00' }, availableDays: ['ב'] };
-  const status = getOpenStatus(activity, { now: new Date('2026-06-14T15:00:00') }); // Sunday
+  const status = getOpenStatus(activity, { now: jerusalem('2026-06-14', '15:00') }); // Sunday
   assert.equal(status.isOpen, false);
   assert.equal(status.hasScheduleData, true); // openHours exists, just not usable for today
 });
 
-test('day-specific hours 6: two schedule rows for the same weekday - last one wins (documented, unchanged)', () => {
-  // getOpenStatus never consults intervalsByDay - hoursByDay's "last one wins" value is what's used.
+// UPDATED BY OPENING HOURS PHASE 3 (2026-09-20) - these two used to pin the legacy gaps
+// ("intervalsByDay is invisible to getOpenStatus", '"00:00" end is not end-of-day'). Both are
+// fixed now, so they assert the corrected behavior; the superseded assertion is noted inline.
+test('day-specific hours 6 (CORRECTED by Phase 3): getOpenStatus now reads intervalsByDay, so a second same-day slot is no longer discarded', () => {
   const activity = {
-    hoursByDay: { ב: { start: '16:00', end: '20:00' } },
+    hoursByDay: { ב: { start: '16:00', end: '20:00' } }, // "last one wins"
     intervalsByDay: { ב: [{ start: '09:00', end: '12:00' }, { start: '16:00', end: '20:00' }] },
     openHours: { start: '09:00', end: '20:00' },
     availableDays: ['ב'],
   };
-  const during9to12 = getOpenStatus(activity, { now: new Date('2026-06-15T10:00:00') }); // Monday 10:00
-  assert.equal(during9to12.isOpen, false); // the 09-12 interval is invisible to getOpenStatus, exactly as before
+  // was: isOpen false (the 09-12 interval was invisible to getOpenStatus)
+  assert.equal(getOpenStatus(activity, { now: jerusalem('2026-06-15', '10:00') }).isOpen, true);
+  assert.equal(getOpenStatus(activity, { now: jerusalem('2026-06-15', '14:00') }).isOpen, false, 'the genuine lunch gap is still closed');
+  assert.equal(getOpenStatus(activity, { now: jerusalem('2026-06-15', '17:00') }).isOpen, true);
 });
 
-test('day-specific hours 7 (existing, documented gap - unchanged): "00:00" end is NOT treated as end-of-day here', () => {
+test('day-specific hours 7 (CORRECTED by Phase 3): an "end":"00:00" interval means open until midnight', () => {
   const activity = { hoursByDay: { ב: { start: '20:00', end: '00:00' } }, openHours: { start: '20:00', end: '00:00' }, availableDays: ['ב'] };
-  const status = getOpenStatus(activity, { now: new Date('2026-06-15T21:00:00') }); // Monday 21:00, inside 20:00-00:00 by human intent
-  // toMinutes('00:00') === 0, so nowMinutes(1260) <= 0 is false -> reported closed. This is the
-  // same pre-existing gap lib/filterActivities.js#getOpenNowInfo has always had (see
-  // tests/temporalFiltering.test.js's own case of the same name) - proving parity, not fixing it.
-  assert.equal(status.isOpen, false);
+  const status = getOpenStatus(activity, { now: jerusalem('2026-06-15', '21:00') }); // Monday 21:00
+  // was: isOpen false, because toMinutes('00:00') === 0 and 1260 <= 0 is false. The end-of-day
+  // correction (toEndOfDayAwareMinutes, long used by the hour-range SEARCH filter) now applies to
+  // the live open-now path too, via intervalBounds.
+  assert.equal(status.isOpen, true);
+  assert.equal(status.minutesUntilClose, 180);
 });
 
 test('no schedule data at all -> unknown, never guessed open', () => {
   const activity = { hoursByDay: {}, openHours: null, availableDays: [] };
-  const status = getOpenStatus(activity, { now: new Date('2026-06-15T10:00:00') });
+  const status = getOpenStatus(activity, { now: jerusalem('2026-06-15', '10:00') });
   assert.equal(status.isOpen, false);
   assert.equal(status.hasScheduleData, false);
 });
 
 test('a dated one-off occurrence (no hoursByDay at all) uses its own occurrence hours for today', () => {
   const activity = { occurrences: [{ date: '2026-06-15', start: '17:00', end: '18:00' }], openHours: { start: '17:00', end: '18:00' }, hoursByDay: {}, availableDays: [] };
-  const openNow = getOpenStatus(activity, { now: new Date('2026-06-15T17:30:00') });
+  const openNow = getOpenStatus(activity, { now: jerusalem('2026-06-15', '17:30') });
   assert.equal(openNow.isOpen, true);
-  const notToday = getOpenStatus({ ...activity, occurrences: [{ date: '2026-07-01', start: '17:00', end: '18:00' }], openHours: { start: '17:00', end: '18:00' } }, { now: new Date('2026-06-15T17:30:00') });
+  const notToday = getOpenStatus({ ...activity, occurrences: [{ date: '2026-07-01', start: '17:00', end: '18:00' }], openHours: { start: '17:00', end: '18:00' } }, { now: jerusalem('2026-06-15', '17:30') });
   assert.equal(notToday.isOpen, false);
 });
