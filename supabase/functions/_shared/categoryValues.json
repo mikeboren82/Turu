@@ -1,4 +1,30 @@
 {
+  "_doc": [
+    "TuRu - the three category sets (Phase G, 2026-09-21). They answer three DIFFERENT questions and",
+    "must not be conflated again. tests/categoryStorageModel.test.js enforces every rule below.",
+    "",
+    "  categories             WHAT MAY BE ASSIGNED. Handed to the AI extraction model as the list to",
+    "                         choose from (extraction.ts CATEGORY_VALUES) and used as the accept-list",
+    "                         of sanitizeCategory(), which validates the model's ANSWER. A value that",
+    "                         is not here can never enter the catalogue through ingestion.",
+    "",
+    "  storageOnlyCategories  WHAT MAY LEGALLY EXIST in activities.category but must never be handed",
+    "                         to a classifier. Union with `categories` = the valid-storage set, which",
+    "                         is what the DB CHECK constraint (supabase/0103) allows.",
+    "",
+    "  archiveCategories      COMMITMENT SEMANTICS, an orthogonal overlay. A row holding one of these",
+    "                         is a commitment activity: hidden from the user-facing category options",
+    "                         (constants/filterSchema.js) and blocked from being restored to approved",
+    "                         (shouldArchiveForCommitment, tools/import-tool/server.js).",
+    "",
+    "WHY storageOnlyCategories EXISTS: 'קייטנה' is an intentional TuRu value - it is half of the",
+    "commitment/restore gate and two archived production rows hold it - but it was never in",
+    "`categories`, so the canonical layer treated it as corruption. Promoting it into `categories`",
+    "would have fixed the constraint by telling every AI classifier to start generating camps.",
+    "Keeping it storage-only fixes the integrity layer and changes no classifier behaviour.",
+    "Contrast 'חוג', which is in BOTH `categories` and `archiveCategories`: a model may assign it and",
+    "the record is then auto-archived. That stays exactly as it was."
+  ],
   "categories": [
     "גן שעשועים",
     "ג'ימבורי",
@@ -31,6 +57,9 @@
     "פעילות עירונית",
     "חדרי בריחה",
     "אחר"
+  ],
+  "storageOnlyCategories": [
+    "קייטנה"
   ],
   "archiveCategories": [
     "חוג",

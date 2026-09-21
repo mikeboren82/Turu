@@ -26,7 +26,9 @@ const DIRECT_MAP = {
   'חדרי בריחה': 'SPORTS_ADVENTURE',
 };
 
-const AMBIGUOUS_CATEGORIES = new Set(['פארק', 'אטרקציה', 'אחר', 'הפעלה', 'חוג', 'קייטנה']);
+// 'הפעלה' הוסרה (Phase G.1, 2026-09-21): ערך-קטגוריה לא-קנוני מהסיווג הידני המקורי, לפני
+// constants/categoryValues.json. נורמל ל-'אחר' ב-Phase F; sanitizeCategory דוחה אותו לצמיתות.
+const AMBIGUOUS_CATEGORIES = new Set(['פארק', 'אטרקציה', 'אחר', 'חוג', 'קייטנה']);
 
 const KEYWORD_GROUPS = [
   { group: 'SPORTS_ADVENTURE', keywords: [

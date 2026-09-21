@@ -37,7 +37,11 @@ const DIRECT_MAP: Record<string, PlaceholderGroup> = {
 };
 
 // קטגוריות כלליות-מדי לסיווג ישיר - נדרש ניתוח name+description (ראו שכבה 2).
-const AMBIGUOUS_CATEGORIES = new Set(['פארק', 'אטרקציה', 'אחר', 'הפעלה', 'חוג', 'קייטנה']);
+// 'הפעלה' הוסרה מהרשימה (Phase G.1, 2026-09-21): זה היה ערך-קטגוריה לא-קנוני מהסיווג הידני
+// המקורי (לפני שנוצר constants/categoryValues.json), לא מושג בטקסונומיה הנוכחית ולא alias
+// שלו. השורה האחת שהחזיקה אותו נורמלה ל-'אחר' ב-Phase F, ו-sanitizeCategory דוחה אותו כעת
+// באופן קבוע (tests/categoryStorageModel.test.js) - הוא לעולם לא יכול להיכתב שוב.
+const AMBIGUOUS_CATEGORIES = new Set(['פארק', 'אטרקציה', 'אחר', 'חוג', 'קייטנה']);
 
 // סדר-עדיפות מכוון (לא אלפביתי): מילות-מפתח ספציפיות-יותר קודם, כדי ש"קיר טיפוס בגן שעשועים
 // עירוני" למשל יתפוס SPORTS_ADVENTURE (הסימן החזק/הייחודי יותר) לפני PLAY_AND_FUN הגנרי.
