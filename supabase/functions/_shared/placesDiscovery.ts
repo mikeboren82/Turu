@@ -5,6 +5,7 @@
 // בטעות. שני הקבצים חייבים להישאר זהים בהתנהגות.
 
 import { normalizeCityName } from './cityNaming.ts';
+import { GENRE_WORDS } from './matching.ts';
 
 const PLAYGROUND_KEYWORDS = ['playground', 'גן שעשועים', 'גני שעשועים', 'מתקני משחקים', 'משחקייה'];
 const PARK_KEYWORDS = ['park', 'פארק', 'גן ציבורי', 'גן לאומי'];
@@ -517,17 +518,118 @@ export function extractCityFromAddress(address: string | null | undefined): stri
 // This adds the missing axis - position - but deliberately NOT as an auto-merge rule. Shared
 // coordinates are completely legitimate: a zoo and its events programme, a museum and its cafe, a
 // mall and an activity inside it, several attractions in one complex. So proximity alone yields
-// nothing; it must be corroborated by at least one independent identity signal (same registered
-// domain, or strongly overlapping names). The output is a CANDIDATE for review, never a decision.
+// nothing; it must be corroborated by at least one independent identity signal. The output is a
+// CANDIDATE for review, never a decision.
+//
+// ---------------------------------------------------------------------------------------------
+// TWO AXES, NOT ONE (2026-09-21, after the Ramat Gan Safari review).
+//
+// The first version treated "same registered domain" as corroborating DUPLICATE evidence. Inside a
+// venue ecosystem that is semantically inverted: a venue operator's own site publishes the venue
+// page AND a page per programme, so same-domain overwhelmingly means "two different offerings of
+// one venue", not "the same record twice". Meanwhile a genuine duplicate that arrives from a
+// DIFFERENT publisher (an aggregator listing a place the venue also lists) LOSES that signal.
+// Measured on the real Safari cluster, the one true duplicate scored 3 while two distinct tours
+// scored 5 - the true duplicate ranked BELOW the false ones.
+//
+// So the model now separates:
+//
+//   VENUE RELATEDNESS  - coordinates, address, venue link, same publisher. These establish that
+//                        two rows BELONG TO THE SAME PLACE. On their own they never imply identity,
+//                        no matter how many of them agree.
+//
+//   ENTITY IDENTITY    - evidence that two rows are THE SAME THING:
+//                          * name containment - the distinctive tokens of one name are a subset of
+//                            the other's ("מדבריום" inside "מדבריום - פארק החיות"). Containment,
+//                            not ratio: a ratio over short names is dominated by the shared VENUE
+//                            token, which is exactly what made sibling tours look identical.
+//                          * independent sources agreeing - two DIFFERENT publishers describing a
+//                            place at one position, with at least some name overlap. Cross-source
+//                            agreement is corroboration precisely because neither copied the other.
+//
+// And a hard gate before either: a PLACE and an OFFERING held at that place are different kinds of
+// record by construction, so no amount of shared location can make them duplicates of each other.
+//
+// Nothing here is venue-specific: every input is a column (entity_type, venue_id, source_url,
+// name, coordinates, address). It generalises to any venue ecosystem seen for the first time.
 export type DuplicateCandidateSignal = {
   isCandidate: boolean;
   distanceM: number | null;
+  /** Descriptive only. isCandidate is decided by identityEvidence, never by a score threshold. */
   score: number;
   signals: string[];
   reason: string;
+  /** Why the two rows share a place. Never sufficient for duplication on its own. */
+  venueRelatedness: string[];
+  /** Why the two rows may be the same entity. Empty => not a duplicate candidate. */
+  identityEvidence: string[];
+  relationship: 'POSSIBLE_DUPLICATE' | 'SAME_PLACE_DIFFERENT_RECORD' | 'UNRELATED' | 'UNKNOWN';
 };
 
 const COORDINATE_DUPLICATE_RADIUS_M = 60;
+
+// activities.entity_type - the one value that denotes a physical place with fixed opening hours.
+// The other members of ENTITY_TYPE_VALUES (פעילות / אירוע_קבוע / אירוע) all denote something that
+// HAPPENS at a place. Kept as a local constant to avoid an import cycle with extraction.ts; a test
+// asserts it is still a member of ENTITY_TYPE_VALUES so the two cannot drift.
+export const PLACE_ENTITY_TYPE = 'מקום_קבוע';
+
+type EntityKind = 'place' | 'offering' | 'unknown';
+function entityKind(entityType: string | null | undefined): EntityKind {
+  const t = (entityType || '').trim();
+  if (!t) return 'unknown';
+  return t === PLACE_ENTITY_TYPE ? 'place' : 'offering';
+}
+
+// TOKEN QUALITY (2026-09-21, after the first production dry-run). The dry run found ~15-20 of 45
+// place<->place candidates firing on a SINGLE shared generic token: two unrelated Kfar Saba venues
+// sharing only the city name, two different playgrounds sharing only "שעשועים", a beach and a
+// beach-products shop sharing only "חוף". Requiring 2+ shared tokens is not the fix - the Safari
+// destination pair's ONLY shared token is "ספארי", and that must keep counting. The actual defect is
+// TOKEN QUALITY: a shared token is identity evidence only when it is not itself generic.
+//
+// Two kinds of "generic" here, handled differently on purpose:
+//  - CATEGORY words ("שעשועים", "משחקים"...) are a fixed, domain-specific vocabulary. Reuses
+//    GENRE_WORDS from the live scorer (matching.ts) rather than inventing a parallel list, plus a
+//    small evidence-driven addition below - not exhaustive, not venue-specific.
+//  - LOCALITY words are NOT a hardcoded city list (that would only cover known cities). They are
+//    derived STRUCTURALLY per comparison, from each side's OWN `city` field, so a shared token is
+//    disqualified only when it is literally part of one of the two records' own city name. This
+//    generalises to any Israeli locality, including ones never seen before.
+//
+// NOTE: COMPARISON_ONLY_STOPWORDS (below) is a DIFFERENT, pre-existing set for the park/playground
+// CATEGORY-classification concern elsewhere in this file, where "שעשועים" must NOT be dropped (see
+// the regression test in tests/placesDiscoverySemantics.test.js). IDENTITY_GENERIC_WORDS is scoped
+// to the duplicate-identity axis only and does not touch that set.
+const DOMAIN_CATEGORY_WORDS = new Set(['שעשועים', 'משחקים', 'משחקייה', 'מתקני', 'חוף']);
+const IDENTITY_GENERIC_WORDS = new Set([...COMPARISON_ONLY_STOPWORDS, ...GENRE_WORDS, ...DOMAIN_CATEGORY_WORDS]);
+const EMPTY_SET: Set<string> = new Set();
+
+// Distinctive tokens of a name for the IDENTITY axis: generic category words dropped, plus
+// whichever tokens `localityTokens` marks as belonging to either side's own city name.
+function nameTokens(s: string | null | undefined, localityTokens: Set<string> = EMPTY_SET): Set<string> {
+  return new Set(
+    normalizeForMatch(s).split(' ').filter((w) => w.length > 1 && !IDENTITY_GENERIC_WORDS.has(w) && !localityTokens.has(w)),
+  );
+}
+
+// The word-tokens of a city name, for locality exclusion. Not a lookup table - just this record's
+// own city, tokenised the same way a name is.
+function cityTokens(city: string | null | undefined): Set<string> {
+  return new Set(normalizeForMatch(city).split(' ').filter((w) => w.length > 1));
+}
+
+// True when one name's distinctive tokens are wholly contained in the other's. This is the
+// OFFERING-NAME IDENTITY test. Containment is deliberately used instead of an overlap ratio:
+// "ספארי חצות" vs "סיור ספארי על הבוקר" share only the venue token, and a min-denominator ratio
+// reads that as 0.50 - indistinguishable from a real near-duplicate.
+function nameContainment(a: string | null | undefined, b: string | null | undefined, localityTokens: Set<string> = EMPTY_SET): boolean {
+  const wa = nameTokens(a, localityTokens), wb = nameTokens(b, localityTokens);
+  if (wa.size === 0 || wb.size === 0) return false;
+  const [small, big] = wa.size <= wb.size ? [wa, wb] : [wb, wa];
+  for (const w of small) if (!big.has(w)) return false;
+  return true;
+}
 
 function registrableDomain(url: string | null | undefined): string | null {
   if (!url) return null;
@@ -539,58 +641,103 @@ function registrableDomain(url: string | null | undefined): string | null {
   }
 }
 
-// Token overlap AFTER dropping only the generic space-words - category-bearing tokens are kept,
-// so "מדבריום" vs "אירועים במדבריום" still overlaps while "פארק X" vs "גן שעשועים X" does not
-// collapse into a false match.
-function nameOverlapRatio(a: string | null | undefined, b: string | null | undefined): number {
-  const toks = (s: string | null | undefined) => new Set(
-    normalizeForMatch(s).split(' ').filter((w) => w.length > 1 && !COMPARISON_ONLY_STOPWORDS.has(w)),
-  );
-  const wa = toks(a); const wb = toks(b);
+// Token overlap AFTER dropping generic category words and each side's own locality words - a
+// shared city name or category term is never, by itself, evidence that two records are the same.
+function nameOverlapRatio(a: string | null | undefined, b: string | null | undefined, localityTokens: Set<string> = EMPTY_SET): number {
+  const wa = nameTokens(a, localityTokens); const wb = nameTokens(b, localityTokens);
   if (wa.size === 0 || wb.size === 0) return 0;
   let common = 0;
   wa.forEach((w) => { if (wb.has(w)) common++; });
   return common / Math.min(wa.size, wb.size);
 }
 
+export type DuplicateSide = {
+  name?: string | null;
+  lat?: number | null;
+  lon?: number | null;
+  sourceUrl?: string | null;
+  address?: string | null;
+  /** activities.entity_type. Optional: when absent the place/offering gate simply does not fire. */
+  entityType?: string | null;
+  /** activities.venue_id. Optional: strengthens venue relatedness, never identity. */
+  venueId?: string | null;
+  /** activities.locations.city (via normalizeCityName upstream). Optional: used only to exclude
+   * each side's own locality words from the identity axis - never for venue relatedness. */
+  city?: string | null;
+};
+
 export function coordinateDuplicateSignal(
-  a: { name?: string | null; lat?: number | null; lon?: number | null; sourceUrl?: string | null; address?: string | null },
-  b: { name?: string | null; lat?: number | null; lon?: number | null; sourceUrl?: string | null; address?: string | null },
+  a: DuplicateSide,
+  b: DuplicateSide,
   opts: { radiusM?: number } = {},
 ): DuplicateCandidateSignal {
   const radius = opts.radiusM ?? COORDINATE_DUPLICATE_RADIUS_M;
   if (a.lat == null || a.lon == null || b.lat == null || b.lon == null) {
-    return { isCandidate: false, distanceM: null, score: 0, signals: [], reason: 'missing coordinates on one side' };
+    return {
+      isCandidate: false, distanceM: null, score: 0, signals: [], venueRelatedness: [], identityEvidence: [],
+      relationship: 'UNKNOWN', reason: 'missing coordinates on one side',
+    };
   }
   const distanceM = haversineKm(a.lat, a.lon, b.lat, b.lon) * 1000;
   if (distanceM > radius) {
-    return { isCandidate: false, distanceM, score: 0, signals: [], reason: `beyond ${radius}m` };
+    return {
+      isCandidate: false, distanceM, score: 0, signals: [], venueRelatedness: [], identityEvidence: [],
+      relationship: 'UNRELATED', reason: `beyond ${radius}m`,
+    };
   }
 
-  const signals = ['coordinates_within_radius'];
-  let score = 1;
-
+  // ---- axis 1: VENUE RELATEDNESS - establishes "same place", never "same record" ----------------
+  const venueRelatedness = ['coordinates_within_radius'];
   const domA = registrableDomain(a.sourceUrl);
   const domB = registrableDomain(b.sourceUrl);
-  if (domA && domB && domA === domB) { signals.push(`same_domain:${domA}`); score += 2; }
-
-  const overlap = nameOverlapRatio(a.name, b.name);
-  if (overlap >= 0.5) { signals.push(`name_overlap:${overlap.toFixed(2)}`); score += 2; }
-  else if (overlap > 0) { signals.push(`weak_name_overlap:${overlap.toFixed(2)}`); score += 1; }
-
+  const samePublisher = !!(domA && domB && domA === domB);
+  // Same publisher is RELATEDNESS, not identity: a venue operator publishes one page per offering.
+  if (samePublisher) venueRelatedness.push(`same_publisher:${domA}`);
   const addrA = normalizeForMatch(a.address); const addrB = normalizeForMatch(b.address);
-  if (addrA && addrA === addrB) { signals.push('same_address'); score += 1; }
+  if (addrA && addrA === addrB) venueRelatedness.push('same_address');
+  if (a.venueId && b.venueId && a.venueId === b.venueId) venueRelatedness.push('same_venue');
 
-  // Proximity ALONE is never enough - that is what keeps a venue and its separate events listing,
-  // or two genuinely different attractions in one complex, out of the candidate queue.
-  const isCandidate = score >= 3;
-  return {
+  const mk = (
+    isCandidate: boolean,
+    identityEvidence: string[],
+    relationship: DuplicateCandidateSignal['relationship'],
+    reason: string,
+  ): DuplicateCandidateSignal => ({
     isCandidate,
     distanceM,
-    score,
-    signals,
-    reason: isCandidate
-      ? 'co-located AND corroborated by an independent identity signal - review as possible duplicate'
-      : 'co-located but nothing else corroborates it - not a duplicate candidate',
-  };
+    score: venueRelatedness.length + identityEvidence.length * 2,
+    signals: [...venueRelatedness, ...identityEvidence],
+    venueRelatedness,
+    identityEvidence,
+    relationship,
+    reason,
+  });
+
+  // ---- hard gate: a PLACE and an OFFERING held at it are different kinds of record ---------------
+  const kindA = entityKind(a.entityType); const kindB = entityKind(b.entityType);
+  if (kindA !== 'unknown' && kindB !== 'unknown' && kindA !== kindB) {
+    return mk(false, [], 'SAME_PLACE_DIFFERENT_RECORD',
+      'one side is a place and the other is an offering held at it - co-location cannot make them the same record');
+  }
+
+  // ---- axis 2: ENTITY IDENTITY -------------------------------------------------------------------
+  // Locality words are excluded structurally, from each side's OWN city - not a hardcoded list.
+  const localityTokens = new Set([...cityTokens(a.city), ...cityTokens(b.city)]);
+  const identityEvidence: string[] = [];
+  const overlap = nameOverlapRatio(a.name, b.name, localityTokens);
+  if (nameContainment(a.name, b.name, localityTokens)) identityEvidence.push(`offering_name_identity:${overlap.toFixed(2)}`);
+  // Two DIFFERENT publishers placing a record at one position corroborate each other precisely
+  // because neither derived it from the other. Requires some DISTINCTIVE name agreement (generic
+  // category/locality tokens excluded) so that two unrelated businesses sharing an address (a
+  // museum and a cafe) or sharing only a city/category word are not swept in.
+  if (domA && domB && domA !== domB && overlap > 0) {
+    identityEvidence.push(`independent_sources_agree:${domA}|${domB}:${overlap.toFixed(2)}`);
+  }
+
+  if (identityEvidence.length === 0) {
+    return mk(false, identityEvidence, 'SAME_PLACE_DIFFERENT_RECORD',
+      'co-located but nothing else corroborates it - not a duplicate candidate');
+  }
+  return mk(true, identityEvidence, 'POSSIBLE_DUPLICATE',
+    'co-located AND corroborated by an independent identity signal - review as possible duplicate');
 }

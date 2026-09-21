@@ -42,7 +42,10 @@ export function wordOverlapScore(a: string | null | undefined, b: string | null 
 
 // Genre / format words are shared by MANY different events of one listing ("X - תיאטרון סיפור",
 // "Y - הצגת ילדים"): an overlap made only of them is never evidence that two titles are the same event.
-const GENRE_WORDS = new Set(['תיאטרון', 'סיפור', 'סיפורים', 'הצגת', 'הצגה', 'הצגות', 'ילדים', 'לילדים', 'מופע', 'מופעי', 'סדנה', 'סדנת', 'סדנאות', 'שעת', 'מחזמר', 'לכל', 'המשפחה', 'משפחה', 'למשפחות', 'לגילאי', 'גילאי', 'לגיל', 'גיל', 'עד', 'עם', 'של', 'פעילות', 'חוג', 'בוקר', 'אחהצ', 'ערב', 'קונצרט', 'סרט', 'הקרנה', 'מפגש', 'חגיגה', 'פסטיבל', 'אירוע', 'חדש', 'חדשה', 'שנה', 'וחצי', 'חצי']);
+// Exported (2026-09-21) so placesDiscovery.ts's duplicate-candidate identity axis can reuse this
+// exact vocabulary instead of hand-maintaining a second one; tests/duplicateCandidates.test.js
+// asserts the Node twin (cleaner/matching.js) stays byte-identical to this set.
+export const GENRE_WORDS = new Set(['תיאטרון', 'סיפור', 'סיפורים', 'הצגת', 'הצגה', 'הצגות', 'ילדים', 'לילדים', 'מופע', 'מופעי', 'סדנה', 'סדנת', 'סדנאות', 'שעת', 'מחזמר', 'לכל', 'המשפחה', 'משפחה', 'למשפחות', 'לגילאי', 'גילאי', 'לגיל', 'גיל', 'עד', 'עם', 'של', 'פעילות', 'חוג', 'בוקר', 'אחהצ', 'ערב', 'קונצרט', 'סרט', 'הקרנה', 'מפגש', 'חגיגה', 'פסטיבל', 'אירוע', 'חדש', 'חדשה', 'שנה', 'וחצי', 'חצי']);
 // shared title words that actually distinguish an event (not genre words, not bare numbers)
 export function distinctiveSharedWords(a: string | null | undefined, b: string | null | undefined): number {
   const pick = (t: string | null | undefined) => new Set(normalizeForMatch(t).split(' ').filter((w) => w.length > 1 && !GENRE_WORDS.has(w) && !/^\d+$/.test(w)));

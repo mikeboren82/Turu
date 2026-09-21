@@ -142,4 +142,4 @@ async function bestMatch(client, candidate, thresholds, cache) {
   return best;
 }
 
-module.exports = { distinctiveSharedWords, wordOverlapScore, haversineKm, getConfidenceThresholds, getExistingActivitiesForCity, findSimilarActivities, computeConfidence, bestMatch, mapExistingRow, candidateDates, existingDates };
+module.exports = { distinctiveSharedWords, wordOverlapScore, haversineKm, getConfidenceThresholds, getExistingActivitiesForCity, findSimilarActivities, computeConfidence, bestMatch, mapExistingRow, candidateDates, existingDates, GENRE_WORDS };

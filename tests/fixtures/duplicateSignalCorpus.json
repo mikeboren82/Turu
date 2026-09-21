@@ -1,0 +1,123 @@
+{
+  "_doc": [
+    "Shared drift corpus for coordinateDuplicateSignal. Run by BOTH the Node port",
+    "(tools/import-tool/lib/duplicateSignal.js) and the Deno original",
+    "(supabase/functions/_shared/placesDiscovery.ts). Every case is a real production pattern.",
+    "If either implementation drifts, its own test fails against these expectations.",
+    "",
+    "The token-quality cases (2026-09-21, after the first production dry-run) are SYNTHETIC/",
+    "anonymized - no production names or IDs - each mirroring a real false-positive PATTERN found",
+    "in the dry run (two playgrounds sharing only category+locality words, unrelated businesses",
+    "sharing only a city name, a beach vs a beach-products shop) rather than a specific record."
+  ],
+  "cases": [
+    {
+      "id": "safari_destination_vs_aggregator_duplicate",
+      "a": { "name": "ספארי רמת גן", "lat": 32.0461112, "lon": 34.8195887, "address": "רמת גן", "sourceUrl": "https://www.safari.co.il/", "entityType": "מקום_קבוע", "venueId": "v-safari" },
+      "b": { "name": "ספארי - חוויה מרתקת לכל המשפחה", "lat": 32.0461112, "lon": 34.8195887, "address": "רמת גן", "sourceUrl": "https://www.karamel.co.il/attractions.asp", "entityType": "מקום_קבוע", "venueId": "v-safari" },
+      "expect": { "isCandidate": true, "relationship": "POSSIBLE_DUPLICATE", "identityKinds": ["independent_sources_agree"] }
+    },
+    {
+      "id": "safari_destination_vs_midnight_tour",
+      "a": { "name": "ספארי רמת גן", "lat": 32.0461112, "lon": 34.8195887, "address": "רמת גן", "sourceUrl": "https://www.safari.co.il/", "entityType": "מקום_קבוע", "venueId": "v-safari" },
+      "b": { "name": "ספארי חצות", "lat": 32.0461112, "lon": 34.8195887, "address": "רמת גן", "sourceUrl": "https://www.safari.co.il/", "entityType": "אירוע_קבוע", "venueId": "v-safari" },
+      "expect": { "isCandidate": false, "relationship": "SAME_PLACE_DIFFERENT_RECORD", "identityKinds": [] }
+    },
+    {
+      "id": "safari_midnight_vs_morning_tour",
+      "a": { "name": "ספארי חצות", "lat": 32.0461112, "lon": 34.8195887, "address": "רמת גן", "sourceUrl": "https://www.safari.co.il/", "entityType": "אירוע_קבוע", "venueId": "v-safari" },
+      "b": { "name": "סיור ספארי על הבוקר", "lat": 32.0461112, "lon": 34.8195887, "address": "רמת גן", "sourceUrl": "https://www.safari.co.il/", "entityType": "אירוע_קבוע", "venueId": "v-safari" },
+      "expect": { "isCandidate": false, "relationship": "SAME_PLACE_DIFFERENT_RECORD", "identityKinds": [] }
+    },
+    {
+      "id": "safari_destination_vs_birthday_wrapper",
+      "a": { "name": "ספארי רמת גן", "lat": 32.0461112, "lon": 34.8195887, "address": "רמת גן", "sourceUrl": "https://www.safari.co.il/", "entityType": "מקום_קבוע", "venueId": "v-safari" },
+      "b": { "name": "יום הולדת בספארי", "lat": 32.0461112, "lon": 34.8195887, "address": "רמת גן", "sourceUrl": "https://www.safari.co.il/", "entityType": "אירוע_קבוע", "venueId": "v-safari" },
+      "expect": { "isCandidate": false, "relationship": "SAME_PLACE_DIFFERENT_RECORD", "identityKinds": [] }
+    },
+    {
+      "id": "midbarium_venue_vs_venue_duplicate_same_publisher",
+      "a": { "name": "מדבריום", "lat": 30.6119687, "lon": 34.8012169, "sourceUrl": "https://midbarium.co.il/news/x", "entityType": "מקום_קבוע" },
+      "b": { "name": "מדבריום - פארק החיות", "lat": 30.6119687, "lon": 34.8012169, "sourceUrl": "https://midbarium.co.il/", "entityType": "מקום_קבוע" },
+      "expect": { "isCandidate": true, "relationship": "POSSIBLE_DUPLICATE", "identityKinds": ["offering_name_identity"] }
+    },
+    {
+      "id": "midbarium_zone_vs_zone",
+      "a": { "name": "חאן - אזור בעלי חיים", "lat": 30.6119687, "lon": 34.8012169, "sourceUrl": "https://midbarium.co.il/", "entityType": "מקום_קבוע" },
+      "b": { "name": "נווה מדבר - אזור מעיינות ובעלי חיים", "lat": 30.6119687, "lon": 34.8012169, "sourceUrl": "https://midbarium.co.il/", "entityType": "מקום_קבוע" },
+      "expect": { "isCandidate": false, "relationship": "SAME_PLACE_DIFFERENT_RECORD", "identityKinds": [] }
+    },
+    {
+      "id": "midbarium_venue_vs_zone",
+      "a": { "name": "מדבריום", "lat": 30.6119687, "lon": 34.8012169, "sourceUrl": "https://midbarium.co.il/news/x", "entityType": "מקום_קבוע" },
+      "b": { "name": "חאן - אזור בעלי חיים", "lat": 30.6119687, "lon": 34.8012169, "sourceUrl": "https://midbarium.co.il/", "entityType": "מקום_קבוע" },
+      "expect": { "isCandidate": false, "relationship": "SAME_PLACE_DIFFERENT_RECORD", "identityKinds": [] }
+    },
+    {
+      "id": "museum_vs_cafe_same_address_cross_publisher",
+      "a": { "name": "מוזיאון הילדים", "lat": 32.08, "lon": 34.78, "address": "הרצל 1", "sourceUrl": "https://museum.example/", "entityType": "מקום_קבוע" },
+      "b": { "name": "קפה שכונתי", "lat": 32.08, "lon": 34.78, "address": "הרצל 1", "sourceUrl": "https://cafe.example/", "entityType": "מקום_קבוע" },
+      "expect": { "isCandidate": false, "relationship": "SAME_PLACE_DIFFERENT_RECORD", "identityKinds": [] }
+    },
+    {
+      "id": "repeated_occurrence_of_one_event",
+      "a": { "name": "הפנינג סוכות", "lat": 32.08, "lon": 34.78, "sourceUrl": "https://muni.example/", "entityType": "אירוע" },
+      "b": { "name": "הפנינג סוכות", "lat": 32.08, "lon": 34.78, "sourceUrl": "https://muni.example/", "entityType": "אירוע" },
+      "expect": { "isCandidate": true, "relationship": "POSSIBLE_DUPLICATE", "identityKinds": ["offering_name_identity"] }
+    },
+    {
+      "id": "two_different_events_one_venue",
+      "a": { "name": "הפנינג סוכות", "lat": 32.08, "lon": 34.78, "sourceUrl": "https://muni.example/", "entityType": "אירוע" },
+      "b": { "name": "פסטיבל חנוכה", "lat": 32.08, "lon": 34.78, "sourceUrl": "https://muni.example/", "entityType": "אירוע" },
+      "expect": { "isCandidate": false, "relationship": "SAME_PLACE_DIFFERENT_RECORD", "identityKinds": [] }
+    },
+    {
+      "id": "same_destination_two_sources_modestly_different_names",
+      "a": { "name": "מוזיאון המדע ירושלים", "lat": 31.77, "lon": 35.2, "sourceUrl": "https://mada.example/", "entityType": "מקום_קבוע" },
+      "b": { "name": "מוזיאון המדע", "lat": 31.77, "lon": 35.2, "sourceUrl": "https://aggregator.example/", "entityType": "מקום_קבוע" },
+      "expect": { "isCandidate": true, "relationship": "POSSIBLE_DUPLICATE", "identityKinds": ["offering_name_identity", "independent_sources_agree"] }
+    },
+    {
+      "id": "distant_identical_names",
+      "a": { "name": "לונה פארק", "lat": 32.08, "lon": 34.78, "sourceUrl": "https://x.example/", "entityType": "מקום_קבוע" },
+      "b": { "name": "לונה פארק", "lat": 31.25, "lon": 34.79, "sourceUrl": "https://x.example/", "entityType": "מקום_קבוע" },
+      "expect": { "isCandidate": false, "relationship": "UNRELATED", "identityKinds": [] }
+    },
+    {
+      "id": "missing_coordinates",
+      "a": { "name": "x", "lat": null, "lon": null },
+      "b": { "name": "מדבריום", "lat": 30.6119687, "lon": 34.8012169 },
+      "expect": { "isCandidate": false, "relationship": "UNKNOWN", "identityKinds": [] }
+    },
+    {
+      "id": "entity_type_absent_falls_back_to_name_evidence",
+      "a": { "name": "מדבריום", "lat": 30.6119687, "lon": 34.8012169, "sourceUrl": "https://midbarium.co.il/a" },
+      "b": { "name": "מדבריום - פארק החיות", "lat": 30.6119687, "lon": 34.8012169, "sourceUrl": "https://midbarium.co.il/b" },
+      "expect": { "isCandidate": true, "relationship": "POSSIBLE_DUPLICATE", "identityKinds": ["offering_name_identity"] }
+    },
+    {
+      "id": "two_playgrounds_sharing_only_category_and_locality_word",
+      "a": { "name": "גן שעשועים המרכזי", "lat": 32.18, "lon": 34.91, "city": "כפר סבא", "sourceUrl": "https://openstreetmap.example/way/1", "entityType": "מקום_קבוע" },
+      "b": { "name": "גן שעשועים ליד בית הספר", "lat": 32.18, "lon": 34.91, "city": "כפר סבא", "sourceUrl": "https://openstreetmap.example/way/2", "entityType": "מקום_קבוע" },
+      "expect": { "isCandidate": false, "relationship": "SAME_PLACE_DIFFERENT_RECORD", "identityKinds": [] }
+    },
+    {
+      "id": "locality_only_overlap_unrelated_businesses",
+      "a": { "name": "מגרשי פאדל כפר סבא", "lat": 32.18, "lon": 34.91, "city": "כפר סבא", "sourceUrl": "https://padel.example/", "entityType": "מקום_קבוע" },
+      "b": { "name": "סטודיו ציור כפר סבא", "lat": 32.18, "lon": 34.91, "city": "כפר סבא", "sourceUrl": "https://artstudio.example/", "entityType": "מקום_קבוע" },
+      "expect": { "isCandidate": false, "relationship": "SAME_PLACE_DIFFERENT_RECORD", "identityKinds": [] }
+    },
+    {
+      "id": "beach_vs_beach_products_business",
+      "a": { "name": "חוף הצפון אשדוד", "lat": 31.8, "lon": 34.65, "city": "אשדוד", "sourceUrl": "https://municipality.example/", "entityType": "מקום_קבוע" },
+      "b": { "name": "מוצרי חוף ותיירות אשדוד", "lat": 31.8, "lon": 34.65, "city": "אשדוד", "sourceUrl": "https://shop.example/", "entityType": "מקום_קבוע" },
+      "expect": { "isCandidate": false, "relationship": "SAME_PLACE_DIFFERENT_RECORD", "identityKinds": [] }
+    },
+    {
+      "id": "legitimate_single_distinctive_token_cross_source_duplicate_synthetic",
+      "a": { "name": "פינגווינלנד", "lat": 32.3, "lon": 34.9, "sourceUrl": "https://penguinland.example/", "entityType": "מקום_קבוע" },
+      "b": { "name": "ביקור במתחם פינגווינלנד המדהים", "lat": 32.3, "lon": 34.9, "sourceUrl": "https://aggregator.example/", "entityType": "מקום_קבוע" },
+      "expect": { "isCandidate": true, "relationship": "POSSIBLE_DUPLICATE", "identityKinds": ["offering_name_identity", "independent_sources_agree"] }
+    }
+  ]
+}
