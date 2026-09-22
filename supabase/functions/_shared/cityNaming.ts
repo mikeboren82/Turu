@@ -8,6 +8,14 @@ const HYPHEN_LIKE_RE = /[-־–—]/g;
 const KRIAT_RE = /(^|\s)קרית(\s|$)/g;
 const WHITESPACE_RE = /\s+/g;
 
+// Canonical City Alias Fix (2026-09-22) - see the Node twin's comment for the full rationale and the
+// live-data verification behind each entry (never inferred from name similarity alone).
+export const CANONICAL_CITY_ALIASES: Record<string, string> = {
+  'תל אביב': 'תל אביב יפו',
+  'מודיעין': 'מודיעין מכבים רעות',
+  'קדימה': 'קדימה צורן',
+};
+
 export function normalizeCityName(city: string | null | undefined): string | null {
   if (!city) return city ?? null;
   let s = String(city).trim();
@@ -20,5 +28,6 @@ export function normalizeCityName(city: string | null | undefined): string | nul
   s = s.replace(QUOTE_RE, '');
   s = s.replace(KRIAT_RE, '$1קריית$2');
   s = s.replace(WHITESPACE_RE, ' ').trim();
+  s = CANONICAL_CITY_ALIASES[s] || s;
   return s;
 }

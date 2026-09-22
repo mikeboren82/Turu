@@ -49,11 +49,27 @@ test('digits and internal spacing are preserved', () => {
   assert.equal(normalizeCityName('  חולון  '), 'חולון');
 });
 
-test('no settlement-alias mapping is introduced (out of scope for this fix)', () => {
-  assert.equal(normalizeCityName('תל אביב'), 'תל אביב');
-  assert.notEqual(normalizeCityName('תל אביב'), 'תל אביב יפו');
-  assert.equal(normalizeCityName('מודיעין'), 'מודיעין');
-  assert.notEqual(normalizeCityName('מודיעין'), 'מודיעין מכבים רעות');
+// Canonical City Alias Fix (2026-09-22): a merged-municipality short form is a DIFFERENT STRING for
+// the same settlement (unreachable by the punctuation/niqqud transforms above), confirmed as a live
+// recurrence bug via the "קונטקט לגיל הרך" duplicate (see project memory). Each alias below was
+// verified against real location addresses before being added - never inferred from name shape alone.
+test('CANONICAL ALIAS: תל אביב short form canonicalizes to the official תל אביב יפו, in every punctuation variant', () => {
+  assert.equal(normalizeCityName('תל אביב'), 'תל אביב יפו');
+  assert.equal(normalizeCityName('תל אביב יפו'), 'תל אביב יפו');
+  assert.equal(normalizeCityName('תל אביב-יפו'), 'תל אביב יפו');
+  assert.equal(normalizeCityName('תל אביב־יפו'), 'תל אביב יפו'); // maqaf (U+05BE)
+});
+
+test('CANONICAL ALIAS: מודיעין and קדימה short forms canonicalize to their official merged-municipality names (verified against live location addresses, not inferred from name shape)', () => {
+  assert.equal(normalizeCityName('מודיעין'), 'מודיעין מכבים רעות');
+  assert.equal(normalizeCityName('קדימה'), 'קדימה צורן');
+});
+
+test('CANONICAL ALIAS: unrelated/distinct localities never collapse into the aliased forms', () => {
+  assert.notEqual(normalizeCityName('תל אביב'), normalizeCityName('רמת גן'));
+  assert.notEqual(normalizeCityName('תל אביב'), normalizeCityName('יפו העתיקה'));
+  assert.equal(normalizeCityName('יפו העתיקה'), 'יפו העתיקה', 'a real distinct locality name must never be swept into the alias table');
+  assert.notEqual(normalizeCityName('מודיעין עילית'), normalizeCityName('מודיעין'), 'מודיעין עילית is a wholly separate city, never touched by the מודיעין alias (exact-match only, not a prefix match)');
 });
 
 test('distinct cities never collapse into each other after the fix', () => {

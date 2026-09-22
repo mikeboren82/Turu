@@ -43,11 +43,23 @@ Deno.test("digits and internal spacing are preserved", () => {
   assertEquals(normalizeCityName("  חולון  "), "חולון");
 });
 
-Deno.test("no settlement-alias mapping is introduced (out of scope for this fix)", () => {
-  assertEquals(normalizeCityName("תל אביב"), "תל אביב");
-  assertNotEquals(normalizeCityName("תל אביב"), "תל אביב יפו");
-  assertEquals(normalizeCityName("מודיעין"), "מודיעין");
-  assertNotEquals(normalizeCityName("מודיעין"), "מודיעין מכבים רעות");
+Deno.test("CANONICAL ALIAS: תל אביב short form canonicalizes to the official תל אביב יפו, in every punctuation variant", () => {
+  assertEquals(normalizeCityName("תל אביב"), "תל אביב יפו");
+  assertEquals(normalizeCityName("תל אביב יפו"), "תל אביב יפו");
+  assertEquals(normalizeCityName("תל אביב-יפו"), "תל אביב יפו");
+  assertEquals(normalizeCityName("תל אביב־יפו"), "תל אביב יפו");
+});
+
+Deno.test("CANONICAL ALIAS: מודיעין and קדימה short forms canonicalize to their official merged-municipality names", () => {
+  assertEquals(normalizeCityName("מודיעין"), "מודיעין מכבים רעות");
+  assertEquals(normalizeCityName("קדימה"), "קדימה צורן");
+});
+
+Deno.test("CANONICAL ALIAS: unrelated/distinct localities never collapse into the aliased forms", () => {
+  assertNotEquals(normalizeCityName("תל אביב"), normalizeCityName("רמת גן"));
+  assertNotEquals(normalizeCityName("תל אביב"), normalizeCityName("יפו העתיקה"));
+  assertEquals(normalizeCityName("יפו העתיקה"), "יפו העתיקה");
+  assertNotEquals(normalizeCityName("מודיעין עילית"), normalizeCityName("מודיעין"));
 });
 
 Deno.test("distinct cities never collapse into each other after the fix", () => {
