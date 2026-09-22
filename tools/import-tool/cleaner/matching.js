@@ -33,7 +33,7 @@ async function getExistingActivitiesForCity(client, city, cache) {
   if (cache.has(norm)) return cache.get(norm);
   const cityVariants = [...new Set([norm, city].filter(Boolean))];
   const { data, error } = await client.from('activities')
-    .select('id, name, name_source, description, category, entity_type, min_age, max_age, price_type, price_amount, booking_requirement, source_url, venue_id, event_fingerprint, event_key, event_key_kind, official_url, source_id, location:locations!inner(name, city, lat, lng, address, address_source), activity_schedules(schedule_type, one_time_date, start_time, end_time, day_of_week), activity_images(url)')
+    .select('id, name, name_source, description, category, entity_type, min_age, max_age, price_type, price_amount, booking_requirement, source_url, venue_id, event_fingerprint, event_key, event_key_kind, official_url, source_id, organizer_name, duration_minutes, location:locations!inner(name, city, lat, lng, address, address_source), activity_schedules(schedule_type, one_time_date, start_time, end_time, day_of_week), activity_images(url)')
     .in('location.city', cityVariants).eq('status', 'approved');
   if (error) throw error;
   const mapped = (data || []).map((a) => mapExistingRow(a));
@@ -59,6 +59,7 @@ function mapExistingRow(a, today = new Date().toISOString().slice(0, 10)) {
     lat: a.location?.lat ?? null, lng: a.location?.lng ?? null,
     venue_id: a.venue_id ?? null, event_fingerprint: a.event_fingerprint ?? null,
     event_key: a.event_key ?? null, event_key_kind: a.event_key_kind ?? null, official_url: a.official_url ?? null, source_id: a.source_id ?? null, entity_type: a.entity_type ?? null,
+    organizer_name: a.organizer_name ?? null, duration_minutes: a.duration_minutes ?? null,
     schedule_type: next ? 'one_time' : (sched?.schedule_type ?? null), one_time_date: next ? next.date : (sched?.one_time_date ?? null),
     start_time: next ? next.start_time : (sched?.start_time ? String(sched.start_time).slice(0, 5) : null), end_time: next ? next.end_time : (sched?.end_time ? String(sched.end_time).slice(0, 5) : null),
     recurring_days: rows.map((s) => s.day_of_week).filter(Boolean),
@@ -93,6 +94,48 @@ function placeLabelsDisagree(a, b) {
   const x = fold(a), y = fold(b);
   if (!x || !y) return false;
   return !(x === y || x.includes(y) || y.includes(x));
+}
+
+// STANDING PROGRAMME MATCH (Repertoire Phase 1, 2026-09-22) - Node twin of _shared/matching.ts's
+// isStandingProgrammeMatch/titleMatchesStandingProgramme. See that file's header comment for the
+// full rationale (Train Theater natural experiment: exact-title pair scores ~0.70, fuzzy-subtitle
+// pair scores ~0.50 - both structurally capped by schedule_match=0 on an undated row). Keep in
+// lockstep; tests/standingProgrammeMatch.test.js pins the shared cases against
+// supabase/functions/_shared/standingProgrammeMatch.test.ts.
+function fieldsConflict(a, b) { return a != null && b != null && a !== b; }
+
+const TRIVIAL_STANDING_TITLE_WORDS = new Set(['הצגה', 'הצגת', 'מופע', 'סדנה', 'סדנת', 'אירוע', 'פעילות', 'סיפור', 'שעת', 'סיור']);
+function isTrivialStandingTitle(normalized) {
+  const words = normalized.split(' ').filter(Boolean);
+  return words.length === 0 || words.every((w) => TRIVIAL_STANDING_TITLE_WORDS.has(w));
+}
+
+const STANDING_SUBTITLE_MAX_WORDS = 3;
+function titleMatchesStandingProgramme(candidateTitle, standingTitle) {
+  const c = normalizeForMatch(candidateTitle);
+  const s = normalizeForMatch(standingTitle);
+  if (!c || !s) return false;
+  if (c === s) return true;
+  if (isTrivialStandingTitle(s)) return false;
+  if (!c.startsWith(s + ' ')) return false;
+  const suffix = c.slice(s.length).trim();
+  const suffixWords = suffix.split(' ').filter(Boolean);
+  if (!suffixWords.length || suffixWords.length > STANDING_SUBTITLE_MAX_WORDS) return false;
+  if (/\d/.test(suffix)) return false;
+  return true;
+}
+
+function isStandingProgrammeMatch(candidate, existing) {
+  if (existing.entity_type !== 'אירוע_קבוע') return false;
+  if (!existing.venue_id || !candidate.venue_id || existing.venue_id !== candidate.venue_id) return false;
+  if (existing.schedule_type === 'recurring') return false;
+  if (fieldsConflict(candidate.price_type, existing.price_type)) return false;
+  if (fieldsConflict(candidate.price_amount, existing.price_amount)) return false;
+  if (fieldsConflict(candidate.min_age, existing.min_age)) return false;
+  if (fieldsConflict(candidate.max_age, existing.max_age)) return false;
+  if (fieldsConflict(candidate.organizer_name, existing.organizer_name)) return false;
+  if (fieldsConflict(candidate.duration_minutes, existing.duration_minutes)) return false;
+  return titleMatchesStandingProgramme(candidate.name, existing.name);
 }
 
 function computeConfidence(candidate, existing, thresholds) {
@@ -142,4 +185,14 @@ async function bestMatch(client, candidate, thresholds, cache) {
   return best;
 }
 
-module.exports = { distinctiveSharedWords, wordOverlapScore, haversineKm, getConfidenceThresholds, getExistingActivitiesForCity, findSimilarActivities, computeConfidence, bestMatch, mapExistingRow, candidateDates, existingDates, GENRE_WORDS };
+// Standing-programme eligible candidates among the SAME `similar` pool findSimilarActivities already
+// fetched (Repertoire Phase 1) - returns every existing row that passes the title+venue+field-
+// conflict guard, letting the caller ALSO apply its own wrapper/zone shape check (assessGranularity,
+// deliberately without the parent_sibling_exists DB signal - see matching.ts's header comment)
+// before picking one. Never picks for the caller: this module knows nothing about granularity.
+async function findStandingProgrammeMatch(client, candidate, cache) {
+  const similar = await findSimilarActivities(client, candidate, cache);
+  return similar.filter((existing) => isStandingProgrammeMatch(candidate, existing));
+}
+
+module.exports = { distinctiveSharedWords, wordOverlapScore, haversineKm, getConfidenceThresholds, getExistingActivitiesForCity, findSimilarActivities, computeConfidence, bestMatch, mapExistingRow, candidateDates, existingDates, GENRE_WORDS, isStandingProgrammeMatch, titleMatchesStandingProgramme, findStandingProgrammeMatch };

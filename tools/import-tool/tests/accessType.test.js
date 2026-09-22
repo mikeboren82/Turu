@@ -167,7 +167,7 @@ test('access policy is independent of category and entity_type, and null/unknown
 });
 
 test('missingTemporalEvidence stays a separate axis: the same temporal gap on a private and a public row', () => {
-  assert.equal(missingTemporalEvidence({ entity_type: 'אירוע_קבוע' }), 'recurring_event_without_schedule');
+  assert.equal(missingTemporalEvidence({ entity_type: 'אירוע_קבוע' }), 'awaiting_schedule');
   assert.equal(missingTemporalEvidence(ZOO_BIRTHDAY), missingTemporalEvidence(NIGHT_TOUR), 'temporal evidence cannot tell them apart');
   assert.notEqual(assessAccessType(ZOO_BIRTHDAY).access, assessAccessType(NIGHT_TOUR).access, 'access can');
   assert.equal(missingTemporalEvidence(SATURDAY_PROGRAMME), null);

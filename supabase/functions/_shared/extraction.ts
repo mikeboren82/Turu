@@ -397,7 +397,15 @@ export function missingTemporalEvidence(c: TemporalCandidate): string | null {
   if (c.schedule_type === 'one_time') return hasDate ? null : 'one_time_without_date';
   if (c.schedule_type === 'recurring') return days.length ? null : 'recurring_without_days';
   if (c.entity_type === 'אירוע') return 'event_without_one_time_schedule';
-  if ((c.entity_type === 'אירוע_קבוע' || c.entity_type === 'פעילות') && !c.schedule_type) return 'recurring_event_without_schedule';
+  // Repertoire Phase 1 (2026-09-22): a standing programme record (אירוע_קבוע, no schedule shape at
+  // all) is NOT missing/broken data - it is a valid programme identity awaiting its first announced
+  // performance (project memory: the READ-ONLY repertoire forensic, Train Theater's 13 standing
+  // shows). Still a GATING issue (routes to review, never auto-published) - only the framing
+  // changes, from "missing activity days" to "awaiting a schedule". 'פעילות' (a workshop/class) is
+  // UNCHANGED: it genuinely needs a real recurring cadence to be legitimate (commitment-policy
+  // doctrine, shouldArchiveForCommitment), so it keeps the original code.
+  if (c.entity_type === 'אירוע_קבוע' && !c.schedule_type) return 'awaiting_schedule';
+  if (c.entity_type === 'פעילות' && !c.schedule_type) return 'recurring_event_without_schedule';
   return null;
 }
 // the prompt's own definition: a repeating schedule is never a plain "אירוע" - deterministic model repair
@@ -407,7 +415,7 @@ export function repairEntityTypeFromSchedule(c: TemporalCandidate): unknown {
   return c.entity_type ?? null;
 }
 // validation-issue label shown in the review queue for each code ('תאריך' is what sanitize already pushes for one-time)
-export const TEMPORAL_ISSUE_LABEL: Record<string, string> = { one_time_without_date: 'תאריך', recurring_without_days: 'ימי פעילות', event_without_one_time_schedule: 'תאריך', recurring_event_without_schedule: 'ימי פעילות' };
+export const TEMPORAL_ISSUE_LABEL: Record<string, string> = { one_time_without_date: 'תאריך', recurring_without_days: 'ימי פעילות', event_without_one_time_schedule: 'תאריך', recurring_event_without_schedule: 'ימי פעילות', awaiting_schedule: 'ממתין ללוח זמנים' };
 
 // Auto-publish date sanity: a one-time event must have a real, well-formed date that is today or
 // in the near future (default 180 days). Anything else is not "HIGH confidence" and goes to review.

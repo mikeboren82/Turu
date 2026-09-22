@@ -105,6 +105,11 @@ export interface ExistingActivity {
   official_url?: string | null;
   source_id?: string | null;
   address_source?: string | null;
+  // Repertoire Phase 1 (2026-09-22): the field-conflict guard on isStandingProgrammeMatch needs
+  // these two - a materially different organizer or duration means the candidate documents a
+  // DIFFERENT offering that merely shares a title/venue, never a performance to attach.
+  organizer_name?: string | null;
+  duration_minutes?: number | null;
 }
 
 const HEBREW_DAY_ORDER = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
@@ -127,6 +132,7 @@ export function mapExistingRow(a: any, today = new Date().toISOString().slice(0,
     lat: a.location?.lat ?? null, lng: a.location?.lng ?? null,
     venue_id: a.venue_id ?? null, event_fingerprint: a.event_fingerprint ?? null,
     event_key: a.event_key ?? null, event_key_kind: a.event_key_kind ?? null, official_url: a.official_url ?? null, source_id: a.source_id ?? null, entity_type: a.entity_type ?? null,
+    organizer_name: a.organizer_name ?? null, duration_minutes: a.duration_minutes ?? null,
     schedule_type: next ? 'one_time' : (sched?.schedule_type ?? null), one_time_date: next ? next.date : (sched?.one_time_date ?? null),
     start_time: next ? next.start_time : (sched?.start_time ? String(sched.start_time).slice(0, 5) : null), end_time: next ? next.end_time : (sched?.end_time ? String(sched.end_time).slice(0, 5) : null),
     recurring_days: rows.map((s) => s.day_of_week).filter(Boolean),
@@ -138,10 +144,83 @@ export function mapExistingRow(a: any, today = new Date().toISOString().slice(0,
 export const EXISTING_ACTIVITY_SELECT = `
       id, name, name_source, description, category, entity_type, min_age, max_age, price_type, price_amount,
       booking_requirement, source_url, venue_id, event_fingerprint, event_key, event_key_kind, official_url, source_id,
+      organizer_name, duration_minutes,
       location:locations!inner(name, city, lat, lng, address, address_source),
       activity_schedules(schedule_type, one_time_date, start_time, end_time, day_of_week),
       activity_images(url)
     `;
+
+// STANDING PROGRAMME MATCH (Repertoire Phase 1, 2026-09-22). The READ-ONLY forensic proved the real
+// shape (a dated ticketing candidate vs. its own standing repertoire record, e.g. Train Theater's
+// "המדריך להרפתקן") scores only ~0.70 under computeConfidence - blocked mainly by schedule_match=0,
+// which is structurally impossible for an undated row to ever satisfy. The fuzzy-subtitle variant
+// ("אקווקוודלה" vs "אקווקוודלה | הצגה חדשה") scores only ~0.50 - BELOW needsReview - and would
+// create a duplicate activity instead of attaching. This is a narrower, more specific signal than
+// generic word-overlap scoring: title identity + venue identity + no conflicting activity-level
+// fields. It never bypasses the existing needs_review queue - it only widens WHICH pairing reaches
+// 'update' classification; applyIncomingUpdate's existing occurrence-insert path (unchanged) does
+// the actual write once a human approves, exactly like every other 'update' in this codebase.
+//
+// Deliberately does NOT check offering_access_type or run assessGranularity here - those are the
+// caller's job (scan-source/cleaner already import _shared/granularity.ts for the wrapper/zone
+// check, run WITHOUT the parent_sibling_exists DB signal per the forensic's own finding that 17/59
+// legitimate standing rows are only flagged by that one signal - Section 8 of the task).
+function fieldsConflict(a: unknown, b: unknown): boolean {
+  return a != null && b != null && a !== b;
+}
+
+// A tiny, LOCAL generic-word set for the fuzzy-prefix safety check only - NOT eventIdentity.ts's
+// full GENERIC_TITLE_STOPWORDS (importing it here would be circular: it already imports
+// normalizeForMatch from this file). Narrower on purpose: this only needs to refuse an all-generic
+// STANDING title as a fuzzy-match prefix, not compute full event identity.
+const TRIVIAL_STANDING_TITLE_WORDS = new Set(['הצגה', 'הצגת', 'מופע', 'סדנה', 'סדנת', 'אירוע', 'פעילות', 'סיפור', 'שעת', 'סיור']);
+function isTrivialStandingTitle(normalized: string): boolean {
+  const words = normalized.split(' ').filter(Boolean);
+  return words.length === 0 || words.every((w) => TRIVIAL_STANDING_TITLE_WORDS.has(w));
+}
+
+const STANDING_SUBTITLE_MAX_WORDS = 3;
+// Exact normalized title is the default and always safe. A conservative fuzzy path handles a
+// known real shape: the candidate title is the standing title PLUS a short subtitle/qualifier
+// suffix ("X" -> "X | תיאור קצר"). Deliberately refuses: an all-generic standing title (never a safe
+// prefix), a suffix containing a digit (a sequel/different production, e.g. "X 2" - refuse), and a
+// long suffix (more than 3 words suggests an unrelated, coincidentally-prefixed title).
+export function titleMatchesStandingProgramme(candidateTitle: string | null | undefined, standingTitle: string | null | undefined): boolean {
+  const c = normalizeForMatch(candidateTitle);
+  const s = normalizeForMatch(standingTitle);
+  if (!c || !s) return false;
+  if (c === s) return true;
+  if (isTrivialStandingTitle(s)) return false;
+  if (!c.startsWith(s + ' ')) return false;
+  const suffix = c.slice(s.length).trim();
+  const suffixWords = suffix.split(' ').filter(Boolean);
+  if (!suffixWords.length || suffixWords.length > STANDING_SUBTITLE_MAX_WORDS) return false;
+  if (/\d/.test(suffix)) return false;
+  return true;
+}
+
+export interface StandingProgrammeCandidate {
+  name?: string | null; venue_id?: string | null; price_type?: string | null; price_amount?: number | null;
+  min_age?: number | null; max_age?: number | null; organizer_name?: string | null; duration_minutes?: number | null;
+}
+// Eligibility + field-conflict guard (Section 12): a materially different price/age/organizer/
+// duration means the dated candidate documents a DIFFERENT offering that merely shares a title and
+// venue - never auto-fold, let it fall through to ordinary scoring/review instead.
+export function isStandingProgrammeMatch(candidate: StandingProgrammeCandidate, existing: ExistingActivity): boolean {
+  if (existing.entity_type !== 'אירוע_קבוע') return false;
+  // never guess a venue/parent (Section 5) - both sides must name the SAME canonical venue
+  if (!existing.venue_id || !candidate.venue_id || existing.venue_id !== candidate.venue_id) return false;
+  // a real weekly-cadence series (49/108 in the forensic) is a different class, not an
+  // awaiting-dates programme - do not treat its own recurring rows as an attach target
+  if (existing.schedule_type === 'recurring') return false;
+  if (fieldsConflict(candidate.price_type, existing.price_type)) return false;
+  if (fieldsConflict(candidate.price_amount, existing.price_amount)) return false;
+  if (fieldsConflict(candidate.min_age, existing.min_age)) return false;
+  if (fieldsConflict(candidate.max_age, existing.max_age)) return false;
+  if (fieldsConflict(candidate.organizer_name, existing.organizer_name)) return false;
+  if (fieldsConflict(candidate.duration_minutes, existing.duration_minutes)) return false;
+  return titleMatchesStandingProgramme(candidate.name, existing.name);
+}
 
 // Exact-match key for dated/recurring events. null for fixed-hours places (those dedupe by
 // google_place_id / proximity). venue_id beats city when known - the same event at the same venue

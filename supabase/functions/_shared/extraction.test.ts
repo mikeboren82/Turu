@@ -17,12 +17,19 @@ Deno.test('temporal gate: a one-time event needs a date (or occurrences), a recu
   assertEquals(missingTemporalEvidence({ entity_type: 'אירוע', schedule_type: 'one_time', one_time_date: null, occurrences: [{ date: '2026-10-01' }] }), null);
   assertEquals(missingTemporalEvidence({ entity_type: 'אירוע_קבוע', schedule_type: 'recurring', recurring_days: [] }), 'recurring_without_days');
   assertEquals(missingTemporalEvidence({ entity_type: 'פעילות', schedule_type: 'recurring', recurring_days: ['שני'] }), null);
-  assertEquals(missingTemporalEvidence({ entity_type: 'אירוע_קבוע', schedule_type: null }), 'recurring_event_without_schedule');
+  assertEquals(missingTemporalEvidence({ entity_type: 'פעילות', schedule_type: null }), 'recurring_event_without_schedule', 'a workshop/class genuinely needs a real recurring cadence - unchanged');
   assertEquals(missingTemporalEvidence({ entity_type: 'אירוע', schedule_type: 'fixed_hours' }), 'event_without_one_time_schedule');
   // evergreen: an OSM / Google playground or any permanent place without hours stays valid
   assertEquals(missingTemporalEvidence({ entity_type: 'מקום_קבוע', schedule_type: 'fixed_hours', start_time: null }), null);
   assertEquals(missingTemporalEvidence({ entity_type: 'מקום_קבוע', schedule_type: null }), null);
   assertEquals(TEMPORAL_ISSUE_LABEL.recurring_without_days, 'ימי פעילות');
+});
+
+Deno.test('REPERTOIRE PHASE 1 (2026-09-22): a standing programme record (אירוע_קבוע, no schedule at all) is "awaiting_schedule", not "missing" data', () => {
+  assertEquals(missingTemporalEvidence({ entity_type: 'אירוע_קבוע', schedule_type: null }), 'awaiting_schedule');
+  assertEquals(TEMPORAL_ISSUE_LABEL.awaiting_schedule, 'ממתין ללוח זמנים');
+  assertEquals(missingTemporalEvidence({ entity_type: 'אירוע_קבוע', schedule_type: 'recurring', recurring_days: ['שבת'] }), null);
+  assertEquals(missingTemporalEvidence({ entity_type: 'אירוע_קבוע', schedule_type: 'one_time', one_time_date: '2026-10-01' }), null);
 });
 
 Deno.test('temporal gate: an "אירוע" with a repeating schedule is repaired to אירוע_קבוע (the prompt definition), nothing else is touched', () => {

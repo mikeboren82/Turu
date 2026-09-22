@@ -48,6 +48,7 @@ import { geocodeAddress } from '../_shared/geocoding.ts';
 import {
   findSimilarActivities, computeConfidence, computeFieldDiff, getConfidenceThresholds, computeEventFingerprint,
   computeEventFingerprintProbes, mapExistingRow, EXISTING_ACTIVITY_SELECT, normalizeForMatch, type ExistingActivity,
+  isStandingProgrammeMatch,
 } from '../_shared/matching.ts';
 import { generatePlaygroundDisplayName } from '../_shared/playgroundNaming.ts';
 import { normalizeCityName } from '../_shared/cityNaming.ts';
@@ -1035,6 +1036,24 @@ Deno.serve(async (req: Request) => {
             const confidence = computeConfidence(candidate, existing, thresholds);
             if (!bestMatch || confidence.score > bestMatch.confidence.score) bestMatch = { activity: existing, confidence };
           }
+          // STANDING PROGRAMME MATCH (Repertoire Phase 1, 2026-09-22): the real shape (a dated
+          // candidate vs. its own standing repertoire record at the same venue) scores only ~0.70
+          // under computeConfidence, and the fuzzy-subtitle variant only ~0.50 - both capped by
+          // schedule_match=0, structurally impossible for an undated row. A dedicated, narrower
+          // signal (title+venue identity, no conflicting price/age/organizer/duration) than generic
+          // word-overlap scoring. Independently excludes wrapper/zone-shaped rows via
+          // assessGranularity WITHOUT the parent_sibling_exists DB signal (Section 8: 17/59
+          // legitimate standing rows are only flagged by that one signal). Still only ever reaches
+          // needs_review, same as every other 'update' - never bypasses the review queue.
+          let standingMatch: ExistingActivity | null = null;
+          for (const existing of similar) {
+            if (!isStandingProgrammeMatch(candidate, existing)) continue;
+            const shape = assessGranularity({ name: existing.name, description: existing.description, schedule_type: null, price_type: existing.price_type, registration_url: existing.official_url, booking_requirement: existing.booking_requirement });
+            if (shape.reason === 'wrapper') continue;
+            if (shape.reason === 'sub_entity' && shape.evidence.some((e) => e.code === 'zone_title' || e.code === 'zone_description')) continue;
+            standingMatch = existing;
+            break;
+          }
 
           // An "update" whose ONLY content is the event identity of a row that has none (rows created before
           // wave 1) is not a change a person can judge - it is bookkeeping. It is written fill-null on the
@@ -1090,6 +1109,13 @@ Deno.serve(async (req: Request) => {
             existingActivityId = bestMatch.activity.id;
             confidenceScore = bestMatch.confidence.score; confidenceBreakdown = bestMatch.confidence.breakdown;
             diff = computeFieldDiff(candidate, bestMatch.activity);
+            counters.updatedCount++;
+          } else if (standingMatch) {
+            // fixed, documented rule-based score - not a weighted computeConfidence output
+            matchType = 'update'; status = 'needs_review';
+            existingActivityId = standingMatch.id;
+            confidenceScore = 0.65; confidenceBreakdown = { standing_programme_match: 1 };
+            diff = computeFieldDiff(candidate, standingMatch);
             counters.updatedCount++;
           } else {
             matchType = 'new';

@@ -16,7 +16,15 @@ test('recurring event without weekdays is missing evidence; with days it is not'
   assert.equal(missingTemporalEvidence({ entity_type: 'אירוע_קבוע', schedule_type: 'recurring', recurring_days: [] }), 'recurring_without_days');
   assert.equal(missingTemporalEvidence({ entity_type: 'פעילות', schedule_type: 'recurring', recurring_days: null }), 'recurring_without_days');
   assert.equal(missingTemporalEvidence({ entity_type: 'פעילות', schedule_type: 'recurring', recurring_days: ['שני', 'רביעי'] }), null);
-  assert.equal(missingTemporalEvidence({ entity_type: 'אירוע_קבוע', schedule_type: null }), 'recurring_event_without_schedule');
+  assert.equal(missingTemporalEvidence({ entity_type: 'פעילות', schedule_type: null }), 'recurring_event_without_schedule', 'a workshop/class genuinely needs a real recurring cadence (commitment-policy doctrine) - unchanged');
+});
+
+test('REPERTOIRE PHASE 1 (2026-09-22): a standing programme record (אירוע_קבוע, no schedule at all) is "awaiting_schedule", not "missing" data', () => {
+  assert.equal(missingTemporalEvidence({ entity_type: 'אירוע_קבוע', schedule_type: null }), 'awaiting_schedule');
+  assert.equal(ISSUE_LABEL.awaiting_schedule, 'ממתין ללוח זמנים');
+  // once it gains a real cadence or a date, it clears exactly like before - unaffected by this change
+  assert.equal(missingTemporalEvidence({ entity_type: 'אירוע_קבוע', schedule_type: 'recurring', recurring_days: ['שבת'] }), null);
+  assert.equal(missingTemporalEvidence({ entity_type: 'אירוע_קבוע', schedule_type: 'one_time', one_time_date: '2026-10-01' }), null);
 });
 
 test('an "אירוע" with a non one-time schedule is a model contradiction, never silently approvable', () => {

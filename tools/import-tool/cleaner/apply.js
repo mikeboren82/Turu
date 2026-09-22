@@ -17,10 +17,11 @@
 const { normalizeCityName } = require('../cityNaming');
 const { assessChildRelevance } = require('../childRelevance');
 const { computeEventFingerprint } = require('../eventFingerprint');
-const { bestMatch } = require('./matching');
+const { bestMatch, findStandingProgrammeMatch } = require('./matching');
 const { isMissingCity } = require('../lib/canonicalSettlement');
 const { missingTemporalEvidence } = require('../lib/temporalEvidence');
 const { assessAccessType, blocksAutoPublish } = require('../lib/accessType');
+const { assessGranularity } = require('../lib/granularity');
 const { upsertProvenanceSafe } = require('../lib/activitySourceMerge');
 
 const SOFT = new Set(['מחיר']);
@@ -74,7 +75,9 @@ async function patchIncomingLocation(client, row, loc) {
 // source-trust gate does not apply; every other guard (matcher, date, relevance, /approve dedup) does
 async function handBackIncoming(client, row, { settings, userId, cache, today, counters, trustedOverride = false }) {
   const c = row.extracted_data || {};
-  const candidate = { name: c.name, city: c.city, location_name: c.location_name || null, pageUrl: row.page_url, venue_id: c.venue_id || null, lat: c.lat ?? null, lng: c.lng ?? null, one_time_date: c.one_time_date || null, recurring_days: c.recurring_days || [], event_fingerprint: c.event_fingerprint || computeEventFingerprint({ name: c.name, venueId: c.venue_id || null, city: c.city, scheduleType: c.schedule_type, oneTimeDate: c.one_time_date, recurringDays: c.recurring_days, startTime: c.start_time }) };
+  const candidate = { name: c.name, city: c.city, location_name: c.location_name || null, pageUrl: row.page_url, venue_id: c.venue_id || null, lat: c.lat ?? null, lng: c.lng ?? null, one_time_date: c.one_time_date || null, recurring_days: c.recurring_days || [], event_fingerprint: c.event_fingerprint || computeEventFingerprint({ name: c.name, venueId: c.venue_id || null, city: c.city, scheduleType: c.schedule_type, oneTimeDate: c.one_time_date, recurringDays: c.recurring_days, startTime: c.start_time }),
+    // Repertoire Phase 1 (2026-09-22): read by isStandingProgrammeMatch's field-conflict guard only
+    price_type: c.price_type ?? null, price_amount: c.price_amount ?? null, min_age: c.min_age ?? null, max_age: c.max_age ?? null, organizer_name: c.organizer_name ?? null, duration_minutes: c.duration_minutes ?? null };
   const match = await bestMatch(client, candidate, settings.thresholds, cache);
   const now = new Date().toISOString();
   if (match && match.confidence.score >= settings.thresholds.duplicate) {
@@ -91,6 +94,27 @@ async function handBackIncoming(client, row, { settings, userId, cache, today, c
   if (match && match.confidence.score >= settings.thresholds.needsReview) {
     await client.from('incoming_activities').update({ match_type: 'update', existing_activity_id: match.activity.id, confidence_score: match.confidence.score, confidence_breakdown: match.confidence.breakdown, status: 'needs_review' }).eq('id', row.id).in('status', OPEN_INCOMING);
     return { outcome: 'possible_update', activity_id: match.activity.id, score: match.confidence.score };
+  }
+  // STANDING PROGRAMME MATCH (Repertoire Phase 1, 2026-09-22): a dated candidate whose generic
+  // score falls short (the Train Theater fuzzy-subtitle shape scores ~0.50, below needsReview) but
+  // whose title+venue identity strongly matches an existing standing programme (entity_type
+  // אירוע_קבוע, no cadence of its own, no conflicting price/age/organizer/duration). Independently
+  // excludes wrapper/zone-shaped rows via assessGranularity, WITHOUT the parent_sibling_exists DB
+  // signal (Section 8: 17/59 legitimate standing rows are only flagged by that one signal - eligibility
+  // here must not depend on it). Still only ever reaches needs_review, same as every other 'update'.
+  if (!match) {
+    const standingCandidates = await findStandingProgrammeMatch(client, candidate, cache);
+    const standing = standingCandidates.find((existing) => {
+      const shape = assessGranularity({ name: existing.name, description: existing.description, schedule_type: null, price_type: existing.price_type, registration_url: existing.official_url, booking_requirement: existing.booking_requirement });
+      if (shape.reason === 'wrapper') return false;
+      if (shape.reason === 'sub_entity' && shape.evidence.some((e) => e.code === 'zone_title' || e.code === 'zone_description')) return false;
+      return true;
+    });
+    if (standing) {
+      const STANDING_PROGRAMME_SCORE = 0.65; // fixed, documented rule-based score - not a weighted computeConfidence output
+      await client.from('incoming_activities').update({ match_type: 'update', existing_activity_id: standing.id, confidence_score: STANDING_PROGRAMME_SCORE, confidence_breakdown: { standing_programme_match: 1 }, status: 'needs_review' }).eq('id', row.id).in('status', OPEN_INCOMING);
+      return { outcome: 'possible_update', activity_id: standing.id, score: STANDING_PROGRAMME_SCORE, via: 'standing_programme_match' };
+    }
   }
   // policy = the same gate reprocess-review-queue.js / the scanner use
   const { data: src } = await client.from('sources').select('is_trusted, source_trust_score').eq('id', row.source_id).maybeSingle();

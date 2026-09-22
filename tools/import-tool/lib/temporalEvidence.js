@@ -13,7 +13,13 @@ function missingTemporalEvidence(c) {
   if (c.schedule_type === 'one_time') return hasDate ? null : 'one_time_without_date';
   if (c.schedule_type === 'recurring') return recurringDays(c).length ? null : 'recurring_without_days';
   if (c.entity_type === 'אירוע') return 'event_without_one_time_schedule';
-  if ((c.entity_type === 'אירוע_קבוע' || c.entity_type === 'פעילות') && !c.schedule_type) return 'recurring_event_without_schedule';
+  // Repertoire Phase 1 (2026-09-22): a standing programme record (אירוע_קבוע, no schedule shape at
+  // all) is NOT missing/broken data - it is a valid programme identity awaiting its first announced
+  // performance. Still a GATING issue (routes to review, never auto-published) - only the framing
+  // changes. 'פעילות' (a workshop/class) is UNCHANGED: it genuinely needs a real recurring cadence
+  // to be legitimate (commitment-policy doctrine), so it keeps the original code.
+  if (c.entity_type === 'אירוע_קבוע' && !c.schedule_type) return 'awaiting_schedule';
+  if (c.entity_type === 'פעילות' && !c.schedule_type) return 'recurring_event_without_schedule';
   return null;
 }
 
@@ -24,6 +30,6 @@ function repairEntityTypeFromSchedule(c) {
 }
 
 // validation-issue label the queue shows for each code ('תאריך' already exists for one_time)
-const ISSUE_LABEL = { one_time_without_date: 'תאריך', recurring_without_days: 'ימי פעילות', event_without_one_time_schedule: 'תאריך', recurring_event_without_schedule: 'ימי פעילות' };
+const ISSUE_LABEL = { one_time_without_date: 'תאריך', recurring_without_days: 'ימי פעילות', event_without_one_time_schedule: 'תאריך', recurring_event_without_schedule: 'ימי פעילות', awaiting_schedule: 'ממתין ללוח זמנים' };
 
 module.exports = { missingTemporalEvidence, repairEntityTypeFromSchedule, ISSUE_LABEL };
