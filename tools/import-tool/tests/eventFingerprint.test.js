@@ -80,3 +80,20 @@ test('REVERSE DIRECTION (reported, not implemented): a venue-less candidate prod
   assert.equal(probes.length, 1);
   assert.ok(probes[0].startsWith('הקוסם מארץ עוץ|c:'));
 });
+
+// --- Hebrew city-form normalization ("Normalize Hebrew City Names for Stable Fingerprints",
+// 2026-09-22) - the city segment of a venue-less fingerprint goes through normalizeCityName, so a
+// niqqud-spelled city (a plausible LLM scan output) must produce the SAME fingerprint as the plain
+// form already stored, without collapsing genuinely different cities.
+test('FINGERPRINT SAFETY: niqqud-spelled city produces the identical fingerprint as the plain form', () => {
+  const withNiqqud = computeEventFingerprint({ name: 'שעת סיפור', city: 'בְּאֵר שֶׁבַע', scheduleType: 'one_time', oneTimeDate: '2026-09-27', startTime: '10:00' });
+  const plain = computeEventFingerprint({ name: 'שעת סיפור', city: 'באר שבע', scheduleType: 'one_time', oneTimeDate: '2026-09-27', startTime: '10:00' });
+  assert.equal(withNiqqud, plain);
+  assert.equal(withNiqqud, 'שעת סיפור|c:באר שבע|2026-09-27|10:00');
+});
+
+test('FINGERPRINT SAFETY: niqqud normalization never collapses two genuinely different cities', () => {
+  const beerSheva = computeEventFingerprint({ name: 'שעת סיפור', city: 'בְּאֵר שֶׁבַע', scheduleType: 'one_time', oneTimeDate: '2026-09-27', startTime: '10:00' });
+  const beitShemesh = computeEventFingerprint({ name: 'שעת סיפור', city: 'בֵּית שֶׁמֶשׁ', scheduleType: 'one_time', oneTimeDate: '2026-09-27', startTime: '10:00' });
+  assert.notEqual(beerSheva, beitShemesh);
+});

@@ -3,7 +3,7 @@
 // must surface as an UPDATE diff on the existing activity, not a new row; city spelling variants
 // must not defeat matching. Run with `npx deno test supabase/functions/_shared/`.
 
-import { assertEquals, assert } from "https://deno.land/std@0.224.0/assert/mod.ts";
+import { assertEquals, assertNotEquals, assert } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import { computeConfidence, distinctiveSharedWords, hhmm, descriptionMateriallyDiffers, placeLabelChanged, computeEventFingerprint, computeEventFingerprintProbes, computeFieldDiff, getConfidenceThresholds, type ExistingActivity } from "./matching.ts";
 
 const thresholds = getConfidenceThresholds({});
@@ -161,6 +161,23 @@ Deno.test("REVERSE DIRECTION (reported, not implemented): a venue-keyed existing
   const probes = computeEventFingerprintProbes({ name: "הקוסם מארץ עוץ", venueId: null, city: "רעננה", scheduleType: "one_time", oneTimeDate: "2026-09-27", startTime: "17:00" });
   assertEquals(probes.length, 1);
   assert(probes[0].startsWith("הקוסם מארץ עוץ|c:"));
+});
+
+// --- Hebrew city-form normalization ("Normalize Hebrew City Names for Stable Fingerprints",
+// 2026-09-22) - the city segment of a venue-less fingerprint goes through normalizeCityName, so a
+// niqqud-spelled city (a plausible LLM scan output) must produce the SAME fingerprint as the plain
+// form already stored, without collapsing genuinely different cities. Node twin: eventFingerprint.test.js.
+Deno.test("FINGERPRINT SAFETY: niqqud-spelled city produces the identical fingerprint as the plain form", () => {
+  const withNiqqud = computeEventFingerprint({ name: "שעת סיפור", city: "בְּאֵר שֶׁבַע", scheduleType: "one_time", oneTimeDate: "2026-09-27", startTime: "10:00" });
+  const plain = computeEventFingerprint({ name: "שעת סיפור", city: "באר שבע", scheduleType: "one_time", oneTimeDate: "2026-09-27", startTime: "10:00" });
+  assertEquals(withNiqqud, plain);
+  assertEquals(withNiqqud, "שעת סיפור|c:באר שבע|2026-09-27|10:00");
+});
+
+Deno.test("FINGERPRINT SAFETY: niqqud normalization never collapses two genuinely different cities", () => {
+  const beerSheva = computeEventFingerprint({ name: "שעת סיפור", city: "בְּאֵר שֶׁבַע", scheduleType: "one_time", oneTimeDate: "2026-09-27", startTime: "10:00" });
+  const beitShemesh = computeEventFingerprint({ name: "שעת סיפור", city: "בֵּית שֶׁמֶשׁ", scheduleType: "one_time", oneTimeDate: "2026-09-27", startTime: "10:00" });
+  assertNotEquals(beerSheva, beitShemesh);
 });
 
 Deno.test("city spelling variant no longer breaks city_match", () => {
