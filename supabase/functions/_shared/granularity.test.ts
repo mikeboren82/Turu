@@ -65,6 +65,22 @@ Deno.test("parent_sibling_exists combines with a weak title signal to reach NOT_
   assertEquals(withSibling.verdict, "not_independent");
 });
 
+Deno.test("GRANULARITY FOLLOW-UP (2026-09-22): parent_sibling_exists ALONE, with NO zone-shaped title/description, must never flag a legitimate hosted programme - the 17/59 false-positive pattern", () => {
+  const c = { name: "המדריך להרפתקן", description: "הצגת ילדים בתיאטרון הקרון.", entity_type: "אירוע_קבוע", schedule_type: null, price_type: null };
+  const a = assessGranularity(c, { siblingPlaceAtVenue: true });
+  assertEquals(a.verdict, "independent");
+  assertEquals(a.evidence.some((e) => e.code === "parent_sibling_exists"), false);
+});
+
+Deno.test("GRANULARITY FOLLOW-UP (2026-09-22): parent_sibling_exists STILL corroborates a genuine zone-shaped title/description (Midbarium-style true positive preserved)", () => {
+  const base = { name: "אזור צוקים וטיפוס", description: "אזור בפארק המדמה קניון מדברי עם צוקים תלולים.", price_type: null };
+  const withoutSibling = assessGranularity(base, { siblingPlaceAtVenue: false });
+  assertEquals(withoutSibling.verdict, "not_independent");
+  const withSibling = assessGranularity(base, { siblingPlaceAtVenue: true });
+  assertEquals(withSibling.verdict, "not_independent");
+  assertEquals(withSibling.evidence.some((e) => e.code === "parent_sibling_exists"), true);
+});
+
 Deno.test("NEGATIVE (b0ba1702 boating): own price + own fixed_hours -> INDEPENDENT", () => {
   const c = { name: "שייט בסירה באגם הפארק", description: "אטרקציית שייט בסירה באגם המלאכותי במרכז פארק רעננה.", schedule_type: "fixed_hours", price_type: "fixed" };
   assertEquals(assessGranularity(c).verdict, "independent");

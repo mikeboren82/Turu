@@ -93,7 +93,15 @@ function assessGranularity(c = {}, { siblingPlaceAtVenue = null, hasVenue = null
   if (zoneTitle) evidence.push({ code: 'zone_title', label: `הכותרת מתארת אזור/מתחם בתוך מקום גדול יותר ("${name}")` });
   const zoneDesc = ZONE_DESC.test(description);
   if (zoneDesc) evidence.push({ code: 'zone_description', label: 'התיאור מגדיר את השורה כאזור/חלק בתוך יעד גדול יותר' });
-  if (siblingPlaceAtVenue === true) evidence.push({ code: 'parent_sibling_exists', label: 'קיימת כבר שורת "מקום קבוע" נפרדת באותו venue' });
+  // Granularity Gate follow-up (2026-09-22): a sibling מקום_קבוע at the same venue is CORROBORATING
+  // evidence of sub-entity shape, never sufficient on its own - "same venue already has a place row"
+  // is equally true of every legitimate hosted programme (Train Theater/MUZA/Davidson standing shows
+  // share a venue with that venue's own מקום_קבוע row by construction). The forensic found 17/59
+  // standing rows were flagged solely by this signal with zero zone-shaped title/description. Only
+  // count/surface it once real zone evidence (title or description) already points the same way.
+  const hasZoneEvidence = zoneTitle || zoneDesc;
+  const siblingCorroborates = siblingPlaceAtVenue === true && hasZoneEvidence;
+  if (siblingCorroborates) evidence.push({ code: 'parent_sibling_exists', label: 'קיימת כבר שורת "מקום קבוע" נפרדת באותו venue' });
 
   // suppressors: any one of these ALWAYS wins, regardless of evidence count (own price/booking/date
   // is direct proof of an independent participation decision - exactly the forensic's doctrine)
@@ -111,7 +119,7 @@ function assessGranularity(c = {}, { siblingPlaceAtVenue = null, hasVenue = null
   if (hasOwnDate) suppressors.push({ code: 'has_one_time_date', label: 'אירוע עם תאריך משלו - החלטת השתתפות עצמאית מטבעה' });
 
   const wrapperScore = [wrapperTitle, wrapperDesc, weekdaySaturation].filter(Boolean).length;
-  const subEntityScore = [zoneTitle, zoneDesc, siblingPlaceAtVenue === true].filter(Boolean).length;
+  const subEntityScore = [zoneTitle, zoneDesc, siblingCorroborates].filter(Boolean).length;
   const hasSuppressor = suppressors.length > 0;
 
   let verdict, reason = null;

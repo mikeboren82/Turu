@@ -61,6 +61,21 @@ test('parent_sibling_exists alone (venue-aware refinement) combines with a weak 
   assert.ok(withSibling.evidence.some((e) => e.code === 'parent_sibling_exists'));
 });
 
+test('GRANULARITY FOLLOW-UP (2026-09-22): parent_sibling_exists ALONE, with NO zone-shaped title/description, must never flag a legitimate hosted programme - this is the 17/59 false-positive pattern the forensic found', () => {
+  const c = { name: 'המדריך להרפתקן', description: 'הצגת ילדים בתיאטרון הקרון.', entity_type: 'אירוע_קבוע', schedule_type: null, price_type: null };
+  const a = assessGranularity(c, { siblingPlaceAtVenue: true });
+  assert.equal(a.verdict, 'independent', 'a sibling מקום_קבוע row at the same venue is not, by itself, evidence of sub-entity shape');
+  assert.ok(!a.evidence.some((e) => e.code === 'parent_sibling_exists'), 'the signal must not even be surfaced when it has nothing to corroborate');
+});
+
+test('GRANULARITY FOLLOW-UP (2026-09-22): parent_sibling_exists STILL corroborates a genuine zone-shaped title/description (Midbarium-style true positive preserved)', () => {
+  const withoutSibling = assessGranularity({ name: 'אזור צוקים וטיפוס', description: 'אזור בפארק המדמה קניון מדברי עם צוקים תלולים.', price_type: null }, { siblingPlaceAtVenue: false });
+  assert.equal(withoutSibling.verdict, 'not_independent', 'zone title+description alone (score=2) already reaches NOT_INDEPENDENT without any sibling');
+  const withSibling = assessGranularity({ name: 'אזור צוקים וטיפוס', description: 'אזור בפארק המדמה קניון מדברי עם צוקים תלולים.', price_type: null }, { siblingPlaceAtVenue: true });
+  assert.equal(withSibling.verdict, 'not_independent');
+  assert.ok(withSibling.evidence.some((e) => e.code === 'parent_sibling_exists'), 'sibling signal IS surfaced once real zone evidence already exists');
+});
+
 test('production dry-run catch (2026-09-22): "מתחם" title+description alone, with NO venue at all, is UNCERTAIN not NOT_INDEPENDENT - "מתחם" can mean a self-contained facility, not only a zone inside something', () => {
   // real shape: "מתחם סטאר סנטר" / "ספקטרום - מתחם חדרי בריחה" - both venue_id null, both their own destination
   const c = { name: 'מתחם סטאר סנטר', description: 'מתחם קניות ופנאי הממוקם בתפר שבין אזור התעשייה ללב העיר', schedule_type: 'fixed_hours', price_type: null };

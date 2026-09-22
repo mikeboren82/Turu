@@ -57,7 +57,13 @@ export function assessGranularity(c: GranularityCandidate = {}, opts: { siblingP
   if (zoneTitle) evidence.push({ code: 'zone_title', label: `הכותרת מתארת אזור/מתחם בתוך מקום גדול יותר ("${name}")` });
   const zoneDesc = ZONE_DESC.test(description);
   if (zoneDesc) evidence.push({ code: 'zone_description', label: 'התיאור מגדיר את השורה כאזור/חלק בתוך יעד גדול יותר' });
-  if (siblingPlaceAtVenue === true) evidence.push({ code: 'parent_sibling_exists', label: 'קיימת כבר שורת "מקום קבוע" נפרדת באותו venue' });
+  // Granularity Gate follow-up (2026-09-22): a sibling מקום_קבוע at the same venue is CORROBORATING
+  // evidence of sub-entity shape, never sufficient on its own - see the Node twin's comment for the
+  // 17/59 false-positive standing-programme finding that motivated this. Only count/surface it once
+  // real zone evidence (title or description) already points the same way.
+  const hasZoneEvidence = zoneTitle || zoneDesc;
+  const siblingCorroborates = siblingPlaceAtVenue === true && hasZoneEvidence;
+  if (siblingCorroborates) evidence.push({ code: 'parent_sibling_exists', label: 'קיימת כבר שורת "מקום קבוע" נפרדת באותו venue' });
 
   const suppressors: GranularityEvidence[] = [];
   const hasOwnPrice = c.price_type === 'fixed' || c.price_type === 'range';
@@ -71,7 +77,7 @@ export function assessGranularity(c: GranularityCandidate = {}, opts: { siblingP
   if (hasOwnDate) suppressors.push({ code: 'has_one_time_date', label: 'אירוע עם תאריך משלו - החלטת השתתפות עצמאית מטבעה' });
 
   const wrapperScore = [wrapperTitle, wrapperDesc, weekdaySaturation].filter(Boolean).length;
-  const subEntityScore = [zoneTitle, zoneDesc, siblingPlaceAtVenue === true].filter(Boolean).length;
+  const subEntityScore = [zoneTitle, zoneDesc, siblingCorroborates].filter(Boolean).length;
   const hasSuppressor = suppressors.length > 0;
 
   let verdict: GranularityVerdict; let reason: 'wrapper' | 'sub_entity' | null = null;
