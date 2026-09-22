@@ -491,6 +491,11 @@ Deno.serve(async (req: Request) => {
   // JSON-LD, image, price and ages. Deterministic evidence only (no extra AI call), merged fill-null
   // into the listing candidate, both URLs kept in provenance. Absent config => nothing changes.
   const detailCfg = ((source.adapter_config || {}) as { detail_traversal?: DetailTraversalConfig }).detail_traversal || null;
+  // OPTIONAL per-source event-card selector (2026-09-22): when a source has a verified repeated card
+  // container, every card is closed with an explicit item delimiter before flattening, so neither the
+  // chunker nor the model can carry a field across a card boundary. Never guessed - absent => generic
+  // block boundaries only.
+  const itemSelectorCfg = ((source.adapter_config || {}) as { item_selector?: string }).item_selector || null;
   const detailMaxPerPage = Math.min(Number(detailCfg?.max_pages || 0), 12);
   const DETAIL_MAX_PER_SCAN = 24; // hard cap per invocation regardless of config
   // a heavy listing's AI extraction alone can use the 60 s page budget; detail fetches (8 s each, no AI)
@@ -679,7 +684,7 @@ Deno.serve(async (req: Request) => {
             if (detailMaxPerPage > 0) { pageDetailLinks = findEventDetailLinks($, pageUrl, { max: 40, allowHosts: detailCfg?.allow_hosts || [], linkSelector: detailCfg?.link_selector, urlPattern: detailCfg?.url_pattern, listingUrls: pageUrls }); detail.links += pageDetailLinks.length; }
             // before pageTextForExtraction: it strips nodes from the same DOM
             try { pageCards = enumerateListingCards($, pageUrl); } catch { pageCards = []; }
-            text = pageTextForExtraction($, textBudget);
+            text = pageTextForExtraction($, textBudget, { itemSelector: itemSelectorCfg });
           }
           hash = await computeContentHash(text);
         }

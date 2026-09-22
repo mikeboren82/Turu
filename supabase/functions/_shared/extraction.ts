@@ -122,6 +122,8 @@ export function buildExtractionSystemPrompt(): string {
   return `אתה עוזר שמחלץ מידע מובנה על פעילויות ואירועים לילדים מתוך טקסט גולמי של עמוד אינטרנט.
 קיבלת את תוכן הטקסט של עמוד (יכול להכיל כמה פעילויות/אירועים בעמוד אחד, כמו לוח אירועים של קניון או עירייה).
 
+הפרדה בין פריטים (חשוב מאוד): שורת "---" בטקסט מסמנת גבול בין פריט אחד למשנהו, וגם מעבר שורה רגיל מפריד בין חלקים שונים בעמוד. שדות כמו תאריך, שעה, מחיר, גיל, מארגן, אופן הרשמה ומיקום שייכים אך ורק לפריט שבתוכו הם מופיעים. לעולם אל תיקח שעה, תאריך, מחיר או כל שדה אחר מפריט שכן (למשל הפריט שמופיע מיד אחרי גבול "---") ותשייך אותו לפריט אחר. אם לפריט מסוים חסר שדה - החזר null עבורו, ואל תשלים אותו מפריט אחר.
+
 היום הנוכחי הוא ${today}. זה חשוב לכמה מטרות:
 1. אם יש תאריך מפורש לאירוע חד-פעמי (one_time_date) שכבר עבר לפני היום הנוכחי - אל תכלול את הפעילות הזו בתשובה בכלל, היא לא רלוונטית יותר.
 2. תוכן שקשור לחג ספציפי (פסח, שבועות, סוכות, פורים, חנוכה, ראש השנה, יום העצמאות וכו') בלי תאריך מפורש - היזהר מאוד: אתרי "מה עושים" רבים מפרסמים דפים כאלה פעם בשנה ולא מעדכנים אותם, כך שתוכן על "אירועי שבועות" עלול להיות משנה שעברה. אל תכלול פעילות כזו בתשובה, אלא אם כן ברור מהטקסט שמדובר במקום/פעילות שפועלים כל השנה (למשל שם של גן חיות שיש בו גם אירוע חג - את הגן עצמו כן אפשר לכלול, את "אירוע החג" הספציפי בו לא, אלא אם יש תאריך עתידי מפורש).
@@ -502,30 +504,70 @@ export async function fetchHtml(url: string, opts: { timeoutMs: number; retries:
   };
 }
 
-// Text preparation shared by both callers - strips chrome/scripts and caps size for the model.
+// HTML EXTRACTION BOUNDARY PRESERVATION (2026-09-22). `$('body').text()` concatenates adjacent DOM
+// text nodes with ZERO delimiter, so two sibling event cards flatten to "גוליבר10:00-11:00ילדי בית
+// העץ10:30". The forensic proved that is how a neighbour's time AND price were attributed to Gulliver:
+// once the boundary is gone neither the chunker nor the model can recover it, and splitTextForExtraction
+// (which can only cut on '\n') was left with nothing to cut on, so it fell back to a hard mid-token cut
+// that separated an event from its own schedule. Two levels of boundary are restored here:
+//   FIELD/BLOCK -> a newline after every block element (the same treatment listingCards.ts#cardText
+//                  already applies inside one card, now applied to the whole document)
+//   EVENT/ITEM  -> ITEM_DELIMITER after every element matching an OPTIONAL, source-configured
+//                  adapter_config.item_selector. No selector is ever guessed from the markup here:
+//                  without one the generic block boundaries still apply, which is already strictly
+//                  safer than zero-delimiter concatenation.
+// Inline elements get a trailing SPACE instead, so <span>a</span><span>b</span> never becomes "ab".
+const STRIP_SELECTOR = 'script, style, noscript, nav, footer, header, svg, input, select, textarea, button';
+const INLINE_SELECTOR = 'span, a, b, strong, em, i, small, label, td, th';
+const BLOCK_SELECTOR = 'address, article, aside, blockquote, dd, div, dl, dt, fieldset, figcaption, figure, form, h1, h2, h3, h4, h5, h6, hr, li, main, ol, p, pre, section, table, tbody, tfoot, thead, tr, ul';
+// '\n---\n' is this repo's EXISTING item-boundary convention (jsonApiAdapter / relay-scan.js split it
+// the same way), so the model already sees this shape from JSON-API sources.
+export const ITEM_DELIMITER = '\n---\n';
+
+// Text preparation shared by both callers - strips chrome/scripts, preserves DOM boundaries, and caps
+// size for the model. `itemSelector` comes from sources.adapter_config.item_selector (optional).
 // deno-lint-ignore no-explicit-any
-export function pageTextForExtraction($: any, limit = PAGE_TEXT_CHAR_LIMIT): string {
+export function pageTextForExtraction($: any, limit = PAGE_TEXT_CHAR_LIMIT, opts: { itemSelector?: string | null } = {}): string {
   // Never remove <form> itself: ASP.NET WebForms / SharePoint sites (Holon, Rishon, Beer Sheva,
   // Netanya, Herzliya...) wrap the ENTIRE page body in one <form>, so dropping it left ~300 chars of
   // accessibility menu and every such municipality scanned as "HTTP 200, 0 events" (found 2026-09-13).
   // Only the controls go.
-  $('script, style, noscript, nav, footer, header, svg, input, select, textarea, button').remove();
-  return $('body').text().replace(/[ \t]+/g, ' ').replace(/\n{2,}/g, '\n').trim().slice(0, limit);
+  $(STRIP_SELECTOR).remove();
+  $('br').replaceWith('\n');
+  $(INLINE_SELECTOR).each((_: number, el: unknown) => { $(el).append(' '); });
+  $(BLOCK_SELECTOR).each((_: number, el: unknown) => { $(el).append('\n'); });
+  if (opts.itemSelector) {
+    // a malformed/unmatched selector must never break a scan - generic block boundaries still apply
+    try { $(opts.itemSelector).each((_: number, el: unknown) => { $(el).append(ITEM_DELIMITER); }); } catch { /* ignore */ }
+  }
+  return $('body').text()
+    .replace(/[ \t\r\f\v]+/g, ' ')
+    .replace(/ *\n */g, '\n')
+    .replace(/\n{2,}/g, '\n')
+    .trim()
+    .slice(0, limit);
 }
 
 // Long listing pages (municipal calendars: Holon's is ~97k chars with ~460 dates) carry far more
 // than PAGE_TEXT_CHAR_LIMIT; a single window sees only the first screen. Split on line boundaries
 // into at most maxChunks windows so the scanner can run one extraction per window.
 export const MAX_TEXT_CHUNKS = 4;
+// Boundary preference (2026-09-22): an ITEM delimiter first, then any line boundary, and a hard
+// character cut only as a last resort. A window edge must never fall inside an event card while a
+// whole-card boundary was available earlier in the window - that is exactly what separated Gulliver
+// from its own schedule. The hard cut is still kept for the degenerate case of a SINGLE item longer
+// than the window (it must split somewhere), and a chunk whose length === limit is that fallback.
 export function splitTextForExtraction(text: string, limit = PAGE_TEXT_CHAR_LIMIT, maxChunks = MAX_TEXT_CHUNKS): string[] {
   const chunks: string[] = [];
   let rest = text;
   while (rest.length > 0 && chunks.length < maxChunks) {
     if (rest.length <= limit) { chunks.push(rest); break; }
-    let cut = rest.lastIndexOf('\n', limit);
-    if (cut < limit * 0.5) cut = limit;
+    let cut = rest.lastIndexOf(ITEM_DELIMITER, limit);
+    let skip = ITEM_DELIMITER.length;
+    if (cut < limit * 0.5) { cut = rest.lastIndexOf('\n', limit); skip = 1; }
+    if (cut < limit * 0.5) { cut = limit; skip = 0; }
     chunks.push(rest.slice(0, cut));
-    rest = rest.slice(cut).trimStart();
+    rest = rest.slice(cut + skip).trimStart();
   }
   return chunks;
 }

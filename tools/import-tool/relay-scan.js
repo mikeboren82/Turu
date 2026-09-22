@@ -75,8 +75,11 @@ function extractCandidateImages($, baseUrl) {
 }
 // 18000 chars × 4 windows - scan-source now extracts long listing pages in up to 4 chunks (see
 // _shared/extraction.ts splitTextForExtraction), so the relay must send that much text.
-// <form> itself is kept (SharePoint/WebForms sites wrap the whole body in one) - only controls go.
-function pageTextForExtraction($) { $('script, style, noscript, nav, footer, header, svg, input, select, textarea, button').remove(); return $('body').text().replace(/[ \t]+/g, ' ').replace(/\n{2,}/g, '\n').trim().slice(0, 18000 * 4); }
+// The flattener itself lives in lib/htmlText.js (Node twin of _shared/extraction.ts): a relayed page
+// arrives at scan-source as TEXT, never as a DOM, so the DOM boundaries must be preserved HERE or they
+// are lost for good - this is the only place that can fix boundary leakage for local_relay sources.
+const { pageTextForExtraction, splitTextForExtraction } = require('./lib/htmlText');
+const PAGE_TEXT_BUDGET = 18000 * 4;
 
 // fetch helpers live in lib/fetchPage.js (shared with the Cleaner) - see there for the curl fallback
 
@@ -92,16 +95,10 @@ async function waitForScan(client, sourceId, since, timeoutMs) {
   return null;
 }
 
-// mirror of _shared/extraction.ts splitTextForExtraction (no chunk cap here - parts are pages)
-function splitText(text, limit) {
-  const parts = []; let rest = text;
-  while (rest.length > 0) {
-    if (rest.length <= limit) { parts.push(rest); break; }
-    let cut = rest.lastIndexOf('\n', limit); if (cut < limit * 0.5) cut = limit;
-    parts.push(rest.slice(0, cut)); rest = rest.slice(cut).trimStart();
-  }
-  return parts;
-}
+// lib/htmlText.js#splitTextForExtraction with the chunk cap lifted - here the parts are whole relay
+// pages, not extraction windows, so every part must be emitted (Infinity), but the boundary preference
+// (item delimiter -> newline -> hard cut) is the SAME algorithm scan-source will later apply.
+function splitText(text, limit) { return splitTextForExtraction(text, limit, Infinity); }
 
 // DETAIL PAGES ARE EVIDENCE, NOT CANDIDATES (2026-09-14): a listing page's event detail pages are relayed
 // as {kind:'detail', parent_url, link_text, html} entries - scan-source primes its detail cache from the
@@ -111,7 +108,7 @@ function splitText(text, limit) {
 const DETAIL_HTML_MAX = 300_000;
 function stripForRelay(html) { return html.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>|<svg[\s\S]*?<\/svg>|<noscript[\s\S]*?<\/noscript>/gi, ' ').slice(0, DETAIL_HTML_MAX); }
 
-async function buildPages(seedUrl, detail = { maxPages: 0, allowHosts: [], linkSelector: null, urlPattern: null }) {
+async function buildPages(seedUrl, detail = { maxPages: 0, allowHosts: [], linkSelector: null, urlPattern: null }, itemSelector = null) {
   const seed = await fetchHtml(seedUrl);
   if (!seed.ok) throw new Error(`seed HTTP ${seed.status}`);
   const $seed = cheerio.load(seed.html);
@@ -142,7 +139,7 @@ async function buildPages(seedUrl, detail = { maxPages: 0, allowHosts: [], linkS
       }
       const $ = cheerio.load(res.html.length > 1_500_000 ? res.html.slice(0, 1_500_000) : res.html);
       const images = extractCandidateImages($, url);
-      const text = pageTextForExtraction($);
+      const text = pageTextForExtraction($, PAGE_TEXT_BUDGET, { itemSelector });
       if (text.length < 200) continue;
       // same basis as scan-source: hash of the extracted text (not the DOM) - see its CPU-guard note.
       // Long listing pages are relayed as parts of <=18k chars (one extraction window each, split on
@@ -193,7 +190,7 @@ async function buildPages(seedUrl, detail = { maxPages: 0, allowHosts: [], linkS
           // matches them to events by context like page images
           return parts.map((text, i) => ({ url: `${s.seed_url}#part=${i + 1}`, text, hash: sha256(text), images: i === 0 ? (api.images || []) : [] }));
         })()
-        : await buildPages(s.seed_url, { maxPages: args['detail-pages'] != null ? Number(args['detail-pages']) : Number(s.adapter_config?.detail_traversal?.max_pages || 0), allowHosts: s.adapter_config?.detail_traversal?.allow_hosts || [], linkSelector: s.adapter_config?.detail_traversal?.link_selector || null, urlPattern: s.adapter_config?.detail_traversal?.url_pattern || null });
+        : await buildPages(s.seed_url, { maxPages: args['detail-pages'] != null ? Number(args['detail-pages']) : Number(s.adapter_config?.detail_traversal?.max_pages || 0), allowHosts: s.adapter_config?.detail_traversal?.allow_hosts || [], linkSelector: s.adapter_config?.detail_traversal?.link_selector || null, urlPattern: s.adapter_config?.detail_traversal?.url_pattern || null }, s.adapter_config?.item_selector || null);
       if (!pages.length) { console.log(`✗ ${s.name}: no usable pages`); continue; }
       // One edge invocation extracts ~2-3 dense windows before its time budget (SCAN_TIME_BUDGET_MS)
       // defers the rest, so the pages go in batches: post a batch, wait for that scan to finish
