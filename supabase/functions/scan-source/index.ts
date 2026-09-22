@@ -27,6 +27,7 @@ import {
   sanitizeCategory,
 } from '../_shared/extraction.ts';
 import { sanitizeAccessType, assessAccessType, blocksAutoPublish, ACCESS_ISSUE_LABEL } from '../_shared/accessType.ts';
+import { assessGranularity, blocksAutoPublish as blocksGranularityAutoPublish, GRANULARITY_ISSUE_LABEL, hasPlaceSiblingAtVenue } from '../_shared/granularity.ts';
 import { discoverListingLinks } from '../_shared/discovery.ts';
 import { extractJsonLdEvents, applyJsonLdToCandidate, type JsonLdEvent } from '../_shared/jsonld.ts';
 import { findEventDetailLinks, findEventDetailLinksCheap, detailLinkFor, sharedLinkUrls, type DetailLink, type DetailMatch, type DetailTraversalConfig } from '../_shared/detailLinks.ts';
@@ -83,6 +84,11 @@ function autoApproveEligible(candidate: Record<string, unknown>, issues: string[
   // (7) ACCESS (Phase 1): only 'public' may auto-publish; private_group / mixed / suspicious unknown
   //     wait for a human. An ordinary unknown keeps today's behaviour.
   if (blocksAutoPublish(assessAccessType(candidate))) return false;
+  // (8) GRANULARITY (Phase 1, 2026-09-22): only 'independent' may auto-publish; a wrapper/index row
+  //     or a sub-area/zone (not_independent OR uncertain) waits for a human - never auto-rejected,
+  //     never auto-published. See _shared/granularity.ts for the full doctrine.
+  const granularityVerdict = (candidate.granularity_evidence as { verdict?: string } | undefined)?.verdict;
+  if (granularityVerdict && granularityVerdict !== 'independent') return false;
   if (candidate.schedule_type === 'one_time' && !isPlausibleEventDate(candidate.one_time_date as string | null, gate.today, gate.maxDaysAhead)) return false;
   if (looksLikeStaleRepost(candidate as { schedule_type?: string | null; one_time_date?: string | null; source_published_date?: string | null }, gate.today)) return false;
   return true;
@@ -359,6 +365,15 @@ function sanitizeCandidate(raw: any, pageUrl: string): { candidate: any; issues:
   candidate.offering_access_type = accessAssessment.access;
   candidate.offering_access_evidence = { evidence: accessAssessment.evidence, suppressors: accessAssessment.suppressors, model: accessAssessment.modelAccess, suspicious: accessAssessment.suspicious };
   if (blocksAutoPublish(accessAssessment) && !issues.includes(ACCESS_ISSUE_LABEL)) issues.push(ACCESS_ISSUE_LABEL);
+
+  // GRANULARITY (Phase 1, 2026-09-22): "is this an independently actionable thing?" - the missing
+  // third axis alongside category (WHAT) and offering_access_type (WHO/HOW). Structural-only pass
+  // here (no venue context yet - resolveVenue runs later in the per-item loop); the venue-aware
+  // refinement (an existing מקום_קבוע sibling) re-assesses after venue_id is known, see below.
+  // Never archives/rejects - only withholds AUTO-publish and carries evidence into the review queue.
+  const granularityAssessment = assessGranularity(candidate);
+  candidate.granularity_evidence = { verdict: granularityAssessment.verdict, reason: granularityAssessment.reason, evidence: granularityAssessment.evidence, suppressors: granularityAssessment.suppressors };
+  if (blocksGranularityAutoPublish(granularityAssessment) && !issues.includes(GRANULARITY_ISSUE_LABEL)) issues.push(GRANULARITY_ISSUE_LABEL);
 
   return { candidate, issues };
 }
@@ -914,6 +929,28 @@ Deno.serve(async (req: Request) => {
             // the 'עיר' issue was pushed by sanitize before the venue could supply the city
             // (24 Ramot-mall items sat in review with a valid city because of it, 2026-09-13)
             if (candidate.city) { const i = issues.indexOf('עיר'); if (i >= 0) issues.splice(i, 1); }
+          }
+          // GRANULARITY venue-aware refinement (Section 7): re-assess now that venue_id is known.
+          // Two directions, only for a 'sub_entity'-reasoned assessment (a 'wrapper' verdict never
+          // depends on venue and is never revisited here):
+          //   UPGRADE   an existing מקום_קבוע sibling at the same venue is the strongest sub-entity
+          //             signal, unavailable during the structural-only pass.
+          //   DOWNGRADE a confident text-only NOT_INDEPENDENT (title+description both zone-shaped)
+          //             but NO venue was resolved at all is downgraded to UNCERTAIN - Section 7:
+          //             never guess a parent that cannot be identified. Production dry-run
+          //             (2026-09-22) false positive this fixes: "מתחם" (complex/facility) reads as
+          //             zone-shaped text but with no venue on record the row may just be its own
+          //             self-contained destination (e.g. a small mall, an escape-room venue).
+          if (candidate.granularity_evidence?.reason === 'sub_entity') {
+            const hasVenue = !!candidate.venue_id;
+            let siblingPlaceAtVenue: boolean | null = null;
+            if (hasVenue) siblingPlaceAtVenue = await hasPlaceSiblingAtVenue(client, candidate.venue_id as string);
+            const refined = assessGranularity(candidate, { siblingPlaceAtVenue: siblingPlaceAtVenue === true ? true : null, hasVenue });
+            if (refined.verdict !== candidate.granularity_evidence.verdict) {
+              candidate.granularity_evidence = { verdict: refined.verdict, reason: refined.reason, evidence: refined.evidence, suppressors: refined.suppressors };
+              if (blocksGranularityAutoPublish(refined)) { if (!issues.includes(GRANULARITY_ISSUE_LABEL)) issues.push(GRANULARITY_ISSUE_LABEL); }
+              else { const i = issues.indexOf(GRANULARITY_ISSUE_LABEL); if (i >= 0) issues.splice(i, 1); }
+            }
           }
           // LEGACY occurrence-level fingerprint (first/earliest occurrence): exact pre-check only.
           // STORED value is unchanged (still the single canonical venue-if-known-else-city form) -

@@ -251,6 +251,23 @@ function renderIncomingPage() {
       '</div>';
   }
 
+  // GRANULARITY (Phase 1, 2026-09-22): "is this an independently actionable thing?" - the reviewer
+  // must see the verdict AND why, never raw JSON, same pattern as renderAccess above.
+  const GRANULARITY_LABEL = { independent: 'עצמאית', not_independent: 'לא עצמאית (עטיפה / תת-אזור)', uncertain: 'לא ברור' };
+  function renderGranularity(c) {
+    const ev = c.granularity_evidence || {};
+    const verdict = ev.verdict || 'independent';
+    const reasons = (ev.evidence || []).map((e) => e.label);
+    const sup = (ev.suppressors || []).map((e) => e.label);
+    if (verdict === 'independent' && !reasons.length) return '';
+    const concern = verdict !== 'independent';
+    return '<div class="issues-row granularity-row">' +
+      '<span class="badge ' + (concern ? 'issue' : 'trust') + '">יחידת פעילות: ' + escapeHtml(GRANULARITY_LABEL[verdict] || verdict) + '</span>' +
+      (reasons.length ? '<span class="access-why">למה: ' + reasons.map(escapeHtml).join(' · ') + '</span>' : '') +
+      (sup.length ? '<span class="access-why">נגד: ' + sup.map(escapeHtml).join(' · ') + '</span>' : '') +
+      '</div>';
+  }
+
   function renderCard(r) {
     const c = r.extracted_data || {};
     const conf = Math.round((r.confidence_score || 0) * 100);
@@ -276,6 +293,7 @@ function renderIncomingPage() {
         ? '<div class="issues-row">' + r.validation_issues.map((i) => '<span class="badge issue">⚠️ חסר: ' + escapeHtml(i) + '</span>').join('') + '</div>'
         : '') +
       renderAccess(c) +
+      renderGranularity(c) +
       renderImageWarnings(c) +
       (r.match_type === 'update' ? renderDiff(r.diff) : (r.match_type === 'missing' ? '' : renderFieldsSummary(c))) +
       renderActions(r) +
@@ -373,17 +391,47 @@ function renderIncomingPage() {
     btn.disabled = false;
   }
 
-  async function approveItem(id, btn, acknowledgedAccessType) {
+  // GRANULARITY (Phase 1, 2026-09-22): same blocking-dialog pattern as askAccessVerdict - the
+  // reviewer must give one of the four explicit outcomes (Section 12) before the row can proceed.
+  function askGranularityVerdict(id, btn, data) {
+    const card = btn.closest('.item-card-body');
+    const old = card.querySelector('.granularity-decision'); if (old) old.remove();
+    const panel = document.createElement('div');
+    panel.className = 'issues-row granularity-decision';
+    const why = (data.evidence || []).map((e) => e.label).join(' · ');
+    const against = (data.suppressors || []).map((e) => e.label).join(' · ');
+    panel.innerHTML = '<div><b>נדרשת הכרעה על יחידת הפעילות</b> - הצעת המערכת: ' + escapeHtml(data.proposedVerdictLabel || data.proposedVerdict) + '</div>' +
+      (why ? '<div class="access-why">למה: ' + escapeHtml(why) + '</div>' : '') +
+      (against ? '<div class="access-why">נגד: ' + escapeHtml(against) + '</div>' : '') +
+      '<div class="access-choices">' +
+      '<button type="button" class="primary-btn success-btn" data-gack="independent">פעילות עצמאית - פרסם</button>' +
+      '<button type="button" class="primary-btn" data-gack="uncertain">לא ברור - השאר בבדיקה</button>' +
+      '<button type="button" class="secondary-btn danger-btn" data-gack="wrapper">עטיפה/אינדקס - אל תפרסם</button>' +
+      '<button type="button" class="secondary-btn danger-btn" data-gack="sub_area">תת-אזור/מתקן - אל תפרסם</button>' +
+      '</div>';
+    panel.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-gack]'); if (!b) return;
+      approveItem(id, btn, null, b.dataset.gack);
+    });
+    card.appendChild(panel);
+    btn.disabled = false;
+  }
+
+  async function approveItem(id, btn, acknowledgedAccessType, acknowledgedGranularity) {
     btn.disabled = true;
     try {
+      const body = {};
+      if (acknowledgedAccessType) body.acknowledged_access_type = acknowledgedAccessType;
+      if (acknowledgedGranularity) body.acknowledged_granularity = acknowledgedGranularity;
       const res = await fetch('/api/incoming/' + id + '/approve', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(acknowledgedAccessType ? { acknowledged_access_type: acknowledgedAccessType } : {}),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
       if (res.status === 428 && data.needs_access_acknowledgement) return askAccessVerdict(id, btn, data);
+      if (res.status === 428 && data.needs_granularity_acknowledgement) return askGranularityVerdict(id, btn, data);
       if (!res.ok) throw new Error(data.error || 'שגיאה לא ידועה');
-      if (data.held === 'mixed') alert(data.message || 'נשאר בבדיקה');
+      if (data.held === 'mixed' || data.held === 'uncertain_granularity' || data.rejected) alert(data.message || 'נשאר בבדיקה');
       await load();
     } catch (err) {
       alert('שגיאה באישור: ' + err.message);

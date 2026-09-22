@@ -27,6 +27,7 @@ const { upsertProvenanceSafe } = require('./lib/activitySourceMerge');
 const { verifiedFieldUpdate, isSuccess } = require('./lib/verifiedWrite');
 const { ineligibleForPublicCatalogue } = require('./lib/catalogueEligibility');
 const { assessAccessType, approvalDecision, sanitizeAccessType, ACCESS_LABEL_HE, ACCESS_ISSUE_LABEL } = require('./lib/accessType');
+const { assessGranularity, granularityDecision, GRANULARITY_LABEL_HE, GRANULARITY_ISSUE_LABEL } = require('./lib/granularity');
 const { normalizeIncomingCandidate } = require('./incomingShape');
 const { repairModelJson, resolveVenue, normalizeVenueAlias } = require('./venueNaming');
 const { computeEventFingerprint } = require('./eventFingerprint');
@@ -2865,6 +2866,45 @@ app.post('/api/incoming/:id/approve', async (req, res) => {
         const ed = { ...(item.extracted_data || {}), offering_access_type: 'private_group', offering_access_verdict: { by: userId, at: new Date().toISOString(), value: 'private_group' } };
         await client.from('incoming_activities').update({ extracted_data: ed }).eq('id', id);
       }
+
+      // GRANULARITY (Phase 1, 2026-09-22): "is this an independently actionable thing?" - the
+      // missing third axis alongside category and offering_access_type. Same acknowledgement shape
+      // as access above: a generic Approve is never read as a granularity verdict when the row
+      // looks like a wrapper/index or a sub-area/zone; the reviewer must choose explicitly. Only
+      // 'independent' proceeds to create an activity - 'wrapper'/'sub_area' are ineligible (never a
+      // new standalone row, Section 6), 'uncertain' holds the row in review.
+      const granularityAssessment = assessGranularity({ ...(item.extracted_data || {}), ...payload });
+      const gAck = req.body && req.body.acknowledged_granularity;
+      const gDecision = granularityDecision({ assessment: granularityAssessment, acknowledgedGranularity: gAck ?? null });
+      if (gDecision.kind === 'invalid_acknowledgement') return res.status(400).json({ error: gDecision.error });
+      if (gDecision.kind === 'needs_granularity_acknowledgement') {
+        return res.status(428).json({
+          needs_granularity_acknowledgement: true,
+          proposedVerdict: gDecision.proposedVerdict, proposedVerdictLabel: GRANULARITY_LABEL_HE[gDecision.proposedVerdict], proposedReason: gDecision.proposedReason,
+          evidence: gDecision.evidence, suppressors: gDecision.suppressors, choices: gDecision.choices,
+          error: 'נדרשת הכרעה על יחידת הפעילות לפני אישור',
+        });
+      }
+      if (gDecision.kind === 'hold_uncertain') {
+        const ed = { ...(item.extracted_data || {}), granularity_verdict: { by: userId, at: new Date().toISOString(), value: 'uncertain' } };
+        const issues = Array.from(new Set([...(item.validation_issues || []), GRANULARITY_ISSUE_LABEL]));
+        const { error: holdErr } = await client.from('incoming_activities').update({ extracted_data: ed, validation_issues: issues, status: 'needs_review' }).eq('id', id);
+        if (holdErr) throw holdErr;
+        return res.json({ ok: true, held: 'uncertain_granularity', message: 'סומן "לא ברור" - נשאר בבדיקה, לא פורסם ולא אורכב' });
+      }
+      if (gDecision.kind === 'ineligible') {
+        // mirrors the access 'ineligible' path: never invents a new standalone activity for a
+        // confirmed wrapper/sub-area candidate - the row is rejected, not silently dropped
+        const label = gDecision.granularity === 'wrapper' ? 'עטיפה/אינדקס של כמה פעילויות' : 'תת-אזור/מתקן בתוך יעד גדול יותר';
+        const { error: rejErr } = await client.from('incoming_activities').update({
+          status: 'rejected', reject_reason: 'הוכרע כ' + label + ' - לא נוצרת פעילות עצמאית',
+          extracted_data: { ...(item.extracted_data || {}), granularity_verdict: { by: userId, at: new Date().toISOString(), value: gDecision.granularity } },
+          reviewed_by: userId, reviewed_at: new Date().toISOString(),
+        }).eq('id', id);
+        if (rejErr) throw rejErr;
+        return res.json({ ok: true, rejected: gDecision.granularity, message: 'סומן כ"' + label + '" - לא פורסם' });
+      }
+
       // Exact-identity guards BEFORE creating anything: google_place_id, then event_fingerprint.
       // The fingerprint guard closes the gap found 2026-09-13: the scanner dedups only against
       // activities that existed at scan time, so two queue rows for the same event (two scans minutes
