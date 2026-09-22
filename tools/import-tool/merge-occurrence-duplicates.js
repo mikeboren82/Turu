@@ -24,6 +24,7 @@ const { normalizeForMatch } = require('./eventFingerprint');
 const { isGenericTitle } = require('./lib/eventIdentity');
 const { archiveActivity, isArchived, describe } = require('./lib/activityArchive');
 const { verifiedConditionalUpdate, isSuccess, describe: describeWrite } = require('./lib/verifiedWrite');
+const { mergeActivitySources } = require('./lib/activitySourceMerge');
 const { fetchHtml } = require('./lib/fetchPage');
 const { extractOccurrences, pageText, containsScore } = require('./lib/pageExtract');
 
@@ -126,8 +127,10 @@ const t5 = (t) => (t ? String(t).slice(0, 5) : '');
         const { error } = await client.from('activity_schedules').insert({ activity_id: keeper.id, schedule_type: 'one_time', one_time_date: r.one_time_date, start_time: r.start_time, end_time: r.end_time, external_id: r.external_id, booking_url: r.booking_url });
         if (!error) schedMoved++;
       }
-      const { data: prov } = await client.from('activity_sources').select('source_id, page_url, incoming_activity_id, relation, url_role, first_seen_at, last_seen_at').eq('activity_id', loser.id);
-      for (const p of prov || []) { const { error } = await client.from('activity_sources').upsert({ ...p, activity_id: keeper.id, relation: 'seen', last_seen_at: p.last_seen_at || new Date().toISOString() }, { onConflict: 'activity_id,page_url' }); if (!error) provMoved++; }
+      // non-destructive: never downgrades an existing keeper row sharing a page_url with the loser
+      // (2026-09-22, "Harden activity_sources Merge" - see lib/activitySourceMerge.js for the rules)
+      const { counts: provCounts } = await mergeActivitySources(client, { keeperActivityId: keeper.id, loserActivityId: loser.id });
+      provMoved += provCounts.ADDED + provCounts.PRESERVED_EXISTING;
       const keeperUrls = new Set((keeper.activity_images || []).map((i) => i.url));
       const newImgs = (loser.activity_images || []).filter((i) => !keeperUrls.has(i.url)).slice(0, 3).map((i) => ({ activity_id: keeper.id, url: i.url, uploaded_by: userId }));
       if (newImgs.length) { const { error } = await client.from('activity_images').insert(newImgs); if (!error) imgMoved += newImgs.length; }

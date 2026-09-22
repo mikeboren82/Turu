@@ -21,6 +21,7 @@ const { bestMatch } = require('./matching');
 const { isMissingCity } = require('../lib/canonicalSettlement');
 const { missingTemporalEvidence } = require('../lib/temporalEvidence');
 const { assessAccessType, blocksAutoPublish } = require('../lib/accessType');
+const { upsertProvenanceSafe } = require('../lib/activitySourceMerge');
 
 const SOFT = new Set(['מחיר']);
 const ADMIN_BASE = process.env.ADMIN_BASE || 'http://localhost:4321';
@@ -79,7 +80,9 @@ async function handBackIncoming(client, row, { settings, userId, cache, today, c
   if (match && match.confidence.score >= settings.thresholds.duplicate) {
     const { data } = await client.from('incoming_activities').update({ status: 'rejected', match_type: 'duplicate', existing_activity_id: match.activity.id, confidence_score: match.confidence.score, confidence_breakdown: match.confidence.breakdown, archive_reason: 'duplicate_of_existing_activity', reject_reason: `כפילות של פעילות קיימת (THE CLEANER, ציון ${match.confidence.score})`, reviewed_at: now }).eq('id', row.id).in('status', OPEN_INCOMING).select('id');
     if (!data || !data.length) return { outcome: 'resolved_externally' };
-    await client.from('activity_sources').upsert({ activity_id: match.activity.id, source_id: row.source_id, page_url: row.page_url, incoming_activity_id: row.id, relation: 'seen', last_seen_at: now }, { onConflict: 'activity_id,page_url' });
+    // non-destructive: never downgrades an existing row for this exact page_url on the matched
+    // activity (2026-09-22, "Harden activity_sources Merge" - see lib/activitySourceMerge.js)
+    await upsertProvenanceSafe(client, match.activity.id, { sourceId: row.source_id, pageUrl: row.page_url, incomingActivityId: row.id, relation: 'seen', lastSeenAt: now });
     const gain = await enrichExistingFromCandidate(client, match.activity.id, c);
     if (counters && gain.gained.length) { counters.existingEnriched = (counters.existingEnriched || 0) + 1; for (const g of gain.gained) counters.gain[g] = (counters.gain[g] || 0) + 1; }
     if (counters && gain.denied.length) counters.writeDenied = (counters.writeDenied || 0) + 1;

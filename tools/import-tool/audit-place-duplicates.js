@@ -16,6 +16,7 @@ const { all } = require('./cleaner/discover');
 const { samePlace } = require('./lib/placeIdentity');
 const { archiveActivity, isArchived, describe } = require('./lib/activityArchive');
 const { verifiedConditionalUpdate, isSuccess, describe: describeWrite } = require('./lib/verifiedWrite');
+const { mergeActivitySources, upsertProvenanceSafe } = require('./lib/activitySourceMerge');
 
 const APPLY = process.argv.includes('--apply');
 const richness = (a) => (a.activity_images || []).length * 3 + (a.venue_id ? 3 : 0) + (a.source_id ? 2 : 0) + (a.activity_sources || []).length + (a.description ? 1 : 0) + (a.official_url ? 1 : 0);
@@ -46,8 +47,10 @@ const richness = (a) => (a.activity_images || []).length * 3 + (a.venue_id ? 3 :
     const now = new Date().toISOString();
     const arch = await archiveActivity(client, { activityId: loser.id, expectedStatus: 'approved', archiveReason: 'duplicate_of_existing_activity', keeperActivityId: keeper.id });
     if (!isArchived(arch)) { console.log('  archive skipped -', describe(arch)); continue; }
-    for (const s of loser.activity_sources || []) await client.from('activity_sources').upsert({ activity_id: keeper.id, source_id: s.source_id, page_url: s.page_url, relation: 'seen', url_role: s.url_role || null, last_seen_at: now }, { onConflict: 'activity_id,page_url' });
-    if (loser.source_url) await client.from('activity_sources').upsert({ activity_id: keeper.id, source_id: loser.source_id || null, page_url: loser.source_url, relation: 'seen', last_seen_at: now }, { onConflict: 'activity_id,page_url' });
+    // non-destructive: never downgrades an existing keeper row sharing a page_url with the loser
+    // (2026-09-22, "Harden activity_sources Merge" - see lib/activitySourceMerge.js for the rules)
+    await mergeActivitySources(client, { keeperActivityId: keeper.id, loserActivityId: loser.id });
+    if (loser.source_url) await upsertProvenanceSafe(client, keeper.id, { sourceId: loser.source_id || null, pageUrl: loser.source_url, relation: 'seen', lastSeenAt: now });
     if (!(keeper.activity_images || []).length) for (const i of loser.activity_images || []) await client.from('activity_images').insert({ activity_id: keeper.id, url: i.url, uploaded_by: userId || null, status: 'approved', image_source_url: i.image_source_url, image_source_type: i.image_source_type, needs_rights_review: i.needs_rights_review, image_kind: i.image_kind, image_page_url: i.image_page_url });
     // אימות-כתיבה (2026-09-21): שני מילויי ה-NULL-בלבד האלה כבר שמרו על התנאי (.is(col, null)) אבל
     // לא בדקו שורות-מושפעות - 0 שורות שקטות (RLS/מירוץ) היו עוברות בלי עקבות.

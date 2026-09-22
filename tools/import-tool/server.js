@@ -23,6 +23,7 @@ const { findPlaceDuplicate } = require('./lib/placeIdentity');
 const { classifyPlaceholderGroup } = require('./placeholderGroup');
 const { sanitizeCategory } = require('./lib/categoryValidation');
 const { archiveActivity, isArchived, describe } = require('./lib/activityArchive');
+const { upsertProvenanceSafe } = require('./lib/activitySourceMerge');
 const { verifiedFieldUpdate, isSuccess } = require('./lib/verifiedWrite');
 const { ineligibleForPublicCatalogue } = require('./lib/catalogueEligibility');
 const { assessAccessType, approvalDecision, sanitizeAccessType, ACCESS_LABEL_HE, ACCESS_ISSUE_LABEL } = require('./lib/accessType');
@@ -2884,7 +2885,9 @@ app.post('/api/incoming/:id/approve', async (req, res) => {
           status: 'rejected', reject_reason: 'כפילות מאומתת - ' + (payload.google_place_id ? 'google_place_id' : 'טביעת אצבע של האירוע') + ' זהה לפעילות קיימת (' + dupe.id + ')',
           existing_activity_id: dupe.id, reviewed_by: userId, reviewed_at: new Date().toISOString(),
         }).eq('id', id);
-        await client.from('activity_sources').upsert({ activity_id: dupe.id, source_id: item.source_id, page_url: item.page_url, incoming_activity_id: item.id, relation: 'seen', last_seen_at: new Date().toISOString() }, { onConflict: 'activity_id,page_url' });
+        // non-destructive: never downgrades an existing row for this page_url on the matched activity
+        // (2026-09-22, "Harden activity_sources Merge" - see lib/activitySourceMerge.js)
+        await upsertProvenanceSafe(client, dupe.id, { sourceId: item.source_id, pageUrl: item.page_url, incomingActivityId: item.id, relation: 'seen', lastSeenAt: new Date().toISOString() });
         return res.status(409).json({ error: 'הפעילות כבר קיימת במאגר (' + dupe.name + ') - סומנה ככפילות', duplicateOf: dupe.id });
       }
       let saved;
@@ -2892,7 +2895,9 @@ app.post('/api/incoming/:id/approve', async (req, res) => {
       catch (e) {
         if (!e || e.code !== 'DUPLICATE_PLACE') throw e;
         await client.from('incoming_activities').update({ status: 'rejected', match_type: 'duplicate', archive_reason: 'duplicate_of_existing_activity', reject_reason: 'כפילות מאומתת - אותו מקום ואותו שם כמו פעילות קיימת (' + e.duplicateOf + ')', existing_activity_id: e.duplicateOf, reviewed_by: userId, reviewed_at: new Date().toISOString() }).eq('id', id);
-        await client.from('activity_sources').upsert({ activity_id: e.duplicateOf, source_id: item.source_id, page_url: item.page_url, incoming_activity_id: item.id, relation: 'seen', last_seen_at: new Date().toISOString() }, { onConflict: 'activity_id,page_url' });
+        // non-destructive: never downgrades an existing row for this page_url on the matched activity
+        // (2026-09-22, "Harden activity_sources Merge" - see lib/activitySourceMerge.js)
+        await upsertProvenanceSafe(client, e.duplicateOf, { sourceId: item.source_id, pageUrl: item.page_url, incomingActivityId: item.id, relation: 'seen', lastSeenAt: new Date().toISOString() });
         return res.status(409).json({ error: e.message, duplicateOf: e.duplicateOf });
       }
       const { activityId, archived } = saved;
@@ -2918,17 +2923,13 @@ app.post('/api/incoming/:id/approve', async (req, res) => {
         status: 'updated', reviewed_by: userId, reviewed_at: new Date().toISOString(),
       }).eq('id', id);
       if (updErr) throw updErr;
-      await client.from('activity_sources').upsert({
-        activity_id: item.existing_activity_id, source_id: item.source_id, page_url: item.page_url,
-        incoming_activity_id: item.id, relation: 'updated', url_role: 'listing', last_seen_at: new Date().toISOString(),
-      }, { onConflict: 'activity_id,page_url' });
+      // non-destructive: never downgrades an existing row for this page_url on the matched activity
+      // (2026-09-22, "Harden activity_sources Merge" - see lib/activitySourceMerge.js)
+      await upsertProvenanceSafe(client, item.existing_activity_id, { sourceId: item.source_id, pageUrl: item.page_url, incomingActivityId: item.id, relation: 'updated', urlRole: 'listing', lastSeenAt: new Date().toISOString() });
       // the event's DETAIL page (detail traversal) is provenance too, with its role
       const detailUrl = item.extracted_data?.detail_url;
       if (detailUrl && detailUrl !== item.page_url) {
-        await client.from('activity_sources').upsert({
-          activity_id: item.existing_activity_id, source_id: item.source_id, page_url: detailUrl,
-          incoming_activity_id: item.id, relation: 'seen', url_role: 'detail', last_seen_at: new Date().toISOString(),
-        }, { onConflict: 'activity_id,page_url' });
+        await upsertProvenanceSafe(client, item.existing_activity_id, { sourceId: item.source_id, pageUrl: detailUrl, incomingActivityId: item.id, relation: 'seen', urlRole: 'detail', lastSeenAt: new Date().toISOString() });
         if (/^https?:\/\//i.test(detailUrl)) await client.from('activities').update({ detail_url: detailUrl }).eq('id', item.existing_activity_id).is('detail_url', null);
       }
       return res.json({ ok: true, activityId: item.existing_activity_id });

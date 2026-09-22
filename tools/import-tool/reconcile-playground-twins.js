@@ -22,6 +22,7 @@ const { nominatim } = require('./cleaner/nominatimClient');
 const { parseAddress, nameSim, existingStreet } = require('./cleaner/settlementResolver');
 const { normalizeCityName } = require('./cityNaming');
 const { archiveActivity, isArchived, describe } = require('./lib/activityArchive');
+const { mergeActivitySources } = require('./lib/activitySourceMerge');
 
 const APPLY = process.argv.includes('--apply');
 const LEISURE = new Set(['playground', 'park', 'garden', 'recreation_ground']);
@@ -63,9 +64,10 @@ async function evaluatePair(client, rc, osmRow, googleRow) {
 async function mergePair(client, userId, rc, osmRow, googleRow, verdict) {
   const now = new Date().toISOString();
   // keeper = Google row; loser = OSM row. Provenance first (append/upsert), then null-fills, then archive.
-  const { data: prov } = await client.from('activity_sources').select('source_id, page_url, incoming_activity_id, relation, first_seen_at, last_seen_at').eq('activity_id', osmRow.id);
-  let provMoved = 0;
-  for (const p of prov || []) { const { error } = await client.from('activity_sources').upsert({ ...p, activity_id: googleRow.id, relation: 'seen', last_seen_at: p.last_seen_at || now }, { onConflict: 'activity_id,page_url' }); if (!error) provMoved++; }
+  // non-destructive: never downgrades an existing keeper row sharing a page_url with the loser
+  // (2026-09-22, "Harden activity_sources Merge" - see lib/activitySourceMerge.js for the rules)
+  const { counts: provCounts } = await mergeActivitySources(client, { keeperActivityId: googleRow.id, loserActivityId: osmRow.id });
+  const provMoved = provCounts.ADDED + provCounts.PRESERVED_EXISTING;
   const keeperUrls = new Set((googleRow.activity_images || []).map((i) => i.url));
   const imgs = (osmRow.activity_images || []).filter((i) => !keeperUrls.has(i.url)).slice(0, 3).map((i) => ({ activity_id: googleRow.id, url: i.url, uploaded_by: userId, image_source_type: i.image_source_type || null, image_kind: i.image_kind || null }));
   if (imgs.length) await client.from('activity_images').insert(imgs);
