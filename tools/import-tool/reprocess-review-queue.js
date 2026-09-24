@@ -13,6 +13,7 @@ require('dotenv').config();
 const { getClient } = require('./supabase');
 const { assessChildRelevance } = require('./childRelevance');
 const { missingTemporalEvidence } = require('./lib/temporalEvidence');
+const { assessAutoPublishSafety } = require('./lib/autoPublishSafety');
 
 const APPLY = process.argv.includes('--apply');
 const LIMIT = Number((process.argv.find((a) => a.startsWith('--limit=')) || '').split('=')[1]) || Infinity;
@@ -31,7 +32,7 @@ const SOFT = new Set(['מחיר']);
   let rows = [], from = 0;
   while (true) {
     const { data, error } = await client.from('incoming_activities')
-      .select('id, match_type, status, validation_issues, extracted_data, source:sources(id, name, is_trusted, source_trust_score)')
+      .select('id, match_type, status, validation_issues, extracted_data, source:sources(id, name, seed_url, is_trusted, source_trust_score)')
       .in('status', ['new', 'needs_review']).eq('match_type', 'new').order('found_at', { ascending: true }).range(from, from + 999);
     if (error) throw error;
     rows = rows.concat(data); if (data.length < 1000) break; from += 1000;
@@ -64,6 +65,10 @@ const SOFT = new Set(['מחיר']);
     // entity-type-aware temporal evidence (2026-09-19): recurring without weekdays / "אירוע" without a one-time date stays for a human
     const temporal = missingTemporalEvidence(c);
     const hasPlace = !!(c.city && (c.location_name || c.formatted_address));
+    // content safety (lib/autoPublishSafety.js): independent of trust - a business / promotion / 'אחר' listing
+    // without positive child evidence is never approved by this tool
+    const safety = assessAutoPublishSafety(c, { name: r.source?.name || null, url: r.source?.seed_url || null });
+    if (!safety.allow) { plan.leave++; leaveReasons['content safety: ' + safety.code] = (leaveReasons['content safety: ' + safety.code] || 0) + 1; continue; }
     if (trusted && gating.length === 0 && dateOk && !temporal && hasPlace && rel === 'ok') { plan.approve.push({ id: r.id, name: c.name, src: r.source?.name, fp: c.event_fingerprint || null }); continue; }
     plan.leave++;
     const why = !trusted ? 'untrusted source' : gating.length ? 'issues: ' + gating.join(',') : !dateOk ? 'date not plausible' : temporal ? 'temporal: ' + temporal : !hasPlace ? 'no place' : 'relevance ' + rel;

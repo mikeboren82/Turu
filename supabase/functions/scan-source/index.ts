@@ -49,6 +49,7 @@ import { recordProvenance } from '../_shared/provenance.ts';
 import { reconfirmExistingFromPending, type PendingReviewRow } from '../_shared/reconfirmation.ts';
 import { applyMissingAccounting, scopeKey, type PageScope, type MissingSummary } from '../_shared/missingScope.ts';
 import { substantiveIssues, priceCompleteness, classifyUpdateDiff, farFutureDeferUntil } from '../_shared/intakePolicy.ts';
+import { assessAutoPublishSafety, SAFETY_ISSUE_LABEL } from '../_shared/autoPublishSafety.ts';
 
 // Largest HTML document we are willing to parse per page (see the CPU-guard note in the page loop).
 const MAX_HTML_BYTES = 1_500_000;
@@ -86,7 +87,10 @@ function isCommitmentActivity(candidate: { entity_type: unknown; category: unkno
 //       "אירוע" a one-time date - an evergreen place needs none (missingTemporalEvidence).
 // Everything else lands in the review queue with its confidence/trust visible to the admin.
 interface AutoApproveGate { minTrust: number; maxDaysAhead: number; today: string }
-function autoApproveEligible(candidate: Record<string, unknown>, issues: string[], source: { is_trusted: boolean | null; source_trust_score: number | null }, gate: AutoApproveGate): boolean {
+function autoApproveEligible(candidate: Record<string, unknown>, issues: string[], source: { is_trusted: boolean | null; source_trust_score: number | null; name?: string | null; seed_url?: string | null }, gate: AutoApproveGate): boolean {
+  // (0) CONTENT SAFETY first and independently of trust: trust says how much we believe the publisher, never
+  //     whether this listing is a children's activity (_shared/autoPublishSafety.ts)
+  if (!assessAutoPublishSafety(candidate, { name: source.name ?? null, url: source.seed_url ?? null }).allow) return false;
   const trusted = !!source.is_trusted || (source.source_trust_score != null && Number(source.source_trust_score) >= gate.minTrust);
   if (!trusted || issues.length > 0 || !candidate.city || !candidate.location_name) return false;
   if (missingTemporalEvidence(candidate)) return false;
@@ -524,7 +528,7 @@ Deno.serve(async (req: Request) => {
   // DENSE-LISTING RECALL FUNNEL (wave 2): DOM cards detected -> extractor output -> past filter ->
   // accounted cards -> bounded recovery -> rejections / folding / cap. Stored per scan in
   // source_scan_logs.listing_metrics (0095) so recall is a number, not an impression.
-  const listing = { pages_with_cards: 0, cards_detected: 0, ai_returned: 0, past_filtered: 0, cards_matched: 0, cards_unaccounted: 0, recovery_calls: 0, recovered: 0, rejected_no_name: 0, rejected_commitment: 0, rejected_adult: 0, twins_folded: 0, capped: 0, skipped_in_scan_duplicate: 0, skipped_pending_in_queue: 0, reconfirmed_pending_review: 0, reconfirm_withheld: {} as Record<string, number>, missing_accounting: null as MissingSummary | null, missing_accounting_error: null as string | null, identity_backfilled: 0, updates_superseded: 0, noop_updates: {} as Record<string, number>, silent_fill: {} as Record<string, number>, deferred_far_future: 0, deferred_released: 0, recovery_error: null as string | null, recovery_skipped: null as string | null, sitemap: null as null | { entities: number; never_scanned: number; picked: number; error?: string }, outside_service_area: 0, skipped_outside_service_area: 0, sample_unaccounted: [] as string[] };
+  const listing = { pages_with_cards: 0, cards_detected: 0, ai_returned: 0, past_filtered: 0, cards_matched: 0, cards_unaccounted: 0, recovery_calls: 0, recovered: 0, rejected_no_name: 0, rejected_commitment: 0, rejected_adult: 0, twins_folded: 0, capped: 0, skipped_in_scan_duplicate: 0, skipped_pending_in_queue: 0, reconfirmed_pending_review: 0, reconfirm_withheld: {} as Record<string, number>, missing_accounting: null as MissingSummary | null, missing_accounting_error: null as string | null, identity_backfilled: 0, updates_superseded: 0, noop_updates: {} as Record<string, number>, silent_fill: {} as Record<string, number>, deferred_far_future: 0, deferred_released: 0, content_safety_held: 0, recovery_error: null as string | null, recovery_skipped: null as string | null, sitemap: null as null | { entities: number; never_scanned: number; picked: number; error?: string }, outside_service_area: 0, skipped_outside_service_area: 0, sample_unaccounted: [] as string[] };
   const RECOVERY_MAX_CARDS = 12;
   const RECOVERY_TIME_LIMIT_MS = 100_000;
 
@@ -930,6 +934,15 @@ Deno.serve(async (req: Request) => {
           const relevance = assessChildRelevance(candidate);
           if (relevance === 'reject') { counters.rejectedCount++; listing.rejected_adult++; continue; }
           if (relevance === 'review') issues.push('קהל יעד לא ברור');
+          // CONTENT SAFETY (2026-09-24, _shared/autoPublishSafety.ts): positive evidence that the listing itself is
+          // for children - never the model's own audience / family_fit label. A business listing, a promotion, an
+          // 'אחר' row without a child age, or a mall item without child/family evidence is held for a person as a
+          // GATING issue, so no trust level (80, is_trusted or a future earned state) can publish it.
+          {
+            const safety = assessAutoPublishSafety(candidate, { name: source.name, url: source.seed_url });
+            candidate.auto_publish_safety = { allow: safety.allow, code: safety.code, commercial: safety.commercialContext, evidence: safety.evidence };
+            if (!safety.allow && !issues.includes(SAFETY_ISSUE_LABEL)) { issues.push(SAFETY_ISSUE_LABEL); listing.content_safety_held = (listing.content_safety_held || 0) + 1; }
+          }
           if (looksLikeStaleRepost(candidate, todayStr)) issues.push('תאריך פרסום ישן');
 
           // WHERE: canonical venue (curated aliases only - never an unsafe auto-link).

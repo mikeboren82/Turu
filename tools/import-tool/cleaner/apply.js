@@ -16,6 +16,7 @@
 // handling live there).
 const { normalizeCityName } = require('../cityNaming');
 const { assessChildRelevance } = require('../childRelevance');
+const { assessAutoPublishSafety } = require('../lib/autoPublishSafety');
 const { computeEventFingerprint } = require('../eventFingerprint');
 const { bestMatch, findStandingProgrammeMatch } = require('./matching');
 const { isMissingCity } = require('../lib/canonicalSettlement');
@@ -117,7 +118,7 @@ async function handBackIncoming(client, row, { settings, userId, cache, today, c
     }
   }
   // policy = the same gate reprocess-review-queue.js / the scanner use
-  const { data: src } = await client.from('sources').select('is_trusted, source_trust_score').eq('id', row.source_id).maybeSingle();
+  const { data: src } = await client.from('sources').select('is_trusted, source_trust_score, name, seed_url').eq('id', row.source_id).maybeSingle();
   const trusted = trustedOverride || !!src?.is_trusted || (src?.source_trust_score != null && Number(src.source_trust_score) >= settings.minTrust);
   const gating = (row.validation_issues || []).filter((i) => !SOFT.has(i));
   const maxDate = new Date(Date.now() + settings.maxDaysAhead * 86400000).toISOString().slice(0, 10);
@@ -141,6 +142,10 @@ async function handBackIncoming(client, row, { settings, userId, cache, today, c
     }
   }
   if (!(trusted && gating.length === 0 && dateOk && !temporal && rel === 'ok')) return { outcome: 'awaiting_policy', why: !trusted ? 'untrusted_source' : gating.length ? 'issues:' + gating.join(',') : !dateOk ? 'date' : temporal ? 'temporal:' + temporal : 'relevance_' + rel };
+  // CONTENT SAFETY (2026-09-24, lib/autoPublishSafety.js): independent of trust - neither the source score nor
+  // trustedOverride (a Cleaner-vetted LOCATION) says the listing is a children's activity. Held, never rejected.
+  const safety = assessAutoPublishSafety(c, { name: src?.name || null, url: src?.seed_url || null });
+  if (!safety.allow) return { outcome: 'awaiting_policy', why: 'content_safety:' + safety.code };
   // WHO MAY ATTEND (Phase 1): the automated hand-back never answers the access question. A row the
   // access assessment holds stays in the queue for a human (policy hold, same as temporal evidence).
   const accessA = assessAccessType(c);

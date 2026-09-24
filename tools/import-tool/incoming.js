@@ -173,6 +173,8 @@ function renderIncomingPage() {
     if (!issues.length && !priceUnknown && !deferred) return '';
     return '<div class="issues-row">' +
       issues.map((i) => '<span class="badge issue">⚠️ חסר: ' + escapeHtml(i) + '</span>').join('') +
+      // content safety hold (autoPublishSafety): why the listing was not published automatically
+      (c.auto_publish_safety && c.auto_publish_safety.allow === false ? '<span class="badge">🛍️ ' + escapeHtml(c.auto_publish_safety.code) + (c.auto_publish_safety.evidence && c.auto_publish_safety.evidence.length ? ' — ' + escapeHtml(c.auto_publish_safety.evidence.join('; ')) : '') + '</span>' : '') +
       (priceUnknown ? '<span class="badge">ℹ️ מחיר לא צוין במקור</span>' : '') + deferred +
       '</div>';
   }

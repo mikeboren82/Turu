@@ -107,10 +107,8 @@ test('israelToday is the civil date in Asia/Jerusalem, not the machine or UTC da
   assert.equal(P.israelToday(new Date('2026-09-24T20:00:00Z')), '2026-09-24');
 });
 
-// Policy forensic safety finding (Phase A section 12), recorded - NOT asserted: production ALREADY auto-publishes
-// category 'אחר' / retail listings from trust-80 mall sources (35 live rows on 2026-09-24, e.g. "מקדונלדס"),
-// independently of any earned-trust change. The fix is a separate task; this must become a real assertion then.
-test.todo('trust policy: mall / retail / cinema auto-publish requires POSITIVE child/family evidence, and category אחר never auto-publishes');
+// (The Phase A section 12 finding - mall / retail / category 'אחר' auto-publishing - is asserted in
+// tests/autoPublishSafety.test.js since the content-safety gate landed.)
 
 // Deno twin parity: the same rule table must hold in supabase/functions/_shared/intakePolicy.test.ts
 test('twin parity: both implementations export the same rule surface', () => {
