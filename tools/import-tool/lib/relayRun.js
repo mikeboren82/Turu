@@ -3,6 +3,35 @@
 // COMPLETE / PARTIAL / FAILED verdict -> guarded next_scan write. Dependencies are injected for tests.
 const plan = require('./relayPlan');
 const { callWithRetry } = require('./relayRpc');
+const { applyMissingAccounting, scopeKey } = require('./missingScope');
+
+// One scope per listing page (all its #part=N parts): complete only when every part was sent and confirmed.
+function runScopes(listingAll, keptUrls, confirmed, needsExtraction) {
+  const groups = new Map();
+  for (const p of listingAll) { const k = scopeKey(p.url); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(p); }
+  const scopes = new Map();
+  for (const [k, parts] of groups) {
+    scopes.set(k, {
+      complete: parts.every((p) => keptUrls.has(p.url) && confirmed.has(p.url)),
+      changedProcessed: parts.some((p) => needsExtraction.has(p.url) && confirmed.has(p.url)),
+      text: parts.map((p) => p.text).join('\n'),
+    });
+  }
+  return scopes;
+}
+
+// Missing-from-source once per LOGICAL run (scan-source skips it for relay batches). Matched = scan-source marked the
+// activity seen during one of this run's invocations.
+async function evaluateRunMissing(ctx, s, { listingAll, keptUrls, confirmed, needsExtraction, firstLogAt }) {
+  if (!listingAll.length) return null;
+  let matchedIds = new Set();
+  if (firstLogAt) {
+    const { data } = await ctx.client.from('activities').select('id').eq('source_id', s.id).eq('status', 'approved').gte('last_seen_at', firstLogAt);
+    matchedIds = new Set((data || []).map((a) => a.id));
+  }
+  const { summary } = await applyMissingAccounting(ctx.client, { sourceId: s.id, scopes: runScopes(listingAll, keptUrls, confirmed, needsExtraction), matchedIds, threshold: ctx.missingThreshold, now: () => new Date(ctx.now()).toISOString() });
+  return summary;
+}
 
 const realSleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -65,13 +94,14 @@ async function applyVerdict(ctx, s, run, lastLog, progressed) {
 }
 
 async function relaySource(ctxIn, s) {
-  const ctx = { batchSize: 3, sleep: realSleep, pollMs: 5000, waitTimeoutMs: 240_000, finalizeWaitMs: 30_000, maxPolls: Infinity, now: () => Date.now(), log: console.log, recorder: null, ...ctxIn };
+  const ctx = { batchSize: 3, sleep: realSleep, pollMs: 5000, waitTimeoutMs: 240_000, finalizeWaitMs: 30_000, maxPolls: Infinity, now: () => Date.now(), log: console.log, recorder: null, missingThreshold: 3, ...ctxIn };
   const { client, log } = ctx;
-  const run = { source: s.name, sourceId: s.id, outcome: null, plannedParts: 0, confirmedParts: 0, deferredParts: 0, plannedBatches: 0, submittedBatches: 0, successfulBatches: 0, followupRounds: 0, failedBatch: null, waitTimedOut: false, ceiling: null, charsSent: 0, pages: [] };
+  const run = { source: s.name, sourceId: s.id, outcome: null, plannedParts: 0, confirmedParts: 0, deferredParts: 0, plannedBatches: 0, submittedBatches: 0, successfulBatches: 0, followupRounds: 0, failedBatch: null, waitTimedOut: false, ceiling: null, charsSent: 0, pages: [], missing: null };
   const { stats, pages } = await ctx.relayPages(s);
   run.pages = stats;
   const detailPages = pages.filter((p) => p.kind === 'detail');
-  const { kept, ceiling } = plan.applyPartCeiling(pages.filter((p) => p.kind !== 'detail'), ctx.maxParts);
+  const listingAll = pages.filter((p) => p.kind !== 'detail');
+  const { kept, ceiling } = plan.applyPartCeiling(listingAll, ctx.maxParts);
   run.ceiling = ceiling; run.plannedParts = kept.length;
   if (ceiling) log(`   ⚠ part ceiling: ${JSON.stringify(ceiling)}`);
   let queue = plan.orderPartsForRelay(kept, await readSnapshots(client, s.id, kept.map((p) => p.url)));
@@ -79,6 +109,7 @@ async function relaySource(ctxIn, s) {
   const confirmed = new Set();
   const seenLogIds = new Set();
   let lastLog = null;
+  let firstLogAt = null;
 
   for (let round = 0; round <= plan.MAX_FOLLOWUP_ROUNDS && queue.length; round++) {
     run.followupRounds = round;
@@ -100,6 +131,7 @@ async function relaySource(ctxIn, s) {
       const done = await waitForScan(ctx, s.id, since, seenLogIds);
       if (!done) { run.waitTimedOut = true; log(`   round ${round} batch ${i + 1}: scan did not finish in time`); stop = true; break; }
       seenLogIds.add(done.id); lastLog = done;
+      if (!firstLogAt || done.started_at < firstLogAt) firstLogAt = done.started_at;
       if (done.status !== 'error') run.successfulBatches++;
       const ok = plan.processedUrls(listing, await readSnapshots(client, s.id, listing.map((p) => p.url)), done.started_at);
       for (const p of listing) { if (ok.has(p.url)) { confirmed.add(p.url); roundConfirmed++; } else deferred.push(p); }
@@ -113,6 +145,7 @@ async function relaySource(ctxIn, s) {
   run.deferredParts = run.plannedParts - confirmed.size;
   run.outcome = plan.classifyRun({ plannedParts: run.plannedParts, confirmedParts: run.confirmedParts, submittedBatches: run.submittedBatches, failedBatch: run.failedBatch, ceiling: run.ceiling, waitTimedOut: run.waitTimedOut });
   const progressed = [...confirmed].some((u) => needsExtraction.has(u));
+  run.missing = await evaluateRunMissing(ctx, s, { listingAll, keptUrls: new Set(kept.map((p) => p.url)), confirmed, needsExtraction, firstLogAt });
   run.verdictWrite = await applyVerdict(ctx, s, run, lastLog, progressed);
   return run;
 }

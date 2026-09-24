@@ -3,7 +3,8 @@
 // page + same-domain listing pages exactly like scan-source would (same link-discovery heuristic,
 // same HTML normalization/hash, same text/image extraction), then hands the TEXT to scan-source via
 // the relay_scan_source RPC. All extraction/dedupe/provenance/health logic still runs in the edge
-// function - this script never writes to activities/incoming itself.
+// function - this script never writes incoming rows; its only activity writes are the once-per-run
+// page-scoped seen/missing accounting (lib/missingScope.js), which scan-source skips for relay batches.
 //
 //   node relay-scan.js                    -> all active sources with strategy='local_relay' that are due
 //   node relay-scan.js --all              -> ignore next_scan_at, relay every local_relay source
@@ -157,10 +158,12 @@ async function relayPages(s) {
   const { data: sources, error } = await (args.max ? q : q.order('priority', { ascending: false }));
   if (error) throw error;
   console.log(`relaying ${sources.length} source(s)`);
+  const { data: thr } = await client.from('automation_settings').select('value').eq('key', 'missing_scan_threshold').maybeSingle();
+  const missingThreshold = Number(thr?.value ?? 3);
   for (const s of sources) {
     let run;
     try {
-      run = await relaySource({ client, recorder, relayPages, batchSize: Number(args.batch || 3) }, s);
+      run = await relaySource({ client, recorder, relayPages, batchSize: Number(args.batch || 3), missingThreshold }, s);
     } catch (e) {
       run = { source: s.name, sourceId: s.id, outcome: 'FAILED', error: e.message.slice(0, 200) };
     }

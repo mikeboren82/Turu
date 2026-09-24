@@ -47,6 +47,9 @@ import { computeContentHash } from '../_shared/hashing.ts';
 import { detectFutureDuplicates } from '../_shared/duplicateCandidates.ts';
 import { recordProvenance } from '../_shared/provenance.ts';
 import { reconfirmExistingFromPending, type PendingReviewRow } from '../_shared/reconfirmation.ts';
+import { applyMissingAccounting, scopeKey, type PageScope, type MissingSummary } from '../_shared/missingScope.ts';
+
+const MISSING_FLAGS_ENABLED = false;
 
 // Largest HTML document we are willing to parse per page (see the CPU-guard note in the page loop).
 const MAX_HTML_BYTES = 1_500_000;
@@ -466,6 +469,13 @@ Deno.serve(async (req: Request) => {
   let errorMessage: string | null = null;
   const failureKinds: FailureKind[] = [];
   const matchedExistingIds = new Set<string>();
+  // every listing page actually checked in this invocation, keyed by page scope (see _shared/missingScope.ts)
+  const pageScopes = new Map<string, PageScope>();
+  const noteScope = (url: string, s: PageScope) => {
+    const k = scopeKey(url);
+    const prev = pageScopes.get(k);
+    pageScopes.set(k, prev ? { complete: prev.complete && s.complete, changedProcessed: prev.changedProcessed || s.changedProcessed, text: prev.text + '\n' + s.text } : s);
+  };
   const cityCache = new Map<string, ExistingActivity[]>();
   const venueCache = new Map<string, Awaited<ReturnType<typeof resolveVenue>>>();
   // Fingerprints already handled in THIS scan (a page can list the same event twice; two pages of one
@@ -514,7 +524,7 @@ Deno.serve(async (req: Request) => {
   // DENSE-LISTING RECALL FUNNEL (wave 2): DOM cards detected -> extractor output -> past filter ->
   // accounted cards -> bounded recovery -> rejections / folding / cap. Stored per scan in
   // source_scan_logs.listing_metrics (0095) so recall is a number, not an impression.
-  const listing = { pages_with_cards: 0, cards_detected: 0, ai_returned: 0, past_filtered: 0, cards_matched: 0, cards_unaccounted: 0, recovery_calls: 0, recovered: 0, rejected_no_name: 0, rejected_commitment: 0, rejected_adult: 0, twins_folded: 0, capped: 0, skipped_in_scan_duplicate: 0, skipped_pending_in_queue: 0, reconfirmed_pending_review: 0, reconfirm_withheld: {} as Record<string, number>, identity_backfilled: 0, updates_superseded: 0, recovery_error: null as string | null, recovery_skipped: null as string | null, sitemap: null as null | { entities: number; never_scanned: number; picked: number; error?: string }, outside_service_area: 0, skipped_outside_service_area: 0, sample_unaccounted: [] as string[] };
+  const listing = { pages_with_cards: 0, cards_detected: 0, ai_returned: 0, past_filtered: 0, cards_matched: 0, cards_unaccounted: 0, recovery_calls: 0, recovered: 0, rejected_no_name: 0, rejected_commitment: 0, rejected_adult: 0, twins_folded: 0, capped: 0, skipped_in_scan_duplicate: 0, skipped_pending_in_queue: 0, reconfirmed_pending_review: 0, reconfirm_withheld: {} as Record<string, number>, missing_accounting: null as MissingSummary | null, identity_backfilled: 0, updates_superseded: 0, recovery_error: null as string | null, recovery_skipped: null as string | null, sitemap: null as null | { entities: number; never_scanned: number; picked: number; error?: string }, outside_service_area: 0, skipped_outside_service_area: 0, sample_unaccounted: [] as string[] };
   const RECOVERY_MAX_CARDS = 12;
   const RECOVERY_TIME_LIMIT_MS = 100_000;
 
@@ -537,7 +547,7 @@ Deno.serve(async (req: Request) => {
       updated_count: counters.updatedCount, duplicate_count: counters.duplicateCount,
       rejected_count: counters.rejectedCount, auto_approved_count: counters.autoApprovedCount,
       detail_metrics: detailCfg ? detail : null,
-      listing_metrics: (listing.pages_with_cards || listing.sitemap || listing.skipped_pending_in_queue) ? listing : null,
+      listing_metrics: (listing.pages_with_cards || listing.sitemap || listing.skipped_pending_in_queue || listing.missing_accounting) ? listing : null,
     }).eq('id', scanLogId);
   }
 
@@ -630,6 +640,7 @@ Deno.serve(async (req: Request) => {
         let candidateImages: ReturnType<typeof extractCandidateImages>;
         let text: string;
         let hash: string;
+        let textComplete = true; // false when the page text was cut (raw-HTML cap or text budget) - absence unprovable
         let pageJsonLd: JsonLdEvent[] = []; // structured events on this page (non-relay, non-heavy pages)
         let pageDetailLinks: DetailLink[] = []; // detail links of this listing page (adapter-controlled)
         let pageCards: ListingCard[] = []; // deterministic DOM cards of this listing page (recall funnel)
@@ -642,6 +653,7 @@ Deno.serve(async (req: Request) => {
         if (relayPage) {
           candidateImages = (relayPage.images || []).slice(0, 40);
           text = relayPage.text.slice(0, PAGE_TEXT_CHAR_LIMIT * MAX_TEXT_CHUNKS);
+          textComplete = relayPage.text.length === text.length;
           hash = relayPage.hash;
         } else {
           const res = pageUrl === source.seed_url ? seedRes : await fetchHtml(pageUrl, { timeoutMs: fetchTimeoutMs, retries: retryCount });
@@ -664,7 +676,9 @@ Deno.serve(async (req: Request) => {
             // DOM-free path: no images (they would need the DOM), text via regex stripping
             candidateImages = [];
             if (detailMaxPerPage > 0) { pageDetailLinks = findEventDetailLinksCheap(html, pageUrl, { max: 40, allowHosts: detailCfg?.allow_hosts || [], urlPattern: detailCfg?.url_pattern, listingUrls: pageUrls }); detail.links += pageDetailLinks.length; }
-            text = cheapPageText(html, textBudget);
+            const full = cheapPageText(html, Infinity);
+            text = full.slice(0, textBudget);
+            textComplete = full.length === text.length && html.length === res.html.length;
           } else {
             const $ = cheerio.load(html);
             candidateImages = extractCandidateImages($, pageUrl);
@@ -672,7 +686,9 @@ Deno.serve(async (req: Request) => {
             if (detailMaxPerPage > 0) { pageDetailLinks = findEventDetailLinks($, pageUrl, { max: 40, allowHosts: detailCfg?.allow_hosts || [], linkSelector: detailCfg?.link_selector, urlPattern: detailCfg?.url_pattern, listingUrls: pageUrls }); detail.links += pageDetailLinks.length; }
             // before pageTextForExtraction: it strips nodes from the same DOM
             try { pageCards = enumerateListingCards($, pageUrl); } catch { pageCards = []; }
-            text = pageTextForExtraction($, textBudget, { itemSelector: itemSelectorCfg });
+            const full = pageTextForExtraction($, Infinity, { itemSelector: itemSelectorCfg });
+            text = full.slice(0, textBudget);
+            textComplete = full.length === text.length && html.length === res.html.length;
           }
           hash = await computeContentHash(text);
         }
@@ -687,12 +703,13 @@ Deno.serve(async (req: Request) => {
           counters.pagesUnchanged++;
           await client.from('source_page_snapshots').update({ last_fetched_at: new Date().toISOString() })
             .eq('source_id', source.id).eq('url', pageUrl);
+          noteScope(pageUrl, { complete: textComplete, changedProcessed: false, text });
           continue;
         }
         counters.pagesChanged++;
 
         // ה-snapshot נשמר רק **אחרי** חילוץ-AI מוצלח (למטה) - כשל-AI חד-פעמי לא יהפוך לאובדן-כיסוי קבוע.
-        if (counters.aiCalls >= maxAiRequests) { errorType = errorType ?? 'rate_limited'; continue; }
+        if (counters.aiCalls >= maxAiRequests) { errorType = errorType ?? 'rate_limited'; noteScope(pageUrl, { complete: false, changedProcessed: false, text }); continue; }
 
         if (!text || text.length < 200) {
           // HTTP 200 with (almost) no body text = JS challenge page / WAF interstitial / client-side
@@ -733,11 +750,14 @@ Deno.serve(async (req: Request) => {
 
         let extracted: unknown[];
         let pageTruncated = false;
+        let pageCapped = false;
+        let windowsCoverText = true;
         try {
           const anthropic = new Anthropic({ apiKey: Deno.env.get('ANTHROPIC_API_KEY') });
           // One extraction per text window; a long calendar yields several windows, each a separate
           // (bounded) AI call. Windows after the first stop early when the AI budget is exhausted.
           const windows = splitTextForExtraction(text);
+          windowsCoverText = splitTextForExtraction(text, PAGE_TEXT_CHAR_LIMIT, Infinity).length <= windows.length;
           extracted = [];
           const returnedNames: string[] = [];
           for (let w = 0; w < windows.length; w++) {
@@ -799,6 +819,7 @@ Deno.serve(async (req: Request) => {
           errorType = errorType ?? 'ai';
           errorMessage = errorMessage ?? (aiErr instanceof Error ? aiErr.message : String(aiErr));
           failureKinds.push('parse_extraction');
+          noteScope(pageUrl, { complete: false, changedProcessed: false, text });
           continue;
         }
 
@@ -899,7 +920,7 @@ Deno.serve(async (req: Request) => {
 
         // ---- pass 2: identity, dedup, routing, persistence ----
         for (const p of prepared) {
-          if (counters.found >= maxActivitiesPerScan) { listing.capped += prepared.length - prepared.indexOf(p); break; }
+          if (counters.found >= maxActivitiesPerScan) { listing.capped += prepared.length - prepared.indexOf(p); pageCapped = true; break; }
           const candidate = p.candidate; const issues = p.issues;
 
           if (issues.length > 0 && !candidate.name) { counters.rejectedCount++; listing.rejected_no_name++; continue; }
@@ -1221,26 +1242,30 @@ Deno.serve(async (req: Request) => {
           }
           counters.found++;
         }
+        noteScope(pageUrl, { complete: textComplete && windowsCoverText && !pageTruncated && !pageCapped, changedProcessed: !pageTruncated, text });
       } finally {
         await persistProgress();
       }
     }
 
-    // זיהוי "נעלם מהמקור" - רק אחרי שכל הדפים נבדקו. עובד עכשיו בפועל כי source_id נכתב (0078 + כאן).
-    const { data: sourceActivities } = await client
-      .from('activities').select('id, name, consecutive_missing_scans')
-      .eq('source_id', source.id).eq('status', 'approved');
-    for (const act of sourceActivities || []) {
-      if (matchedExistingIds.has(act.id)) continue;
-      const nextCount = (act.consecutive_missing_scans || 0) + 1;
-      await client.from('activities').update({ consecutive_missing_scans: nextCount }).eq('id', act.id);
-      if (nextCount >= missingThreshold) {
-        counters.missingCount++;
-        await client.from('incoming_activities').upsert({
-          source_id: source.id, scan_log_id: scanLogId, page_url: source.seed_url,
-          match_type: 'missing', existing_activity_id: act.id, status: 'missing_flagged',
-          extracted_data: { name: act.name, consecutive_missing_scans: nextCount },
-        }, { onConflict: 'existing_activity_id', ignoreDuplicates: true });
+    // Missing-from-source, page-scoped (_shared/missingScope.ts). A relay invocation is one batch of a larger run,
+    // so the relay evaluates once per logical run (tools/import-tool/lib/relayRun.js) - never per batch here.
+    if (!relayPages) {
+      const { summary, decisions } = await applyMissingAccounting(client, { sourceId: source.id, scopes: pageScopes, matchedIds: matchedExistingIds, threshold: missingThreshold });
+      listing.missing_accounting = summary;
+      counters.missingCount = summary.over_threshold;
+      // Flags stay OFF until the counters are proven: this upsert targets a PARTIAL unique index without its
+      // predicate, so Postgres rejects it (0 rows ever) - intentionally left unfixed.
+      if (MISSING_FLAGS_ENABLED) {
+        const { data: acts } = await client.from('activities').select('id, name, consecutive_missing_scans').in('id', decisions.filter((d) => d.action === 'absent').map((d) => d.id));
+        for (const act of acts || []) {
+          if ((act.consecutive_missing_scans || 0) < missingThreshold) continue;
+          await client.from('incoming_activities').upsert({
+            source_id: source.id, scan_log_id: scanLogId, page_url: source.seed_url,
+            match_type: 'missing', existing_activity_id: act.id, status: 'missing_flagged',
+            extracted_data: { name: act.name, consecutive_missing_scans: act.consecutive_missing_scans },
+          }, { onConflict: 'existing_activity_id', ignoreDuplicates: true });
+        }
       }
     }
 
@@ -1256,7 +1281,7 @@ Deno.serve(async (req: Request) => {
       new_count: counters.newCount, updated_count: counters.updatedCount, duplicate_count: counters.duplicateCount,
       rejected_count: counters.rejectedCount, missing_count: counters.missingCount, auto_approved_count: counters.autoApprovedCount,
       error_count: counters.errorCount, error_type: errorType, error_message: errorMessage, failure_kind: failureKind,
-      listing_metrics: (listing.pages_with_cards || listing.sitemap || listing.skipped_pending_in_queue) ? listing : null,
+      listing_metrics: (listing.pages_with_cards || listing.sitemap || listing.skipped_pending_in_queue || listing.missing_accounting) ? listing : null,
     }).eq('id', scanLogId);
 
     await finalizeSource(finalStatus, failureKind, {
