@@ -20,6 +20,7 @@ import { classifyFetchFailure, type FailureKind } from './sourceHealth.ts';
 import { accessGuidanceBlock } from './accessType.ts';
 import { canonicalPageKey } from './discovery.ts';
 import { trustedAges } from './ageEvidence.ts';
+import { markersIn, hasMarker } from './markerMatch.ts';
 
 export const CATEGORY_VALUES: string[] = categoryValues.categories;
 
@@ -351,17 +352,23 @@ export function filterPastOneTimeActivities(activities: any[], todayStr: string)
 // unknown label. Returns 'reject' | 'review' | 'ok'.
 export const AUDIENCE_VALUES = ['children', 'family', 'adults', 'unknown'];
 const ADULT_MARKERS = [
-  'הרצאה', 'הרצאת', 'סטנדאפ', 'סטנד אפ', 'מנוי', 'סדרת', 'גיל הזהב', 'ותיקים', 'ותיקות', 'אזרחים ותיקים', 'גמלאים', 'פנסיונרים',
+  'הרצאה', 'הרצאת', 'סטנדאפ', 'סטנד אפ', 'מנוי', 'מנויים', 'מנויי', 'סדרת', 'גיל הזהב', 'ותיקים', 'ותיקות', 'אזרחים ותיקים', 'גמלאים', 'פנסיונרים',
   'קפה עסקי', 'נטוורקינג', 'צ׳יקונג', "צ'יקונג", 'טאי צ׳י', "טאי צ'י", 'יוגה למבוגרים', 'פילאטיס', 'הכר את הנייד', 'סמארטפון למבוגרים',
-  'ערב נשים', 'לנשים בלבד', 'מסיבת רווקים', 'טעימות יין', 'סיור יין', 'יקב', 'אלכוהול', 'בירה', 'מועדון לילה', 'קונצרט ערב', 'ישיבת מועצה',
-  'קורס', 'סדנת הורים', 'הורים בלבד', 'ערב הורים', 'קבלת קהל', 'הודעה לתושבים', 'סיור מקצועי', '18+', 'למבוגרים בלבד', 'לגיל השלישי',
+  'ערב נשים', 'לנשים בלבד', 'מסיבת רווקים', 'טעימות יין', 'סיור יין', 'יקב', 'יקבים', 'אלכוהול', 'בירה', 'מועדון לילה', 'קונצרט ערב', 'ישיבת מועצה',
+  'קורס', 'קורסים', 'קורסי', 'סדנת הורים', 'הורים בלבד', 'ערב הורים', 'קבלת קהל', 'הודעה לתושבים', 'סיור מקצועי', '18+', 'למבוגרים בלבד', 'לגיל השלישי',
 ];
 const CHILD_MARKERS = [
-  'ילדים', 'ילדה', 'לילד', 'פעוט', 'תינוק', 'משפחה', 'משפחות', 'הורים וילדים', 'גיל הרך', 'גני ילדים', 'שעת סיפור', 'הצגת ילדים',
-  'תיאטרון ילדים', 'סדנת יצירה', 'קטנטנים', 'בייבי', 'לכל הגילאים', 'לכל המשפחה', 'הפעלה', 'מתנפחים', 'קוסם', 'ליצן', 'בובות',
-  'כיתות', 'נוער', 'קייטנה', 'חופש הגדול', 'חנוכה לילדים', 'פורים', 'סוכות', 'שעשועים', 'משחקים', 'משחקייה',
+  'ילדים', 'ילד', 'ילדה', 'ילדי', 'לילדות', 'פעוט', 'פעוטות', 'פעוטים', 'תינוק', 'תינוקות', 'תינוקת', 'הורים וילדים', 'גיל הרך', 'גני ילדים', 'גן ילדים',
+  'שעת סיפור', 'הצגת ילדים', 'הצגות ילדים', 'תיאטרון ילדים', 'קטנטנים', 'קטנטנות', 'בייבי', 'לכל המשפחה', 'למשפחות', 'מתנפחים', 'קוסם', 'קוסמת', 'ליצן', 'ליצנים', 'בובות',
+  'גן שעשועים', 'גני שעשועים', 'כיתות', 'נוער', 'קייטנה', 'קייטנות', 'חנוכה לילדים', 'משחקייה', 'משחקיה',
   // 2026-09-24 relevance replay: child evidence the model's "family" label was standing in for
-  'קידס', 'kids', 'הורה וילד', 'הורה ופעוט', 'הורה ותינוק', 'הצגה משפחתית', 'מופע משפחתי', 'פסטיבל משפחתי', 'הצגת חנוכה', 'קסמים', 'גן החיות', 'פינת ליטוף',
+  'קידס', 'kids', 'הורה וילד', 'הורה ופעוט', 'הורה ותינוק', 'הצגה משפחתית', 'מופע משפחתי', 'פסטיבל משפחתי', 'הצגת חנוכה', 'פינת ליטוף',
+];
+// CONTEXT words (holidays, family as a topic, generic activity words): never child evidence on their own - a Purim
+// lecture, a Sukkot concert, "משפחות שכולות" at a memorial. An item with them publishes only on independent child
+// evidence; they only name the reason (weak_child_context_only).
+const WEAK_CHILD_CONTEXT = [
+  'משפחה', 'משפחות', 'משפחתי', 'משפחתית', 'לכל הגילאים', 'פורים', 'סוכות', 'חנוכה', 'חופש הגדול', 'שעשועים', 'משחקים', 'סדנת יצירה', 'הפעלה', 'הפעלות', 'קסמים', 'גן החיות',
 ];
 // an explicit child age in the title/description ("לגיל 2-4", "גילאי 3-6", "בני 5+") - a ticketing site
 // tagging a toddlers' show for both "ילדים ומשפחה" and "אזרחים ותיקים" (grandparents) made the model label
@@ -385,8 +392,8 @@ export function hasExplicitChildAge(text: string): boolean {
 //   3. time is never used: a 20:30 performance is not adult by itself, a 10:00 one not a children's show.
 // Node twin: tools/import-tool/childRelevance.js (identical rules; tests assert the lists).
 const STRONG_CHILD_MARKERS = [
-  'ילדים', 'ילדה', 'לילד', 'פעוט', 'תינוק', 'הורים וילדים', 'גיל הרך', 'גני ילדים', 'שעת סיפור', 'הצגת ילדים',
-  'תיאטרון ילדים', 'קטנטנים', 'בייבי', 'כיתות', 'נוער', 'קייטנה', 'חנוכה לילדים', 'משחקייה',
+  'ילדים', 'ילד', 'ילדה', 'ילדי', 'לילדות', 'פעוט', 'פעוטות', 'פעוטים', 'תינוק', 'תינוקות', 'תינוקת', 'הורים וילדים', 'גיל הרך', 'גני ילדים', 'גן ילדים', 'שעת סיפור',
+  'הצגת ילדים', 'הצגות ילדים', 'תיאטרון ילדים', 'קטנטנים', 'קטנטנות', 'בייבי', 'כיתות', 'נוער', 'קייטנה', 'קייטנות', 'חנוכה לילדים', 'משחקייה', 'משחקיה',
   'קידס', 'kids', 'הורה וילד', 'הורה ופעוט', 'הורה ותינוק',
 ];
 // publisher labels that file an item under an ADULT programme (item-local only - never page-wide text)
@@ -402,7 +409,7 @@ export function sourceContextAudience(sc: unknown): 'adult' | 'child' | null {
 // physical child infrastructure - its category is the evidence
 const INHERENTLY_CHILD_CATEGORIES = new Set(['גן שעשועים', 'משחקייה']);
 // subscription vocabulary is an adult MARKER only without the item's own child context ("מנויים וסדרות ילדים")
-const SUBSCRIPTION_MARKERS = new Set(['מנוי', 'סדרת']);
+const SUBSCRIPTION_MARKERS = new Set(['מנוי', 'מנויים', 'מנויי', 'סדרת']);
 export type ChildRelevanceVerdict = 'reject' | 'review' | 'ok';
 export function childRelevanceEvidence(candidate: { audience?: unknown; name?: unknown; description?: unknown; min_age?: unknown; max_age?: unknown; category?: unknown; source_context?: unknown }): { verdict: ChildRelevanceVerdict; reason: string } {
   const text = `${candidate.name ?? ''} ${candidate.description ?? ''}`.toLowerCase();
@@ -412,32 +419,37 @@ export function childRelevanceEvidence(candidate: { audience?: unknown; name?: u
   // min_age >= 18 stays adult evidence below - an adult age is never hidden because its provenance is weak.
   const ages = trustedAges(candidate);
   const explicitChildAge = hasExplicitChildAge(`${candidate.name ?? ''}`.toLowerCase()) || (ages != null && typeof ages.max_age === 'number' && ages.max_age <= 12);
-  const hasChild = CHILD_MARKERS.some((m) => text.includes(m.toLowerCase())) || (ages != null && ((typeof ages.max_age === 'number' && ages.max_age <= 18) || (typeof ages.min_age === 'number' && ages.min_age <= 12))) || explicitChildAge;
+  // MARKERS (2026-09-24, markerMatch twin): whole words only - never a substring of another word ("פורים" is not in
+  // "סיפורים"); holiday / family-topic / activity CONTEXT words are weak and never make hasChild on their own
+  const weakContext = markersIn(text, WEAK_CHILD_CONTEXT);
+  const hasChild = hasMarker(text, CHILD_MARKERS) || (ages != null && ((typeof ages.max_age === 'number' && ages.max_age <= 18) || (typeof ages.min_age === 'number' && ages.min_age <= 12))) || explicitChildAge;
   // an UNVERIFIED child age (the model's numbers, an age phrase in the model-written description) proves nothing, but
   // it keeps an adult-looking row reviewable - at intake a reject is a silent drop ("קורס שחייה" + model 5-10)
   const unverifiedChildAge = (typeof candidate.max_age === 'number' && candidate.max_age <= 18) || (typeof candidate.min_age === 'number' && candidate.min_age <= 12) || hasExplicitChildAge(text);
-  const strongChild = explicitChildAge || STRONG_CHILD_MARKERS.some((m) => text.includes(m.toLowerCase()));
+  const strongChild = explicitChildAge || hasMarker(text, STRONG_CHILD_MARKERS);
   // an explicit min_age>=18 is adult evidence on its own, independent of marker text - closes a gap
   // exposed by escape rooms (many operators run an explicit 18+ room alongside kid-friendly ones with
   // no adult-marker phrase in the title/description, and the model's own `audience` label can still say
   // "family"/"children" for the venue page as a whole). Generic, not escape-room-specific.
-  const hasAdult = ADULT_MARKERS.some((m) => text.includes(m.toLowerCase())) || (typeof candidate.min_age === 'number' && candidate.min_age >= 18);
+  const hasAdult = hasMarker(text, ADULT_MARKERS) || (typeof candidate.min_age === 'number' && candidate.min_age >= 18);
   const context = sourceContextAudience(candidate.source_context);
-  const hardAdult = ADULT_MARKERS.some((m) => !SUBSCRIPTION_MARKERS.has(m) && text.includes(m.toLowerCase())) || (typeof candidate.min_age === 'number' && candidate.min_age >= 18);
+  const hardAdult = hasMarker(text, ADULT_MARKERS.filter((m) => !SUBSCRIPTION_MARKERS.has(m))) || (typeof candidate.min_age === 'number' && candidate.min_age >= 18);
   // an "adults" label contradicted by an explicit child age is reviewable, never silently dropped
   if (candidate.audience === 'adults') return explicitChildAge || unverifiedChildAge ? { verdict: 'review', reason: 'adult_label_vs_child_age' } : { verdict: 'reject', reason: 'adult_label' };
-  if (hasAdult && !hasChild) return unverifiedChildAge ? { verdict: 'review', reason: 'adult_marker_with_unverified_age' } : { verdict: 'reject', reason: 'adult_marker' };
+  // an unverified age or weak child CONTEXT (a holiday, family as a topic) proves nothing, but keeps an adult-looking row
+  // reviewable instead of silently rejected ("קורס משפחה בטוחה")
+  if (hasAdult && !hasChild) return unverifiedChildAge ? { verdict: 'review', reason: 'adult_marker_with_unverified_age' } : weakContext.length ? { verdict: 'review', reason: 'adult_marker_with_weak_child_context' } : { verdict: 'reject', reason: 'adult_marker' };
   if (context === 'adult' && !strongChild) return { verdict: 'review', reason: 'first_party_adult_context' };
   // the item's own publisher label says children and the item carries child evidence: subscription words are not adult
   if (context === 'child' && hasChild && !hardAdult) return { verdict: 'ok', reason: 'child_evidence' };
   if (candidate.audience === 'children' || candidate.audience === 'family') {
     if (hasAdult) return { verdict: 'review', reason: 'adult_marker_with_child_evidence' };
     // the model's label (children OR family) is supporting evidence only - never enough on its own
-    if (!hasChild && context !== 'child' && !INHERENTLY_CHILD_CATEGORIES.has(String(candidate.category ?? ''))) return { verdict: 'review', reason: 'model_audience_label_only' };
+    if (!hasChild && context !== 'child' && !INHERENTLY_CHILD_CATEGORIES.has(String(candidate.category ?? ''))) return { verdict: 'review', reason: weakContext.length ? 'weak_child_context_only' : 'model_audience_label_only' };
     return { verdict: 'ok', reason: hasChild || context === 'child' ? 'child_evidence' : 'child_category' };
   }
   // unknown / missing audience: only explicit child evidence passes silently
-  return hasChild || context === 'child' ? { verdict: 'ok', reason: 'child_evidence' } : { verdict: 'review', reason: 'no_child_evidence' };
+  return hasChild || context === 'child' ? { verdict: 'ok', reason: 'child_evidence' } : { verdict: 'review', reason: weakContext.length ? 'weak_child_context_only' : 'no_child_evidence' };
 }
 export function assessChildRelevance(candidate: { audience?: unknown; name?: unknown; description?: unknown; min_age?: unknown; max_age?: unknown; category?: unknown; source_context?: unknown }): ChildRelevanceVerdict {
   return childRelevanceEvidence(candidate).verdict;

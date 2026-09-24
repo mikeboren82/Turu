@@ -5,7 +5,7 @@
   },
   { "id": "shalom_bayit_second_performance_same_evidence", "c": { "name": "שלום בית", "description": "קומדיה משפחתית חדשה מאת גלעד שמואלי המתבוננת על הבדידות בגיל השלישי.", "audience": "family", "category": "הצגה", "one_time_date": "2027-03-17", "source_context": { "labels": [ "עונת תיאטרון 26/27 תיאטרון מופעי בחירה" ] } }, "expect": [ "review", "first_party_adult_context" ]
   },
-  { "id": "shalom_bayit_stored_without_context_model_family_only", "c": { "name": "שלום בית", "description": "קומדיה משפחתית חדשה מאת גלעד שמואלי המתבוננת על הבדידות בגיל השלישי.", "audience": "family", "category": "הצגה" }, "expect": [ "review", "model_audience_label_only" ]
+  { "id": "shalom_bayit_stored_without_context_model_family_only", "c": { "name": "שלום בית", "description": "קומדיה משפחתית חדשה מאת גלעד שמואלי המתבוננת על הבדידות בגיל השלישי.", "audience": "family", "category": "הצגה" }, "expect": [ "review", "weak_child_context_only" ]
   },
   { "id": "explicit_childrens_theatre_season", "c": { "name": "כובע הקסמים", "description": "הצגה חדשה על פי ספרה של לאה גולדברג", "audience": "family", "category": "הצגה", "source_context": { "labels": [ "ניתן לקחת הצגה זאת במסגרת המנוי 2026/27", "הצגות ילדים" ] } }, "expect": [ "ok", "child_evidence" ]
   },

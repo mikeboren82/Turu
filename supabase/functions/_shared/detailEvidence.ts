@@ -16,6 +16,7 @@
 import { parseJsonLdEvents, applyJsonLdToCandidate, isSinglePlace, type JsonLdEvent } from './jsonld.ts';
 import { containsScore } from './detailLinks.ts';
 import { agesIn } from './ageEvidence.ts';
+import { markersIn } from './markerMatch.ts';
 
 export interface Occurrence { date: string; start_time: string | null; end_time: string | null; external_id: string | null; booking_url: string | null; evidence: string }
 export interface PriceTier { label: string; amount: number }
@@ -29,8 +30,9 @@ export interface DetailEvidence {
 }
 
 const STREET_WORDS = '(?:רחוב|רח\'|רח׳|שדרות|שד\'|שד׳|דרך|כיכר|סמטת)';
-const CHILD = ['ילדים', 'לילד', 'פעוט', 'תינוק', 'משפחה', 'משפחות', 'גיל הרך', 'שעת סיפור', 'קטנטנים', 'לכל המשפחה', 'גילאי', 'נוער', 'הצגת ילדים'];
-const ADULT = ['הרצאה', 'סטנדאפ', 'מנוי', 'גיל הזהב', 'ותיקים', 'גמלאים', 'למבוגרים בלבד', '18+', 'ערב נשים', 'טעימות יין'];
+// audience words on the page CONTENT, matched as whole words (markerMatch.ts - "מנוי" is not inside "אמנויות")
+const CHILD = ['ילדים', 'ילד', 'ילדי', 'פעוט', 'פעוטות', 'תינוק', 'תינוקות', 'משפחה', 'משפחות', 'גיל הרך', 'שעת סיפור', 'קטנטנים', 'לכל המשפחה', 'גילאי', 'נוער', 'הצגת ילדים'];
+const ADULT = ['הרצאה', 'הרצאות', 'סטנדאפ', 'מנוי', 'מנויים', 'גיל הזהב', 'ותיקים', 'גמלאים', 'למבוגרים בלבד', '18+', 'ערב נשים', 'טעימות יין'];
 const DATE_RE = /\b(\d{1,2})[./](\d{1,2})(?:[./](\d{2,4}))?\b/g;
 const TIME_RE = /\b([01]?\d|2[0-3]):([0-5]\d)\b/;
 
@@ -223,7 +225,7 @@ export function extractDetailEvidence(html: string, today: string, opts: { baseU
     ages: a ? { min_age: a.min_age, max_age: a.max_age, evidence: a.evidence, kind: a.kind } : null,
     price: extractPriceTiers(content), occurrences,
     registrationUrl: eventLevelBookingUrl(html, opts.baseUrl || null, occUrls),
-    childMarkers: CHILD.filter((w) => lower.includes(w)).length, adultMarkers: ADULT.filter((w) => lower.includes(w)).length, title, heading,
+    childMarkers: markersIn(lower, CHILD).length, adultMarkers: markersIn(lower, ADULT).length, title, heading,
   };
 }
 

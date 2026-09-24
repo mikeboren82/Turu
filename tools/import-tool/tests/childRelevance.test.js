@@ -38,7 +38,8 @@ test('"שלום בית" REGRESSION: both performances are HELD for a person - st
   for (const date of ['2027-03-16', '2027-03-17']) {
     const stored = evaluatePublishPolicy(SHALOM(date), ctx());
     assert.equal(stored.decision, 'HELD', date);
-    assert.deepEqual(stored.reasons.find((r) => r.code === 'relevance_review').detail, 'model_audience_label_only');
+    // (2026-09-24 marker strength: "קומדיה משפחתית" is family as a TOPIC - weak context, still only the model label)
+    assert.deepEqual(stored.reasons.find((r) => r.code === 'relevance_review').detail, 'weak_child_context_only');
     const labelled = evaluatePublishPolicy(SHALOM(date, { source_context: { labels: ['עונת תיאטרון 26/27 תיאטרון מופעי בחירה', 'ההצגה היא חלק מעונת התיאטרון 26/27'], evidence_source: 'listing_card' } }), ctx());
     assert.deepEqual(labelled.reasons.find((r) => r.code === 'relevance_review').detail, 'first_party_adult_context');
     // a hold, not a rejection: a reviewer may approve it, automation may not

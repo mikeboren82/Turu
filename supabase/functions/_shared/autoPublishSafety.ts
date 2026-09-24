@@ -13,16 +13,17 @@
 // So: the model's audience / family_fit labels and generic family wording are NOT evidence here.
 import { hasExplicitChildAge } from './extraction.ts';
 import { trustedAges } from './ageEvidence.ts';
+import { markersIn } from './markerMatch.ts';
 
 export const SAFETY_ISSUE_LABEL = 'רלוונטיות לילדים לא הוכחה';
 
 // listing-level child wording (not "משפחה" / "לכל המשפחה" / a holiday name: marketing copy says those about shops)
-export const STRONG_CHILD_WORDS = ['ילדים', 'ילדה', 'לילד', 'פעוט', 'תינוק', 'גיל הרך', 'קטנטנים', 'בייבי', 'הורה וילד', 'הצגת ילדים', 'תיאטרון ילדים', 'שעת סיפור', 'סדנת יצירה', 'קייטנה', 'מתנפחים', 'קוסם', 'ליצן', 'משחקייה', "ג'ימבורי", 'ג׳ימבורי', 'גני ילדים'];
+export const STRONG_CHILD_WORDS = ['ילדים', 'ילד', 'ילדה', 'ילדי', 'לילדות', 'פעוט', 'פעוטות', 'פעוטים', 'תינוק', 'תינוקות', 'תינוקת', 'גיל הרך', 'קטנטנים', 'קטנטנות', 'בייבי', 'הורה וילד', 'הצגת ילדים', 'הצגות ילדים', 'תיאטרון ילדים', 'שעת סיפור', 'סדנת יצירה', 'קייטנה', 'קייטנות', 'מתנפחים', 'קוסם', 'קוסמת', 'ליצן', 'ליצנים', 'משחקייה', 'משחקיה', "ג'ימבורי", 'ג׳ימבורי', 'גני ילדים', 'גן ילדים'];
 // canonical categories that are children's things by definition (a kids' screening, a playroom, a story hour)
 export const CHILD_INTRINSIC_CATEGORIES = new Set(['קולנוע לילדים', 'שעת סיפור', 'משחקייה', "ג'ימבורי", 'גן שעשועים', 'מוזיאון לילדים', 'פינת חי', 'טרמפולינות', 'הצגה']);
 // family wording TIED TO THE LISTING counts in a commercial context once the business / 'אחר' rules have run
 // (a mall's family festival); it never rescues a business description or an 'אחר' row
-export const FAMILY_WORDS = ['משפחה', 'משפחות', 'משפחתי', 'לכל המשפחה', 'הורים וילדים'];
+export const FAMILY_WORDS = ['משפחה', 'משפחות', 'משפחתי', 'משפחתית', 'לכל המשפחה', 'למשפחות', 'הורים וילדים'];
 // publisher / venue contexts where most listings are commerce: malls, outlets, cinema-malls, shopping centres.
 // Raises the evidence bar per candidate - never disables a source. (A tourism board is NOT one: its parks and
 // beaches are family places; its restaurants and hotels are caught by the business rule.)
@@ -61,7 +62,8 @@ export function childAgeEvidence(c: SafetyCandidate): string | null {
 }
 export function strongChildWords(c: SafetyCandidate): string[] {
   const text = `${str(c.name)} ${str(c.description)}`;
-  return STRONG_CHILD_WORDS.filter((w) => text.includes(w));
+  // whole words only (markerMatch twin): "ילד" is not inside another word, plural forms are listed
+  return markersIn(text, STRONG_CHILD_WORDS);
 }
 // the PUBLISHER's context (source name / URL) - never the event's own location: a municipal nature tour whose
 // meeting point is a shopping centre is not mall content
@@ -94,7 +96,7 @@ export function assessAutoPublishSafety(c: SafetyCandidate, source?: SafetySourc
   // (5) a commercial context (mall / outlet / cinema-mall) needs listing-level child OR family evidence
   if (commercialContext) {
     const text = `${str(c.name)} ${str(c.description)}`;
-    const family = FAMILY_WORDS.filter((w) => text.includes(w));
+    const family = markersIn(text, FAMILY_WORDS);
     if (family.length) evidence.push('family words: ' + family.slice(0, 3).join(', '));
     return strong || family.length ? verdict(true, 'commercial_with_child_evidence') : verdict(false, 'commercial_without_child_evidence');
   }

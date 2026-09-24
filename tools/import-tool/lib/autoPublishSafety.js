@@ -3,12 +3,13 @@
 // tenant directory is still not a children's activity. Used by the Cleaner hand-back and
 // reprocess-review-queue.js - every automated publish path outside scan-source.
 const { trustedAges } = require('./ageEvidence');
+const { markersIn } = require('./markerMatch');
 
 const SAFETY_ISSUE_LABEL = 'רלוונטיות לילדים לא הוכחה';
 
-const STRONG_CHILD_WORDS = ['ילדים', 'ילדה', 'לילד', 'פעוט', 'תינוק', 'גיל הרך', 'קטנטנים', 'בייבי', 'הורה וילד', 'הצגת ילדים', 'תיאטרון ילדים', 'שעת סיפור', 'סדנת יצירה', 'קייטנה', 'מתנפחים', 'קוסם', 'ליצן', 'משחקייה', "ג'ימבורי", 'ג׳ימבורי', 'גני ילדים'];
+const STRONG_CHILD_WORDS = ['ילדים', 'ילד', 'ילדה', 'ילדי', 'לילדות', 'פעוט', 'פעוטות', 'פעוטים', 'תינוק', 'תינוקות', 'תינוקת', 'גיל הרך', 'קטנטנים', 'קטנטנות', 'בייבי', 'הורה וילד', 'הצגת ילדים', 'הצגות ילדים', 'תיאטרון ילדים', 'שעת סיפור', 'סדנת יצירה', 'קייטנה', 'קייטנות', 'מתנפחים', 'קוסם', 'קוסמת', 'ליצן', 'ליצנים', 'משחקייה', 'משחקיה', "ג'ימבורי", 'ג׳ימבורי', 'גני ילדים', 'גן ילדים'];
 const CHILD_INTRINSIC_CATEGORIES = new Set(['קולנוע לילדים', 'שעת סיפור', 'משחקייה', "ג'ימבורי", 'גן שעשועים', 'מוזיאון לילדים', 'פינת חי', 'טרמפולינות', 'הצגה']);
-const FAMILY_WORDS = ['משפחה', 'משפחות', 'משפחתי', 'לכל המשפחה', 'הורים וילדים'];
+const FAMILY_WORDS = ['משפחה', 'משפחות', 'משפחתי', 'משפחתית', 'לכל המשפחה', 'למשפחות', 'הורים וילדים'];
 const COMMERCIAL_CONTEXT_RE = /קניון|קניוני|אאוטלט|סינמה|סינמול|מתחם קניות|פאוור סנטר|סנטר|\bmall\b|outlet|cinema|shopping/i;
 const BUSINESS_RE = /(?:^|[\s\-–|(:!,"׳'])[הו]?(?:חנות|חנויות|רשת(?! (?:ה)?מתנ)|מסעד|בית קפה|בתי קפה|קונדיטור|פודטראק|פוד טראק|עגלת קפה|מלון|אופנה|קניון|מתחם קניות|פאוור סנטר|שייקים)/;
 const B = '(?:^|[\\s\\-–|(:!,])', E = '(?=$|[\\s\\-–|):!,])';
@@ -40,7 +41,8 @@ function childAgeEvidence(c) {
 }
 function strongChildWords(c) {
   const text = `${str(c.name)} ${str(c.description)}`;
-  return STRONG_CHILD_WORDS.filter((w) => text.includes(w));
+  // whole words only (markerMatch twin): "ילד" is not inside another word, plural forms are listed
+  return markersIn(text, STRONG_CHILD_WORDS);
 }
 function isCommercialContext(source) {
   return COMMERCIAL_CONTEXT_RE.test(`${source?.name || ''} ${source?.url || ''}`);
@@ -64,7 +66,7 @@ function assessAutoPublishSafety(c, source) {
   if (MARKET_RE.test(str(c.name))) return strong ? verdict(true, 'market_with_child_evidence') : verdict(false, 'market_without_child_evidence');
   if (commercialContext) {
     const text = `${str(c.name)} ${str(c.description)}`;
-    const family = FAMILY_WORDS.filter((w) => text.includes(w));
+    const family = markersIn(text, FAMILY_WORDS);
     if (family.length) evidence.push('family words: ' + family.slice(0, 3).join(', '));
     return strong || family.length ? verdict(true, 'commercial_with_child_evidence') : verdict(false, 'commercial_without_child_evidence');
   }

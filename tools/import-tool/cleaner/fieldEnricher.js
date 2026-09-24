@@ -15,6 +15,8 @@ const { assessChildRelevance, CHILD_MARKERS, ADULT_MARKERS, SUBSCRIPTION_MARKERS
 // adult words that contradict page ages ("מיועדת למבוגרים בלבד", "18+", a lecture) - subscription words are not
 // (children's theatre is sold in subscriptions too), the same split the relevance rule makes
 const HARD_ADULT_MARKERS = ADULT_MARKERS.filter((m) => !SUBSCRIPTION_MARKERS.has(m));
+// markers are whole words (lib/markerMatch.js) - never a substring of another word ("פורים" / "סיפורים")
+const { markersIn, hasMarker } = require('../lib/markerMatch');
 const { wordOverlapScore } = require('./matching');
 const { normalizeCityName } = require('../cityNaming');
 const categoryValues = require('../../../supabase/functions/_shared/categoryValues.json');
@@ -156,14 +158,14 @@ async function resolveIncomingMetadata(client, row, ctx) {
     const provenance = !ages ? null : scope === 'model_description' ? 'model_inference' : ages.kind === 'explicit_age' ? 'event_local_explicit_age' : 'event_local_child_wording';
     const rel = assessChildRelevance({ ...ed, description: (ed.description || '') + ' ' + evidenceText.slice(0, 3000) });
     if (rel === 'reject') { await client.from('incoming_activities').update({ status: 'rejected', archive_reason: 'invalid_event', reject_reason: 'קהל יעד למבוגרים לפי עמוד המקור (THE CLEANER)', reviewed_at: new Date().toISOString() }).eq('id', row.id).in('status', ['new', 'needs_review', 'failed']); return { filled: ['rejected_adult'], remaining: [], tried, fields, unresolved, rejected: true }; }
-    if (ages && scope !== 'model_description' && HARD_ADULT_MARKERS.some((m) => evidenceText.includes(m))) unresolved['קהל יעד לא ברור'] = 'adult markers next to the extracted audience - a person decides';
+    if (ages && scope !== 'model_description' && hasMarker(evidenceText, HARD_ADULT_MARKERS)) unresolved['קהל יעד לא ברור'] = 'adult markers next to the extracted audience - a person decides';
     else if (ages) { if (ed.min_age == null) ed.min_age = ages.min_age; if (ed.max_age == null && ages.max_age != null) ed.max_age = ages.max_age; ed.audience = ed.audience && ed.audience !== 'unknown' ? ed.audience : (ages.max_age != null && ages.max_age <= 12 ? 'children' : 'family'); set('audience', ed.audience, provenance === 'event_local_explicit_age' ? 'HIGH' : 'MEDIUM', 'explicit ages: ' + ages.evidence, 'קהל יעד לא ברור', { provenance, scope }); }
     else {
       // child words with adult words in the same event content ("מתאים גם ... מיועדת למבוגרים בלבד") are a person's call
-      const markers = CHILD_MARKERS.filter((m) => evidenceText.includes(m));
-      if (rel === 'ok' && markers.length && !ADULT_MARKERS.some((m) => evidenceText.includes(m))) { ed.audience = ed.audience && ed.audience !== 'unknown' ? ed.audience : 'family'; set('audience', ed.audience, 'MEDIUM', 'child markers in the event page: ' + markers.slice(0, 4).join(', '), 'קהל יעד לא ברור', { provenance: 'event_local_child_wording', scope: 'card_or_detail_content' }); }
-      else if (rel === 'ok' && ['children', 'family'].includes(ed.audience) && (ev || pages.detail?.about) && !ADULT_MARKERS.some((m) => evidenceText.includes(m))) { set('audience', ed.audience, 'MEDIUM', 'extracted audience ' + ed.audience + ', no adult markers on the event page', 'קהל יעד לא ברור', { provenance: 'model_inference', scope: 'extraction' }); }
-      else unresolved['קהל יעד לא ברור'] = ADULT_MARKERS.some((m) => evidenceText.includes(m)) ? 'adult markers next to the extracted audience - a person decides' : (pages.source ? 'no age / audience evidence on the source, card or detail page' : 'no page evidence');
+      const markers = markersIn(evidenceText, CHILD_MARKERS);
+      if (rel === 'ok' && markers.length && !hasMarker(evidenceText, ADULT_MARKERS)) { ed.audience = ed.audience && ed.audience !== 'unknown' ? ed.audience : 'family'; set('audience', ed.audience, 'MEDIUM', 'child markers in the event page: ' + markers.slice(0, 4).join(', '), 'קהל יעד לא ברור', { provenance: 'event_local_child_wording', scope: 'card_or_detail_content' }); }
+      else if (rel === 'ok' && ['children', 'family'].includes(ed.audience) && (ev || pages.detail?.about) && !hasMarker(evidenceText, ADULT_MARKERS)) { set('audience', ed.audience, 'MEDIUM', 'extracted audience ' + ed.audience + ', no adult markers on the event page', 'קהל יעד לא ברור', { provenance: 'model_inference', scope: 'extraction' }); }
+      else unresolved['קהל יעד לא ברור'] = hasMarker(evidenceText, ADULT_MARKERS) ? 'adult markers next to the extracted audience - a person decides' : (pages.source ? 'no age / audience evidence on the source, card or detail page' : 'no page evidence');
     }
   }
   if (issues.includes('קטגוריה') && !ed.category) {
