@@ -171,6 +171,9 @@ Palestinian-Authority-administered localities are out of scope — a **geographi
 - **Diagnose a failed cycle**: `logs/monster.log`, `monster_state[job].lastTail`, `monster-status.json`, `source_scan_logs` (status / failure_kind / listing_metrics per scan), `cleaner_runs.notes`.
 - **Still human**: activating a discovered source, review-queue decisions, ambiguous service-area cases, RLS (0099 blocked), scan budgets / AI cost, applying relay proposals, and the production activation itself (Phase D).
 
+### Code line (2026-09-24)
+The pilot executes **MAIN's commit or nothing**: `lib/codeLine.js` probes the checkout each cycle, records commit / branch / dirty count in `monster_state._code_line`, and `monster.js cycle` refuses (`stale_code_line`) when HEAD is not MAIN's current commit. The scheduler task must point at the MAIN tree (`C:UsersmboreKidsApp	oolsimport-toolmonster.cmd`); no parallel fork of Cleaner rules is kept. Unification record + migration steps: `CONTINUOUS-MONSTER.md` ("CODE-LINE UNIFICATION").
+
 ### Pilot status (Phase D, 2026-09-19)
 Active: Task Scheduler "TuRu Monster" (hourly, user mbore, `tools/import-tool/monster.cmd` in the `turu-continuous-monster` worktree); the legacy "TuRu Cleaner pilot" task is DISABLED — one Cleaner scheduling path only. scan-source with the service-area prevention is deployed. The cadence plan and the re-probe proposals are NOT applied. Phase D report: `CONTINUOUS-MONSTER.md`.
 

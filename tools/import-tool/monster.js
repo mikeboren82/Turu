@@ -15,6 +15,7 @@ const { getClient } = require('./supabase');
 const { all } = require('./cleaner/discover');
 const { JOBS, selectJobs, lockIsStale, schedulerCommand, pauseCommand } = require('./lib/monsterJobs');
 const { reviewBudget } = require('./lib/reviewBudget');
+const { probeCodeLine, codeLineStatus } = require('./lib/codeLine');
 
 const args = Object.fromEntries(process.argv.slice(2).filter((a) => a.startsWith('--')).map((a) => { const [k, v] = a.slice(2).split('='); return [k, v === undefined ? true : v]; }));
 const cmd = process.argv.slice(2).find((a) => !a.startsWith('--')) || 'status';
@@ -75,6 +76,7 @@ async function status(client) {
   };
   fs.writeFileSync(path.join(ROOT, 'monster-status.json'), JSON.stringify(report, null, 2));
   const r = report;
+  const clp = probeCodeLine(path.join(ROOT, '..', '..')); const cls = codeLineStatus(clp); r.codeLine = { ...clp, ...cls }; console.log(`code line: ${cls.message}${cls.ok ? '' : ' [STALE - cycles refuse]'}`);
   console.log(`MONSTER ${r.running.monster_enabled ? 'ENABLED' : 'PAUSED'} | scanning ${r.running.scanning_enabled ? 'on' : 'OFF'} | cleaner ${r.running.cleaner_enabled ? 'on' : 'OFF'} | last local cycle ${r.running.lastLocalCycle || 'never'} | last scan ${r.running.lastScan || 'none in 24 h'}`);
   console.log(`24h: scans ${r.last24h.scans} (ok ${r.last24h.scansOk}, partial ${r.last24h.scansPartial}, failed ${r.last24h.scansFailed}) | AI calls ${r.last24h.aiCalls} | candidates ${r.last24h.candidatesFound} (new ${r.last24h.newCandidates}, updates ${r.last24h.updates}, dup avoided ${r.last24h.duplicatesAvoided}) | published ${r.last24h.autoPublished} | outside service area ${r.last24h.outsideServiceAreaBlocked} | Cleaner runs ${r.last24h.cleanerRuns}: resolved ${r.last24h.cleanerResolved}, archived ${r.last24h.cleanerArchived}, denied ${r.last24h.cleanerWriteDenied}, errors ${r.last24h.cleanerErrors}`);
   console.log(`backlog: Cleaner open ${r.backlog.openCleanerCases} (7d +${r.backlog.casesCreated7d}/-${r.backlog.casesResolved7d}, ${r.backlog.trend}) | review open ${r.backlog.reviewQueueOpen} (inflow ${r.backlog.reviewInflow7d} / outflow ${r.backlog.reviewOutflow7d}, human-only ${r.backlog.humanOnlyOpen}) | signals ${r.backlog.signals.map((s) => s.code).join(',') || 'none'}`);
@@ -86,6 +88,17 @@ async function status(client) {
 async function cycle(client) {
   const enabled = (await readSetting(client, 'monster_enabled', true)) !== false;
   const state = (await readSetting(client, 'monster_state', {})) || {};
+  // CODE LINE (2026-09-24): the pilot runs MAIN's rules or nothing. A checkout that is not at main's commit
+  // (an older worktree, a feature branch) is recorded and refused - never a silent older copy of the Cleaner.
+  const codeLine = probeCodeLine(path.join(ROOT, '..', '..')); const cl = codeLineStatus(codeLine);
+  console.log(`code line: ${cl.message}`);
+  if (!cl.ok && DRY) console.log('DRY RUN: a live cycle would REFUSE (' + cl.code + '); listing the jobs it would otherwise select');
+  if (!cl.ok && !DRY) {
+    if (!DRY) await writeSetting(client, 'monster_state', { ...state, _code_line: { ...codeLine, ...cl, at: new Date().toISOString() } });
+    console.log('REFUSED: ' + cl.code + ' - fast-forward this checkout to main (or run the pilot from the main tree) before the next cycle');
+    return { refused: cl.code };
+  }
+  state._code_line = { head: codeLine.head, branch: codeLine.branch, dirty: codeLine.dirty, code: cl.code, at: new Date().toISOString() };
   const jobs = selectJobs({ state, only: args.job ? String(args.job) : null, enabled: enabled || DRY });
   console.log(`${DRY ? 'DRY RUN - ' : ''}monster cycle: enabled=${enabled} due jobs: ${jobs.map((j) => j.id + '(max ' + (j.maxWork ?? '-') + ')').join(', ') || 'none'}`);
   if (DRY) { for (const j of jobs) console.log(`  would run: ${j.command}  | every ${j.everyHours} h | last ${state[j.id]?.lastRunAt || 'never'} | ${j.reason}`); return { dryRun: true, jobs: jobs.map((j) => j.id) }; }

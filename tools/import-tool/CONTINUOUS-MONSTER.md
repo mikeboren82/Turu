@@ -258,3 +258,49 @@ Phase D commits on `continuous-monster`: `b4ba4c7` (activation, cohort, cadence 
 4. The 14 ambiguous rows — human review.
 5. Production host; push / merge of `continuous-monster`.
 6. Migration 0099 — still blocked.
+
+
+---
+
+# CODE-LINE UNIFICATION (2026-09-24) — one rule generation for intake and repair
+
+**Problem found by the 09-24 health review.** Production `scan-source` (v74) was deployed from MAIN while the hourly pilot ran the Cleaner, relay and discovery from the `continuous-monster` worktree at `fa8fe63` (09-19). MAIN had changed 74 Monster/Cleaner files since their common base `5014295` (+11,277/−171): granularity gate and library, taxonomy validation, `lib/verifiedWrite.js`, `lib/activityArchive.js`, duplicate-candidate detection, repertoire matching, HTML boundary preservation, city naming. The pilot branch had added 3 commits (+9,973): the orchestrator, jobs, cadence, review budget, OSM discovery, re-probe, the service-area policy (Node + Deno twins, PA reference) and the audits.
+
+**Critical side effect discovered:** MAIN's `scan-source/index.ts` never received the service-area prevention (it lived only on the pilot branch), so the v74 deployment from MAIN on 09-22 **overwrote the 09-19 deployment**. Production ingestion has had **no service-area gate since 09-22** (the `outside_service_area` counters are absent from v74 scan logs). The merged branch restores it; deploying is a separate approval.
+
+**Divergence classes (files changed on both sides since the base: 4).**
+- A — MAIN newer, wins: everything under `_shared/` except the three service-area files; `cleaner/{apply,discover,fieldEnricher,matching}.js`; `lib/*` new libraries; `server.js`, `relay-scan.js`, `incoming.js` main-side edits; scripts. The merge (`git merge-tree`) had **no textual conflict**: the four overlapping files (`scan-source/index.ts`, `cleaner/apply.js`, `relay-scan.js`, `server.js`) changed in disjoint regions.
+- B — pilot-only, preserved: `monster.js`, `monster.cmd`, `lib/monsterJobs.js`, `lib/sourceCadence.js`, `lib/reviewBudget.js`, `lib/sourceDiscovery.js`, `lib/serviceArea.js` + `_shared/serviceArea.ts` + `paLocalities.json` + `reference/pa-localities.json`, `discover-sources-osm.js`, `register-discovery-candidates.js`, `reprobe-sources.js`, `tune-source-cadence.js`, `monster-cycle-report.js`, `audit-service-area.js`, `archive-service-area-cohort.js`, `build-pa-localities.js`, the service-area branch in `cleaner.js` and hand-back, `report-coverage.js` service-area block, `relay-scan.js --max`, `server.js refuseOutsideServiceArea`, tests `serviceArea.test.js` + `continuousMonster.test.js`, docs (`CONTINUOUS-MONSTER.md`, THE-MONSTER §10, THE-CLEANER note). MAIN had no equivalent for any of them.
+- C — true conflicts: none textual. Semantic check done by hand: `autoApproveNewActivity` keeps MAIN's granularity/repertoire steps and the pilot's service-area throw after coordinates; `handBackIncoming` keeps MAIN's `assessGranularity` exclusion and the pilot's service-area rejection; `server.js` keeps MAIN's verified-write routes and the pilot's 422 refusal.
+- D — noise carried by the branch history (not re-committed, but part of the merge): dated JSON reports (`service-area-audit-*`, `service-area-cohort-*`, `source-cadence-*`, `discovery-candidates-*`, `reprobe-sources-*`, `coverage-report-2026-09-19.json`, `monster-cycle-2026-09-19-first.json`). Left as committed history; nothing new of that kind was added.
+
+**Chosen architecture: MAIN is canonical; the pilot executes MAIN's commit or nothing.**
+- Strategy: merge `continuous-monster` into a branch cut from MAIN (`pilot-unified`, merge commit `912c2a8` + follow-up), because the shared MAIN working tree could not be modified from this session; MAIN fast-forwards to it in one command (below). Rebase was rejected (rewrites the pilot's audited history); merging MAIN into the pilot branch was rejected (keeps a fork alive).
+- `lib/codeLine.js` + `monster.js`: every cycle probes the checkout it runs from (commit, branch, modified tracked files), writes it to the heartbeat (`monster_state._code_line`) and **refuses to run jobs when HEAD is not MAIN's current commit** (`stale_code_line`, recorded, loud in `monster.log` and `status`). A dry run still lists the jobs it would select. A dirty MAIN tree is reported, never blocking.
+
+**Cleaner capability after unification (what the pilot Cleaner will know once MAIN = `pilot-unified`).**
+| Rule | Status |
+|---|---|
+| `not_independently_actionable` / granularity | enforced at intake (`_shared/granularity.ts` gate in scan-source, `granularityDecision` in the approve route) and in the hand-back (`assessGranularity` excludes wrapper/zone-shaped candidates). **No Cleaner case handler exists on MAIN either**: `cleaner/discover.js` never generates the issue and `cleaner.js` would resolve one as `unsupported_issue`. 0 such cases exist in the DB (historical wrappers were handled by one-off batch scripts). Not a regression of the merge; a gap to close before any sweep uses it. |
+| repertoire doctrine | intake only (`standingProgrammeMatch`, scan-source attach, 0108 expiry exemption); `cleaner/matching.js` knows standing programmes; the Cleaner never creates/merges repertoire rows |
+| verified writes | Cleaner: `cleaner/apply.js verifiedUpdate` (unchanged); admin/maintenance: `lib/verifiedWrite.js`; the pilot's cohort archive uses `applyActivityPatch` (verified) |
+| safe archive helper | `lib/activityArchive.js` (archive RPC 0105) — used by server/admin paths; the Cleaner's archive path is `lifecycle.archiveCase` with a verified subject write |
+| dedupe | intake: `_shared/duplicateCandidates.ts` + `lib/futureDuplicateDetection.js` (queue 0104, detection live, resolution manual); Cleaner hand-back uses `cleaner/matching.js` |
+| city normalization | `cityNaming.js` / `_shared/cityNaming.ts` (09-22 niqqud/gershayim + short-form aliases) wired through `canonicalSettlement`, `settlementResolver`, `apply.js` |
+| taxonomy validity | `lib/categoryValidation.js` in `cleaner/discover.js` (`category_noncanonical`, gated by 0101 which is unapplied → skipped by the DB check), server, access type |
+| service area | Node + Deno twins, hand-back, Cleaner branch, approve route, scan-source (restored) |
+
+**Live migration (NOT executed).**
+| | Old | New |
+|---|---|---|
+| Working path | `C:\Users\mbore\turu-continuous-monster\tools\import-tool` (branch `continuous-monster`, `fa8fe63`) | `C:\Users\mbore\KidsApp\tools\import-tool` (MAIN tree) — or the `turu-continuous-monster` worktree detached at MAIN's commit |
+| Scheduler task | `"TuRu Monster"`, hourly, `cmd.exe /c C:\Users\mbore\turu-continuous-monster\tools\import-tool\monster.cmd` | same task, `cmd.exe /c C:\Users\mbore\KidsApp\tools\import-tool\monster.cmd` |
+Steps, in order (between cycles — the task runs at :42; a cycle takes up to 45 min when weekly jobs are due):
+1. In MAIN (`C:\Users\mbore\KidsApp`): `git merge --ff-only pilot-unified` (fast-forward, no merge commit; MAIN's uncommitted UI files are untouched — none overlap).
+2. Re-point the task (no restart needed; the next :42 run uses the new path): `schtasks /Change /TN "TuRu Monster" /TR "cmd.exe /c C:\Users\mbore\KidsApp\tools\import-tool\monster.cmd"`. The task's battery/StartWhenAvailable settings persist.
+3. `node C:\Users\mbore\KidsApp\tools\import-tool\monster.js status` → must print `code line: main <sha>`; `cycle --dry-run` → lists due jobs.
+4. First live cycle validation: `logs\monster.log` in the MAIN tree shows `code line: main …`, the due jobs, no `REFUSED`; `monster_state._code_line.head` = MAIN's commit; `cleaner_runs` gets a row from worker on the new path; `monster-cycle-report.js` reads it.
+5. Optional: remove or detach the old worktree so it can never run again (`git worktree remove ../turu-continuous-monster` after copying nothing — logs are gitignored and stay on disk if kept).
+Rollback: `schtasks /Change /TN "TuRu Monster" /TR "cmd.exe /c C:\Users\mbore\turu-continuous-monster\tools\import-tool\monster.cmd"` (the old worktree is untouched and still at `fa8fe63`); `git -C C:\Users\mbore\KidsApp reset --keep 0880226` only if MAIN must be rewound (not needed for the task rollback). Note the old worktree would then **refuse** every cycle (its HEAD ≠ main) unless MAIN is rewound too — that is the intended fail-safe; rolling back the task without rewinding MAIN gives a paused pilot, not an old-rules pilot.
+
+**Recurrence check.** "If MAIN gains a new Cleaner or ingestion rule tomorrow, could the pilot silently run an older copy?" — **No** after the switch: the pilot runs from MAIN's tree (no copy exists), and the guard refuses any checkout whose HEAD is not MAIN's commit, recording `stale_code_line` in the heartbeat. Residual: MAIN's *uncommitted* edits run immediately (reported as dirty count); a broken half-edit fails one job, which is contained and logged. scan-source deployment is a separate line (deploy is manual): the guard cannot detect an un-deployed `_shared` change — that remains a human step (`npx supabase functions deploy scan-source`).

@@ -93,3 +93,13 @@ test('discovery: a registry row is INACTIVE, below the trust bar, carries OSM pr
   assert.ok(r.disabled_reason.includes('OSM node/1')); assert.ok(r.disabled_reason.includes('HTTP 200')); assert.equal(r.type, 'html', 'sources_type_check allows html | sitemap | other'); assert.equal(r.discovery_batch, 'batch-1');
   assert.ok(!('notes' in r), 'public.sources has no notes column (first pilot cycle failed all 20 inserts on it)');
 });
+
+test('code line: a checkout that is not at the main commit refuses to run jobs; main (dirty or detached) runs; no git -> unknown but allowed', () => {
+  const { codeLineStatus } = require('../lib/codeLine');
+  assert.equal(codeLineStatus({ available: true, head: 'aaa', mainHead: 'bbb', branch: 'continuous-monster', dirty: 0 }).ok, false);
+  assert.equal(codeLineStatus({ available: true, head: 'aaa', mainHead: 'bbb', branch: 'continuous-monster', dirty: 0 }).code, 'stale_code_line');
+  assert.equal(codeLineStatus({ available: true, head: 'aaa', mainHead: 'aaa', branch: 'main', dirty: 71 }).ok, true, 'a dirty main tree runs (reported, never blocking)');
+  assert.equal(codeLineStatus({ available: true, head: 'aaa', mainHead: 'aaa', branch: 'HEAD', dirty: 0 }).ok, true, 'a detached checkout AT the main commit runs');
+  assert.equal(codeLineStatus({ available: false }).code, 'unknown');
+  assert.equal(codeLineStatus({ available: true, head: 'aaa', mainHead: null, branch: 'x', dirty: 0 }).code, 'unknown');
+});
