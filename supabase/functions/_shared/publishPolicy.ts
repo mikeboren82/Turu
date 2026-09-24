@@ -14,7 +14,7 @@
 //   humanApprovable  no terminal reason a person may not override. A reviewer's Approve IS the decision on
 //              trust / relevance / content / metadata holds; access and granularity keep their own
 //              acknowledgement flow in the approve route; an expired event can be approved by nobody.
-import { missingTemporalEvidence, assessChildRelevance, isPlausibleEventDate, looksLikeStaleRepost } from './extraction.ts';
+import { missingTemporalEvidence, childRelevanceEvidence, isPlausibleEventDate, looksLikeStaleRepost } from './extraction.ts';
 import { assessAccessType, blocksAutoPublish as accessBlocks } from './accessType.ts';
 import { assessGranularity, blocksAutoPublish as granularityBlocks } from './granularity.ts';
 import { assessAutoPublishSafety } from './autoPublishSafety.ts';
@@ -75,9 +75,10 @@ export function evaluatePublishPolicy(c: Candidate, ctx: PolicyContext): { decis
   const shape = assessTemporalShape(c);
   if (shape.collapsed) reasons.push(hold('temporal_shape_ambiguous', { signals: shape.signals, evidence: shape.evidence ?? null, span: shape.span ?? null }));
   // who it is for: children's relevance, then positive child evidence for commercial / אחר content
-  const relevance = assessChildRelevance(c);
-  if (relevance === 'reject') reasons.push(terminal('relevance_reject', true));
-  else if (relevance === 'review') reasons.push(hold('relevance_review'));
+  // (evidence hierarchy: item-local publisher context > item text / ages > the model's audience label)
+  const relevance = childRelevanceEvidence(c);
+  if (relevance.verdict === 'reject') reasons.push(terminal('relevance_reject', true, relevance.reason));
+  else if (relevance.verdict === 'review') reasons.push(hold('relevance_review', relevance.reason));
   const safety = assessAutoPublishSafety(c, { name: s.name ?? null, url: s.seed_url ?? null });
   if (!safety.allow) reasons.push(hold('content_safety', { code: safety.code, evidence: safety.evidence }));
   // who may attend, and is it one actionable thing (re-assessed now; a stored verdict can only add a hold)

@@ -140,3 +140,46 @@ export function cardAccounting(cards: ListingCard[], extractedNames: string[]): 
   }
   return { matched, unaccounted, unaccountedCards };
 }
+
+// ITEM-LOCAL SOURCE CONTEXT (2026-09-24, child-relevance evidence hierarchy). The publisher's own labels for ONE
+// item - its section / series / season line on the item's own card ("עונת תיאטרון 26/27 תיאטרון מופעי בחירה",
+// "הצגות ילדים") - bound to the candidate by title, and by date when the same title runs on several nights. Page-wide
+// text is never used (neighbouring cards bleed into any text window). Unbindable -> null: the context is then simply
+// not evidence. Read by extraction.ts childRelevanceEvidence via candidate.source_context.
+export interface SourceContext { labels: string[]; evidence_source: 'listing_card'; card_title: string }
+const HE_MONTHS = ['ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני', 'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'];
+const normT = (s: unknown) => String(s ?? '').toLowerCase().replace(/["'`״׳’”“]/g, '').replace(/[^\p{L}\p{N}\s]/gu, ' ').replace(/\s+/g, ' ').trim();
+const BOILERPLATE = /^(פרטים נוספים|לפרטים|מידע נוסף|להזמנת כרטיסים|לרכישת כרטיסים|לרכישה|כרטיסים|קרא עוד|קראו עוד|הרשמה|להרשמה|אזל|sold out|חדש)$/i;
+// a real date (month <= 12) or a time - never a season label like "עונת תיאטרון 26/27"
+const DATE_OR_TIME = /(?:^|\D)\d{1,2}[./](?:0?[1-9]|1[0-2])(?:[./]\d{2,4})?(?:\D|$)|\d{1,2}:\d{2}|^\d{1,2}\s+\S+$|ביום\s|\d{1,2}\s+ב?(?:ינואר|פברואר|מרץ|אפריל|מאי|יוני|יולי|אוגוסט|ספטמבר|אוקטובר|נובמבר|דצמבר)/;
+function cardLabels(card: ListingCard, c: { name?: unknown; description?: unknown; location_name?: unknown }): string[] {
+  const name = normT(c.name), desc = normT(c.description), place = normT(c.location_name);
+  const out: string[] = [];
+  for (const raw of card.text.split('\n')) {
+    const line = raw.trim(); const n = normT(line);
+    if (!n || line.length > 60 || BOILERPLATE.test(line) || DATE_OR_TIME.test(line)) continue;
+    if (n === name || n === normT(card.title) || (place && n === place)) continue;
+    if (desc && n.length > 10 && desc.includes(n)) continue; // the item's description is not a publisher label
+    if (!out.includes(line)) out.push(line);
+  }
+  return out.slice(0, 8);
+}
+function cardHasDate(card: ListingCard, iso: string): boolean {
+  const [, m, d] = iso.split('-').map(Number);
+  const t = card.text;
+  return new RegExp(`(^|\\D)0?${d}\\s+ב?${HE_MONTHS[m - 1]}`).test(t) || new RegExp(`(^|\\D)0?${d}[./]0?${m}([./]|\\D|$)`).test(t);
+}
+export function itemSourceContext(cards: ListingCard[], c: { name?: unknown; description?: unknown; location_name?: unknown; one_time_date?: unknown }, audienceOf: (sc: unknown) => string | null): SourceContext | null {
+  const name = normT(c.name); if (name.length < 3) return null;
+  let matched = cards.filter((k) => normT(k.title) === name || k.text.split('\n').some((l) => normT(l) === name));
+  if (!matched.length) return null;
+  const date = typeof c.one_time_date === 'string' ? c.one_time_date : null;
+  if (date && matched.length > 1) { const onDate = matched.filter((k) => cardHasDate(k, date)); if (onDate.length) matched = onDate; }
+  const sets = matched.map((k) => cardLabels(k, c));
+  if (sets.length > 1) {
+    // several cards for this title and no single one bound by date: usable only when they all say the same thing
+    const verdicts = new Set(sets.map((labels) => audienceOf({ labels })));
+    if (verdicts.size > 1) return null;
+  }
+  return sets[0].length ? { labels: sets[0], evidence_source: 'listing_card', card_title: matched[0].title } : null;
+}

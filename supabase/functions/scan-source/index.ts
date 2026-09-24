@@ -19,7 +19,7 @@ import {
   buildExtractionSystemPrompt, extractCandidateImages, parseExtractionResponse,
   filterPastOneTimeActivities, looksLikeStaleRepost, fetchHtml, pageTextForExtraction,
   missingTemporalEvidence, repairEntityTypeFromSchedule, TEMPORAL_ISSUE_LABEL,
-  assessChildRelevance, AUDIENCE_VALUES, cheapPageText, cheapDiscoverLinks, HEAVY_HTML_BYTES,
+  assessChildRelevance, sourceContextAudience, AUDIENCE_VALUES, cheapPageText, cheapDiscoverLinks, HEAVY_HTML_BYTES,
   EXTRACTION_MODEL, EXTRACTION_MAX_TOKENS, PAGE_TEXT_CHAR_LIMIT, MAX_TEXT_CHUNKS, splitTextForExtraction,
   CATEGORY_VALUES, REGION_VALUES, WEATHER_VALUES, AMENITIES_VALUES,
   FAMILY_FIT_VALUES, ENTITY_TYPE_VALUES, PRICE_TYPE_VALUES, INDOOR_OUTDOOR_VALUES, BOOKING_VALUES,
@@ -33,7 +33,7 @@ import { extractJsonLdEvents, applyJsonLdToCandidate, type JsonLdEvent } from '.
 import { findEventDetailLinks, findEventDetailLinksCheap, detailLinkFor, sharedLinkUrls, type DetailLink, type DetailMatch, type DetailTraversalConfig } from '../_shared/detailLinks.ts';
 import { extractDetailEvidence, applyDetailEvidence, detailPageNamesCandidate } from '../_shared/detailEvidence.ts';
 import { parseSitemapUrls, orderForIncrementalScan, isSitemapIndex, type SitemapConfig } from '../_shared/sitemap.ts';
-import { enumerateListingCards, cardAccounting, cardWindows, cardsLookLikeEvents, type ListingCard } from '../_shared/listingCards.ts';
+import { enumerateListingCards, cardAccounting, cardWindows, cardsLookLikeEvents, itemSourceContext, type ListingCard } from '../_shared/listingCards.ts';
 import { hintCategory } from '../_shared/categoryHints.ts';
 // SERVICE AREA (product decision 2026-09-19): a candidate whose verified coordinates fall inside Palestinian-
 // administered territory is stopped at the earliest point that has coordinates (before any activity row exists),
@@ -927,6 +927,9 @@ Deno.serve(async (req: Request) => {
           if (isCommitmentActivity(candidate)) { counters.rejectedCount++; listing.rejected_commitment++; continue; }
           // child-relevance gate: adult content from mixed municipal calendars never reaches the queue;
           // unclear audience is reviewable but never auto-published.
+          // ITEM-LOCAL publisher context (the item's own card labels) - first-party evidence the relevance gate ranks above
+          // the model's audience label; persisted with the candidate so every later evaluation (Cleaner, reprocess, approve) sees it
+          if (!candidate.source_context && pageCards.length) { const sc = itemSourceContext(pageCards, candidate, sourceContextAudience); if (sc) candidate.source_context = sc; }
           const relevance = assessChildRelevance(candidate);
           if (relevance === 'reject') { counters.rejectedCount++; listing.rejected_adult++; continue; }
           if (relevance === 'review') issues.push('קהל יעד לא ברור');

@@ -1,0 +1,47 @@
+{
+ "_doc": "Shared child-relevance evidence hierarchy (Deno extraction.ts childRelevanceEvidence, Node childRelevance.js). expect = [verdict, reason]. source_context.labels = the item's OWN publisher labels (listingCards.ts itemSourceContext).",
+ "cases": [
+  { "id": "shalom_bayit_adult_theatre_season", "c": { "name": "שלום בית", "description": "קומדיה משפחתית חדשה מאת גלעד שמואלי המתבוננת על הבדידות בגיל השלישי.", "audience": "family", "category": "הצגה", "start_time": "20:30", "source_context": { "labels": [ "עונת תיאטרון 26/27 תיאטרון מופעי בחירה", "ההצגה היא חלק מעונת התיאטרון 26/27" ] } }, "expect": [ "review", "first_party_adult_context" ]
+  },
+  { "id": "shalom_bayit_second_performance_same_evidence", "c": { "name": "שלום בית", "description": "קומדיה משפחתית חדשה מאת גלעד שמואלי המתבוננת על הבדידות בגיל השלישי.", "audience": "family", "category": "הצגה", "one_time_date": "2027-03-17", "source_context": { "labels": [ "עונת תיאטרון 26/27 תיאטרון מופעי בחירה" ] } }, "expect": [ "review", "first_party_adult_context" ]
+  },
+  { "id": "shalom_bayit_stored_without_context_model_family_only", "c": { "name": "שלום בית", "description": "קומדיה משפחתית חדשה מאת גלעד שמואלי המתבוננת על הבדידות בגיל השלישי.", "audience": "family", "category": "הצגה" }, "expect": [ "review", "model_audience_label_only" ]
+  },
+  { "id": "explicit_childrens_theatre_season", "c": { "name": "כובע הקסמים", "description": "הצגה חדשה על פי ספרה של לאה גולדברג", "audience": "family", "category": "הצגה", "source_context": { "labels": [ "ניתן לקחת הצגה זאת במסגרת המנוי 2026/27", "הצגות ילדים" ] } }, "expect": [ "ok", "child_evidence" ]
+  },
+  { "id": "kids_subscription_series_label", "c": { "name": "חנן הגנן", "description": "הספר האהוב מתעורר לחיים", "audience": "family", "source_context": { "labels": [ "מנוי ילדים 26/27" ] } }, "expect": [ "ok", "child_evidence" ]
+  },
+  { "id": "childrens_show_at_evening_time_is_not_adult", "c": { "name": "הצגת ילדים: הקוסם מארץ עוץ", "description": "הצגה לילדים", "audience": "children", "start_time": "20:00" }, "expect": [ "ok", "child_evidence" ]
+  },
+  { "id": "adult_lecture_at_midday_is_not_child", "c": { "name": "הרצאה: תכנון פיננסי", "description": "הרצאה על חיסכון ופנסיה", "audience": "family", "start_time": "11:00" }, "expect": [ "reject", "adult_marker" ]
+  },
+  { "id": "model_family_vs_publisher_adult_standup", "c": { "name": "אדיר מילר", "description": "מופע חדש", "audience": "family", "source_context": { "labels": [ "בידור מופעי סטנדאפ" ] } }, "expect": [ "review", "first_party_adult_context" ]
+  },
+  { "id": "model_unknown_but_explicit_age_4_7", "c": { "name": "תיאטרון בובות", "description": "הצגה לגילאי 4-7", "audience": "unknown" }, "expect": [ "ok", "child_evidence" ]
+  },
+  { "id": "model_adults_but_explicit_age_is_reviewed_not_dropped", "c": { "name": "תיאטרון בובות", "description": "הצגה לגילאי 4-7", "audience": "adults" }, "expect": [ "review", "adult_label_vs_child_age" ]
+  },
+  { "id": "generic_for_the_whole_family_inside_adult_series", "c": { "name": "ערב קומדיה", "description": "מופע מצחיק לכל המשפחה", "audience": "family", "source_context": { "labels": [ "עונת תיאטרון 26/27", "מופעי בחירה" ] } }, "expect": [ "review", "first_party_adult_context" ]
+  },
+  { "id": "strong_item_child_evidence_overrides_venue_season", "c": { "name": "אגם הברבורים לילדים", "description": "גרסה מקוצרת לגילאי 4-8", "audience": "family", "source_context": { "labels": [ "עונת תיאטרון 26/27" ] } }, "expect": [ "ok", "child_evidence" ]
+  },
+  { "id": "ambiguous_culture_hall_concert_family_label_only", "c": { "name": "ויוואלדי לאור נרות", "description": "קונצרט מיוחד - רביעיית כלי קשת מוקפת ביותר מ-500 נרות", "audience": "family", "category": "מוזיקה" }, "expect": [ "review", "model_audience_label_only" ]
+  },
+  { "id": "model_children_label_alone_is_not_enough", "c": { "name": "הדרדסים ההצגה - LIVE על הבמה!", "description": "הדרדסים חוזרים לבמה במופע חי", "audience": "children", "category": "הצגה" }, "expect": [ "review", "model_audience_label_only" ]
+  },
+  { "id": "family_label_with_item_child_words_passes", "c": { "name": "חגיגת סוכות בפארק", "description": "הפעלות ומתנפחים לכל המשפחה", "audience": "family" }, "expect": [ "ok", "child_evidence" ]
+  },
+  { "id": "playground_is_inherently_child", "c": { "name": "גן השקמים", "description": "גן ציבורי עם מתקנים", "audience": "family", "category": "גן שעשועים" }, "expect": [ "ok", "child_category" ]
+  },
+  { "id": "unknown_audience_no_evidence_is_reviewed", "c": { "name": "ערב מוזיקלי", "description": "מופע להקה", "audience": "unknown" }, "expect": [ "review", "no_child_evidence" ]
+  },
+  { "id": "culture_hall_evening_concert_labelled_children", "c": { "name": "הקסם של מוצרט - סינפונט רעננה", "description": "קונצרט של סינפונט רעננה בהיכל התרבות אריאל.", "audience": "children", "category": "מוזיקה", "start_time": "20:30" }, "expect": [ "review", "model_audience_label_only" ]
+  },
+  { "id": "kids_subscription_series_words_do_not_make_it_adult", "c": { "name": "האריה הרעמתן והג׳ירפה גם", "description": "הצגה לילדים בסדרת המנויים", "audience": "children", "category": "הצגה", "source_context": { "labels": [ "מנויים וסדרות ילדים", "מופע זמין גם במנוי" ] } }, "expect": [ "ok", "child_evidence" ]
+  },
+  { "id": "senior_programme_label_is_adult_context", "c": { "name": "קופה ראשית", "description": "מפגש לכל המשפחה עם יוצרי הסדרה", "audience": "family", "source_context": { "labels": [ "בידור", "אזרחים ותיקים", "עושים צחוק עושים קופה" ] } }, "expect": [ "review", "first_party_adult_context" ]
+  },
+  { "id": "all_ages_band_is_not_child_evidence", "c": { "name": "טיפקס במופע להקה", "description": "הלהקה האגדית שחווה רנסאנס של אהבה בכל הארץ ובכל הגילאים", "audience": "family", "category": "מוזיקה", "start_time": "20:30" }, "expect": [ "review", "model_audience_label_only" ]
+  }
+ ]
+}

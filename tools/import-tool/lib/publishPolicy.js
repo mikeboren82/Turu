@@ -2,7 +2,7 @@
 // the shared case table _shared/publishPolicy.cases.json runs against both). Pure, no I/O. The row evaluator
 // lib/incomingEligibility.js adds the database facts (coordinates, service area, exact duplicate).
 const { missingTemporalEvidence } = require('./temporalEvidence');
-const { assessChildRelevance } = require('../childRelevance');
+const { childRelevanceEvidence } = require('../childRelevance');
 const { assessAccessType, blocksAutoPublish: accessBlocks } = require('./accessType');
 const { assessGranularity, blocksAutoPublish: granularityBlocks } = require('./granularity');
 const { assessAutoPublishSafety } = require('./autoPublishSafety');
@@ -56,9 +56,9 @@ function evaluatePublishPolicy(c, ctx) {
   if (looksLikeStaleRepost(c, ctx.today)) reasons.push(hold('stale_repost', c.source_published_date ?? null));
   const shape = assessTemporalShape(c);
   if (shape.collapsed) reasons.push(hold('temporal_shape_ambiguous', { signals: shape.signals, evidence: shape.evidence ?? null, span: shape.span ?? null }));
-  const relevance = assessChildRelevance(c);
-  if (relevance === 'reject') reasons.push(terminal('relevance_reject', true));
-  else if (relevance === 'review') reasons.push(hold('relevance_review'));
+  const relevance = childRelevanceEvidence(c);
+  if (relevance.verdict === 'reject') reasons.push(terminal('relevance_reject', true, relevance.reason));
+  else if (relevance.verdict === 'review') reasons.push(hold('relevance_review', relevance.reason));
   const safety = assessAutoPublishSafety(c, { name: s.name ?? null, url: s.seed_url ?? null });
   if (!safety.allow) reasons.push(hold('content_safety', { code: safety.code, evidence: safety.evidence }));
   const access = assessAccessType(c);
