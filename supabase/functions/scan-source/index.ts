@@ -49,8 +49,6 @@ import { recordProvenance } from '../_shared/provenance.ts';
 import { reconfirmExistingFromPending, type PendingReviewRow } from '../_shared/reconfirmation.ts';
 import { applyMissingAccounting, scopeKey, type PageScope, type MissingSummary } from '../_shared/missingScope.ts';
 
-const MISSING_FLAGS_ENABLED = false;
-
 // Largest HTML document we are willing to parse per page (see the CPU-guard note in the page loop).
 const MAX_HTML_BYTES = 1_500_000;
 import { geocodeAddress } from '../_shared/geocoding.ts';
@@ -524,7 +522,7 @@ Deno.serve(async (req: Request) => {
   // DENSE-LISTING RECALL FUNNEL (wave 2): DOM cards detected -> extractor output -> past filter ->
   // accounted cards -> bounded recovery -> rejections / folding / cap. Stored per scan in
   // source_scan_logs.listing_metrics (0095) so recall is a number, not an impression.
-  const listing = { pages_with_cards: 0, cards_detected: 0, ai_returned: 0, past_filtered: 0, cards_matched: 0, cards_unaccounted: 0, recovery_calls: 0, recovered: 0, rejected_no_name: 0, rejected_commitment: 0, rejected_adult: 0, twins_folded: 0, capped: 0, skipped_in_scan_duplicate: 0, skipped_pending_in_queue: 0, reconfirmed_pending_review: 0, reconfirm_withheld: {} as Record<string, number>, missing_accounting: null as MissingSummary | null, identity_backfilled: 0, updates_superseded: 0, recovery_error: null as string | null, recovery_skipped: null as string | null, sitemap: null as null | { entities: number; never_scanned: number; picked: number; error?: string }, outside_service_area: 0, skipped_outside_service_area: 0, sample_unaccounted: [] as string[] };
+  const listing = { pages_with_cards: 0, cards_detected: 0, ai_returned: 0, past_filtered: 0, cards_matched: 0, cards_unaccounted: 0, recovery_calls: 0, recovered: 0, rejected_no_name: 0, rejected_commitment: 0, rejected_adult: 0, twins_folded: 0, capped: 0, skipped_in_scan_duplicate: 0, skipped_pending_in_queue: 0, reconfirmed_pending_review: 0, reconfirm_withheld: {} as Record<string, number>, missing_accounting: null as MissingSummary | null, missing_accounting_error: null as string | null, identity_backfilled: 0, updates_superseded: 0, recovery_error: null as string | null, recovery_skipped: null as string | null, sitemap: null as null | { entities: number; never_scanned: number; picked: number; error?: string }, outside_service_area: 0, skipped_outside_service_area: 0, sample_unaccounted: [] as string[] };
   const RECOVERY_MAX_CARDS = 12;
   const RECOVERY_TIME_LIMIT_MS = 100_000;
 
@@ -547,7 +545,7 @@ Deno.serve(async (req: Request) => {
       updated_count: counters.updatedCount, duplicate_count: counters.duplicateCount,
       rejected_count: counters.rejectedCount, auto_approved_count: counters.autoApprovedCount,
       detail_metrics: detailCfg ? detail : null,
-      listing_metrics: (listing.pages_with_cards || listing.sitemap || listing.skipped_pending_in_queue || listing.missing_accounting) ? listing : null,
+      listing_metrics: (listing.pages_with_cards || listing.sitemap || listing.skipped_pending_in_queue || listing.missing_accounting || listing.missing_accounting_error) ? listing : null,
     }).eq('id', scanLogId);
   }
 
@@ -1158,7 +1156,7 @@ Deno.serve(async (req: Request) => {
 
           if (existingActivityId) {
             matchedExistingIds.add(existingActivityId);
-            await client.from('activities').update({ last_seen_at: new Date().toISOString(), consecutive_missing_scans: 0 }).eq('id', existingActivityId);
+            await client.from('activities').update({ last_seen_at: new Date().toISOString(), consecutive_missing_scans: 0, missing_verified_streak: 0 }).eq('id', existingActivityId);
           }
 
           let autoApprovedActivityId: string | null = null;
@@ -1251,21 +1249,16 @@ Deno.serve(async (req: Request) => {
     // Missing-from-source, page-scoped (_shared/missingScope.ts). A relay invocation is one batch of a larger run,
     // so the relay evaluates once per logical run (tools/import-tool/lib/relayRun.js) - never per batch here.
     if (!relayPages) {
-      const { summary, decisions } = await applyMissingAccounting(client, { sourceId: source.id, scopes: pageScopes, matchedIds: matchedExistingIds, threshold: missingThreshold });
-      listing.missing_accounting = summary;
-      counters.missingCount = summary.over_threshold;
-      // Flags stay OFF until the counters are proven: this upsert targets a PARTIAL unique index without its
-      // predicate, so Postgres rejects it (0 rows ever) - intentionally left unfixed.
-      if (MISSING_FLAGS_ENABLED) {
-        const { data: acts } = await client.from('activities').select('id, name, consecutive_missing_scans').in('id', decisions.filter((d) => d.action === 'absent').map((d) => d.id));
-        for (const act of acts || []) {
-          if ((act.consecutive_missing_scans || 0) < missingThreshold) continue;
-          await client.from('incoming_activities').upsert({
-            source_id: source.id, scan_log_id: scanLogId, page_url: source.seed_url,
-            match_type: 'missing', existing_activity_id: act.id, status: 'missing_flagged',
-            extracted_data: { name: act.name, consecutive_missing_scans: act.consecutive_missing_scans },
-          }, { onConflict: 'existing_activity_id', ignoreDuplicates: true });
-        }
+      try {
+        const { summary } = await applyMissingAccounting(client, {
+          sourceId: source.id, sourceKind: (source as { source_kind?: string | null }).source_kind ?? null, scanLogId,
+          scopes: pageScopes, matchedIds: matchedExistingIds, threshold: missingThreshold, flagsEnabled: settings.missing_flags_enabled === true,
+        });
+        listing.missing_accounting = summary;
+        counters.missingCount = summary.would_flag + (summary.flags.CREATED || 0) + (summary.flags.ALREADY_OPEN || 0);
+      } catch (mErr) {
+        // bookkeeping must never fail the scan itself - recorded for the admin, retried on the next run
+        listing.missing_accounting_error = (mErr instanceof Error ? mErr.message : String(mErr)).slice(0, 200);
       }
     }
 
@@ -1281,7 +1274,7 @@ Deno.serve(async (req: Request) => {
       new_count: counters.newCount, updated_count: counters.updatedCount, duplicate_count: counters.duplicateCount,
       rejected_count: counters.rejectedCount, missing_count: counters.missingCount, auto_approved_count: counters.autoApprovedCount,
       error_count: counters.errorCount, error_type: errorType, error_message: errorMessage, failure_kind: failureKind,
-      listing_metrics: (listing.pages_with_cards || listing.sitemap || listing.skipped_pending_in_queue || listing.missing_accounting) ? listing : null,
+      listing_metrics: (listing.pages_with_cards || listing.sitemap || listing.skipped_pending_in_queue || listing.missing_accounting || listing.missing_accounting_error) ? listing : null,
     }).eq('id', scanLogId);
 
     await finalizeSource(finalStatus, failureKind, {

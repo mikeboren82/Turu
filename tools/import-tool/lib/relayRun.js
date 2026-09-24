@@ -29,7 +29,10 @@ async function evaluateRunMissing(ctx, s, { listingAll, keptUrls, confirmed, nee
     const { data } = await ctx.client.from('activities').select('id').eq('source_id', s.id).eq('status', 'approved').gte('last_seen_at', firstLogAt);
     matchedIds = new Set((data || []).map((a) => a.id));
   }
-  const { summary } = await applyMissingAccounting(ctx.client, { sourceId: s.id, scopes: runScopes(listingAll, keptUrls, confirmed, needsExtraction), matchedIds, threshold: ctx.missingThreshold, now: () => new Date(ctx.now()).toISOString() });
+  const { summary } = await applyMissingAccounting(ctx.client, {
+    sourceId: s.id, sourceKind: s.source_kind ?? null, scopes: runScopes(listingAll, keptUrls, confirmed, needsExtraction), matchedIds,
+    threshold: ctx.missingThreshold, flagsEnabled: !!ctx.missingFlagsEnabled, now: () => new Date(ctx.now()).toISOString(),
+  });
   return summary;
 }
 
@@ -94,7 +97,7 @@ async function applyVerdict(ctx, s, run, lastLog, progressed) {
 }
 
 async function relaySource(ctxIn, s) {
-  const ctx = { batchSize: 3, sleep: realSleep, pollMs: 5000, waitTimeoutMs: 240_000, finalizeWaitMs: 30_000, maxPolls: Infinity, now: () => Date.now(), log: console.log, recorder: null, missingThreshold: 3, ...ctxIn };
+  const ctx = { batchSize: 3, sleep: realSleep, pollMs: 5000, waitTimeoutMs: 240_000, finalizeWaitMs: 30_000, maxPolls: Infinity, now: () => Date.now(), log: console.log, recorder: null, missingThreshold: 3, missingFlagsEnabled: false, ...ctxIn };
   const { client, log } = ctx;
   const run = { source: s.name, sourceId: s.id, outcome: null, plannedParts: 0, confirmedParts: 0, deferredParts: 0, plannedBatches: 0, submittedBatches: 0, successfulBatches: 0, followupRounds: 0, failedBatch: null, waitTimedOut: false, ceiling: null, charsSent: 0, pages: [], missing: null };
   const { stats, pages } = await ctx.relayPages(s);

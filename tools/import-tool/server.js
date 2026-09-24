@@ -3058,7 +3058,7 @@ app.post('/api/incoming/:id/resolve-missing', async (req, res) => {
         if (!isArchived(arch)) throw new Error(describe(arch));
       } else {
         const { error } = await client.from('activities')
-          .update({ consecutive_missing_scans: 0, last_seen_at: new Date().toISOString() })
+          .update({ consecutive_missing_scans: 0, missing_verified_streak: 0, last_seen_at: new Date().toISOString() })
           .eq('id', item.existing_activity_id);
         if (error) throw error;
       }

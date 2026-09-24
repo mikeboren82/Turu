@@ -37,7 +37,7 @@ export async function reconfirmExistingFromPending(client: Client, p: {
   const decision = reconfirmationTarget(p.rows, p.duplicateThreshold);
   if (!decision.refresh) return { outcome: 'PENDING_REVIEW_ONLY', reason: decision.reason };
   const { data: live } = await client.from('activities')
-    .update({ last_seen_at: new Date().toISOString(), consecutive_missing_scans: 0 })
+    .update({ last_seen_at: new Date().toISOString(), consecutive_missing_scans: 0, missing_verified_streak: 0 })
     .eq('id', decision.activityId).eq('status', 'approved').select('id');
   if (!live || !live.length) return { outcome: 'PENDING_REVIEW_ONLY', reason: 'activity_not_approved' };
   await recordProvenance(client, { activityId: decision.activityId, sourceId: p.sourceId, pageUrl: p.pageUrl, incomingId: decision.pendingId, relation: 'seen', urlRole: 'listing', preserveRelation: true });

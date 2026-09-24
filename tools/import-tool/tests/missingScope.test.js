@@ -28,3 +28,10 @@ test('decideMissing: the matrix', () => {
   assert.equal(decideMissing(act({ name: 'יוגה' }), one(KEY, scope({ text: 'יוגה לגיל הרך' })), false).action, 'seen_on_page');
   assert.equal(decideMissing(act({ name: 'אב' }), one(KEY, scope({ text: 'אב ובן' })), false).action, 'present_short_name');
 });
+
+test('fuzzy presence: an AI-composed name whose words are on the page is listed (blocks absence); one shared word is not', () => {
+  const composed = act({ name: 'שעת סיפור: ״טרופותי״ – תיאטרון פיית הרגשות' });
+  assert.equal(decideMissing(composed, one(KEY, scope({ text: normalizeForPresence('שעת סיפור - טרופותי עם פיית הרגשות, 17:00') })), false).action, 'present_fuzzy');
+  assert.equal(decideMissing(act({ name: 'פודצ׳יק - ירדן ודידי בפיג׳מה (הופעה שנייה)' }), one(KEY, scope({ text: normalizeForPresence("פודצ'יק - ירדן ודידי בפיג'מה") })), false).action, 'present_fuzzy');
+  assert.equal(decideMissing(composed, one(KEY, scope({ text: normalizeForPresence('שעת סיפור עם דודה מירי') })), false).action, 'absent');
+});

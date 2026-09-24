@@ -150,7 +150,7 @@ async function relayPages(s) {
     if (error) throw error;
     console.log(`marked ${data.length} sources as local_relay:`, data.map((d) => d.name).join(' | '));
   }
-  let q = client.from('sources').select('id, name, seed_url, strategy, next_scan_at, adapter_config').eq('is_active', true);
+  let q = client.from('sources').select('id, name, seed_url, strategy, source_kind, next_scan_at, adapter_config').eq('is_active', true);
   if (args.source) q = q.eq('id', String(args.source));
   else { q = q.eq('strategy', 'local_relay'); if (!args.all) q = q.lte('next_scan_at', new Date().toISOString()); }
   // --max=N (Continuous Monster cycle): a bounded batch, highest priority then longest overdue first
@@ -158,12 +158,14 @@ async function relayPages(s) {
   const { data: sources, error } = await (args.max ? q : q.order('priority', { ascending: false }));
   if (error) throw error;
   console.log(`relaying ${sources.length} source(s)`);
-  const { data: thr } = await client.from('automation_settings').select('value').eq('key', 'missing_scan_threshold').maybeSingle();
-  const missingThreshold = Number(thr?.value ?? 3);
+  const { data: settingRows } = await client.from('automation_settings').select('key, value').in('key', ['missing_scan_threshold', 'missing_flags_enabled']);
+  const setting = Object.fromEntries((settingRows || []).map((r) => [r.key, r.value]));
+  const missingThreshold = Number(setting.missing_scan_threshold ?? 3);
+  const missingFlagsEnabled = setting.missing_flags_enabled === true;
   for (const s of sources) {
     let run;
     try {
-      run = await relaySource({ client, recorder, relayPages, batchSize: Number(args.batch || 3), missingThreshold }, s);
+      run = await relaySource({ client, recorder, relayPages, batchSize: Number(args.batch || 3), missingThreshold, missingFlagsEnabled }, s);
     } catch (e) {
       run = { source: s.name, sourceId: s.id, outcome: 'FAILED', error: e.message.slice(0, 200) };
     }

@@ -15,7 +15,8 @@ function world({ budget = 3, rpcScript = [], snapshots = [], activities = [], so
   const t = {
     source_scan_logs: [], source_page_snapshots: snapshots.map((s) => ({ source_id: 'S', ...s })),
     sources: [{ id: 'S', last_scan_at: '2026-09-21T03:00:00.000Z', next_scan_at: '2026-09-24T00:00:00.000Z', scan_frequency_hours: 72, last_scan_status: 'success' }],
-    activities: activities.map((a) => ({ source_id: 'S', status: 'approved', ...a })),
+    // DB defaults (0109): missing_verified_streak not null default 0; a future dated event unless a test says otherwise
+    activities: activities.map((a) => ({ source_id: 'S', status: 'approved', missing_verified_streak: 0, entity_type: 'אירוע', activity_schedules: [{ schedule_type: 'one_time', one_time_date: '2026-12-01' }], ...a })),
     activity_sources: sources.map((r) => ({ source_id: 'S', url_role: null, relation: 'seen', ...r })),
   };
   const rpcCalls = []; let logSeq = 0;
@@ -97,7 +98,9 @@ test('TRUE REMOVAL: run N present; run N+1 page changed + fully processed withou
   assert.equal(run.outcome, 'COMPLETE');
   assert.ok(w.t.source_scan_logs.length >= 4);
   assert.equal(w.act('gul').consecutive_missing_scans, 1);
+  assert.equal(w.act('gul').missing_verified_streak, 1);
   assert.equal(run.missing.absent, 1);
+  assert.equal(run.missing.verified_absent, 1);
 });
 
 test('FALSE-MISSING: a PARTIAL run with deferred parts never increments', async () => {
