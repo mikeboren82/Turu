@@ -122,6 +122,12 @@ function contentText(html) {
   $(CHROME).remove();
   return $('body').text().replace(/[ \t]+/g, ' ').replace(/\n{2,}/g, '\n').trim();
 }
+// the same page as HTML without site chrome (map links in a footer / header are the site owner's, not the event's)
+function contentHtml(html) {
+  const $ = cheerio.load(html);
+  $(CHROME).remove();
+  return $.html();
+}
 
 function extractPageImages(html, baseUrl) {
   const $ = cheerio.load(html);
@@ -343,4 +349,4 @@ function sharedLinkUrls(claims) {
   return new Set([...names.entries()].filter(([, s]) => s.size > 1).map(([u]) => u));
 }
 
-module.exports = { extractJsonLd, extractMetaImages, extractMapLinks, extractAddressTexts, extractPageImages, pageText, contentText, inIsrael, findEventCard, containsScore, findEventDetailLinks, resolveBaseHref, extractOccurrences, textualOccurrences, extractPriceTiers, extractAddressCandidates, sharedLinkUrls };
+module.exports = { extractJsonLd, extractMetaImages, extractMapLinks, extractAddressTexts, extractPageImages, pageText, contentText, contentHtml, inIsrael, findEventCard, containsScore, findEventDetailLinks, resolveBaseHref, extractOccurrences, textualOccurrences, extractPriceTiers, extractAddressCandidates, sharedLinkUrls };

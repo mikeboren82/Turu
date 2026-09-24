@@ -15,7 +15,7 @@
 const { normalizeCityName } = require('../cityNaming');
 const { resolveVenue } = require('../venueNaming');
 const { fetchHtml } = require('../lib/fetchPage');
-const { extractJsonLd, extractMapLinks, extractAddressTexts, contentText, inIsrael, findEventCard } = require('../lib/pageExtract');
+const { extractJsonLd, extractMapLinks, extractAddressTexts, contentText, contentHtml, inIsrael, findEventCard } = require('../lib/pageExtract');
 const { wordOverlapScore, haversineKm } = require('./matching');
 const { nominatim } = require('./nominatimClient');
 const { reverseAddress } = require('./reverse');
@@ -145,7 +145,8 @@ async function evidenceFromPage(html, pageUrl, s, official, stage) {
   const method = stage || (official ? 'venue_site' : 'source_page');
   const ld = extractJsonLd(html);
   const evs = ld.events.filter((e) => e.location && (e.location.geo || e.location.address));
-  const ev = evs.find((e) => wordOverlapScore(e.name, s.name) >= 0.5) || (evs.length === 1 ? evs[0] : null);
+  // a lone Event whose name does not match is this event only on its OWN page - on a listing (source_page) it is another one
+  const ev = evs.find((e) => wordOverlapScore(e.name, s.name) >= 0.5) || (evs.length === 1 && stage !== 'source_page' ? evs[0] : null);
   if (ev && isMultiVenueListing(ev.location)) {
     // a touring show: the listing names many cities/venues as ONE address (Ticketsi et al.) - there is
     // no single place to resolve; LOW + ambiguous so the case archives as ambiguous_location with the reason
@@ -158,14 +159,19 @@ async function evidenceFromPage(html, pageUrl, s, official, stage) {
     if (geo && inIsrael(geo)) return { location_name: ev.location.name || s.location_name, address: addr?.text || null, city, lat: geo.lat, lng: geo.lng, venue_id: null, method, confidence: 'HIGH', evidence: { jsonld_event: ev.name, page: pageUrl } };
     if (addr?.text) { const g = await geocodeAddress(addr.text, city); if (g) return { ...g, location_name: ev.location.name || s.location_name, method, confidence: g.city_ok ? 'HIGH' : 'MEDIUM', evidence: { jsonld_address: addr.text, page: pageUrl } }; }
   }
-  const place = ld.places.find((p) => p.geo || p.address?.text);
+  // SITE-OWNER guard (pilot re-run 2026-09-24): an Organization node is the publisher (a municipality's own markup = city
+  // hall), never the event's place; any other Place counts off the venue's own site only when it names this label
+  const place = ld.places.find((p) => (p.geo || p.address?.text) && !ORG_TYPE.test(p.type || '') && (official || (s.location_name && wordOverlapScore(p.name, s.location_name) >= 0.5)));
   if (place) {
     const city = normalizeCityName(place.address?.city || s.city || null);
     if (place.geo && inIsrael(place.geo)) return { location_name: place.name || s.location_name, address: place.address?.text || null, city, lat: place.geo.lat, lng: place.geo.lng, venue_id: null, method, confidence: official ? 'HIGH' : 'MEDIUM', evidence: { jsonld_place: place.name, page: pageUrl } };
     if (place.address?.text) { const g = await geocodeAddress(place.address.text, city); if (g) return { ...g, location_name: place.name || s.location_name, method, confidence: g.city_ok ? (official ? 'HIGH' : 'MEDIUM') : 'LOW', evidence: { jsonld_place_address: place.address.text, page: pageUrl } }; }
   }
-  const maps = extractMapLinks(html);
-  for (const m of maps) {
+  // map links: content only (a footer "directions to city hall" link is the site's), and only when the page points at ONE
+  // place - a listing with several map targets cannot say which one is this event's
+  const maps = extractMapLinks(contentHtml(html));
+  const targets = new Set(maps.map((m) => m.coords ? `${m.coords.lat.toFixed(3)},${m.coords.lng.toFixed(3)}` : String(m.query || '').trim()).filter(Boolean));
+  for (const m of targets.size === 1 ? maps : []) {
     if (m.coords) {
       const rc = await reverseCity(m.coords.lat, m.coords.lng);
       const ok = !s.city || cityAgrees(rc, s.city);
@@ -189,6 +195,7 @@ async function evidenceFromPage(html, pageUrl, s, official, stage) {
 // an address found at offset `at` of the flattened content text belongs to this event only when the event's place label
 // or title appears within ADDRESS_BIND_WINDOW characters of it (a listing page carries many events and one site address)
 const ADDRESS_BIND_WINDOW = 200;
+const ORG_TYPE = /Organization|Corporation|NGO|GovernmentOffice/;
 function addressBound(flat, at, s) {
   if (at == null) return false;
   const anchors = [s.location_name, s.name, ...String(s.name || '').split(/\s*[:|–—]\s+|\s+-\s+/)].map((x) => String(x || '').replace(/\s+/g, ' ').trim()).filter((x) => x.length >= 4);
@@ -372,4 +379,4 @@ async function resolveLocation(client, subject, opts = {}) {
 function finish(best, tried, skipped, errors, venue) { return { result: best && best.lat != null ? strip(best) : (best ? { ...strip(best), lat: null, lng: null } : null), tried, skipped, errors, venue: venue ? { id: venue.id, name_he: venue.name_he } : null }; }
 function strip(r) { const { venue, city_ok, evidence_geocode, ...rest } = r; if (evidence_geocode) rest.evidence = { ...(rest.evidence || {}), geocode: evidence_geocode }; return rest; }
 
-module.exports = { addressBound, resolveLocation, STAGES, EVIDENCE_STAGES, EXTERNAL_LIMIT, geocodeAddress, geocodeText, cityAgrees, coordsForVenue, inferCityFromSource, stageAvailability, placeLookup, ADMIN_TYPES };
+module.exports = { addressBound, evidenceFromPage, resolveLocation, STAGES, EVIDENCE_STAGES, EXTERNAL_LIMIT, geocodeAddress, geocodeText, cityAgrees, coordsForVenue, inferCityFromSource, stageAvailability, placeLookup, ADMIN_TYPES };

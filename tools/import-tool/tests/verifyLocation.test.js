@@ -205,7 +205,7 @@ test('END TO END: a resolved row publishes through the real hand-back + publishI
 // pilot 2026-09-24: "רחבי העיר" was geocoded to the city hall and auto-published there. A label that spreads the activity
 // over several (or undisclosed) places has no single place to resolve - excluded from verify_location, held when it has coords.
 test('multi-location labels are never resolved to one point', () => {
-  for (const label of ['רחבי העיר', 'שכונות ברחבי העיר', 'פארקים ברחבי העיר', 'מספר מיקומים ברחבי יפו', 'שכונות ברחבי העיר (פרטים מדויקים במודעה)', 'מרכזי קהילה ברחבי ראשון לציון']) {
+  for (const label of ['רחבי העיר', 'במספר מוקדים', 'בכמה מקומות בעיר', 'שכונות ברחבי העיר', 'פארקים ברחבי העיר', 'מספר מיקומים ברחבי יפו','שכונות ברחבי העיר (פרטים מדויקים במודעה)', 'מרכזי קהילה ברחבי ראשון לציון']) {
     const row = { name: 'חול המועד סוכות בגינות הקהילתיות', location_name: label, city: 'חיפה' };
     assert.equal(labelKind(row).kind, 'MULTI', label);
     assert.equal(verifyLocationShape(row).exclusion, 'label_multi', label);
@@ -234,4 +234,37 @@ test('page address evidence: site-chrome addresses are ignored and an address mu
   const t3 = contentText(far).replace(/\s+/g, ' ');
   const [b] = extractAddressTexts(contentText(far), { city: 'חיפה' });
   assert.ok(b && !addressBound(t3, b.at, s), 'an address far from the label / title is not this event\'s place');
+});
+
+// pilot re-run 2026-09-24: the same "site owner's place becomes the venue" class through the two other page paths -
+// an Organization JSON-LD node (a municipality's own markup = city hall) and map links in site chrome / on a listing
+// with several events. None of these may produce evidence (all return before any network call).
+test('page evidence: site-owner organisation markup, chrome map links and multi-target listings are not event places', async () => {
+  const { evidenceFromPage } = require('../cleaner/locationResolver');
+  const s = { name: 'הפנינג ירוק במפרץ', location_name: 'פארק נחל הקישון', city: 'חיפה' };
+  const org = `<html><head><script type="application/ld+json">{"@context":"https://schema.org","@type":"GovernmentOrganization","name":"עיריית חיפה","address":{"@type":"PostalAddress","streetAddress":"חסן שוקרי 14","addressLocality":"חיפה"},"geo":{"@type":"GeoCoordinates","latitude":32.812627,"longitude":34.9992145}}</script></head><body><main><h1>הפנינג ירוק במפרץ</h1></main></body></html>`;
+  assert.equal(await evidenceFromPage(org, 'https://x/e/1', s, false, 'detail_page'), null, 'the publisher organisation is not the event place');
+  const footerMap = `<html><body><main><h1>הפנינג ירוק במפרץ</h1><p>פעילות לכל המשפחה</p></main><footer><a href="https://waze.com/ul?ll=32.812627,34.9992145&navigate=yes">הגעה לעירייה</a></footer></body></html>`;
+  assert.equal(await evidenceFromPage(footerMap, 'https://x/e/1', s, false, 'detail_page'), null, 'a footer map link is the site\'s');
+  const listing = `<html><body><main><div>אירוע א <a href="https://waze.com/ul?ll=32.80,34.98">מפה</a></div><div>אירוע ב <a href="https://waze.com/ul?ll=32.79,35.01">מפה</a></div></main></body></html>`;
+  assert.equal(await evidenceFromPage(listing, 'https://x/list', s, false, 'source_page'), null, 'several map targets: none is this event\'s');
+  const loneOther = `<html><head><script type="application/ld+json">{"@context":"https://schema.org","@type":"Event","name":"ערב ג'אז","location":{"@type":"Place","name":"אודיטוריום","geo":{"latitude":32.8,"longitude":34.99}}}</script></head><body></body></html>`;
+  assert.equal(await evidenceFromPage(loneOther, 'https://x/list', s, false, 'source_page'), null, 'a lone unrelated Event on a listing is another event');
+});
+
+// pilot re-run 2026-09-24 pre-apply review: three same-show hand-backs carried a performance the activity lacked
+// (another hour the same day / an earlier date / the next weekly date). A duplicate rejection would have dropped it -
+// such a row is an UPDATE for review; only a performance the activity already has is a duplicate.
+test('hand-back: a new performance of a known show is an update, never a duplicate rejection', () => {
+  const { missingOccurrences } = require('../cleaner/apply');
+  const src = fs.readFileSync(path.join(__dirname, '..', 'cleaner', 'apply.js'), 'utf8');
+  assert.match(src, /score >= settings\.thresholds\.duplicate && !newOccurrence\.length/, 'the duplicate branch is guarded');
+  const act = (occ) => ({ occurrences: occ.map(([date, start_time]) => ({ date, start_time })) });
+  assert.deepEqual(missingOccurrences({ one_time_date: '2026-09-28', start_time: '11:30' }, act([['2026-09-28', '10:00:00']])), [{ date: '2026-09-28', start_time: '11:30' }], 'another hour the same day');
+  assert.equal(missingOccurrences({ one_time_date: '2026-09-29', start_time: '17:00' }, act([['2026-12-11', '11:00:00']])).length, 1, 'an earlier date');
+  assert.equal(missingOccurrences({ one_time_date: '2026-09-29', start_time: '19:00' }, act([['2026-09-24', '19:00:00']])).length, 1, 'the next weekly date');
+  assert.deepEqual(missingOccurrences({ one_time_date: '2026-09-28', start_time: '10:00' }, act([['2026-09-28', '10:00:00']])), [], 'the same performance IS a duplicate');
+  assert.deepEqual(missingOccurrences({ one_time_date: '2026-09-28' }, act([['2026-09-28', '10:00:00']])), [], 'no hour given: the date suffices');
+  assert.deepEqual(missingOccurrences({ schedule_type: 'recurring', recurring_days: ['שני'] }, act([])), [], 'undated rows keep the existing rule');
+  assert.deepEqual(missingOccurrences({ one_time_date: '2026-09-29', start_time: '17:00' }, { one_time_date: '2026-09-29', start_time: '17:00:00' }), [], 'legacy activity shape without occurrences');
 });

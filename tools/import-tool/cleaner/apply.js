@@ -23,6 +23,7 @@ const { assessGranularity } = require('../lib/granularity');
 const { upsertProvenanceSafe } = require('../lib/activitySourceMerge');
 const { evaluateIncomingRow } = require('../lib/incomingEligibility');
 const { verifiedFieldUpdate, OUTCOME: WRITE_OUTCOME } = require('../lib/verifiedWrite');
+const { occurrenceKnown } = require('../lib/intakePolicy');
 
 const SOFT = new Set(['מחיר']);
 const OPEN_INCOMING = ['new', 'needs_review', 'failed'];
@@ -82,7 +83,11 @@ async function handBackIncoming(client, row, { settings, userId, cache, today, c
     price_type: c.price_type ?? null, price_amount: c.price_amount ?? null, min_age: c.min_age ?? null, max_age: c.max_age ?? null, organizer_name: c.organizer_name ?? null, duration_minutes: c.duration_minutes ?? null };
   const match = await bestMatch(client, candidate, settings.thresholds, cache);
   const now = new Date().toISOString();
-  if (match && match.confidence.score >= settings.thresholds.duplicate) {
+  // NEW-OCCURRENCE GUARD (verify_location pilot re-run, 2026-09-24): the same show on a date / hour the activity does
+  // not carry yet is a new PERFORMANCE of it. Rejecting the row as a duplicate drops that performance (the enrichment
+  // below only fills null columns, never schedules) - it goes to review as an update instead, like every other change.
+  const newOccurrence = match ? missingOccurrences(c, match.activity) : [];
+  if (match && match.confidence.score >= settings.thresholds.duplicate && !newOccurrence.length) {
     const w = await guardedIncomingWrite(client, row, { status: 'rejected', match_type: 'duplicate', existing_activity_id: match.activity.id, confidence_score: match.confidence.score, confidence_breakdown: match.confidence.breakdown, archive_reason: 'duplicate_of_existing_activity', reject_reason: `כפילות של פעילות קיימת (THE CLEANER, ציון ${match.confidence.score})`, reviewed_at: now },
       (r) => r.status === 'rejected' && r.archive_reason === 'duplicate_of_existing_activity' && r.existing_activity_id === match.activity.id);
     if (!w.done) return w.result;
@@ -99,7 +104,7 @@ async function handBackIncoming(client, row, { settings, userId, cache, today, c
     const w = await guardedIncomingWrite(client, row, { match_type: 'update', existing_activity_id: match.activity.id, confidence_score: match.confidence.score, confidence_breakdown: match.confidence.breakdown, status: 'needs_review' },
       (r) => r.match_type === 'update' && r.existing_activity_id === match.activity.id && r.status === 'needs_review');
     if (!w.done) return w.result;
-    return { outcome: 'possible_update', activity_id: match.activity.id, score: match.confidence.score, write: w.code };
+    return { outcome: 'possible_update', activity_id: match.activity.id, score: match.confidence.score, write: w.code, ...(newOccurrence.length ? { new_occurrences: newOccurrence } : {}) };
   }
   // STANDING PROGRAMME MATCH (Repertoire Phase 1, 2026-09-22): a dated candidate whose generic
   // score falls short (the Train Theater fuzzy-subtitle shape scores ~0.50, below needsReview) but
@@ -210,6 +215,14 @@ async function guardedIncomingWrite(client, row, patch, alreadySatisfied) {
 
 // fill-null enrichment of an existing activity from a candidate (never overwrites)
 // -> { gained: [gainKeys], denied: [fields] }   (denied = 0-row writes whose field is still empty)
+// the candidate's dated performances (date + hour, lib/intakePolicy occurrenceKnown) that the matched activity lacks
+function missingOccurrences(c, activity) {
+  const mine = Array.isArray(c.occurrences) && c.occurrences.length ? c.occurrences.filter((o) => o && o.date) : (c.one_time_date ? [{ date: c.one_time_date, start_time: c.start_time || null }] : []);
+  if (!mine.length) return [];
+  const have = (activity.occurrences && activity.occurrences.length) ? activity.occurrences : (activity.one_time_date ? [{ date: activity.one_time_date, start_time: activity.start_time || null }] : []);
+  return mine.filter((o) => !occurrenceKnown(o, have)).map((o) => ({ date: o.date, start_time: o.start_time || null }));
+}
+
 async function enrichExistingFromCandidate(client, activityId, c) {
   const { data: a } = await client.from('activities').select('id, venue_id, description, min_age, max_age, price_type, price_amount, location_id, locations(address, address_confidence)').eq('id', activityId).maybeSingle();
   if (!a) return { gained: [], denied: [] };
@@ -321,4 +334,4 @@ async function applyActivityPatch(client, activityId, patch, applyGuard, stillNe
   return verifiedUpdate(client, 'activities', activityId, patch, applyGuard, stillNeeds);
 }
 
-module.exports = { patchIncomingLocation, handBackIncoming, enrichExistingFromCandidate, applyAddressToActivity, applyCityToActivity, applyImageToActivity, applyActivityPatch, verifiedUpdate, classifyZeroRowWrite, deniedError, OPEN_INCOMING, handBackFromPublish, setPublishImplForTests };
+module.exports = { missingOccurrences, patchIncomingLocation, handBackIncoming, enrichExistingFromCandidate, applyAddressToActivity, applyCityToActivity, applyImageToActivity, applyActivityPatch, verifiedUpdate, classifyZeroRowWrite, deniedError, OPEN_INCOMING, handBackFromPublish, setPublishImplForTests };
