@@ -54,6 +54,21 @@ export function distinctiveSharedWords(a: string | null | undefined, b: string |
   wa.forEach((w) => { if (wb.has(w)) n++; });
   return n;
 }
+// SERIES PREFIX (2026-09-24): sub-events on one festival page share a titled prefix ("פסטיבל בית גלים: <event>"); the
+// prefix names the series, not the event, so identity is decided on what follows an identical prefix. A time ("11:00")
+// is not a separator (a separator needs whitespace after it). Twin of cleaner/matching.js seriesRemainders.
+const SERIES_SEP = /\s*[:|–—]\s+|\s+-\s+/;
+export function seriesRemainders(a: string | null | undefined, b: string | null | undefined): [string, string] | null {
+  const pa = String(a || '').split(SERIES_SEP), pb = String(b || '').split(SERIES_SEP);
+  if (pa.length < 2 || pb.length < 2) return null;
+  const head = normalizeForMatch(pa[0]);
+  if (!head || head !== normalizeForMatch(pb[0])) return null;
+  const ra = pa.slice(1).join(' '), rb = pb.slice(1).join(' ');
+  // "שלגיה - מחזמר": a genre-only remainder means the head IS the title, not a series name
+  const distinctive = (t: string) => normalizeForMatch(t).split(' ').some((w) => w.length > 1 && !GENRE_WORDS.has(w) && !/^\d+$/.test(w));
+  if (!distinctive(ra) || !distinctive(rb)) return null;
+  return [ra, rb];
+}
 // both sides name a place and the labels disagree (neither contains the other)
 function placeLabelsDisagree(a: string | null | undefined, b: string | null | undefined): boolean {
   // plene / defective spelling (ספריה = ספרייה, קרית = קריית) is the same word
@@ -332,7 +347,10 @@ export function computeConfidence(candidate: any, existing: ExistingActivity, th
   breakdown.exact_url_match = candidate.pageUrl && existing.source_url && candidate.pageUrl === existing.source_url ? 1 : 0;
   breakdown.fingerprint_match = candidate.event_fingerprint && existing.event_fingerprint && candidate.event_fingerprint === existing.event_fingerprint ? 1 : 0;
   breakdown.venue_match = candidate.venue_id && existing.venue_id && candidate.venue_id === existing.venue_id ? 1 : 0;
-  breakdown.name_overlap = wordOverlapScore(candidate.name, existing.name);
+  const series = seriesRemainders(candidate.name, existing.name);
+  const [nameA, nameB] = series || [candidate.name, existing.name];
+  if (series) breakdown.series_prefix = 1;
+  breakdown.name_overlap = wordOverlapScore(nameA, nameB);
   const candCity = normalizeCityName(candidate.city || null);
   breakdown.city_match = candCity && existing.city && candCity === existing.city ? 1 : 0;
 
@@ -365,7 +383,7 @@ export function computeConfidence(candidate: any, existing: ExistingActivity, th
   // titles overlap 0.5 through genre words alone, and the later show was queued as an UPDATE that would
   // have moved the earlier one to another venue, date and hour. URL identity now also needs a shared
   // DISTINCTIVE title word, and never holds when the place AND the dates both contradict.
-  breakdown.distinctive_name = distinctiveSharedWords(candidate.name, existing.name);
+  breakdown.distinctive_name = distinctiveSharedWords(nameA, nameB);
   const datesContradict = cDates.length > 0 && eDates.length > 0 && !cDates.some((d) => eDates.includes(d));
   const placeContradicts = (candidate.venue_id && existing.venue_id) ? candidate.venue_id !== existing.venue_id : placeLabelsDisagree(candidate.location_name, existing.location_name);
   breakdown.association_conflict = datesContradict && placeContradicts ? 1 : 0;

@@ -20,7 +20,7 @@ require('dotenv').config();
 const os = require('os');
 const { getClient } = require('./supabase');
 const { discoverCases, upsertCases, all } = require('./cleaner/discover');
-const { settingsFrom, markAttemptFailed, resolveCase, releaseCase, archiveCase, archiveExpired, reopenWhereEvidenceChanged, stagesForAttempt, LOCATION_ISSUES } = require('./cleaner/lifecycle');
+const { settingsFrom, markAttemptFailed, resolveCase, releaseCase, archiveCase, archiveExpired, reopenWhereEvidenceChanged, stagesForAttempt, LOCATION_ISSUES, RELEASE } = require('./cleaner/lifecycle');
 const { resolveLocation } = require('./cleaner/locationResolver');
 const { resolveImage } = require('./cleaner/imageResolver');
 const { enrichFields } = require('./cleaner/fieldEnricher');
@@ -35,6 +35,7 @@ const { auditCityCentroids, isSharedMultiLabelPoint } = require('./cleaner/centr
 const { wordOverlapScore } = require('./cleaner/matching');
 const { isLearnableLabel } = require('./venueLearning');
 const { proposeOutcome, applyOutcome } = require('./cleaner/settlementResolver');
+const { processVerifyLocation, reopenVerifyLocationCases } = require('./cleaner/verifyLocation');
 const fs = require('fs');
 const path = require('path');
 
@@ -94,6 +95,14 @@ async function processCase(client, c, ctx) {
       const r = await archiveOrDry(client, c, { reason, note: `${p.outcome} (${p.confidence}): ${p.signals.slice(-1)[0]}`, methods: ['canonical_db', 'candidate_data', p.evidence?.osm ? 'osm_reverse' : null].filter(Boolean), evidence: { proposal: p.outcome, match: p.match || null, missing: p.missing || null }, unavailable: [{ stage: 'google_place_details', why: 'no Places key on the Cleaner machine' }] });
       countArchive(counters, r); return r;
     }
+    // verify_location is gated END TO END by verify_location_enabled (or an explicit --verify-location-pilot run): the
+    // fair claim takes open cases of every issue, so a pilot's open retries must not be processed by the scheduled run
+    // while the flag is off. Release untouched and defer a day so the parked case does not take a batch slot hourly.
+    if (c.issue === 'verify_location' && !(settings.verifyLocationEnabled || args['verify-location-pilot'])) {
+      counters.inspected--;
+      if (!DRY) await client.from('cleaner_cases').update({ ...RELEASE, next_attempt_at: new Date(Date.now() + 24 * 3600e3).toISOString() }).eq('id', c.id).eq('status', 'open');
+      return { outcome: 'released:verify_location_disabled' };
+    }
     if (c.subject_kind === 'incoming') {
       const row = await loadIncoming(client, c.subject_id);
       if (!row || !['new', 'needs_review', 'failed'].includes(row.status)) { counters.resolvedNoGain++; return resolveOrDry(client, c, { outcome: 'resolved_externally', status: row?.status }); }
@@ -101,6 +110,8 @@ async function processCase(client, c, ctx) {
       const ed = row.extracted_data || {};
       if (ed.schedule_type === 'one_time' && ed.one_time_date && ed.one_time_date < today) { const r = await expireOrDry(client, c, ed.one_time_date); countArchive(counters, r); return r; }
 
+      // VERIFY_LOCATION (Phase 2): evidence ladder + verified write + canonical hand-back - cleaner/verifyLocation.js
+      if (c.issue === 'verify_location') return processVerifyLocation(client, c, row, ctx, { markFail, archiveOrDry, resolveOrDry, DRY, resolveLocation, stagesForAttempt, handBackIncoming, maxEvidenceStages: args.now ? 6 : 2 });
       if (LOCATION_ISSUES.has(c.issue)) {
         const subject = { name: ed.name, location_name: ed.location_name || null, city: ed.city || null, organizer_name: ed.organizer_name || null, page_url: row.page_url, source_id: row.source_id, source_venue_id: row.source?.venue_id || null, description: ed.description };
         if (!subject.location_name && !subject.city && !subject.organizer_name && !row.page_url) { const r = await archiveOrDry(client, c, { reason: 'insufficient_required_data', note: 'אין שם מקום, עיר, מארגן או עמוד מקור' }); countArchive(counters, r); return r; }
@@ -394,8 +405,13 @@ async function cycleBody(client, userId, ctx) {
     r.flagged.slice(0, 30).forEach((f) => console.log(`  centroid? ${f.city} | ${f.name} | ${f.signal}`));
   }
   if (!args['reopen-only'] && !args.case) {
-    const { candidates, stats } = await discoverCases(client, { today });
+    // verify_location: the scheduled run discovers it only when enabled; --verify-location-pilot opens at most --max cases
+    const pilot = !!args['verify-location-pilot'];
+    const discovered = await discoverCases(client, { today, verifyLocation: { enabled: settings.verifyLocationEnabled || pilot, limit: pilot ? Number(args.max || settings.batchSize) : null } });
+    const { candidates, stats } = discovered;
     const up = DRY ? { created: candidates.length, existing: 0, closedExternally: 0 } : await upsertCases(client, candidates);
+    // a held verify_location hand-back re-opens only when its policy state changed (e.g. the source became trusted)
+    if (!DRY && discovered.verifyLocationReopen?.length) { counters.verifyLocationReopened = await reopenVerifyLocationCases(client, discovered.verifyLocationReopen); }
     counters.discovered = up.created; counters.closedExternally = up.closedExternally; counters.staleOutcomes = up.staleOutcomes || {};
     console.log(`discover: ${candidates.length} candidate issues ${JSON.stringify(stats)} -> new cases ${up.created}, existing ${up.existing}, closed stale ${up.closedExternally} ${JSON.stringify(up.staleOutcomes || {})}`);
   }

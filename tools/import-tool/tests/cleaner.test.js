@@ -91,3 +91,22 @@ test('matching mirror: a different show sharing only genre words on one listing 
   assert.equal(e.breakdown.association_conflict, 1); assert.ok(e.score < thresholds.duplicate, String(e.score));
   assert.equal(distinctiveSharedWords('שעת סיפור לגילאי 2-4', 'הצגת ילדים לגילאי 2-4'), 0);
 });
+
+// verify_location pilot (2026-09-24): three Beit Galim festival sub-events on ONE listing page were auto-merged into
+// each other - the shared series prefix supplied the overlap and the "distinctive" words. Identity is decided on what
+// follows an identical prefix; a genre-only remainder keeps the full title. Mirror of _shared/dedupe.test.ts.
+test('matching mirror: festival sub-events sharing a series prefix are not the same event', () => {
+  const { seriesRemainders } = require('../cleaner/matching');
+  const listing = 'https://www.haifa.muni.il/festival-beit-galim';
+  const ex = { id: 'e1', name: 'פסטיבל בית גלים: סיורים מודרכים', source_url: listing, location_name: 'בית גלים', city: 'חיפה', lat: null, lng: null, venue_id: null, event_fingerprint: 'fp-a', one_time_date: '2026-10-08', occurrences: [{ date: '2026-10-08', start_time: '10:00' }], recurring_days: [] };
+  for (const name of ['פסטיבל בית גלים: תערוכת בד-גלים', 'פסטיבל בית גלים: מתחם הורים וילדים', 'פסטיבל בית גלים: פעילויות בגינה הקהילתית']) {
+    const c = computeConfidence({ name, city: 'חיפה', pageUrl: listing, location_name: 'בית גלים', venue_id: null, one_time_date: '2026-10-08', recurring_days: [] }, ex, thresholds);
+    assert.equal(c.breakdown.series_prefix, 1, name);
+    assert.ok(c.score < thresholds.duplicate, `${name}: ${c.score}`);
+  }
+  const same = computeConfidence({ name: 'פסטיבל בית גלים: סיורים מודרכים', city: 'חיפה', pageUrl: listing, location_name: 'בית גלים', venue_id: null, one_time_date: '2026-10-09', recurring_days: [] }, ex, thresholds);
+  assert.ok(same.score >= thresholds.duplicate, 'the same sub-event on another day is still the same event');
+  assert.equal(seriesRemainders('שלגיה - מחזמר', 'שלגיה - הצגה'), null, 'genre-only remainder: the head is the title');
+  assert.equal(seriesRemainders('שעת סיפור 11:00', 'שעת סיפור 11:30'), null, 'a time is not a separator');
+  assert.equal(seriesRemainders('פסטיבל א: סיור', 'פסטיבל ב: סיור'), null, 'different heads are not one series');
+});

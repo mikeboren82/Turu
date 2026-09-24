@@ -96,12 +96,12 @@ function extractAddressTexts(text, { city } = {}) {
   for (const m of t.matchAll(re)) {
     const street = m[1].trim(), number = m[2], tail = m[3].trim();
     const cityGuess = tail.split(' ').slice(0, 3).join(' ');
-    out.push({ text: `${m[0].split(/\s+/)[0]} ${street} ${number}, ${cityGuess}`.trim(), street, number, city: cityGuess });
+    out.push({ text: `${m[0].split(/\s+/)[0]} ${street} ${number}, ${cityGuess}`.trim(), street, number, city: cityGuess, at: m.index });
   }
   // also bare "<street> <number>, <known city>" when the city is known
   if (city) {
     const re2 = new RegExp(`([\\u0590-\\u05FF"'׳״\\-]{2,25}(?:\\s[\\u0590-\\u05FF"'׳״\\-]{2,25}){0,3})\\s+(\\d{1,4})\\s*,\\s*(${city.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'g');
-    for (const m of t.matchAll(re2)) out.push({ text: `${m[1].trim()} ${m[2]}, ${m[3]}`, street: m[1].trim(), number: m[2], city: m[3] });
+    for (const m of t.matchAll(re2)) out.push({ text: `${m[1].trim()} ${m[2]}, ${m[3]}`, street: m[1].trim(), number: m[2], city: m[3], at: m.index });
   }
   return dedupeBy(out, (x) => x.text).slice(0, 10);
 }
@@ -109,6 +109,17 @@ function extractAddressTexts(text, { city } = {}) {
 function pageText(html) {
   const $ = cheerio.load(html);
   $('script, style, noscript, svg, input, select, textarea, button').remove();
+  return $('body').text().replace(/[ \t]+/g, ' ').replace(/\n{2,}/g, '\n').trim();
+}
+
+// The page's CONTENT text, without site chrome. A municipality / venue site prints its OWN address in the footer or
+// header of every page (verify_location pilot 2026-09-24: "חסן שוקרי 14" - Haifa city hall - became the venue of four
+// different Haifa events). Location evidence reads this, not pageText.
+const CHROME = 'footer, header, nav, aside, [role=contentinfo], [role=banner], [role=navigation], #footer, .footer, .site-footer, #header, .site-header';
+function contentText(html) {
+  const $ = cheerio.load(html);
+  $('script, style, noscript, svg, input, select, textarea, button').remove();
+  $(CHROME).remove();
   return $('body').text().replace(/[ \t]+/g, ' ').replace(/\n{2,}/g, '\n').trim();
 }
 
@@ -332,4 +343,4 @@ function sharedLinkUrls(claims) {
   return new Set([...names.entries()].filter(([, s]) => s.size > 1).map(([u]) => u));
 }
 
-module.exports = { extractJsonLd, extractMetaImages, extractMapLinks, extractAddressTexts, extractPageImages, pageText, inIsrael, findEventCard, containsScore, findEventDetailLinks, resolveBaseHref, extractOccurrences, textualOccurrences, extractPriceTiers, extractAddressCandidates, sharedLinkUrls };
+module.exports = { extractJsonLd, extractMetaImages, extractMapLinks, extractAddressTexts, extractPageImages, pageText, contentText, inIsrael, findEventCard, containsScore, findEventDetailLinks, resolveBaseHref, extractOccurrences, textualOccurrences, extractPriceTiers, extractAddressCandidates, sharedLinkUrls };

@@ -19,11 +19,13 @@ const ARCHIVE_REASON_BY_ISSUE = {
   missing_region: 'other', missing_required_metadata: 'insufficient_required_data', low_quality_description: 'other',
   settlement_review: 'insufficient_required_data', missing_city: 'city_unresolved', misclassified: 'requires_human_judgment',
   city_not_canonical: 'city_unresolved',
+  // verify_location exhausted: NON-blocking (not in BLOCKING_FOR_INCOMING) - the clean row stays in the queue for a person
+  verify_location: 'missing_address_unresolved',
 };
 // issues whose archive also archives/rejects the SUBJECT (blocking); the rest archive only the case
 const BLOCKING_FOR_INCOMING = new Set(['missing_location', 'rejected_missing_address', 'unverified_location', 'missing_required_metadata', 'missing_coordinates']);
 const REOPENABLE_REASONS = new Set(['missing_address_unresolved', 'ambiguous_location', 'venue_not_found', 'source_unreachable', 'insufficient_required_data', 'ambiguous_audience', 'address_unresolved_nonblocking', 'city_unresolved']);
-const LOCATION_ISSUES = new Set(['missing_location', 'rejected_missing_address', 'unverified_location', 'missing_coordinates', 'incomplete_address', 'missing_venue']);
+const LOCATION_ISSUES = new Set(['verify_location', 'missing_location', 'rejected_missing_address', 'unverified_location', 'missing_coordinates', 'incomplete_address', 'missing_venue']);
 
 // what each issue is missing, and which evidence would justify reopening its archive
 const MISSING_BY_ISSUE = {
@@ -35,6 +37,7 @@ const MISSING_BY_ISSUE = {
   missing_city: 'canonical city (coordinates known)',
   city_not_canonical: 'canonical city (a regional council / spelling variant / unknown locality string is stored)',
   misclassified: 'correct venue type (filed as a public playground)',
+  verify_location: 'verified publishable location for a candidate that is otherwise clean (HIGH/MEDIUM evidence, city agreement, a venue-shaped label)',
 };
 const REOPEN_WHEN_BY_ISSUE = {
   missing_location: ['a venue/alias resolves the location label or organizer', 'the source page or its detail page changes', 'the same event fingerprint reappears with location data', 'a single-venue detail page for the event appears (touring shows)'],
@@ -46,6 +49,7 @@ const REOPEN_WHEN_BY_ISSUE = {
   misclassified: ['an admin confirms the venue type', 'the official site / a canonical venue states the venue type'],
   missing_city: ['a canonical venue is linked to the activity', 'a settlement alias is added for the geocoder locality (public.settlement_aliases)', 'the coordinates are corrected'],
   city_not_canonical: ['a settlement alias is added for the stored value (public.settlement_aliases)', 'a canonical venue is linked to the activity', 'the coordinates are corrected', 'a service-area decision is made for Palestinian localities'],
+  verify_location: ['a canonical venue / alias resolves the location label in the same city', 'the source page or its detail page gains a street address / map link'],
   settlement_review: ['Google Place details become available (types/photos)', 'a canonical record appears with the same place id or street', 'an admin adds venue/category evidence'],
 };
 
@@ -53,6 +57,8 @@ function settingsFrom(rows) {
   const s = Object.fromEntries((rows || []).map((r) => [r.key, r.value]));
   return {
     enabled: s.cleaner_enabled !== false,
+    // verify_location Phase 2: discovery off until a person enables it after the controlled pilot (brief: bounded apply)
+    verifyLocationEnabled: s.verify_location_enabled === true,
     maxAttempts: Number(s.cleaner_max_attempts ?? 3),
     backoffHours: Array.isArray(s.cleaner_backoff_hours) ? s.cleaner_backoff_hours.map(Number) : [6, 24, 72],
     batchSize: Number(s.cleaner_batch_size ?? 40),
@@ -177,6 +183,8 @@ async function reopenWhereEvidenceChanged(client, { limit = 200 } = {}) {
   const { data: cases } = await client.from('cleaner_cases').select('id, subject_kind, subject_id, issue, archive_reason, reopened_count').eq('status', 'archived').in('archive_reason', [...REOPENABLE_REASONS]).order('updated_at', { ascending: true }).limit(limit);
   let reopened = 0;
   for (const c of cases || []) {
+    // verify_location may reopen ONCE, and only on new location evidence (brief: no new -> Cleaner -> new loop)
+    if (c.issue === 'verify_location' && (c.reopened_count || 0) >= 1) continue;
     let evidence = null;
     if (c.subject_kind === 'incoming') {
       const { data: row } = await client.from('incoming_activities').select('status, location_name:extracted_data->>location_name, city:extracted_data->>city, name:extracted_data->>name, organizer_name:extracted_data->>organizer_name, one_time_date:extracted_data->>one_time_date, schedule_type:extracted_data->>schedule_type').eq('id', c.subject_id).maybeSingle();

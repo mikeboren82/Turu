@@ -7,7 +7,7 @@ const { isMissingCity, loadSettlementIndex, classifyCityValue } = require('../li
 const { classifyPlayVenue } = require('../lib/playVenueClassifier');
 const { sanitizeCategory } = require('../lib/categoryValidation');
 
-const BASE_PRIORITY = { category_noncanonical: 20, missing_location: 10, rejected_missing_address: 12, unverified_location: 15, missing_city: 22, city_not_canonical: 23, misclassified: 24, missing_schedule: 25, incomplete_address: 30, missing_required_metadata: 35, missing_venue: 40, missing_region: 45, missing_image: 50, broken_image: 52, low_quality_description: 60 };
+const BASE_PRIORITY = { category_noncanonical: 20, missing_location: 10, verify_location: 11, rejected_missing_address: 12, unverified_location: 15, missing_city: 22, city_not_canonical: 23, misclassified: 24, missing_schedule: 25, incomplete_address: 30, missing_required_metadata: 35, missing_venue: 40, missing_region: 45, missing_image: 50, broken_image: 52, low_quality_description: 60 };
 // 'ימי פעילות' (2026-09-19): a recurring event the extractor returned without weekdays - temporal evidence the
 // approval gate requires; the metadata resolver looks for the weekdays on the event's card / detail page
 const META_ISSUES = new Set(['קטגוריה', 'תאריך', 'סוג ישות', 'קהל יעד לא ברור', 'ימי פעילות']);
@@ -42,7 +42,7 @@ function priorityFor(issue, { eventDate, live, recurring, today }) {
 }
 
 // -> { candidates: [{subject_kind, subject_id, issue, priority, event_date, source_id, opened_reason}], stats }
-async function discoverCases(client, { today }) {
+async function discoverCases(client, { today, verifyLocation = { enabled: false, limit: null } }) {
   const out = []; const stats = {};
   const add = (c) => { out.push(c); stats[c.issue] = (stats[c.issue] || 0) + 1; };
 
@@ -59,6 +59,19 @@ async function discoverCases(client, { today }) {
     if (meta.length) add({ subject_kind: 'incoming', subject_id: r.id, issue: 'missing_required_metadata', priority: priorityFor('missing_required_metadata', { eventDate, recurring, today }), event_date: eventDate, source_id: r.source_id, opened_reason: meta.join(',') });
     if (r.status === 'failed') add({ subject_kind: 'incoming', subject_id: r.id, issue: 'missing_required_metadata', priority: 20, event_date: eventDate, source_id: r.source_id, opened_reason: 'status failed' });
   }
+
+  // A2. VERIFY_LOCATION (Phase 2, 2026-09-24): clean candidates whose only blocker is a verified location, and resolved
+  // rows that need re-evaluation / hand-back only - see cleaner/verifyLocation.js (canonical policy, shape exclusions)
+  // GATED: automation_settings.verify_location_enabled (default false) or an explicit pilot run with a case limit
+  let vl = { candidates: [], stats: { disabled: true }, reopenIds: [] };
+  if (verifyLocation.enabled) {
+    const { discoverVerifyLocation } = require('./verifyLocation');
+    vl = await discoverVerifyLocation(client, { today });
+    // hand-backs first (already resolved), then the soonest events
+    const ordered = [...vl.candidates].sort((a, b) => a.priority - b.priority || String(a.event_date || '9999').localeCompare(String(b.event_date || '9999')));
+    for (const cand of verifyLocation.limit ? ordered.slice(0, verifyLocation.limit) : ordered) add(cand);
+  }
+  stats.verify_location_plan = vl.stats;
 
   // B. live activities with missing important data
   // canonical settlement knowledge for CITY_NOT_CANONICAL; without it (empty table / stub) no claim is made
@@ -116,7 +129,7 @@ async function discoverCases(client, { today }) {
   for (const r of reviews) {
     add({ subject_kind: 'settlement_review', subject_id: r.id, issue: 'settlement_review', priority: 28 - Math.min(3, r.detection_count || 1), event_date: null, source_id: null, opened_reason: 'legacy ' + r.case_type });
   }
-  return { candidates: out, stats };
+  return { candidates: out, stats, verifyLocationReopen: vl.reopenIds };
 }
 
 // issues introduced by a migration that widens cleaner_cases_issue_check; until that migration is applied
@@ -126,6 +139,7 @@ async function discoverCases(client, { today }) {
 // failing the whole discovery pass - the same treatment city_not_canonical got while 0100 was pending.
 const MIGRATION_GATED_ISSUES = {
   city_not_canonical: '0100',
+  verify_location: '0112',
   category_noncanonical: '0101',
   category_primary_experience_mismatch: '0101',
   scanner_place_kind_mismatch: '0101',
@@ -162,7 +176,9 @@ async function upsertCases(client, candidates) {
   // 'resolved_externally' for every one - including incoming rows whose issue vanished because THE CLEANER itself
   // patched the location and whose hand-back then never completed (3 open, eligible rows closed that way).
   const wanted = new Set(candidates.map(key));
-  const stale = known.filter((k) => k.status === 'open' && !wanted.has(key(k)));
+  // verify_location is never stale-swept: its handler re-validates the row (policy, shape, coordinates) on every attempt,
+  // and discovery may be disabled or limited (pilot) - absence from this pass is not evidence
+  const stale = known.filter((k) => k.status === 'open' && !wanted.has(key(k)) && k.issue !== 'verify_location');
   const incIds = [...new Set(stale.filter((k) => k.subject_kind === 'incoming').map((k) => k.subject_id))];
   const incRows = new Map();
   for (let i = 0; i < incIds.length; i += 150) {

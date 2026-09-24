@@ -6,6 +6,8 @@
 // verdict stored when a scan ran or a Cleaner case opened can never carry publish permission forward. The rules
 // are lib/publishPolicy.js (twin of the scan-source intake policy); this adds the facts that need the database:
 //   location_unverified  hold      no resolved coordinates yet (the Cleaner / verify_location supplies them)
+//   location_label_not_venue / location_evidence_insufficient  hold  coordinates exist but the label is a street /
+//                                  admin area / the city, or the Cleaner's evidence is below MEDIUM (lib/locationEvidence.js)
 //   outside_service_area terminal  resolved coordinates fall outside TURU's service area
 //   exact_duplicate      terminal  google_place_id / event fingerprint already live (what /approve 409s on)
 // Read-only: never writes, never changes review status. Safe to call repeatedly.
@@ -13,6 +15,7 @@ const { evaluatePublishPolicy, decide } = require('./publishPolicy');
 const { israelToday } = require('./intakePolicy');
 const { normalizeIncomingCandidate } = require('../incomingShape');
 const { computeEventFingerprint } = require('../eventFingerprint');
+const { storedLocationHolds } = require('./locationEvidence');
 
 const ROW_COLUMNS = 'id, source_id, match_type, status, validation_issues, deferred_until, extracted_data, existing_activity_id, page_url';
 
@@ -28,6 +31,9 @@ function rowFactReasons(c, { serviceArea = null, duplicate = null } = {}) {
   const reasons = [];
   const hasCoords = c.lat != null && c.lng != null && Number.isFinite(Number(c.lat)) && Number.isFinite(Number(c.lng));
   if (!hasCoords) reasons.push({ code: 'location_unverified', severity: 'hold', humanOverridable: true });
+  // coordinates are not enough (verify_location Phase 2, lib/locationEvidence.js): the label must name a place, not a
+  // street / admin area / the city, and Cleaner-supplied coordinates must be HIGH/MEDIUM on the evidence ladder
+  else reasons.push(...storedLocationHolds(c));
   if (serviceArea && serviceArea.klass === 'OUTSIDE_SERVICE_AREA') reasons.push({ code: 'outside_service_area', severity: 'terminal', humanOverridable: false, detail: { reason: serviceArea.reason } });
   if (duplicate) reasons.push({ code: 'exact_duplicate', severity: 'terminal', humanOverridable: false, detail: duplicate });
   return reasons;

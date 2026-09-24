@@ -88,6 +88,23 @@ function distinctiveSharedWords(a, b) {
   wa.forEach((w) => { if (wb.has(w)) n++; });
   return n;
 }
+// SERIES PREFIX (2026-09-24, verify_location pilot): sub-events listed on one festival page share a titled prefix
+// ("פסטיבל בית גלים: תערוכת בד-גלים" / "פסטיבל בית גלים: סיורים מודרכים"). The shared prefix names the SERIES, not the
+// event - counted as overlap + distinctive words it made three different sub-events "the same" (URL identity 0.95) and
+// the Cleaner rejected them as duplicates. Identity is decided on what follows an identical prefix. A time ("11:00")
+// is not a separator (a separator needs whitespace after it). Twin of _shared/matching.ts seriesRemainders.
+const SERIES_SEP = /\s*[:|–—]\s+|\s+-\s+/;
+function seriesRemainders(a, b) {
+  const pa = String(a || '').split(SERIES_SEP), pb = String(b || '').split(SERIES_SEP);
+  if (pa.length < 2 || pb.length < 2) return null;
+  const head = normalizeForMatch(pa[0]);
+  if (!head || head !== normalizeForMatch(pb[0])) return null;
+  const ra = pa.slice(1).join(' '), rb = pb.slice(1).join(' ');
+  // "שלגיה - מחזמר": a genre-only remainder means the head IS the title, not a series name
+  const distinctive = (t) => normalizeForMatch(t).split(' ').some((w) => w.length > 1 && !GENRE_WORDS.has(w) && !/^\d+$/.test(w));
+  if (!distinctive(ra) || !distinctive(rb)) return null;
+  return [ra, rb];
+}
 function placeLabelsDisagree(a, b) {
   // plene / defective spelling (ספריה = ספרייה, קרית = קריית) is the same word
   const fold = (t) => normalizeForMatch(t).replace(/[׳״]/g, '').replace(/יי/g, 'י').replace(/וו/g, 'ו'); // + geresh / gershayim (מתנ״ס = מתנס)
@@ -143,7 +160,10 @@ function computeConfidence(candidate, existing, thresholds) {
   breakdown.exact_url_match = candidate.pageUrl && existing.source_url && candidate.pageUrl === existing.source_url ? 1 : 0;
   breakdown.fingerprint_match = candidate.event_fingerprint && existing.event_fingerprint && candidate.event_fingerprint === existing.event_fingerprint ? 1 : 0;
   breakdown.venue_match = candidate.venue_id && existing.venue_id && candidate.venue_id === existing.venue_id ? 1 : 0;
-  breakdown.name_overlap = wordOverlapScore(candidate.name, existing.name);
+  const series = seriesRemainders(candidate.name, existing.name);
+  const [nameA, nameB] = series || [candidate.name, existing.name];
+  if (series) breakdown.series_prefix = 1;
+  breakdown.name_overlap = wordOverlapScore(nameA, nameB);
   const candCity = normalizeCityName(candidate.city || null);
   breakdown.city_match = candCity && existing.city && candCity === existing.city ? 1 : 0;
   if (candidate.lat != null && candidate.lng != null && existing.lat != null && existing.lng != null) {
@@ -158,7 +178,7 @@ function computeConfidence(candidate, existing, thresholds) {
   } else breakdown.schedule_match = 0;
 
   let score;
-  breakdown.distinctive_name = distinctiveSharedWords(candidate.name, existing.name);
+  breakdown.distinctive_name = distinctiveSharedWords(nameA, nameB);
   const datesContradict = cDates.length > 0 && eDates.length > 0 && !cDates.some((d) => eDates.includes(d));
   const placeContradicts = (candidate.venue_id && existing.venue_id) ? candidate.venue_id !== existing.venue_id : placeLabelsDisagree(candidate.location_name, existing.location_name);
   breakdown.association_conflict = datesContradict && placeContradicts ? 1 : 0;
@@ -195,4 +215,4 @@ async function findStandingProgrammeMatch(client, candidate, cache) {
   return similar.filter((existing) => isStandingProgrammeMatch(candidate, existing));
 }
 
-module.exports = { distinctiveSharedWords, wordOverlapScore, haversineKm, getConfidenceThresholds, getExistingActivitiesForCity, findSimilarActivities, computeConfidence, bestMatch, mapExistingRow, candidateDates, existingDates, GENRE_WORDS, isStandingProgrammeMatch, titleMatchesStandingProgramme, findStandingProgrammeMatch };
+module.exports = { seriesRemainders, distinctiveSharedWords, wordOverlapScore, haversineKm, getConfidenceThresholds, getExistingActivitiesForCity, findSimilarActivities, computeConfidence, bestMatch, mapExistingRow, candidateDates, existingDates, GENRE_WORDS, isStandingProgrammeMatch, titleMatchesStandingProgramme, findStandingProgrammeMatch };

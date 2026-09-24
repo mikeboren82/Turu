@@ -15,7 +15,7 @@
 const { normalizeCityName } = require('../cityNaming');
 const { resolveVenue } = require('../venueNaming');
 const { fetchHtml } = require('../lib/fetchPage');
-const { extractJsonLd, extractMapLinks, extractAddressTexts, pageText, inIsrael, findEventCard } = require('../lib/pageExtract');
+const { extractJsonLd, extractMapLinks, extractAddressTexts, contentText, inIsrael, findEventCard } = require('../lib/pageExtract');
 const { wordOverlapScore, haversineKm } = require('./matching');
 const { nominatim } = require('./nominatimClient');
 const { reverseAddress } = require('./reverse');
@@ -173,13 +173,31 @@ async function evidenceFromPage(html, pageUrl, s, official, stage) {
     }
     if (m.query && !/^-?\d/.test(m.query)) { const g = await geocodeAddress(m.query, s.city); if (g) return { ...g, location_name: s.location_name || m.query, method, confidence: g.city_ok ? 'MEDIUM' : 'LOW', evidence: { map_query: m.query, page: pageUrl } }; }
   }
-  const text = pageText(html);
+  // free text is the weakest page evidence: read CONTENT only (no footer/header - the site owner's own address lives
+  // there) and accept an address only when it is BOUND to this event - printed near its place label or its title
+  const text = contentText(html);
+  const flat = text.replace(/\s+/g, ' ');
   for (const a of extractAddressTexts(text, { city: s.city })) {
     if (s.city && a.city && !cityAgrees(a.city, s.city)) continue;
+    if (!addressBound(flat, a.at, s)) continue;
     const g = await geocodeAddress(a.text, s.city || a.city);
     if (g) return { ...g, location_name: s.location_name || null, address: g.address || a.text, method, confidence: g.city_ok ? (official ? 'HIGH' : 'MEDIUM') : 'LOW', evidence: { address_text: a.text, page: pageUrl } };
   }
   return null;
+}
+
+// an address found at offset `at` of the flattened content text belongs to this event only when the event's place label
+// or title appears within ADDRESS_BIND_WINDOW characters of it (a listing page carries many events and one site address)
+const ADDRESS_BIND_WINDOW = 200;
+function addressBound(flat, at, s) {
+  if (at == null) return false;
+  const anchors = [s.location_name, s.name, ...String(s.name || '').split(/\s*[:|–—]\s+|\s+-\s+/)].map((x) => String(x || '').replace(/\s+/g, ' ').trim()).filter((x) => x.length >= 4);
+  for (const anchor of anchors) {
+    for (let i = flat.indexOf(anchor); i !== -1; i = flat.indexOf(anchor, i + 1)) {
+      if (Math.abs(i - at) <= ADDRESS_BIND_WINDOW || (i < at && at - (i + anchor.length) <= ADDRESS_BIND_WINDOW)) return true;
+    }
+  }
+  return false;
 }
 
 // several venues/cities packed into one "address" (touring shows) - not a single place
@@ -354,4 +372,4 @@ async function resolveLocation(client, subject, opts = {}) {
 function finish(best, tried, skipped, errors, venue) { return { result: best && best.lat != null ? strip(best) : (best ? { ...strip(best), lat: null, lng: null } : null), tried, skipped, errors, venue: venue ? { id: venue.id, name_he: venue.name_he } : null }; }
 function strip(r) { const { venue, city_ok, evidence_geocode, ...rest } = r; if (evidence_geocode) rest.evidence = { ...(rest.evidence || {}), geocode: evidence_geocode }; return rest; }
 
-module.exports = { resolveLocation, STAGES, EVIDENCE_STAGES, EXTERNAL_LIMIT, geocodeAddress, geocodeText, cityAgrees, coordsForVenue, inferCityFromSource, stageAvailability, placeLookup, ADMIN_TYPES };
+module.exports = { addressBound, resolveLocation, STAGES, EVIDENCE_STAGES, EXTERNAL_LIMIT, geocodeAddress, geocodeText, cityAgrees, coordsForVenue, inferCityFromSource, stageAvailability, placeLookup, ADMIN_TYPES };

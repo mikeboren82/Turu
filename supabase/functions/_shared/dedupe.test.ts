@@ -4,7 +4,7 @@
 // must not defeat matching. Run with `npx deno test supabase/functions/_shared/`.
 
 import { assertEquals, assertNotEquals, assert } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { computeConfidence, distinctiveSharedWords, hhmm, descriptionMateriallyDiffers, placeLabelChanged, computeEventFingerprint, computeEventFingerprintProbes, computeFieldDiff, getConfidenceThresholds, type ExistingActivity } from "./matching.ts";
+import { computeConfidence, distinctiveSharedWords, seriesRemainders, hhmm, descriptionMateriallyDiffers, placeLabelChanged, computeEventFingerprint, computeEventFingerprintProbes, computeFieldDiff, getConfidenceThresholds, type ExistingActivity } from "./matching.ts";
 
 const thresholds = getConfidenceThresholds({});
 const existingBase: ExistingActivity = {
@@ -302,4 +302,19 @@ Deno.test("update noise: time format, a reworded summary and a contained place l
   assertEquals(hhmm("9:05:00"), "09:05"); assertEquals(hhmm(null), null);
   assertEquals(descriptionMateriallyDiffers("אותו טקסט בדיוק", "אותו טקסט בדיוק"), false);
   assertEquals(placeLabelChanged("מתנ״ס", "מתנס"), false);
+});
+
+// verify_location pilot (2026-09-24): festival sub-events on one listing share a series prefix - that prefix is not identity.
+Deno.test("series prefix: festival sub-events on one listing are not the same event; the same sub-event still is", () => {
+  const listing = "https://www.haifa.muni.il/festival-beit-galim";
+  const ex: ExistingActivity = { ...existingBase, name: "פסטיבל בית גלים: סיורים מודרכים", source_url: listing, location_name: "בית גלים", city: "חיפה", lat: null, lng: null, venue_id: null, event_fingerprint: "fp-a", one_time_date: "2026-10-08", occurrences: [{ date: "2026-10-08", start_time: "10:00", end_time: null }], recurring_days: [] };
+  for (const name of ["פסטיבל בית גלים: תערוכת בד-גלים", "פסטיבל בית גלים: מתחם הורים וילדים", "פסטיבל בית גלים: פעילויות בגינה הקהילתית"]) {
+    const c = computeConfidence({ name, city: "חיפה", pageUrl: listing, location_name: "בית גלים", venue_id: null, one_time_date: "2026-10-08", recurring_days: [] }, ex, thresholds);
+    assertEquals(c.breakdown.series_prefix, 1);
+    assert(c.score < thresholds.duplicate, `${name}: ${c.score}`);
+  }
+  const same = computeConfidence({ name: "פסטיבל בית גלים: סיורים מודרכים", city: "חיפה", pageUrl: listing, location_name: "בית גלים", venue_id: null, one_time_date: "2026-10-09", recurring_days: [] }, ex, thresholds);
+  assert(same.score >= thresholds.duplicate);
+  assertEquals(seriesRemainders("שלגיה - מחזמר", "שלגיה - הצגה"), null);
+  assertEquals(seriesRemainders("שעת סיפור 11:00", "שעת סיפור 11:30"), null);
 });
