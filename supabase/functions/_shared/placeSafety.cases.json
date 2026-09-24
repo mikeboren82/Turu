@@ -1,0 +1,51 @@
+{
+ "_doc": "Shared place-safety table (Deno _shared/placeSafety.ts, Node lib/placeSafety.js). compound: compoundPlace(label, title) -> [compound, titleComponent]. names: samePlaceName(a,b). addresses: sameAddress(a,b).",
+ "compound": [
+  { "id": "aquarium_israel_subplace", "label": "גן החיות ואקווריום ישראל", "title": "אקווריום ישראל", "expect": [ true, 1 ]
+  },
+  { "id": "zoo_subplace_x_of_x_and_y", "label": "גן החיות ואקווריום ישראל", "title": "ביקור בגן החיות", "expect": [ true, 0 ]
+  },
+  { "id": "event_for_the_whole_complex", "label": "גן החיות ואקווריום ישראל", "title": "חנוכה בגן החיות ואקווריום ישראל", "expect": [ true, null ]
+  },
+  { "id": "compound_with_no_identifiable_component", "label": "ספרייה ומרכז קהילתי נווה עוז", "title": "שעת סיפור", "expect": [ true, null ]
+  },
+  { "id": "mall_and_cinema", "label": "קניון עזריאלי וסינמה סיטי", "title": "סינמה סיטי", "expect": [ true, 1 ]
+  },
+  { "id": "museum_slash_visitor_centre", "label": "מוזיאון ישראל / מרכז המבקרים", "title": "מרכז המבקרים", "expect": [ true, 1 ]
+  },
+  { "id": "park_and_community_centre", "label": "פארק הירקון ומרכז הספורט", "title": "מרכז הספורט", "expect": [ true, 1 ]
+  },
+  { "id": "official_single_name_with_conjunction", "label": "מרכז שטיינברג לתרבות ואמנות", "title": "הצגה", "expect": [ false, null ]
+  },
+  { "id": "culture_and_sports_hall_is_one_venue", "label": "היכל התרבות והספורט", "title": "מופע", "expect": [ false, null ]
+  },
+  { "id": "ordinary_venue", "label": "בית יד לבנים", "title": "חבורת הזמר", "expect": [ false, null ]
+  }
+ ],
+ "names": [
+  { "id": "exact_same_name", "a": "אקווריום ישראל", "b": "אקווריום ישראל", "expect": true
+  },
+  { "id": "spelling_variant_same_name", "a": "ספריית בית אריאלה", "b": "ספרית בית אריאלה", "expect": true
+  },
+  { "id": "generic_library_never_identity", "a": "ספרייה עירונית", "b": "ספריה עירונית", "expect": false
+  },
+  { "id": "generic_playground_never_identity", "a": "גן שעשועים", "b": "גן שעשועים", "expect": false
+  },
+  { "id": "different_names", "a": "אקווריום ישראל", "b": "גן החיות ואקווריום ישראל", "expect": false
+  },
+  { "id": "generated_playground_name_is_generic", "a": "גן שעשועים – תל אביב יפו", "b": "גן שעשועים – תל אביב יפו", "city": "תל אביב יפו", "expect": false
+  },
+  { "id": "generic_noun_phrase_three_branches", "a": "פארק שעשועים", "b": "פארק שעשועים", "city": "קריית מלאכי", "expect": false
+  },
+  { "id": "named_place_keeps_identity", "a": "פארק אשדוד ים", "b": "פארק אשדוד ים", "city": "אשדוד", "expect": true
+  }
+ ],
+ "addresses": [
+  { "id": "same_street_and_number", "a": "אהרון שולוב 1, ירושלים", "b": "רחוב אהרון שולוב 1", "expect": true
+  },
+  { "id": "street_without_number_is_not_one_place", "a": "אהרון שולוב", "b": "אהרון שולוב", "expect": false
+  },
+  { "id": "different_numbers", "a": "הרצל 12", "b": "הרצל 40", "expect": false
+  }
+ ]
+}

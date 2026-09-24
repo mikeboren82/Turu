@@ -16,6 +16,7 @@
 import { isGenericPlaygroundName } from './playgroundNaming.ts';
 import { normalizeCityName } from './cityNaming.ts';
 import { hhmm, isLessSpecific, occurrenceKnown, sameBookingMeaning } from './intakePolicy.ts';
+import { placeNameIdentity, sameAddress } from './placeSafety.ts';
 
 // deno-lint-ignore no-explicit-any
 export type SettingsMap = Record<string, any>;
@@ -421,6 +422,13 @@ export function computeConfidence(candidate: any, existing: ExistingActivity, th
     score = (breakdown.name_overlap * 0.4) + (breakdown.city_match * 0.15)
       + (breakdown.proximity * 0.25) + (breakdown.schedule_match * 0.2)
       + (breakdown.exact_url_match * 0.1); // same page: a hint, never identity
+  }
+  // PLACE IDENTITY FLOOR (placeSafety.ts, pilot #5): the same non-generic place name in the same settlement is at least
+  // a possible identity even when the points disagree (a wrong point must not make an existing place "new"); the name
+  // alone never makes a duplicate - a same address or the same canonical venue does
+  if (placeNameIdentity(candidate, existing, !!breakdown.city_match)) {
+    breakdown.place_name_identity = 1;
+    score = (breakdown.venue_match || sameAddress(candidate.address, existing.address)) ? Math.max(score, 0.92) : Math.max(score, thresholds.needsReview);
   }
 
   return { score: Math.min(1, Math.round(score * 1000) / 1000), breakdown };

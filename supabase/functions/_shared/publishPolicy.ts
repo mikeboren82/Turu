@@ -20,6 +20,7 @@ import { assessGranularity, blocksAutoPublish as granularityBlocks } from './gra
 import { assessAutoPublishSafety } from './autoPublishSafety.ts';
 import { substantiveIssues, pendingLifecycle } from './intakePolicy.ts';
 import { assessTemporalShape } from './temporalShape.ts';
+import { compoundLocationHold } from './placeSafety.ts';
 
 export type Severity = 'hold' | 'terminal';
 export interface PolicyReason { code: string; severity: Severity; humanOverridable: boolean; detail?: unknown }
@@ -66,6 +67,9 @@ export function evaluatePublishPolicy(c: Candidate, ctx: PolicyContext): { decis
   if (open.length) reasons.push(hold('open_issues', open));
   // a place to put it
   if (!c.city || !(c.location_name || c.formatted_address)) reasons.push(hold('no_place'));
+  // a compound label ("גן החיות ואקווריום ישראל") never lends one component's point to the sub-place the title names
+  const compound = compoundLocationHold(c);
+  if (compound) reasons.push(hold('location_compound_label', compound));
   // temporal evidence the entity type requires, and the auto-publish date window
   const temporal = missingTemporalEvidence(c);
   if (temporal) reasons.push(hold('missing_temporal_evidence', temporal));

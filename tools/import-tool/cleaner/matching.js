@@ -4,6 +4,7 @@
 // Keep in lockstep with the Deno file; tests/cleanerMatching.test.js asserts the shared cases.
 const { normalizeCityName } = require('../cityNaming');
 const { normalizeForMatch } = require('../eventFingerprint');
+const { placeNameIdentity, sameAddress } = require('../lib/placeSafety');
 
 function wordOverlapScore(a, b) {
   const wa = new Set(normalizeForMatch(a).split(' ').filter((w) => w.length > 1));
@@ -213,6 +214,11 @@ function computeConfidence(candidate, existing, thresholds) {
     if (breakdown.schedule_match >= 1 && breakdown.name_overlap >= 0.2) score = Math.max(score, 0.92);
   } else {
     score = (breakdown.name_overlap * 0.4) + (breakdown.city_match * 0.15) + (breakdown.proximity * 0.25) + (breakdown.schedule_match * 0.2) + (breakdown.exact_url_match * 0.1);
+  }
+  // PLACE IDENTITY FLOOR (lib/placeSafety.js, pilot #5) - mirror of _shared/matching.ts
+  if (placeNameIdentity(candidate, existing, !!breakdown.city_match)) {
+    breakdown.place_name_identity = 1;
+    score = (breakdown.venue_match || sameAddress(candidate.address, existing.address)) ? Math.max(score, 0.92) : Math.max(score, thresholds.needsReview);
   }
   return { score: Math.min(1, Math.round(score * 1000) / 1000), breakdown };
 }

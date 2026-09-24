@@ -8,6 +8,7 @@ const { assessGranularity, blocksAutoPublish: granularityBlocks } = require('./g
 const { assessAutoPublishSafety } = require('./autoPublishSafety');
 const { substantiveIssues, pendingLifecycle } = require('./intakePolicy');
 const { assessTemporalShape } = require('./temporalShape');
+const { compoundLocationHold } = require('./placeSafety');
 
 // same rules as extraction.ts isPlausibleEventDate / looksLikeStaleRepost
 function isPlausibleEventDate(dateStr, todayStr, maxDaysAhead) {
@@ -50,6 +51,8 @@ function evaluatePublishPolicy(c, ctx) {
   const open = substantiveIssues(ctx.issues);
   if (open.length) reasons.push(hold('open_issues', open));
   if (!c.city || !(c.location_name || c.formatted_address)) reasons.push(hold('no_place'));
+  const compound = compoundLocationHold(c);
+  if (compound) reasons.push(hold('location_compound_label', compound));
   const temporal = missingTemporalEvidence(c);
   if (temporal) reasons.push(hold('missing_temporal_evidence', temporal));
   if (c.schedule_type === 'one_time' && lc.action !== 'expire' && !isPlausibleEventDate(c.one_time_date ?? null, ctx.today, ctx.maxDaysAhead)) reasons.push(hold('date_outside_window', c.one_time_date ?? null));

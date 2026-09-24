@@ -6,6 +6,8 @@
 // A street, road, neighbourhood or administrative area may give COORDINATES; it never becomes the venue identity.
 // Nothing here invents a city, an address or a venue.
 const { normalizeCityName } = require('../cityNaming');
+const { compoundPlace } = require('./placeSafety');
+const LABEL_DERIVED = new Set(['existing_venue', 'existing_source_venue', 'prior_activity', 'existing_location', 'place_lookup', 'place_lookup_inferred']);
 
 const norm = (s) => String(s || '').toLowerCase().replace(/["'`״׳’]/g, '').replace(/[^\p{L}\p{N}\s]/gu, ' ').replace(/\s+/g, ' ').trim();
 const STREET_PREFIX = /^(רחוב|רח[׳']?|שדרות|שדרת|שד[׳']|דרך|סמטת|סמ[׳'])\s+\S/;
@@ -95,6 +97,17 @@ function classifyResolution(result, subject = {}) {
   const ev = result.evidence || {};
   if (ev.city_inferred) return { class: 'VERIFY_MORE', rule: 'inferred_city' };
   if (result.confidence === 'LOW') return { class: 'VERIFY_MORE', rule: 'low_confidence' };
+  // COMPOUND PLACE LABEL (pilot #5, "גן החיות ואקווריום ישראל" for "אקווריום ישראל"): a point derived from the LABEL
+  // (a canonical venue, a prior activity, an existing location, a name lookup) is the complex's / another component's,
+  // not the sub-place the title names - unless the resolved place names exactly that component. Page evidence (a map
+  // pin, JSON-LD, a bound address on the item's own page) is event-local and passes.
+  const cp = compoundPlace(subject.location_name, subject.name);
+  if (cp.compound && cp.titleComponent !== null && LABEL_DERIVED.has(result.method)) {
+    const resolved = norm(ev.venue || ev.source_venue || result.location_name || '');
+    const mine = cp.components[cp.titleComponent];
+    const others = cp.components.filter((_, i) => i !== cp.titleComponent).map(norm);
+    if (!(labelNamesVenue(mine, resolved) && !others.some((o) => o && resolved.includes(o)))) return { class: 'VERIFY_MORE', rule: 'compound_place_label' };
+  }
   switch (result.method) {
     case 'existing_venue': case 'existing_source_venue':
       if (!result.venue_id) return { class: 'VERIFY_MORE', rule: 'venue_without_id' };
