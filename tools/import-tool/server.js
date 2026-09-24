@@ -36,6 +36,7 @@ const { computeEventKey } = require('./lib/eventIdentity');
 const { planScheduleChange, occurrencesPersisted, normalizeOccurrence, occKey } = require('./lib/occurrences');
 const { israelToday } = require('./lib/intakePolicy');
 const { evaluateIncomingRow, approvalBlockers } = require('./lib/incomingEligibility');
+const { canonicalRegion, regionForWrite } = require('./lib/regions');
 // best-effort future duplicate-candidate detection (2026-09-21 activation) - see the module header
 // for why this can never fail the ingestion it runs after.
 const { detectFutureDuplicates, isMaterialIdentityChange } = require('./lib/futureDuplicateDetection');
@@ -932,7 +933,12 @@ async function requireVerifiedLocation(client, rawActivity) {
   }
   // מנרמל city לצורה קנונית (cityNaming.js) לפני כל כתיבה - מונע וריאציות-איות ("תל אביב" מול
   // "תל־אביב–יפו") שמפצלות אותה עיר לכמה ערכים שונים, ראו migrate-city-names.js.
-  const activity = { ...rawActivity, city: normalizeCityName(rawActivity.city) };
+  // REGION at the write boundary (lib/regions.js): only a canonical product region reaches locations.region;
+  // a legacy / free-text value becomes null (never remapped) - "שביל האלות" failed locations_region_check on a
+  // pre-0084 "השפלה והדרום" carried from its 2026-09-13 extraction
+  const reg = regionForWrite(rawActivity.region);
+  if (reg.dropped) console.warn(`[region] non-canonical "${reg.dropped}" dropped for "${rawActivity.location_name}" (left null for the Cleaner missing_region route)`);
+  const activity = { ...rawActivity, city: normalizeCityName(rawActivity.city), region: reg.region };
   // the best address available now: what the candidate carried (extracted / Cleaner-resolved / Places)
   // else the canonical venue's address (saveNewActivity resolved venue_id before calling us)
   let venueAddress = null;
@@ -2104,7 +2110,11 @@ app.post('/api/manage/update', async (req, res) => {
       const locFields = {};
       if (typeof location.name === 'string') locFields.name = location.name;
       if (typeof location.city === 'string') locFields.city = normalizeCityName(location.city) || null;
-      if (typeof location.region === 'string') locFields.region = location.region || null;
+      // an explicit reviewer edit with a non-canonical region is refused (not silently dropped) - lib/regions.js
+      if (typeof location.region === 'string') {
+        if (location.region.trim() && !canonicalRegion(location.region)) return res.status(400).json({ error: 'אזור לא חוקי: "' + location.region + '"' });
+        locFields.region = canonicalRegion(location.region);
+      }
       if (typeof location.address === 'string') locFields.address = location.address || null;
 
       if (locationId) {
@@ -2850,31 +2860,98 @@ app.post('/api/incoming/:id/evaluate', async (req, res) => {
   }
 });
 
-// "אשר" - מסלול שונה לפי match_type: new יוצר פעילות חדשה (saveNewActivity, אותה זרימה בדיוק
-// כמו הוספת-תוכן ידנית); update מחיל את ה-diff על הפעילות הקיימת (applyIncomingUpdate).
-// duplicate/missing/expired לא "מאשרים" (אין מה ליצור/לעדכן) - יש להם פעולות ייעודיות משלהם.
-app.post('/api/incoming/:id/approve', async (req, res) => {
-  const { id } = req.params;
-  try {
-    const { client, userId } = await getClient();
-    const { data: item, error: findErr } = await client.from('incoming_activities').select('*').eq('id', id).maybeSingle();
-    if (findErr) throw findErr;
-    if (!item) return res.status(404).json({ error: 'הפריט לא נמצא' });
-    if (!['new', 'needs_review'].includes(item.status)) {
-      return res.status(400).json({ error: 'לא ניתן לאשר פריט במצב "' + item.status + '"' });
-    }
+// ---- INCOMING PUBLICATION (2026-09-24): ONE implementation, three callers ----
+// publishIncoming is the only code that turns an incoming row into catalogue writes. The admin route below is a
+// thin HTTP interface to it; the Cleaner hand-back and reprocess-review-queue.js call it IN-PROCESS
+// (require('./server') no longer starts the HTTP listener), so unattended automation never depends on a
+// manually started admin server.
+//   POLICY     lib/incomingEligibility.js (canonical evaluator) - re-run here while the row is CLAIMED
+//   EXECUTION  this function: claim -> re-evaluate -> access/granularity acknowledgement -> exact-identity guards ->
+//              saveNewActivity / applyIncomingUpdate -> guarded final status write
+//   TRANSPORT  POST /api/incoming/:id/approve (humans, mode 'human') or a direct call (automation, mode 'auto')
+// CONCURRENCY: the row is claimed atomically (new|needs_review -> 'processing', guarded on the status observed),
+// so two actors can never both create an activity. A claim older than CLAIM_STALE_MS (a crashed worker) may be
+// taken over. Every exit releases the claim (restores the status) or moves the row to its final state.
+// mode 'auto' is the default and the only mode automation uses; 'human' exists only on the HTTP route, set by
+// the inbox buttons - no automated caller passes it (tests assert this).
+const CLAIM_STALE_MS = 15 * 60 * 1000;
+const PUBLISH_OUTCOME = Object.freeze({
+  PUBLISHED: 'PUBLISHED', UPDATED: 'UPDATED', ALREADY_PUBLISHED: 'ALREADY_PUBLISHED',
+  POLICY_HELD: 'POLICY_HELD', POLICY_INELIGIBLE: 'POLICY_INELIGIBLE', DUPLICATE_RESOLVED: 'DUPLICATE_RESOLVED',
+  CONCURRENT_STATE_CHANGE: 'CONCURRENT_STATE_CHANGE', WRITE_DENIED: 'WRITE_DENIED', LOCATION_INVALID: 'LOCATION_INVALID',
+  TEMPORARY_INFRA_FAILURE: 'TEMPORARY_INFRA_FAILURE', ERROR: 'ERROR', NOT_FOUND: 'NOT_FOUND',
+  NEEDS_ACKNOWLEDGEMENT: 'NEEDS_ACKNOWLEDGEMENT', HELD_BY_REVIEWER: 'HELD_BY_REVIEWER', REJECTED_BY_REVIEWER: 'REJECTED_BY_REVIEWER',
+  INVALID_REQUEST: 'INVALID_REQUEST', DRY_RUN: 'DRY_RUN',
+});
+const out = (outcome, status, body) => ({ outcome, status, body });
 
-    // CANONICAL ELIGIBILITY at the write boundary (lib/incomingEligibility.js) - the same evaluator as
-    // POST /evaluate, the Cleaner hand-back and reprocess-review-queue.js, re-run here immediately before any
-    // publish. mode 'auto' (the default for every programmatic caller) publishes only an ELIGIBLE row; mode
-    // 'human' (the admin inbox) is the reviewer's decision on trust / relevance / content / metadata holds,
-    // but never on a terminal rule (an expired event). Access and granularity keep their acknowledgement flow.
-    const mode = req.body && req.body.mode === 'human' ? 'human' : 'auto';
-    const evaluation = await evaluateIncomingRow(client, id);
+// a thrown error during execution -> an explicit outcome (never a generic 409 / "duplicate")
+function classifyPublishError(e) {
+  const msg = `${e?.message || ''} ${e?.details || ''} ${e?.hint || ''}`;
+  if (e?.code === '23514' && /locations/.test(msg)) return PUBLISH_OUTCOME.LOCATION_INVALID;
+  if (/לא נמצאה כתובת/.test(msg)) return PUBLISH_OUTCOME.LOCATION_INVALID;
+  if (e?.code === '42501' || /permission denied|row-level security/i.test(msg)) return PUBLISH_OUTCOME.WRITE_DENIED;
+  if (/fetch failed|ECONNRESET|ECONNREFUSED|ETIMEDOUT|ENOTFOUND|EAI_AGAIN|socket hang up|network|timed? ?out|503|502|504/i.test(msg) || e?.name === 'AbortError' || (e?.status >= 500)) return PUBLISH_OUTCOME.TEMPORARY_INFRA_FAILURE;
+  return PUBLISH_OUTCOME.ERROR;
+}
+const HTTP_FOR = { LOCATION_INVALID: 422, WRITE_DENIED: 403, TEMPORARY_INFRA_FAILURE: 503, ERROR: 500 };
+
+// the location values a publication WOULD write (dry run / validation) - same normalisation as requireVerifiedLocation
+function plannedLocationWrite(payload) {
+  const reg = regionForWrite(payload.region);
+  return { name: payload.location_name || null, city: normalizeCityName(payload.city) || null, region: reg.region, region_dropped: reg.dropped, lat: payload.lat ?? null, lng: payload.lng ?? null };
+}
+
+/**
+ * @param opts.mode  'auto' (default; only an ELIGIBLE row publishes) | 'human' (reviewer; holds are theirs to decide,
+ *                   terminal rules are not)
+ * @param opts.dryRun  evaluate + plan only: no claim, no write -> DRY_RUN { wouldPublish, plannedLocation }
+ * -> { outcome, status (HTTP), body }
+ */
+async function publishIncoming(client, userId, id, { mode = 'auto', acknowledgedAccessType = null, acknowledgedGranularity = null, dryRun = false } = {}) {
+  mode = mode === 'human' ? 'human' : 'auto';
+  const { data: item, error: findErr } = await client.from('incoming_activities').select('*').eq('id', id).maybeSingle();
+  if (findErr) return out(classifyPublishError(findErr), HTTP_FOR[classifyPublishError(findErr)] || 500, { error: findErr.message });
+  if (!item) return out(PUBLISH_OUTCOME.NOT_FOUND, 404, { error: 'הפריט לא נמצא' });
+
+  // already decided (idempotent answers, never a second publication)
+  if (item.status === 'approved' && item.created_activity_id) return out(PUBLISH_OUTCOME.ALREADY_PUBLISHED, 200, { ok: true, activityId: item.created_activity_id, alreadyPublished: true });
+  if (item.status === 'updated') return out(PUBLISH_OUTCOME.ALREADY_PUBLISHED, 200, { ok: true, activityId: item.existing_activity_id, alreadyPublished: true });
+  if (item.status === 'rejected' && (item.match_type === 'duplicate' || /duplicate/.test(item.archive_reason || '')) && item.existing_activity_id) return out(PUBLISH_OUTCOME.DUPLICATE_RESOLVED, 409, { error: 'הפריט כבר קושר כפילות', duplicateOf: item.existing_activity_id });
+  const staleClaim = item.status === 'processing' && Date.now() - Date.parse(item.updated_at || 0) > CLAIM_STALE_MS;
+  if (!['new', 'needs_review'].includes(item.status) && !staleClaim) return out(PUBLISH_OUTCOME.CONCURRENT_STATE_CHANGE, 409, { error: 'לא ניתן לאשר פריט במצב "' + item.status + '"', currentStatus: item.status });
+  const priorStatus = staleClaim ? 'needs_review' : item.status;
+
+  // POLICY before any write (cheap refusal); re-run below while the row is claimed
+  const pre = await evaluateIncomingRow(client, id, { claimedFromStatus: staleClaim ? priorStatus : null });
+  const preBlockers = approvalBlockers(pre, mode);
+  if (preBlockers.length) return policyRefusal(pre, preBlockers, mode);
+  if (dryRun) {
+    const payload = item.match_type === 'new' ? normalizeIncomingCandidate(item.extracted_data) : null;
+    return out(PUBLISH_OUTCOME.DRY_RUN, 200, { wouldPublish: true, mode, decision: pre.decision, reasons: pre.reasons, plannedLocation: payload ? plannedLocationWrite(payload) : null });
+  }
+
+  // CLAIM: exactly one actor proceeds past this point
+  const claimAt = new Date().toISOString();
+  let claimQ = client.from('incoming_activities').update({ status: 'processing', updated_at: claimAt }).eq('id', id).eq('status', item.status);
+  if (staleClaim) claimQ = claimQ.eq('updated_at', item.updated_at);
+  const { data: claimed, error: claimErr } = await claimQ.select('id');
+  if (claimErr) { const o = classifyPublishError(claimErr); return out(o, HTTP_FOR[o] || 500, { error: claimErr.message }); }
+  if (!claimed || !claimed.length) {
+    const { data: now } = await client.from('incoming_activities').select('status, created_activity_id').eq('id', id).maybeSingle();
+    if (now && now.status === 'approved' && now.created_activity_id) return out(PUBLISH_OUTCOME.ALREADY_PUBLISHED, 200, { ok: true, activityId: now.created_activity_id, alreadyPublished: true });
+    return out(PUBLISH_OUTCOME.CONCURRENT_STATE_CHANGE, 409, { error: 'הפריט שונה במקביל - לא פורסם', currentStatus: now ? now.status : null });
+  }
+  const release = async () => { await client.from('incoming_activities').update({ status: priorStatus }).eq('id', id).eq('status', 'processing'); };
+  // every write below targets the CLAIMED row only
+  const claimedRow = () => client.from('incoming_activities');
+  const onClaim = (q) => q.eq('id', id).eq('status', 'processing');
+
+  try {
+    // POLICY again, under the claim (closes the evaluate -> write window)
+    const evaluation = await evaluateIncomingRow(client, id, { claimedFromStatus: priorStatus });
     const blockers = approvalBlockers(evaluation, mode);
-    if (blockers.length) {
-      return res.status(409).json({ held: true, mode, decision: evaluation.decision, reasons: evaluation.reasons, blockers: blockers.map((r) => r.code), error: 'לא ניתן לפרסם כעת: ' + blockers.map((r) => r.code).join(', ') });
-    }
+    if (blockers.length) { await release(); return policyRefusal(evaluation, blockers, mode); }
 
     if (item.match_type === 'new') {
       // Both extracted_data shapes (page extraction / Google Places) are accepted - see incomingShape.js.
@@ -2885,11 +2962,11 @@ app.post('/api/incoming/:id/approve', async (req, res) => {
       // explicitly; the choice is persisted and only 'private_group' makes the row catalogue-
       // ineligible (inserted as archived, private_hire_policy). 'mixed' is held, never archived.
       const accessAssessment = assessAccessType({ ...(item.extracted_data || {}), ...payload });
-      const ack = req.body && req.body.acknowledged_access_type;
-      const decision = approvalDecision({ assessment: accessAssessment, acknowledgedAccessType: ack ?? null });
-      if (decision.kind === 'invalid_acknowledgement') return res.status(400).json({ error: decision.error });
+      const decision = approvalDecision({ assessment: accessAssessment, acknowledgedAccessType: acknowledgedAccessType ?? null });
+      if (decision.kind === 'invalid_acknowledgement') { await release(); return out(PUBLISH_OUTCOME.INVALID_REQUEST, 400, { error: decision.error }); }
       if (decision.kind === 'needs_access_acknowledgement') {
-        return res.status(428).json({
+        await release();
+        return out(PUBLISH_OUTCOME.NEEDS_ACKNOWLEDGEMENT, 428, {
           needs_access_acknowledgement: true,
           proposed: decision.proposed, proposedLabel: ACCESS_LABEL_HE[decision.proposed], suspicious: decision.suspicious,
           evidence: decision.evidence, suppressors: decision.suppressors, choices: decision.choices,
@@ -2899,14 +2976,14 @@ app.post('/api/incoming/:id/approve', async (req, res) => {
       if (decision.kind === 'hold_mixed') {
         const ed = { ...(item.extracted_data || {}), offering_access_type: 'mixed', offering_access_verdict: { by: userId, at: new Date().toISOString(), value: 'mixed' } };
         const issues = Array.from(new Set([...(item.validation_issues || []), ACCESS_ISSUE_LABEL]));
-        const { error: holdErr } = await client.from('incoming_activities').update({ extracted_data: ed, validation_issues: issues, status: 'needs_review' }).eq('id', id);
+        const { error: holdErr } = await onClaim(claimedRow().update({ extracted_data: ed, validation_issues: issues, status: 'needs_review' }));
         if (holdErr) throw holdErr;
-        return res.json({ ok: true, held: 'mixed', message: 'סומן "מעורב" - נשאר בבדיקה, לא פורסם ולא אורכב' });
+        return out(PUBLISH_OUTCOME.HELD_BY_REVIEWER, 200, { ok: true, held: 'mixed', message: 'סומן "מעורב" - נשאר בבדיקה, לא פורסם ולא אורכב' });
       }
       payload.offering_access_type = decision.access;
       if (decision.kind === 'ineligible') {
         const ed = { ...(item.extracted_data || {}), offering_access_type: 'private_group', offering_access_verdict: { by: userId, at: new Date().toISOString(), value: 'private_group' } };
-        await client.from('incoming_activities').update({ extracted_data: ed }).eq('id', id);
+        await onClaim(claimedRow().update({ extracted_data: ed }));
       }
 
       // GRANULARITY (Phase 1, 2026-09-22): "is this an independently actionable thing?" - the
@@ -2916,11 +2993,11 @@ app.post('/api/incoming/:id/approve', async (req, res) => {
       // 'independent' proceeds to create an activity - 'wrapper'/'sub_area' are ineligible (never a
       // new standalone row, Section 6), 'uncertain' holds the row in review.
       const granularityAssessment = assessGranularity({ ...(item.extracted_data || {}), ...payload });
-      const gAck = req.body && req.body.acknowledged_granularity;
-      const gDecision = granularityDecision({ assessment: granularityAssessment, acknowledgedGranularity: gAck ?? null });
-      if (gDecision.kind === 'invalid_acknowledgement') return res.status(400).json({ error: gDecision.error });
+      const gDecision = granularityDecision({ assessment: granularityAssessment, acknowledgedGranularity: acknowledgedGranularity ?? null });
+      if (gDecision.kind === 'invalid_acknowledgement') { await release(); return out(PUBLISH_OUTCOME.INVALID_REQUEST, 400, { error: gDecision.error }); }
       if (gDecision.kind === 'needs_granularity_acknowledgement') {
-        return res.status(428).json({
+        await release();
+        return out(PUBLISH_OUTCOME.NEEDS_ACKNOWLEDGEMENT, 428, {
           needs_granularity_acknowledgement: true,
           proposedVerdict: gDecision.proposedVerdict, proposedVerdictLabel: GRANULARITY_LABEL_HE[gDecision.proposedVerdict], proposedReason: gDecision.proposedReason,
           evidence: gDecision.evidence, suppressors: gDecision.suppressors, choices: gDecision.choices,
@@ -2930,21 +3007,21 @@ app.post('/api/incoming/:id/approve', async (req, res) => {
       if (gDecision.kind === 'hold_uncertain') {
         const ed = { ...(item.extracted_data || {}), granularity_verdict: { by: userId, at: new Date().toISOString(), value: 'uncertain' } };
         const issues = Array.from(new Set([...(item.validation_issues || []), GRANULARITY_ISSUE_LABEL]));
-        const { error: holdErr } = await client.from('incoming_activities').update({ extracted_data: ed, validation_issues: issues, status: 'needs_review' }).eq('id', id);
+        const { error: holdErr } = await onClaim(claimedRow().update({ extracted_data: ed, validation_issues: issues, status: 'needs_review' }));
         if (holdErr) throw holdErr;
-        return res.json({ ok: true, held: 'uncertain_granularity', message: 'סומן "לא ברור" - נשאר בבדיקה, לא פורסם ולא אורכב' });
+        return out(PUBLISH_OUTCOME.HELD_BY_REVIEWER, 200, { ok: true, held: 'uncertain_granularity', message: 'סומן "לא ברור" - נשאר בבדיקה, לא פורסם ולא אורכב' });
       }
       if (gDecision.kind === 'ineligible') {
         // mirrors the access 'ineligible' path: never invents a new standalone activity for a
         // confirmed wrapper/sub-area candidate - the row is rejected, not silently dropped
         const label = gDecision.granularity === 'wrapper' ? 'עטיפה/אינדקס של כמה פעילויות' : 'תת-אזור/מתקן בתוך יעד גדול יותר';
-        const { error: rejErr } = await client.from('incoming_activities').update({
+        const { error: rejErr } = await onClaim(claimedRow().update({
           status: 'rejected', reject_reason: 'הוכרע כ' + label + ' - לא נוצרת פעילות עצמאית',
           extracted_data: { ...(item.extracted_data || {}), granularity_verdict: { by: userId, at: new Date().toISOString(), value: gDecision.granularity } },
           reviewed_by: userId, reviewed_at: new Date().toISOString(),
-        }).eq('id', id);
+        }));
         if (rejErr) throw rejErr;
-        return res.json({ ok: true, rejected: gDecision.granularity, message: 'סומן כ"' + label + '" - לא פורסם' });
+        return out(PUBLISH_OUTCOME.REJECTED_BY_REVIEWER, 200, { ok: true, rejected: gDecision.granularity, message: 'סומן כ"' + label + '" - לא פורסם' });
       }
 
       // Exact-identity guards BEFORE creating anything: google_place_id, then event_fingerprint.
@@ -2963,35 +3040,36 @@ app.post('/api/incoming/:id/approve', async (req, res) => {
         ({ data: dupe } = await client.from('activities').select('id, name').eq('event_fingerprint', fingerprint).neq('status', 'archived').limit(1).maybeSingle());
       }
       if (dupe) {
-        await client.from('incoming_activities').update({
+        await onClaim(claimedRow().update({
           status: 'rejected', reject_reason: 'כפילות מאומתת - ' + (payload.google_place_id ? 'google_place_id' : 'טביעת אצבע של האירוע') + ' זהה לפעילות קיימת (' + dupe.id + ')',
           existing_activity_id: dupe.id, reviewed_by: userId, reviewed_at: new Date().toISOString(),
-        }).eq('id', id);
+        }));
         // non-destructive: never downgrades an existing row for this page_url on the matched activity
         // (2026-09-22, "Harden activity_sources Merge" - see lib/activitySourceMerge.js)
         await upsertProvenanceSafe(client, dupe.id, { sourceId: item.source_id, pageUrl: item.page_url, incomingActivityId: item.id, relation: 'seen', lastSeenAt: new Date().toISOString() });
-        return res.status(409).json({ error: 'הפעילות כבר קיימת במאגר (' + dupe.name + ') - סומנה ככפילות', duplicateOf: dupe.id });
+        return out(PUBLISH_OUTCOME.DUPLICATE_RESOLVED, 409, { error: 'הפעילות כבר קיימת במאגר (' + dupe.name + ') - סומנה ככפילות', duplicateOf: dupe.id });
       }
       let saved;
       try { saved = await saveNewActivity(client, userId, item.page_url, payload, { sourceId: item.source_id, incomingId: item.id }); }
       catch (e) {
         if (e && e.code === 'OUTSIDE_SERVICE_AREA') {
           // service-area policy: the row is kept as rejected with the geographic evidence, never published, never re-queued
-          await client.from('incoming_activities').update({ status: 'rejected', archive_reason: 'outside_service_area', reject_reason: e.message, extracted_data: { ...(item.extracted_data || {}), service_area: e.verdict }, reviewed_by: userId, reviewed_at: new Date().toISOString() }).eq('id', id);
-          return res.status(422).json({ error: e.message, code: 'OUTSIDE_SERVICE_AREA', verdict: e.verdict });
+          await onClaim(claimedRow().update({ status: 'rejected', archive_reason: 'outside_service_area', reject_reason: e.message, extracted_data: { ...(item.extracted_data || {}), service_area: e.verdict }, reviewed_by: userId, reviewed_at: new Date().toISOString() }));
+          return out(PUBLISH_OUTCOME.POLICY_INELIGIBLE, 422, { error: e.message, code: 'OUTSIDE_SERVICE_AREA', verdict: e.verdict, reasons: [{ code: 'outside_service_area', severity: 'terminal', humanOverridable: false }] });
         }
         if (!e || e.code !== 'DUPLICATE_PLACE') throw e;
-        await client.from('incoming_activities').update({ status: 'rejected', match_type: 'duplicate', archive_reason: 'duplicate_of_existing_activity', reject_reason: 'כפילות מאומתת - אותו מקום ואותו שם כמו פעילות קיימת (' + e.duplicateOf + ')', existing_activity_id: e.duplicateOf, reviewed_by: userId, reviewed_at: new Date().toISOString() }).eq('id', id);
+        await onClaim(claimedRow().update({ status: 'rejected', match_type: 'duplicate', archive_reason: 'duplicate_of_existing_activity', reject_reason: 'כפילות מאומתת - אותו מקום ואותו שם כמו פעילות קיימת (' + e.duplicateOf + ')', existing_activity_id: e.duplicateOf, reviewed_by: userId, reviewed_at: new Date().toISOString() }));
         // non-destructive: never downgrades an existing row for this page_url on the matched activity
         // (2026-09-22, "Harden activity_sources Merge" - see lib/activitySourceMerge.js)
         await upsertProvenanceSafe(client, e.duplicateOf, { sourceId: item.source_id, pageUrl: item.page_url, incomingActivityId: item.id, relation: 'seen', lastSeenAt: new Date().toISOString() });
-        return res.status(409).json({ error: e.message, duplicateOf: e.duplicateOf });
+        return out(PUBLISH_OUTCOME.DUPLICATE_RESOLVED, 409, { error: e.message, duplicateOf: e.duplicateOf });
       }
       const { activityId, archived } = saved;
-      const { error: updErr } = await client.from('incoming_activities').update({
+      const { data: fin, error: updErr } = await onClaim(claimedRow().update({
         status: 'approved', created_activity_id: activityId, reviewed_by: userId, reviewed_at: new Date().toISOString(),
-      }).eq('id', id);
+      })).select('id');
       if (updErr) throw updErr;
+      if (!fin || !fin.length) console.error(`[publish] incoming ${id}: activity ${activityId} created but the claim was lost before the final status write`);
       if (item.source_id) {
         const { data: src } = await client.from('sources').select('activities_approved_total').eq('id', item.source_id).maybeSingle();
         if (src) {
@@ -3000,15 +3078,15 @@ app.post('/api/incoming/:id/approve', async (req, res) => {
             .eq('id', item.source_id);
         }
       }
-      return res.json({ ok: true, activityId, archived });
+      return out(PUBLISH_OUTCOME.PUBLISHED, 200, { ok: true, activityId, archived });
     }
 
     if (item.match_type === 'update') {
-      if (!item.existing_activity_id) return res.status(400).json({ error: 'אין פעילות קיימת מקושרת לעדכון הזה' });
+      if (!item.existing_activity_id) { await release(); return out(PUBLISH_OUTCOME.INVALID_REQUEST, 400, { error: 'אין פעילות קיימת מקושרת לעדכון הזה' }); }
       await applyIncomingUpdate(client, userId, item.existing_activity_id, item.diff, item.extracted_data);
-      const { error: updErr } = await client.from('incoming_activities').update({
+      const { error: updErr } = await onClaim(claimedRow().update({
         status: 'updated', reviewed_by: userId, reviewed_at: new Date().toISOString(),
-      }).eq('id', id);
+      }));
       if (updErr) throw updErr;
       // non-destructive: never downgrades an existing row for this page_url on the matched activity
       // (2026-09-22, "Harden activity_sources Merge" - see lib/activitySourceMerge.js)
@@ -3019,13 +3097,35 @@ app.post('/api/incoming/:id/approve', async (req, res) => {
         await upsertProvenanceSafe(client, item.existing_activity_id, { sourceId: item.source_id, pageUrl: detailUrl, incomingActivityId: item.id, relation: 'seen', urlRole: 'detail', lastSeenAt: new Date().toISOString() });
         if (/^https?:\/\//i.test(detailUrl)) await client.from('activities').update({ detail_url: detailUrl }).eq('id', item.existing_activity_id).is('detail_url', null);
       }
-      return res.json({ ok: true, activityId: item.existing_activity_id });
+      return out(PUBLISH_OUTCOME.UPDATED, 200, { ok: true, activityId: item.existing_activity_id });
     }
 
-    return res.status(400).json({ error: 'אי אפשר "לאשר" פריט מסוג ' + item.match_type + ' - השתמשו בדחייה' });
+    await release();
+    return out(PUBLISH_OUTCOME.INVALID_REQUEST, 400, { error: 'אי אפשר "לאשר" פריט מסוג ' + item.match_type + ' - השתמשו בדחייה' });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: err.message || 'שגיאה באישור' });
+    try { await release(); } catch { /* the stale-claim takeover recovers it */ }
+    const o = classifyPublishError(err);
+    return out(o, HTTP_FOR[o] || 500, { error: err.message || 'שגיאה באישור', code: err.code || null });
+  }
+}
+
+function policyRefusal(evaluation, blockers, mode) {
+  const outcome = blockers.some((r) => r.severity === 'terminal') ? PUBLISH_OUTCOME.POLICY_INELIGIBLE : PUBLISH_OUTCOME.POLICY_HELD;
+  return out(outcome, 409, { held: true, mode, decision: evaluation.decision, reasons: evaluation.reasons, blockers: blockers.map((r) => r.code), error: 'לא ניתן לפרסם כעת: ' + blockers.map((r) => r.code).join(', ') });
+}
+
+// "אשר" - HTTP interface to publishIncoming. mode 'human' comes only from the inbox buttons (incoming.js).
+app.post('/api/incoming/:id/approve', async (req, res) => {
+  try {
+    const { client, userId } = await getClient();
+    const b = req.body || {};
+    const r = await publishIncoming(client, userId, req.params.id, { mode: b.mode === 'human' ? 'human' : 'auto', acknowledgedAccessType: b.acknowledged_access_type ?? null, acknowledgedGranularity: b.acknowledged_granularity ?? null });
+    res.status(r.status).json({ ...r.body, outcome: r.outcome });
+  } catch (err) {
+    console.error(err);
+    const o = classifyPublishError(err);
+    res.status(HTTP_FOR[o] || 500).json({ error: err.message || 'שגיאה באישור', outcome: o });
   }
 });
 
@@ -3532,7 +3632,13 @@ app.put('/api/automation-settings', async (req, res) => {
   }
 });
 
-const PORT = process.env.PORT || 4321;
-app.listen(PORT, () => {
-  console.log(`כלי הייבוא של TuRu רץ בכתובת http://localhost:${PORT}`);
-});
+// the HTTP listener starts only when this file is RUN (node server.js / npm start); require('./server') - the Cleaner,
+// reprocess-review-queue.js - gets the functions without opening a port (automation never depends on this process)
+if (require.main === module) {
+  const PORT = process.env.PORT || 4321;
+  app.listen(PORT, () => {
+    console.log(`כלי הייבוא של TuRu רץ בכתובת http://localhost:${PORT}`);
+  });
+}
+
+module.exports = { app, publishIncoming, classifyPublishError, plannedLocationWrite, PUBLISH_OUTCOME, CLAIM_STALE_MS };

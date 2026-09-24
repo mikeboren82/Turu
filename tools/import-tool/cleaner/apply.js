@@ -11,9 +11,9 @@
 // success). Every 0-row write is now followed by a re-read of the target row; when the field still
 // needs the write the outcome is `write_denied` and the case must NOT resolve (cleaner.js retries /
 // archives it with that error). Repair = actual success or explicit failure, never apparent success.
-// A repaired incoming row is deduplicated with the ingestion matcher and then published ONLY through
-// POST /api/incoming/:id/approve (fingerprint + place-id guards, venue resolution, provenance, image
-// handling live there).
+// A repaired incoming row is deduplicated with the ingestion matcher and then published ONLY through the
+// single publication implementation publishIncoming (server.js: claim, policy re-evaluation, fingerprint +
+// place-id guards, venue resolution, provenance, images) - called in-process since 2026-09-24, never over HTTP.
 // Publish POLICY is not decided here: lib/incomingEligibility.js (the canonical evaluator) decides, 2026-09-24.
 const { normalizeCityName } = require('../cityNaming');
 const { computeEventFingerprint } = require('../eventFingerprint');
@@ -25,11 +25,9 @@ const { evaluateIncomingRow } = require('../lib/incomingEligibility');
 const { verifiedFieldUpdate, OUTCOME: WRITE_OUTCOME } = require('../lib/verifiedWrite');
 
 const SOFT = new Set(['מחיר']);
-const ADMIN_BASE = process.env.ADMIN_BASE || 'http://localhost:4321';
 const OPEN_INCOMING = ['new', 'needs_review', 'failed'];
 const hasHouseNumber = (a) => /\d/.test(a || '');
 
-async function adminUp() { try { const r = await fetch(`${ADMIN_BASE}/api/automation-settings`, { signal: AbortSignal.timeout(4000) }); return r.ok; } catch { return false; } }
 
 // After a 0-row conditional UPDATE: re-read the row and decide whether the write was genuinely
 // unnecessary (guard no longer true -> 'already_filled') or was DENIED (guard still true -> the row
@@ -154,20 +152,43 @@ async function handBackIncoming(client, row, { settings, userId, cache, today, c
   if (ev.decision !== 'ELIGIBLE' && !(ev.decision === 'INELIGIBLE' && ev.reasons.every((r) => r.code === 'exact_duplicate'))) {
     return { outcome: 'awaiting_policy', decision: ev.decision, why: policyWhy(ev.reasons), reasons: ev.reasons.map((r) => r.code) };
   }
-  // ELIGIBLE (or an exact duplicate, which the approve route links instead of publishing): the canonical publish
-  // path, mode 'auto' - it re-evaluates at its own write boundary and refuses anything not ELIGIBLE by then
-  if (!(await adminUp())) return { outcome: 'error', error: 'admin server not reachable at ' + ADMIN_BASE + ' - publish deferred' };
-  let res;
-  try { res = await fetch(`${ADMIN_BASE}/api/incoming/${row.id}/approve`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode: 'auto' }), signal: AbortSignal.timeout(120000) }); }
-  catch (e) { return { outcome: 'error', error: 'approve call failed (' + (e.message || e) + ') - publish deferred' }; } // transient network error: defer, the location is already patched
-  const body = await res.json().catch(() => ({}));
-  if (res.status === 409 && body.held) return { outcome: 'awaiting_policy', decision: body.decision, why: policyWhy(body.reasons || []), reasons: (body.reasons || []).map((r) => r.code), via: 'approve_boundary' };
-  if (res.status === 409) return { outcome: 'duplicate_merged', activity_id: body.duplicateOf || null, via: 'approve_guard' };
-  if (res.status === 428) return { outcome: 'awaiting_policy', why: body.needs_granularity_acknowledgement ? 'granularity:needs_acknowledgement' : 'access:needs_acknowledgement' };
-  if (res.status === 422 && body.code === 'OUTSIDE_SERVICE_AREA') return { outcome: 'archived', reason: 'outside_service_area', verdict: body.verdict, via: 'approve_guard' };
-  if (!res.ok) return { outcome: 'error', error: body.error || ('approve HTTP ' + res.status) };
-  return { outcome: 'published', activity_id: body.activityId };
+  // ELIGIBLE (or an exact duplicate, which publication links instead of publishing): the ONE publication
+  // implementation, called IN-PROCESS (2026-09-24) - no admin server, no HTTP. It claims the row, re-evaluates the
+  // current policy under the claim, mode 'auto' (never 'human'), and answers with an explicit outcome.
+  let pub;
+  try { pub = await publishIncomingDirect(client, userId, row.id); }
+  catch (e) { return { outcome: 'error', publish: 'TEMPORARY_INFRA_FAILURE', retryable: true, error: 'publication failed to run: ' + (e.message || e) }; }
+  if (counters) { counters.publishOutcomes = counters.publishOutcomes || {}; counters.publishOutcomes[pub.outcome] = (counters.publishOutcomes[pub.outcome] || 0) + 1; }
+  return handBackFromPublish(pub, policyWhy);
 }
+
+// publication outcome -> hand-back outcome. POLICY_* are decisions (the case resolves, nothing to retry);
+// TEMPORARY_INFRA_FAILURE retries; LOCATION_INVALID / WRITE_DENIED / ERROR are execution failures that also
+// retry (markFail, bounded by the case's attempt budget) and carry their code so a run report can tell them apart.
+function handBackFromPublish(pub, policyWhy = (rs) => rs.map((r) => r.code).join(',')) {
+  const b = pub.body || {};
+  switch (pub.outcome) {
+    case 'PUBLISHED': return { outcome: 'published', activity_id: b.activityId, publish: pub.outcome };
+    case 'ALREADY_PUBLISHED': return { outcome: 'already_resolved', activity_id: b.activityId || null, publish: pub.outcome };
+    case 'DUPLICATE_RESOLVED': return { outcome: 'duplicate_merged', activity_id: b.duplicateOf || null, via: 'publish_guard', publish: pub.outcome };
+    case 'CONCURRENT_STATE_CHANGE': return { outcome: 'resolved_externally', why: 'status:' + (b.currentStatus || '?'), publish: pub.outcome };
+    case 'POLICY_HELD': return { outcome: 'awaiting_policy', decision: b.decision, why: policyWhy(b.reasons || []), reasons: (b.reasons || []).map((r) => r.code), via: 'publish_boundary', publish: pub.outcome };
+    case 'POLICY_INELIGIBLE':
+      if (b.code === 'OUTSIDE_SERVICE_AREA') return { outcome: 'archived', reason: 'outside_service_area', verdict: b.verdict, via: 'publish_guard', publish: pub.outcome };
+      return { outcome: 'awaiting_policy', decision: b.decision, why: policyWhy(b.reasons || []), reasons: (b.reasons || []).map((r) => r.code), via: 'publish_boundary', publish: pub.outcome };
+    case 'NEEDS_ACKNOWLEDGEMENT': return { outcome: 'awaiting_policy', why: b.needs_granularity_acknowledgement ? 'granularity:needs_acknowledgement' : 'access:needs_acknowledgement', publish: pub.outcome };
+    case 'TEMPORARY_INFRA_FAILURE': return { outcome: 'error', publish: pub.outcome, retryable: true, error: 'TEMPORARY_INFRA_FAILURE: ' + (b.error || '') };
+    default: return { outcome: 'error', publish: pub.outcome, retryable: pub.outcome !== 'NOT_FOUND', error: pub.outcome + ': ' + (b.error || '') };
+  }
+}
+// the publication implementation lives with the admin route (server.js); required lazily so loading the Cleaner
+// never loads the whole admin module, and require('../server') never opens a port. Tests inject a stub.
+let publishImpl = null;
+function publishIncomingDirect(client, userId, id) {
+  if (!publishImpl) publishImpl = require('../server').publishIncoming;
+  return publishImpl(client, userId, id, { mode: 'auto' });
+}
+function setPublishImplForTests(fn) { publishImpl = fn; }
 
 // A guarded write on an OPEN incoming row, fully classified (lib/verifiedWrite.js) - a 0-row result is never
 // guessed at. -> { done: true, code } on SUCCESS / NO_CHANGE_ALREADY_SATISFIED, else { done: false, result }
@@ -300,4 +321,4 @@ async function applyActivityPatch(client, activityId, patch, applyGuard, stillNe
   return verifiedUpdate(client, 'activities', activityId, patch, applyGuard, stillNeeds);
 }
 
-module.exports = { patchIncomingLocation, handBackIncoming, enrichExistingFromCandidate, applyAddressToActivity, applyCityToActivity, applyImageToActivity, applyActivityPatch, verifiedUpdate, classifyZeroRowWrite, deniedError, adminUp, OPEN_INCOMING };
+module.exports = { patchIncomingLocation, handBackIncoming, enrichExistingFromCandidate, applyAddressToActivity, applyCityToActivity, applyImageToActivity, applyActivityPatch, verifiedUpdate, classifyZeroRowWrite, deniedError, OPEN_INCOMING, handBackFromPublish, setPublishImplForTests };

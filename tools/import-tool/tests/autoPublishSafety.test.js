@@ -26,7 +26,7 @@ test('TRUST INDEPENDENCE: no trust state (80, is_trusted, a future earned flag) 
   assert.ok(/const safety = assessAutoPublishSafety\(c,/.test(policy) && !/trusted &&[^\n]*safety/.test(policy), 'canonical policy runs content safety unconditionally');
   const handBack = fs.readFileSync(path.join(__dirname, '../cleaner/apply.js'), 'utf8');
   const hb = handBack.slice(handBack.indexOf('async function handBackIncoming('), handBack.indexOf('// A guarded write on an OPEN incoming row'));
-  assert.ok(hb.indexOf('evaluateIncomingRow(') > 0 && hb.indexOf('evaluateIncomingRow(') < hb.indexOf("fetch(`${ADMIN_BASE}/api/incoming/"), 'Cleaner hand-back decides through the canonical evaluator before the approve call');
+  assert.ok(hb.indexOf('evaluateIncomingRow(') > 0 && hb.indexOf('evaluateIncomingRow(') < hb.indexOf('publishIncomingDirect('), 'Cleaner hand-back decides through the canonical evaluator before publication');
   const reprocess = fs.readFileSync(path.join(__dirname, '../reprocess-review-queue.js'), 'utf8');
   assert.ok(reprocess.includes('evaluateIncomingRow(') && reprocess.includes("ev.decision === 'ELIGIBLE'"), 'reprocess tool approves only canonically ELIGIBLE rows');
   const scan = fs.readFileSync(path.join(SHARED, '../scan-source/index.ts'), 'utf8');
@@ -35,7 +35,7 @@ test('TRUST INDEPENDENCE: no trust state (80, is_trusted, a future earned flag) 
 });
 
 test('Cleaner hand-back: a trusted source AND trustedOverride still cannot publish a tenant listing; a mall kids workshop still can reach the approve step', async () => {
-  process.env.ADMIN_BASE = 'http://127.0.0.1:9'; // never reach a real admin server from a test
+
   const { handBackIncoming } = require('../cleaner/apply');
   // the hand-back re-reads the CURRENT row (canonical evaluator), so the fake serves it by table
   let current = null;
@@ -52,11 +52,14 @@ test('Cleaner hand-back: a trusted source AND trustedOverride still cannot publi
     const r = await handBackIncoming(client, mcd, { settings, userId: 'u', cache: new Map(), today: '2026-09-24', counters: null, trustedOverride });
     assert.deepEqual([r.outcome, r.why], ['awaiting_policy', 'content_safety:business_listing'], `trustedOverride=${trustedOverride}`);
   }
-  // a legitimate mall children's workshop passes the gate and proceeds to the (here unreachable) approve step
+  // a legitimate mall children's workshop passes the gate and reaches publication (stubbed: no network in tests)
+  const { setPublishImplForTests } = require('../cleaner/apply');
+  let reached = false; setPublishImplForTests(async () => { reached = true; return { outcome: 'PUBLISHED', status: 200, body: { activityId: 'act-1' } }; });
   const workshop = { ...base, extracted_data: { name: 'סדנת יצירה לילדים', description: 'סדנת יצירה לילדים בקומה 2', category: 'יצירה', city: 'כפר סבא', location_name: 'קניון כפר סבא הירוקה', lat: 32.18, lng: 34.91, entity_type: 'אירוע', schedule_type: 'one_time', one_time_date: '2026-10-01', audience: 'children' } };
   current = workshop;
   const w = await handBackIncoming(client, workshop, { settings, userId: 'u', cache: new Map(), today: '2026-09-24', counters: null });
-  assert.notEqual(w.outcome, 'awaiting_policy', JSON.stringify(w));
+  setPublishImplForTests(null);
+  assert.deepEqual([w.outcome, reached], ['published', true], JSON.stringify(w));
 });
 
 test('a held row is human work in the review budget, not a Cleaner or trust bucket', () => {

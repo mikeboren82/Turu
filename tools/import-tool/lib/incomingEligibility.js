@@ -39,11 +39,14 @@ function rowFactReasons(c, { serviceArea = null, duplicate = null } = {}) {
  *                            it never touches relevance, content safety, access or granularity
  * -> { id, found, decision: ELIGIBLE|HELD|INELIGIBLE, humanApprovable, reasons[], row, source, policy }
  */
-async function evaluateIncomingRow(client, idOrRow, { trustOverride = null, today = israelToday(), settings = null, serviceAreaIndex } = {}) {
+// opts.claimedFromStatus: the caller (publishIncoming) holds the row's publication claim (status 'processing')
+// and evaluates it as the pending status it was claimed from - never used to bypass a real status change
+async function evaluateIncomingRow(client, idOrRow, { trustOverride = null, today = israelToday(), settings = null, serviceAreaIndex, claimedFromStatus = null } = {}) {
   const id = typeof idOrRow === 'string' ? idOrRow : idOrRow && idOrRow.id;
-  const { data: row, error } = await client.from('incoming_activities').select(ROW_COLUMNS).eq('id', id).maybeSingle();
+  const { data: fresh, error } = await client.from('incoming_activities').select(ROW_COLUMNS).eq('id', id).maybeSingle();
   if (error) throw error;
-  if (!row) return { id, found: false, decision: 'INELIGIBLE', humanApprovable: false, reasons: [{ code: 'row_not_found', severity: 'terminal', humanOverridable: false }] };
+  if (!fresh) return { id, found: false, decision: 'INELIGIBLE', humanApprovable: false, reasons: [{ code: 'row_not_found', severity: 'terminal', humanOverridable: false }] };
+  const row = claimedFromStatus && fresh.status === 'processing' ? { ...fresh, status: claimedFromStatus } : fresh;
   const policy = settings || await loadPolicySettings(client);
   let source = null;
   if (row.source_id) {

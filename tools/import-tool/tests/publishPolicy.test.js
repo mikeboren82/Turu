@@ -97,17 +97,19 @@ test('approve route boundary: auto publishes only ELIGIBLE; a human decides hold
   // duplicates / service area are turned into their terminal writes by the route's own guards, in both modes
   assert.deepEqual(approvalBlockers(ev([['exact_duplicate', 'terminal', false], ['outside_service_area', 'terminal', false]]), 'auto'), []);
   const server = fs.readFileSync(path.join(__dirname, '../server.js'), 'utf8');
-  const route = server.slice(server.indexOf("app.post('/api/incoming/:id/approve'"), server.indexOf("app.post('/api/incoming/:id/reject'"));
-  assert.ok(route.indexOf('evaluateIncomingRow(') > 0 && route.indexOf('evaluateIncomingRow(') < route.indexOf('saveNewActivity(') && route.indexOf('evaluateIncomingRow(') < route.indexOf('applyIncomingUpdate('), 're-evaluated before any publish write');
-  assert.ok(/req\.body\.mode === 'human' \? 'human' : 'auto'/.test(route), 'programmatic callers default to auto');
-  const evaluate = server.slice(server.indexOf("app.post('/api/incoming/:id/evaluate'"), server.indexOf('// "אשר" - מסלול שונה'));
+  // the route is a thin interface to publishIncoming, which re-evaluates (under its claim) before any publish write
+  const route = server.slice(server.indexOf('async function publishIncoming('), server.indexOf("app.post('/api/incoming/:id/reject'"));
+  const underClaim = route.indexOf('evaluateIncomingRow(client, id, { claimedFromStatus: priorStatus })');
+  assert.ok(underClaim > 0 && underClaim < route.indexOf('saveNewActivity(') && underClaim < route.indexOf('applyIncomingUpdate('), 're-evaluated before any publish write');
+  assert.ok(/mode: b\.mode === 'human' \? 'human' : 'auto'/.test(route), 'programmatic callers default to auto');
+  const evaluate = server.slice(server.indexOf("app.post('/api/incoming/:id/evaluate'"), server.indexOf('// ---- INCOMING PUBLICATION'));
   assert.ok(evaluate.includes('evaluateIncomingRow(') && !/\.update\(|\.insert\(|saveNewActivity|fetch\(/.test(evaluate), 'evaluate is read-only');
   const ui = fs.readFileSync(path.join(__dirname, '../incoming.js'), 'utf8');
   assert.equal((ui.match(/mode: 'human'/g) || []).length, 2, 'both inbox approve buttons identify as a reviewer');
 });
 
 test('Cleaner hand-back: HELD rows are not published (retail trust 95, even with trustedOverride); an ELIGIBLE row goes to the publish path', async () => {
-  process.env.ADMIN_BASE = 'http://127.0.0.1:9'; // never reach a real admin server from a test
+
   const { handBackIncoming } = require('../cleaner/apply');
   const settings = { thresholds: { duplicate: 0.9, needsReview: 0.6, proximityKm: 0.15 }, minTrust: 80, maxDaysAhead: 180 };
   const mcd = { c: { name: 'מקדונלדס', description: 'רשת מקדונלד׳ס המציעה תפריט לכל המשפחה', category: 'אחר', entity_type: 'מקום_קבוע', schedule_type: 'fixed_hours', one_time_date: null, audience: 'family', location_name: 'קניון כפר סבא הירוקה', city: 'כפר סבא' } };
@@ -117,10 +119,13 @@ test('Cleaner hand-back: HELD rows are not published (retail trust 95, even with
     assert.equal(r.outcome, 'awaiting_policy'); assert.deepEqual(r.reasons, ['content_safety']); assert.equal(r.why, 'content_safety:business_listing');
     assert.equal(db.writes.length, 0);
   }
-  // ELIGIBLE: proceeds to the canonical publish path (here unreachable -> an explicit, retryable error)
+  // ELIGIBLE: proceeds to the ONE publication implementation, in-process, mode auto (stubbed here)
+  const { setPublishImplForTests } = require('../cleaner/apply');
+  const modes = []; setPublishImplForTests(async (_c, _u, _id, o) => { modes.push(o.mode); return { outcome: 'PUBLISHED', status: 200, body: { activityId: 'act-1' } }; });
   const ok = fakeDb({ incoming: incomingRow(), source: sourceRow() });
   const e = await handBackIncoming(ok.client, ok.t.incoming_activities[0], { settings, userId: 'u', cache: new Map(), today: table.today, counters: null });
-  assert.equal(e.outcome, 'error'); assert.match(e.error, /admin server not reachable/);
+  setPublishImplForTests(null);
+  assert.deepEqual([e.outcome, modes], ['published', ['auto']]);
   // untrusted: held with the canonical reason code
   const un = fakeDb({ incoming: incomingRow(), source: sourceRow({ source_trust_score: 50 }) });
   const u = await handBackIncoming(un.client, un.t.incoming_activities[0], { settings, userId: 'u', cache: new Map(), today: table.today, counters: null });

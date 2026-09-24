@@ -60,8 +60,26 @@ async function applyOne(client, item, now) {
   return verifiedConditionalUpdate(client, { table: 'incoming_activities', id: r.id, patch: { deferred_until: null }, expectedOld: { status: r.status, deferred_until: r.deferred_until } });
 }
 
+// A publication CLAIM (status 'processing', server.js publishIncoming) whose worker died is released back to the
+// reviewer queue after CLAIM_STALE_MS - operational lock recovery, not queue cleanup (a live claim is never touched).
+async function releaseStaleClaims(client, apply) {
+  const { CLAIM_STALE_MS } = require('./server');
+  const cutoff = new Date(Date.now() - CLAIM_STALE_MS).toISOString();
+  const { data, error } = await client.from('incoming_activities').select('id, updated_at').eq('status', 'processing').lt('updated_at', cutoff);
+  if (error) throw error;
+  if (!apply || !data.length) return { stale: data.length, released: 0 };
+  let released = 0;
+  for (const r of data) {
+    const { data: w } = await client.from('incoming_activities').update({ status: 'needs_review' }).eq('id', r.id).eq('status', 'processing').eq('updated_at', r.updated_at).select('id');
+    if (w && w.length) released++;
+  }
+  return { stale: data.length, released };
+}
+
 (async () => {
   const { client } = await getClient();
+  const claims = await releaseStaleClaims(client, APPLY);
+  if (claims.stale) console.log(`stale publication claims: ${claims.stale}${APPLY ? `, released ${claims.released}` : ' (dry run)'}`);
   const { data: s } = await client.from('automation_settings').select('value').eq('key', 'event_max_days_ahead').maybeSingle();
   const maxDaysAhead = Number(s?.value ?? 180);
   const today = israelToday();
