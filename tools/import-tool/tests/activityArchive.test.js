@@ -67,6 +67,12 @@ test('archive_reason is a closed list - arbitrary text never reaches the databas
   assert.ok(!ARCHIVE_REASONS.some((x) => /restore|approve|delete/i.test(x)));
 });
 
+test('the JS mirror equals the enforcing SQL allowlist of the latest archive_activity() migration (0111)', () => {
+  const sql = require('fs').readFileSync(require('path').join(__dirname, '../../../supabase/0111_archive_reason_auto_publish_false_positive.sql'), 'utf8');
+  const list = sql.slice(sql.indexOf('p_archive_reason not in ('), sql.indexOf(') then', sql.indexOf('p_archive_reason not in (')));
+  assert.deepEqual([...list.matchAll(/'([a-z_]+)'/g)].map((m) => m[1]), [...ARCHIVE_REASONS]);
+});
+
 test('expected-old-status precondition is enforced, and a moved row is not archived', async () => {
   const changed = stub(() => ({ data: { outcome: 'precondition_changed', current_status: 'archived', expected_status: 'approved' }, error: null }));
   const r = await archiveActivity(changed, { activityId: 'a1', archiveReason: 'expired' });

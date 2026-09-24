@@ -32,6 +32,9 @@ const ARCHIVE_REASONS = Object.freeze([
   'commitment_policy',
   'wrong_entity_type',
   'private_hire_policy',
+  // 0111: a published business / retail / market listing that was never a children's activity (pre-v81
+  // auto-publish false positive, now held by autoPublishSafety). Reviewed cohorts only.
+  'auto_publish_false_positive_retail',
 ]);
 
 const OUTCOME = Object.freeze({
