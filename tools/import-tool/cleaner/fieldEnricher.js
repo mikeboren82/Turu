@@ -10,8 +10,11 @@
 //                   region from the venue or from the majority region Turu already stores for that city
 // Fill-null only. Each filled field is returned with its provenance (extracted_data.cleaner_fields).
 const { fetchHtml } = require('../lib/fetchPage');
-const { extractJsonLd, pageText, findEventCard, containsScore } = require('../lib/pageExtract');
-const { assessChildRelevance, CHILD_MARKERS, ADULT_MARKERS } = require('../childRelevance');
+const { extractJsonLd, contentText, findEventCard, containsScore } = require('../lib/pageExtract');
+const { assessChildRelevance, CHILD_MARKERS, ADULT_MARKERS, SUBSCRIPTION_MARKERS } = require('../childRelevance');
+// adult words that contradict page ages ("מיועדת למבוגרים בלבד", "18+", a lecture) - subscription words are not
+// (children's theatre is sold in subscriptions too), the same split the relevance rule makes
+const HARD_ADULT_MARKERS = ADULT_MARKERS.filter((m) => !SUBSCRIPTION_MARKERS.has(m));
 const { wordOverlapScore } = require('./matching');
 const { normalizeCityName } = require('../cityNaming');
 const categoryValues = require('../../../supabase/functions/_shared/categoryValues.json');
@@ -60,16 +63,59 @@ function datesIn(text, today) {
   }
   return [...new Set(out)];
 }
-// explicit age evidence: "גילאי 3-6", "לגילאי 4+", "מגיל 5", "לגיל הרך", "לפעוטות", "0-3"
-const AGE_RANGE_RE = /(?:גילאי|לגילאי|לגיל|גיל|בני)\s*(\d{1,2})\s*(?:[-–עד]+\s*(\d{1,2}))?\s*(\+)?|\b(\d{1,2})\s*[-–]\s*(\d{1,2})\s*(?:שנים|גילאים)?\b(?=[^\d]|$)/;
+// Explicit age evidence (rewritten 2026-09-24 after verify_location pilot #7, where the municipal menu item "רשות
+// הצעירים והגיל הרך" made an evening concert "ages 0-5"). Callers pass event-local CONTENT text only (pageBundle):
+//   1. an age word bound to numbers: "גילאי 3-6", "לגילאי 4+", "מגיל 5", "לבני 8-12", "גילאי 6-12, 13-18"
+//   2. a bare number range that is an age range - not a date ("10-12.10", "2026-10-06"), a time ("10:00-12:00"), a
+//      phone number, opening hours ("בשעות 10-12"), grades or a price - with lo < hi <= 18: "6-12", "13–18". Tags that
+//      lost their separator ("13-186-12") split into their ranges. Ranges printed together (<= 40 chars apart) are
+//      ONE audience -> their union (Turu stores a single min_age..max_age span); a later, separate range (another
+//      event on the same page) is not merged in.
+//   3. early-childhood WORDING bound to the event: "לגיל הרך", "בגיל הרך", "לפעוטות", "הורה ופעוט" -> 0-5.
+//      The bare phrase "גיל הרך" is NOT evidence: it names departments and menu sections ("רשות הצעירים והגיל הרך",
+//      "תחום הגיל הרך"), and a department noun right before the bound form ("האגף לגיל הרך") is refused too.
+const HEB = '֐-׿';
+const AGE_WORD_RE = new RegExp(`(?<![${HEB}])(?:גילאי|לגילאי|בגילאי|לגיל|בגיל|מגיל|גיל|לבני|בני)\\s*(\\d{1,2})(?:\\s*(?:[-–]|עד)\\s*(\\d{1,2}))?(\\s*\\+)?`, 'g');
+const RANGE_RE = /(\d{1,2})\s*[-–]\s*(\d{1,2})/g;
+const NOT_AGE_BEFORE_RE = /(?:שעות|בשעות|השעות|שעה|כיתות|כיתה|עמ'|₪|ש"ח|שקל|מחיר|טל'|טלפון)\s*$/;
+const TODDLER_WORDING_RE = new RegExp(`(?<![${HEB}])(?:[לב]גיל הרך|לפעוטות|לתינוקות|לקטנטנים|הורה ופעוט|הורה ותינוק|הורים ופעוטות|הורים ותינוקות)(?![${HEB}])`, 'g');
+const DEPARTMENT_BEFORE_RE = /(?:אגף|האגף|מחלקת|מחלקה|המחלקה|רשות|הרשות|תחום|מינהלת|מנהלת|המינהלת|יחידת|יחידה|היחידה|מדור|לשכת|רכזת|רכז|מנהל|מינהל|המנהל|המינהל|עמותת|העמותה|ועדת|הוועדה|מרכז|המרכז|פורום|תוכנית|התוכנית)\s*$/;
+function ageRangesIn(text) {
+  const t = text || '', found = [];
+  for (const m of t.matchAll(AGE_WORD_RE)) {
+    const lo = Number(m[1]), hi = m[2] != null ? Number(m[2]) : null;
+    if (lo > 18 || (hi != null && hi < lo)) continue;
+    found.push({ at: m.index, end: m.index + m[0].length, min: lo, max: hi, evidence: m[0].trim() });
+  }
+  let lastEnd = -1;
+  for (const m of t.matchAll(RANGE_RE)) {
+    const lo = Number(m[1]), hi = Number(m[2]), end = m.index + m[0].length;
+    if (m.index !== lastEnd && /[\d:./\-–]/.test(t[m.index - 1] || '')) continue; // inside a longer number / date / time
+    if (/^[:./\-–]\d/.test(t.slice(end, end + 2))) continue; // a date / time / phone number continues
+    if (!(lo < hi && hi <= 18)) continue;
+    if (NOT_AGE_BEFORE_RE.test(t.slice(Math.max(0, m.index - 12), m.index))) continue;
+    lastEnd = end;
+    if (found.some((f) => m.index >= f.at && end <= f.end)) continue; // already part of "גילאי 6-12"
+    found.push({ at: m.index, end, min: lo, max: hi, evidence: m[0].replace(/\s+/g, '') });
+  }
+  found.sort((a, b) => a.at - b.at);
+  const cluster = [];
+  for (const f of found) { if (cluster.length && f.at - cluster[cluster.length - 1].end > 40) break; cluster.push(f); }
+  return cluster;
+}
+// -> { min_age, max_age, evidence, kind: 'explicit_age' | 'child_wording' } | null
 function agesIn(text) {
   const t = text || '';
-  const m = AGE_RANGE_RE.exec(t);
-  if (m) {
-    const lo = Number(m[1] ?? m[4]), hi = m[2] ?? m[5]; const plus = !!m[3];
-    if (Number.isFinite(lo) && lo <= 18) return { min_age: lo, max_age: hi ? Number(hi) : (plus ? null : null), evidence: m[0] };
+  const ranges = ageRangesIn(t);
+  if (ranges.length) {
+    const open = ranges.some((r) => r.max == null); // "מגיל 5", "4+"
+    const maxes = ranges.map((r) => r.max).filter((x) => x != null);
+    return { min_age: Math.min(...ranges.map((r) => r.min)), max_age: open || !maxes.length ? null : Math.max(...maxes), evidence: ranges.map((r) => r.evidence).join(', '), kind: 'explicit_age' };
   }
-  if (/גיל הרך|לפעוטות|פעוטות|קטנטנים|תינוקות/.test(t)) return { min_age: 0, max_age: 5, evidence: (t.match(/גיל הרך|לפעוטות|פעוטות|קטנטנים|תינוקות/) || [])[0] };
+  for (const m of t.matchAll(TODDLER_WORDING_RE)) {
+    if (DEPARTMENT_BEFORE_RE.test(t.slice(Math.max(0, m.index - 20), m.index))) continue;
+    return { min_age: 0, max_age: 5, evidence: m[0], kind: 'child_wording' };
+  }
   return null;
 }
 
@@ -79,18 +125,19 @@ async function pageBundle(client, row, ed, cache) {
   const key = 'page:' + row.page_url;
   const r = cache.get(key) || await fetchHtml(row.page_url); cache.set(key, r);
   if (!r.ok || !r.html) return out;
-  out.source = { url: row.page_url, html: r.html, ld: extractJsonLd(r.html), text: pageText(r.html) };
+  // metadata evidence is the page's CONTENT only - never header / mega-menu / nav / footer (lib/pageExtract CHROME)
+  out.source = { url: row.page_url, html: r.html, ld: extractJsonLd(r.html), text: contentText(r.html, { separators: true }) };
   const card = findEventCard(r.html, row.page_url, ed.name || '');
   if (card.score >= 0.8) {
     // the card's own text (title, date line, age line) - reuse the same card the image resolver uses
     const cheerio = require('cheerio'); const $ = cheerio.load(r.html);
     let best = null, bestScore = 0;
     $('a[href], h1, h2, h3, h4, .title, .name').each((_, el) => { const s = containsScore(($(el).text() || '').replace(/\s+/g, ' ').trim().slice(0, 300), ed.name || ''); if (s > bestScore && s >= 0.8) { bestScore = s; best = $(el); } });
-    if (best) { let el = best; for (let i = 0; i < 4; i++) { if ((el.text() || '').length > 60 || el.find('img').length) break; if (!el.parent().length || el.parent().is('body, html')) break; el = el.parent(); } out.card = (el.text() || '').replace(/\s+/g, ' ').trim().slice(0, 800); }
+    if (best) { let el = best; for (let i = 0; i < 4; i++) { if ((el.text() || '').length > 60 || el.find('img').length) break; if (!el.parent().length || el.parent().is('body, html')) break; el = el.parent(); } out.card = contentText($.html(el), { separators: true }).replace(/\s+/g, ' ').trim().slice(0, 800); }
     if (card.detailUrl) {
       const k2 = 'page:' + card.detailUrl;
       const r2 = cache.get(k2) || await fetchHtml(card.detailUrl); cache.set(k2, r2);
-      if (r2.ok && r2.html) { const title = (/<title[^>]*>([^<]*)<\/title>/i.exec(r2.html) || [])[1] || ''; out.detail = { url: card.detailUrl, html: r2.html, ld: extractJsonLd(r2.html), text: pageText(r2.html).slice(0, 6000), title, about: wordOverlapScore(title, ed.name) >= 0.4 }; out.detailUrl = card.detailUrl; }
+      if (r2.ok && r2.html) { const title = (/<title[^>]*>([^<]*)<\/title>/i.exec(r2.html) || [])[1] || ''; out.detail = { url: card.detailUrl, html: r2.html, ld: extractJsonLd(r2.html), text: contentText(r2.html, { separators: true }).slice(0, 6000), title, about: wordOverlapScore(title, ed.name) >= 0.4 }; out.detailUrl = card.detailUrl; }
     }
   }
   return out;
@@ -102,7 +149,7 @@ async function resolveIncomingMetadata(client, row, ctx) {
   const missing = issues.filter((i) => GATING.includes(i));
   const filled = [], tried = ['canonical_fields']; const fields = {}; const unresolved = {};
   const today = ctx.today || new Date().toISOString().slice(0, 10);
-  const set = (field, value, confidence, evidence, issue) => { fields[field] = { value, confidence, evidence }; filled.push(field); if (issue) issues = issues.filter((i) => i !== issue); };
+  const set = (field, value, confidence, evidence, issue, meta) => { fields[field] = { value, confidence, evidence, ...(meta || {}) }; filled.push(field); if (issue) issues = issues.filter((i) => i !== issue); };
 
   // 1. canonical fields already there (a stale issue list): audience/category/date present => clear
   if (issues.includes('קטגוריה') && ed.category && CATEGORIES.has(ed.category)) set('category', ed.category, 'HIGH', 'already extracted', 'קטגוריה');
@@ -153,14 +200,22 @@ async function resolveIncomingMetadata(client, row, ctx) {
     }
   }
   if (issues.includes('קהל יעד לא ברור')) {
-    const ages = agesIn(evidenceText) || agesIn(ed.description || '');
+    // provenance (2026-09-24): the ages the relevance rule will read as first-party evidence must come from the
+    // event's own card / detail CONTENT. Ages parsed from the model's description are model inference (MEDIUM).
+    const scoped = [[pages.card, 'event_card'], [pages.detail?.about ? pages.detail.text : null, 'detail_content']].filter(([t]) => t);
+    let ages = null, scope = null;
+    for (const [t, sc] of scoped) { ages = agesIn(t); if (ages) { scope = sc; break; } }
+    if (!ages && (ages = agesIn(ed.description || ''))) scope = 'model_description';
+    const provenance = !ages ? null : scope === 'model_description' ? 'model_inference' : ages.kind === 'explicit_age' ? 'event_local_explicit_age' : 'event_local_child_wording';
     const rel = assessChildRelevance({ ...ed, description: (ed.description || '') + ' ' + evidenceText.slice(0, 3000) });
     if (rel === 'reject') { await client.from('incoming_activities').update({ status: 'rejected', archive_reason: 'invalid_event', reject_reason: 'קהל יעד למבוגרים לפי עמוד המקור (THE CLEANER)', reviewed_at: new Date().toISOString() }).eq('id', row.id).in('status', ['new', 'needs_review', 'failed']); return { filled: ['rejected_adult'], remaining: [], tried, fields, unresolved, rejected: true }; }
-    if (ages) { if (ed.min_age == null) ed.min_age = ages.min_age; if (ed.max_age == null && ages.max_age != null) ed.max_age = ages.max_age; ed.audience = ed.audience && ed.audience !== 'unknown' ? ed.audience : (ages.max_age != null && ages.max_age <= 12 ? 'children' : 'family'); set('audience', ed.audience, 'HIGH', 'explicit ages: ' + ages.evidence, 'קהל יעד לא ברור'); }
+    if (ages && scope !== 'model_description' && HARD_ADULT_MARKERS.some((m) => evidenceText.includes(m))) unresolved['קהל יעד לא ברור'] = 'adult markers next to the extracted audience - a person decides';
+    else if (ages) { if (ed.min_age == null) ed.min_age = ages.min_age; if (ed.max_age == null && ages.max_age != null) ed.max_age = ages.max_age; ed.audience = ed.audience && ed.audience !== 'unknown' ? ed.audience : (ages.max_age != null && ages.max_age <= 12 ? 'children' : 'family'); set('audience', ed.audience, provenance === 'event_local_explicit_age' ? 'HIGH' : 'MEDIUM', 'explicit ages: ' + ages.evidence, 'קהל יעד לא ברור', { provenance, scope }); }
     else {
+      // child words with adult words in the same event content ("מתאים גם ... מיועדת למבוגרים בלבד") are a person's call
       const markers = CHILD_MARKERS.filter((m) => evidenceText.includes(m));
-      if (rel === 'ok' && markers.length) { ed.audience = ed.audience && ed.audience !== 'unknown' ? ed.audience : 'family'; set('audience', ed.audience, 'MEDIUM', 'child markers in the event page: ' + markers.slice(0, 4).join(', '), 'קהל יעד לא ברור'); }
-      else if (rel === 'ok' && ['children', 'family'].includes(ed.audience) && (ev || pages.detail?.about)) { set('audience', ed.audience, 'MEDIUM', 'extracted audience ' + ed.audience + ', no adult markers on the event page', 'קהל יעד לא ברור'); }
+      if (rel === 'ok' && markers.length && !ADULT_MARKERS.some((m) => evidenceText.includes(m))) { ed.audience = ed.audience && ed.audience !== 'unknown' ? ed.audience : 'family'; set('audience', ed.audience, 'MEDIUM', 'child markers in the event page: ' + markers.slice(0, 4).join(', '), 'קהל יעד לא ברור', { provenance: 'event_local_child_wording', scope: 'card_or_detail_content' }); }
+      else if (rel === 'ok' && ['children', 'family'].includes(ed.audience) && (ev || pages.detail?.about) && !ADULT_MARKERS.some((m) => evidenceText.includes(m))) { set('audience', ed.audience, 'MEDIUM', 'extracted audience ' + ed.audience + ', no adult markers on the event page', 'קהל יעד לא ברור', { provenance: 'model_inference', scope: 'extraction' }); }
       else unresolved['קהל יעד לא ברור'] = ADULT_MARKERS.some((m) => evidenceText.includes(m)) ? 'adult markers next to the extracted audience - a person decides' : (pages.source ? 'no age / audience evidence on the source, card or detail page' : 'no page evidence');
     }
   }

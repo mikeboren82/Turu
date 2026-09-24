@@ -35,6 +35,9 @@ const ARCHIVE_REASONS = Object.freeze([
   // 0111: a published business / retail / market listing that was never a children's activity (pre-v81
   // auto-publish false positive, now held by autoPublishSafety). Reviewed cohorts only.
   'auto_publish_false_positive_retail',
+  // 0113: published only because site-chrome text (a menu item naming "הגיל הרך") was read as child-age evidence by the
+  // Cleaner's metadata enricher (verify_location pilot #7). Reviewed rows only.
+  'false_child_relevance_site_chrome',
 ]);
 
 const OUTCOME = Object.freeze({

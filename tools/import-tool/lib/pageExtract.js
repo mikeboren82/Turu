@@ -115,11 +115,18 @@ function pageText(html) {
 // The page's CONTENT text, without site chrome. A municipality / venue site prints its OWN address in the footer or
 // header of every page (verify_location pilot 2026-09-24: "חסן שוקרי 14" - Haifa city hall - became the venue of four
 // different Haifa events). Location evidence reads this, not pageText.
-const CHROME = 'footer, header, nav, aside, [role=contentinfo], [role=banner], [role=navigation], #footer, .footer, .site-footer, #header, .site-header';
-function contentText(html) {
+// Metadata evidence (fieldEnricher, 2026-09-24 pilot #7) reads it too: a municipal mega-menu item "רשות הצעירים והגיל
+// הרך" became "ages 0-5" of an evening concert. Mega-menus sit inside header/nav on the sites seen; the class
+// selectors catch the ones that do not.
+const CHROME = 'footer, header, nav, aside, [role=contentinfo], [role=banner], [role=navigation], [role=menu], [role=menubar], #footer, .footer, .site-footer, #header, .site-header, .mega-menu, .megamenu, .mega_menu, .main-menu, .services_menu';
+// { separators: true } keeps element boundaries in the flattened text: cheerio's .text() drops <br> and glues adjacent
+// elements, so the age tags <a>13-18</a><br><a>6-12</a> became "13-186-12". Off by default (location evidence unchanged).
+const SEPARATED = 'p, div, li, dt, dd, tr, td, th, h1, h2, h3, h4, h5, h6, section, article, a, span, label, time';
+function contentText(html, { separators = false } = {}) {
   const $ = cheerio.load(html);
   $('script, style, noscript, svg, input, select, textarea, button').remove();
   $(CHROME).remove();
+  if (separators) { $('br').replaceWith('\n'); $(SEPARATED).each((_, el) => { $(el).append(' '); }); }
   return $('body').text().replace(/[ \t]+/g, ' ').replace(/\n{2,}/g, '\n').trim();
 }
 // the same page as HTML without site chrome (map links in a footer / header are the site owner's, not the event's)

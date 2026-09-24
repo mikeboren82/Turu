@@ -23,7 +23,8 @@ test('TRUST INDEPENDENCE: no trust state (80, is_trusted, a future earned flag) 
   // every automated publish path decides through the ONE canonical policy (2026-09-24), which evaluates content
   // safety for any trust state (tests/publishPolicy.test.js: retail trust 95 / override / earned -> HELD)
   const policy = fs.readFileSync(path.join(__dirname, '../lib/publishPolicy.js'), 'utf8');
-  assert.ok(/const safety = assessAutoPublishSafety\(c,/.test(policy) && !/trusted &&[^\n]*safety/.test(policy), 'canonical policy runs content safety unconditionally');
+  // (2026-09-24: on the candidate minus untrusted Cleaner-enriched ages - withoutUntrustedEnrichment - never behind a trust branch)
+  assert.ok(/const evidence = withoutUntrustedEnrichment\(c\);/.test(policy) && /const safety = assessAutoPublishSafety\(evidence,/.test(policy) &&!/trusted &&[^\n]*safety/.test(policy), 'canonical policy runs content safety unconditionally');
   const handBack = fs.readFileSync(path.join(__dirname, '../cleaner/apply.js'), 'utf8');
   const hb = handBack.slice(handBack.indexOf('async function handBackIncoming('), handBack.indexOf('// A guarded write on an OPEN incoming row'));
   assert.ok(hb.indexOf('evaluateIncomingRow(') > 0 && hb.indexOf('evaluateIncomingRow(') < hb.indexOf('publishIncomingDirect('), 'Cleaner hand-back decides through the canonical evaluator before publication');

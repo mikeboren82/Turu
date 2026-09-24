@@ -12,7 +12,7 @@ test('datesIn: dd.mm.yyyy, dd/mm, year inferred forward, junk ignored, deduped',
 });
 
 test('agesIn: ranges, minimum with plus, early-childhood words, none', () => {
-  assert.deepEqual(agesIn('הצגה לגילאי 3-6'), { min_age: 3, max_age: 6, evidence: 'לגילאי 3-6' });
+  assert.deepEqual(agesIn('הצגה לגילאי 3-6'), { min_age: 3, max_age: 6, evidence: 'לגילאי 3-6', kind: 'explicit_age' });
   assert.equal(agesIn('מגיל 5+').min_age, 5);
   assert.deepEqual(agesIn('סדנה לגיל הרך').min_age, 0);
   assert.equal(agesIn('מופע לכל המשפחה'), null);

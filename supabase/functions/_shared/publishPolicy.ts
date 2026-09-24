@@ -39,6 +39,37 @@ export interface PolicyContext {
 // deno-lint-ignore no-explicit-any
 type Candidate = Record<string, any>;
 
+// Ages / audience written by the Cleaner's metadata enricher (extracted_data.cleaner_fields.audience) are first-party
+// child evidence only with an event-local provenance (cleaner/fieldEnricher.js, 2026-09-24). Before that the enricher
+// read whole pages, and a bare "גיל הרך" / "תינוקות" in a menu, a department name or a footer was stored as HIGH
+// "explicit ages" 0-5 (verify_location pilot #7: an evening concert published as a toddler event). Such a legacy
+// record - or one a reviewer invalidated - is set aside for the relevance and content-safety judgments: the ages it
+// wrote are not evidence. Records with provenance, and ages from the extraction itself,
+// are untouched.
+// The same legacy parser also read clock times as ages ("10:00-22:00" -> "explicit ages: 00 - 22" -> 0-22): a bare
+// range with a leading zero, or one that is not lo < hi <= 18, is not an age either.
+// Only the ages the record wrote are removed; the audience LABEL stays - a label alone never publishes (and clearing it
+// would skip the label's own adult-marker check).
+const LEGACY_BARE_AGE_WORD = /^explicit ages:\s*(?:גיל הרך|לפעוטות|פעוטות|קטנטנים|תינוקות)\s*$/;
+const LEGACY_BARE_RANGE = /^explicit ages:\s*(\d{1,2})\s*[-–]\s*(\d{1,2})\s*$/;
+function untrustedEnrichmentAges(a: Candidate | null | undefined): [number | null, number | null] | null {
+  if (!a || typeof a !== 'object') return null;
+  const ev = String(a.evidence || '');
+  if (a.invalidated === true) return a.previous ? [a.previous.min_age ?? null, a.previous.max_age ?? null] : [0, 5];
+  if (a.provenance) return null;
+  if (LEGACY_BARE_AGE_WORD.test(ev)) return [0, 5];
+  const m = LEGACY_BARE_RANGE.exec(ev);
+  if (m) { const lo = Number(m[1]), hi = Number(m[2]); if (/^0\d/.test(m[1]) || /^0\d/.test(m[2]) || !(lo < hi && hi <= 18)) return [lo, hi]; }
+  return null;
+}
+export function withoutUntrustedEnrichment(c: Candidate): Candidate {
+  const wrote = untrustedEnrichmentAges(c && c.cleaner_fields && c.cleaner_fields.audience);
+  if (!wrote) return c;
+  if (c.min_age == null && c.max_age == null) return c;
+  if (c.min_age !== wrote[0] || (c.max_age ?? null) !== wrote[1]) return c; // not the ages that record wrote
+  return { ...c, min_age: null, max_age: null };
+}
+
 const hold = (code: string, detail?: unknown): PolicyReason => ({ code, severity: 'hold', humanOverridable: true, ...(detail !== undefined ? { detail } : {}) });
 const terminal = (code: string, humanOverridable: boolean, detail?: unknown): PolicyReason => ({ code, severity: 'terminal', humanOverridable, ...(detail !== undefined ? { detail } : {}) });
 
@@ -80,10 +111,11 @@ export function evaluatePublishPolicy(c: Candidate, ctx: PolicyContext): { decis
   if (shape.collapsed) reasons.push(hold('temporal_shape_ambiguous', { signals: shape.signals, evidence: shape.evidence ?? null, span: shape.span ?? null }));
   // who it is for: children's relevance, then positive child evidence for commercial / אחר content
   // (evidence hierarchy: item-local publisher context > item text / ages > the model's audience label)
-  const relevance = childRelevanceEvidence(c);
+  const evidence = withoutUntrustedEnrichment(c);
+  const relevance = childRelevanceEvidence(evidence);
   if (relevance.verdict === 'reject') reasons.push(terminal('relevance_reject', true, relevance.reason));
   else if (relevance.verdict === 'review') reasons.push(hold('relevance_review', relevance.reason));
-  const safety = assessAutoPublishSafety(c, { name: s.name ?? null, url: s.seed_url ?? null });
+  const safety = assessAutoPublishSafety(evidence, { name: s.name ?? null, url: s.seed_url ?? null });
   if (!safety.allow) reasons.push(hold('content_safety', { code: safety.code, evidence: safety.evidence }));
   // who may attend, and is it one actionable thing (re-assessed now; a stored verdict can only add a hold)
   const access = assessAccessType(c);
