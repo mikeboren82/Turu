@@ -4,21 +4,42 @@
 // משנה זהות), ותקרת-עמודים קשיחה. בלי שום ניסיון לעקוף CAPTCHA/הגנות - דף חסום פשוט לא יניב
 // טקסט שימושי ומדולג בשלב החילוץ.
 
-const DISCOVERY_KEYWORDS = [
-  'אירוע', 'אירועים', 'לוח אירועים', 'פעילויות', 'פעילות', 'חוגים', 'קייטנה',
-  'event', 'events', 'calendar', 'activities', 'activity', 'קטגוריה', 'category', 'עמוד', 'page',
+// A bare 'page' / 'עמוד' is NOT evidence: every SharePoint URL has /Pages/ (115 of 573 links, 29 sources, 2026-09-24).
+// Node twin: tools/import-tool/lib/discovery.js - keep behaviourally identical.
+export const DISCOVERY_KEYWORDS = [
+  'אירוע', 'אירועים', 'לוח אירועים', 'פעילויות', 'פעילות', 'חוגים', 'קייטנה', 'הצגות', 'הופעות',
+  'event', 'events', 'calendar', 'activities', 'activity', 'קטגוריה', 'category',
 ];
+// Whole-anchor category labels only: a bare 'ילדים'/'משפחה' substring admits kindergarten registration and welfare pages.
+const KIDS_CATEGORY_LABELS = new Set(['ילדים', 'לילדים', 'ילדים ונוער', 'ילדים ומשפחה', 'הורים וילדים']);
 const PAGINATION_PATTERNS = [/[?&]page=\d+/i, /\/page\/\d+/i, /[?&]p=\d+/i];
+const PAGINATION_TEXT = /(?:^|\s)(?:page|עמוד)\s*\d+(?:\s|$)/i;
+const TRACKING_PARAM = /^(utm_.*|fbclid|gclid)$/i;
+
+// Identity of a page for dedupe: host without www, case-folded path, no trailing slash / fragment / tracking params.
+// Query values are kept verbatim - they often identify distinct event pages.
+export function canonicalPageKey(url: string): string {
+  let u: URL;
+  try { u = new URL(url); } catch { return String(url); }
+  const host = u.hostname.toLowerCase().replace(/^www\./, '');
+  let path = u.pathname.toLowerCase();
+  if (path.length > 1) path = path.replace(/\/+$/, '');
+  const params = [...u.searchParams.entries()].filter(([k]) => !TRACKING_PARAM.test(k));
+  const query = params.length ? '?' + params.map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join('&') : '';
+  return `${host}${path}${query}`;
+}
 
 function sameHost(a: URL, b: URL): boolean {
-  const norm = (h: string) => h.replace(/^www\./, '');
+  const norm = (h: string) => h.replace(/^www\./, '').toLowerCase();
   return norm(a.hostname) === norm(b.hostname);
 }
 
-function looksLikeListingLink(href: string, text: string, base: URL): boolean {
+export function looksLikeListingLink(href: string, text: string): boolean {
   const lowerText = (text || '').toLowerCase();
-  const lowerHref = href.toLowerCase();
+  const lowerHref = (href || '').toLowerCase();
   if (PAGINATION_PATTERNS.some((p) => p.test(lowerHref))) return true;
+  if (PAGINATION_TEXT.test(lowerText.trim())) return true;
+  if (KIDS_CATEGORY_LABELS.has(lowerText.replace(/\s+/g, ' ').trim())) return true;
   return DISCOVERY_KEYWORDS.some((kw) => lowerText.includes(kw.toLowerCase()) || lowerHref.includes(kw.toLowerCase()));
 }
 
@@ -26,7 +47,7 @@ function looksLikeListingLink(href: string, text: string, base: URL): boolean {
 export function discoverListingLinks($: any, baseUrl: string, maxExtraPages: number, maxLinksScanned = 200): string[] {
   const base = new URL(baseUrl);
   const found: string[] = [];
-  const seen = new Set<string>([base.toString()]);
+  const seen = new Set<string>([canonicalPageKey(base.toString())]);
 
   // אתרים רבים מגדירים <base href> שונה מכתובת-העמוד עצמה - קישורים יחסיים (./xxx) חייבים
   // להיפתר מולו, לא מול כתובת ה-seed הגולמית, אחרת מתקבלות כתובות שגויות (נצפה בפועל: קישור
@@ -56,12 +77,12 @@ export function discoverListingLinks($: any, baseUrl: string, maxExtraPages: num
     if (!['http:', 'https:'].includes(absolute.protocol)) return;
     if (!sameHost(absolute, base)) return;
     absolute.hash = '';
-    const key = absolute.toString();
+    const key = canonicalPageKey(absolute.toString());
     if (seen.has(key)) return;
     const text = $el.text() || '';
-    if (!looksLikeListingLink(href, text, base)) return;
+    if (!looksLikeListingLink(href, text)) return;
     seen.add(key);
-    found.push(key);
+    found.push(absolute.toString());
   });
 
   return found.slice(0, maxExtraPages);

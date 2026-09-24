@@ -18,6 +18,7 @@ import categoryValues from './categoryValues.json' with { type: 'json' };
 import categorySemantics from './categorySemantics.json' with { type: 'json' };
 import { classifyFetchFailure, type FailureKind } from './sourceHealth.ts';
 import { accessGuidanceBlock } from './accessType.ts';
+import { canonicalPageKey } from './discovery.ts';
 
 export const CATEGORY_VALUES: string[] = categoryValues.categories;
 
@@ -597,7 +598,7 @@ const CHEAP_LINK_KEYWORDS = ['אירוע', 'פעילויות', 'פעילות', '
 export function cheapDiscoverLinks(html: string, baseUrl: string, maxExtra: number): string[] {
   const base = new URL(baseUrl);
   const norm = (h: string) => h.replace(/^www\./, '');
-  const seen = new Set<string>([base.toString()]);
+  const seen = new Set<string>([canonicalPageKey(base.toString())]);
   const out: string[] = [];
   const re = /<a\b[^>]*href=["']([^"'#]+)["'][^>]*>([\s\S]{0,200}?)<\/a>/gi;
   let m: RegExpExecArray | null;
@@ -608,13 +609,13 @@ export function cheapDiscoverLinks(html: string, baseUrl: string, maxExtra: numb
     try { abs = new URL(m[1], base); } catch { continue; }
     if (!['http:', 'https:'].includes(abs.protocol) || norm(abs.hostname) !== norm(base.hostname)) continue;
     abs.hash = '';
-    const key = abs.toString();
+    const key = canonicalPageKey(abs.toString());
     if (seen.has(key)) continue;
     const text = m[2].replace(/<[^>]+>/g, ' ').toLowerCase();
     const href = m[1].toLowerCase();
     if (!CHEAP_LINK_KEYWORDS.some((k) => text.includes(k) || href.includes(k))) continue;
     seen.add(key);
-    out.push(key);
+    out.push(abs.toString());
   }
   return out;
 }
