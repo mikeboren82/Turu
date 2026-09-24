@@ -14,16 +14,15 @@
 // A repaired incoming row is deduplicated with the ingestion matcher and then published ONLY through
 // POST /api/incoming/:id/approve (fingerprint + place-id guards, venue resolution, provenance, image
 // handling live there).
+// Publish POLICY is not decided here: lib/incomingEligibility.js (the canonical evaluator) decides, 2026-09-24.
 const { normalizeCityName } = require('../cityNaming');
-const { assessChildRelevance } = require('../childRelevance');
-const { assessAutoPublishSafety } = require('../lib/autoPublishSafety');
 const { computeEventFingerprint } = require('../eventFingerprint');
 const { bestMatch, findStandingProgrammeMatch } = require('./matching');
 const { isMissingCity } = require('../lib/canonicalSettlement');
-const { missingTemporalEvidence } = require('../lib/temporalEvidence');
-const { assessAccessType, blocksAutoPublish } = require('../lib/accessType');
 const { assessGranularity } = require('../lib/granularity');
 const { upsertProvenanceSafe } = require('../lib/activitySourceMerge');
+const { evaluateIncomingRow } = require('../lib/incomingEligibility');
+const { verifiedFieldUpdate, OUTCOME: WRITE_OUTCOME } = require('../lib/verifiedWrite');
 
 const SOFT = new Set(['מחיר']);
 const ADMIN_BASE = process.env.ADMIN_BASE || 'http://localhost:4321';
@@ -71,9 +70,13 @@ async function patchIncomingLocation(client, row, loc) {
   return { ...row, extracted_data: ed, validation_issues: issues, status };
 }
 
-// -> { outcome: 'published'|'duplicate_merged'|'possible_update'|'awaiting_policy'|'error', ... }
-// trustedOverride: the Cleaner itself vetted the candidate (settlement_review HIGH decisions) - the
-// source-trust gate does not apply; every other guard (matcher, date, relevance, /approve dedup) does
+// -> { outcome, ... } with explicit outcome codes:
+//   published | duplicate_merged | possible_update | archived (terminal: invalid_event / outside_service_area)
+//   awaiting_policy (the canonical evaluator HELD it; `reasons` are its codes) | already_resolved (the write it
+//   needed was already in place) | resolved_externally (a fresh read shows another process closed the row)
+//   error (a write failed or was denied while the row is still open, or publish was unreachable - retry)
+// trustedOverride: the Cleaner itself vetted the candidate (settlement_review HIGH decisions) - it satisfies
+// the SOURCE-trust gate only; relevance, content safety, access, granularity, dates and dedup all still apply
 async function handBackIncoming(client, row, { settings, userId, cache, today, counters, trustedOverride = false }) {
   const c = row.extracted_data || {};
   const candidate = { name: c.name, city: c.city, location_name: c.location_name || null, pageUrl: row.page_url, venue_id: c.venue_id || null, lat: c.lat ?? null, lng: c.lng ?? null, one_time_date: c.one_time_date || null, recurring_days: c.recurring_days || [], event_fingerprint: c.event_fingerprint || computeEventFingerprint({ name: c.name, venueId: c.venue_id || null, city: c.city, scheduleType: c.schedule_type, oneTimeDate: c.one_time_date, recurringDays: c.recurring_days, startTime: c.start_time }),
@@ -82,8 +85,10 @@ async function handBackIncoming(client, row, { settings, userId, cache, today, c
   const match = await bestMatch(client, candidate, settings.thresholds, cache);
   const now = new Date().toISOString();
   if (match && match.confidence.score >= settings.thresholds.duplicate) {
-    const { data } = await client.from('incoming_activities').update({ status: 'rejected', match_type: 'duplicate', existing_activity_id: match.activity.id, confidence_score: match.confidence.score, confidence_breakdown: match.confidence.breakdown, archive_reason: 'duplicate_of_existing_activity', reject_reason: `כפילות של פעילות קיימת (THE CLEANER, ציון ${match.confidence.score})`, reviewed_at: now }).eq('id', row.id).in('status', OPEN_INCOMING).select('id');
-    if (!data || !data.length) return { outcome: 'resolved_externally' };
+    const w = await guardedIncomingWrite(client, row, { status: 'rejected', match_type: 'duplicate', existing_activity_id: match.activity.id, confidence_score: match.confidence.score, confidence_breakdown: match.confidence.breakdown, archive_reason: 'duplicate_of_existing_activity', reject_reason: `כפילות של פעילות קיימת (THE CLEANER, ציון ${match.confidence.score})`, reviewed_at: now },
+      (r) => r.status === 'rejected' && r.archive_reason === 'duplicate_of_existing_activity' && r.existing_activity_id === match.activity.id);
+    if (!w.done) return w.result;
+    if (w.code === 'already_satisfied') return { outcome: 'already_resolved', activity_id: match.activity.id, why: 'already linked as duplicate' };
     // non-destructive: never downgrades an existing row for this exact page_url on the matched
     // activity (2026-09-22, "Harden activity_sources Merge" - see lib/activitySourceMerge.js)
     await upsertProvenanceSafe(client, match.activity.id, { sourceId: row.source_id, pageUrl: row.page_url, incomingActivityId: row.id, relation: 'seen', lastSeenAt: now });
@@ -93,8 +98,10 @@ async function handBackIncoming(client, row, { settings, userId, cache, today, c
     return { outcome: 'duplicate_merged', activity_id: match.activity.id, score: match.confidence.score, enriched: gain.gained, denied: gain.denied };
   }
   if (match && match.confidence.score >= settings.thresholds.needsReview) {
-    await client.from('incoming_activities').update({ match_type: 'update', existing_activity_id: match.activity.id, confidence_score: match.confidence.score, confidence_breakdown: match.confidence.breakdown, status: 'needs_review' }).eq('id', row.id).in('status', OPEN_INCOMING);
-    return { outcome: 'possible_update', activity_id: match.activity.id, score: match.confidence.score };
+    const w = await guardedIncomingWrite(client, row, { match_type: 'update', existing_activity_id: match.activity.id, confidence_score: match.confidence.score, confidence_breakdown: match.confidence.breakdown, status: 'needs_review' },
+      (r) => r.match_type === 'update' && r.existing_activity_id === match.activity.id && r.status === 'needs_review');
+    if (!w.done) return w.result;
+    return { outcome: 'possible_update', activity_id: match.activity.id, score: match.confidence.score, write: w.code };
   }
   // STANDING PROGRAMME MATCH (Repertoire Phase 1, 2026-09-22): a dated candidate whose generic
   // score falls short (the Train Theater fuzzy-subtitle shape scores ~0.50, below needsReview) but
@@ -113,52 +120,71 @@ async function handBackIncoming(client, row, { settings, userId, cache, today, c
     });
     if (standing) {
       const STANDING_PROGRAMME_SCORE = 0.65; // fixed, documented rule-based score - not a weighted computeConfidence output
-      await client.from('incoming_activities').update({ match_type: 'update', existing_activity_id: standing.id, confidence_score: STANDING_PROGRAMME_SCORE, confidence_breakdown: { standing_programme_match: 1 }, status: 'needs_review' }).eq('id', row.id).in('status', OPEN_INCOMING);
-      return { outcome: 'possible_update', activity_id: standing.id, score: STANDING_PROGRAMME_SCORE, via: 'standing_programme_match' };
+      const w = await guardedIncomingWrite(client, row, { match_type: 'update', existing_activity_id: standing.id, confidence_score: STANDING_PROGRAMME_SCORE, confidence_breakdown: { standing_programme_match: 1 }, status: 'needs_review' },
+        (r) => r.match_type === 'update' && r.existing_activity_id === standing.id && r.status === 'needs_review');
+      if (!w.done) return w.result;
+      return { outcome: 'possible_update', activity_id: standing.id, score: STANDING_PROGRAMME_SCORE, via: 'standing_programme_match', write: w.code };
     }
   }
-  // policy = the same gate reprocess-review-queue.js / the scanner use
-  const { data: src } = await client.from('sources').select('is_trusted, source_trust_score, name, seed_url').eq('id', row.source_id).maybeSingle();
-  const trusted = trustedOverride || !!src?.is_trusted || (src?.source_trust_score != null && Number(src.source_trust_score) >= settings.minTrust);
-  const gating = (row.validation_issues || []).filter((i) => !SOFT.has(i));
-  const maxDate = new Date(Date.now() + settings.maxDaysAhead * 86400000).toISOString().slice(0, 10);
-  const dateOk = c.schedule_type !== 'one_time' || (c.one_time_date && c.one_time_date >= today && c.one_time_date <= maxDate);
-  // ENTITY-TYPE-AWARE gate (2026-09-19): a recurring event without weekdays / an "אירוע" without a
-  // one-time date never becomes approved through the Cleaner's automated hand-back
-  const temporal = missingTemporalEvidence(c);
-  const rel = assessChildRelevance(c);
-  if (rel === 'reject') { await client.from('incoming_activities').update({ status: 'rejected', archive_reason: 'invalid_event', reject_reason: 'קהל יעד למבוגרים (THE CLEANER)', reviewed_at: now }).eq('id', row.id).in('status', OPEN_INCOMING); return { outcome: 'archived', reason: 'invalid_event' }; }
-  // SERVICE AREA (2026-09-19): resolved coordinates inside Palestinian-administered territory end the candidate's life
-  // here - rejected with the geographic evidence, never published, never re-queued (the Monster remembers the reason)
-  if (c.lat != null && c.lng != null) {
+  // DECISION (2026-09-24): the Cleaner resolved evidence; whether the row is publishable NOW is answered by the
+  // canonical evaluator (lib/incomingEligibility.js) on the CURRENT row, source and policy - the same one the
+  // admin approve route re-runs at its write boundary. No trust / relevance / content / access / granularity /
+  // date copy lives here any more. trustedOverride (settlement-review HIGH decisions) satisfies SOURCE trust only.
+  let ev;
+  try { ev = await evaluateIncomingRow(client, row.id, { trustOverride: trustedOverride ? 'cleaner_settlement_review' : null, today: today || undefined }); }
+  catch (e) { return { outcome: 'error', error: 'eligibility evaluation failed: ' + (e.message || e) }; }
+  if (!ev.found) return { outcome: 'resolved_externally', why: 'row_not_found' };
+  const has = (code) => ev.reasons.find((r) => r.code === code);
+  if (has('not_pending')) return { outcome: 'resolved_externally', why: 'status:' + ev.row.status };
+  // terminal outcomes the Cleaner records (same writes as before, now verified)
+  if (has('relevance_reject')) {
+    const w = await guardedIncomingWrite(client, ev.row, { status: 'rejected', archive_reason: 'invalid_event', reject_reason: 'קהל יעד למבוגרים (THE CLEANER)', reviewed_at: now }, (r) => r.status === 'rejected' && r.archive_reason === 'invalid_event');
+    return w.done ? { outcome: 'archived', reason: 'invalid_event', write: w.code } : w.result;
+  }
+  const outside = has('outside_service_area');
+  if (outside) {
     const { classifyServiceArea } = require('../lib/serviceArea');
     const { loadSettlementIndex } = require('../lib/canonicalSettlement');
     let index = null; try { index = await loadSettlementIndex(client); } catch { index = null; }
     const v = classifyServiceArea({ lat: c.lat, lng: c.lng }, { index, reverse: c.cleaner_location?.evidence?.reverse || null, cityHint: c.city || null });
-    if (v.klass === 'OUTSIDE_SERVICE_AREA') {
-      const { data } = await client.from('incoming_activities').update({ status: 'rejected', archive_reason: 'outside_service_area', reject_reason: 'מחוץ לאזור השירות של תורו (THE CLEANER: ' + v.reason + ')', extracted_data: { ...c, service_area: v }, reviewed_at: now }).eq('id', row.id).in('status', OPEN_INCOMING).select('id');
-      if (!data || !data.length) return { outcome: 'resolved_externally' };
-      return { outcome: 'archived', reason: 'outside_service_area', verdict: v };
-    }
+    const w = await guardedIncomingWrite(client, ev.row, { status: 'rejected', archive_reason: 'outside_service_area', reject_reason: 'מחוץ לאזור השירות של תורו (THE CLEANER: ' + v.reason + ')', extracted_data: { ...(ev.row.extracted_data || c), service_area: v }, reviewed_at: now }, (r) => r.status === 'rejected' && r.archive_reason === 'outside_service_area');
+    return w.done ? { outcome: 'archived', reason: 'outside_service_area', verdict: v, write: w.code } : w.result;
   }
-  if (!(trusted && gating.length === 0 && dateOk && !temporal && rel === 'ok')) return { outcome: 'awaiting_policy', why: !trusted ? 'untrusted_source' : gating.length ? 'issues:' + gating.join(',') : !dateOk ? 'date' : temporal ? 'temporal:' + temporal : 'relevance_' + rel };
-  // CONTENT SAFETY (2026-09-24, lib/autoPublishSafety.js): independent of trust - neither the source score nor
-  // trustedOverride (a Cleaner-vetted LOCATION) says the listing is a children's activity. Held, never rejected.
-  const safety = assessAutoPublishSafety(c, { name: src?.name || null, url: src?.seed_url || null });
-  if (!safety.allow) return { outcome: 'awaiting_policy', why: 'content_safety:' + safety.code };
-  // WHO MAY ATTEND (Phase 1): the automated hand-back never answers the access question. A row the
-  // access assessment holds stays in the queue for a human (policy hold, same as temporal evidence).
-  const accessA = assessAccessType(c);
-  if (blocksAutoPublish(accessA)) return { outcome: 'awaiting_policy', why: 'access:' + accessA.access + (accessA.suspicious ? '_suspicious' : '') };
+  const policyWhy = (reasons) => reasons.map((r) => r.code + (typeof r.detail === 'string' ? ':' + r.detail : r.detail && r.detail.code ? ':' + r.detail.code : '')).join(',');
+  if (ev.decision !== 'ELIGIBLE' && !(ev.decision === 'INELIGIBLE' && ev.reasons.every((r) => r.code === 'exact_duplicate'))) {
+    return { outcome: 'awaiting_policy', decision: ev.decision, why: policyWhy(ev.reasons), reasons: ev.reasons.map((r) => r.code) };
+  }
+  // ELIGIBLE (or an exact duplicate, which the approve route links instead of publishing): the canonical publish
+  // path, mode 'auto' - it re-evaluates at its own write boundary and refuses anything not ELIGIBLE by then
   if (!(await adminUp())) return { outcome: 'error', error: 'admin server not reachable at ' + ADMIN_BASE + ' - publish deferred' };
   let res;
-  try { res = await fetch(`${ADMIN_BASE}/api/incoming/${row.id}/approve`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: AbortSignal.timeout(120000) }); }
+  try { res = await fetch(`${ADMIN_BASE}/api/incoming/${row.id}/approve`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode: 'auto' }), signal: AbortSignal.timeout(120000) }); }
   catch (e) { return { outcome: 'error', error: 'approve call failed (' + (e.message || e) + ') - publish deferred' }; } // transient network error: defer, the location is already patched
   const body = await res.json().catch(() => ({}));
+  if (res.status === 409 && body.held) return { outcome: 'awaiting_policy', decision: body.decision, why: policyWhy(body.reasons || []), reasons: (body.reasons || []).map((r) => r.code), via: 'approve_boundary' };
   if (res.status === 409) return { outcome: 'duplicate_merged', activity_id: body.duplicateOf || null, via: 'approve_guard' };
-  if (res.status === 428) return { outcome: 'awaiting_policy', why: 'access:needs_acknowledgement' };
+  if (res.status === 428) return { outcome: 'awaiting_policy', why: body.needs_granularity_acknowledgement ? 'granularity:needs_acknowledgement' : 'access:needs_acknowledgement' };
+  if (res.status === 422 && body.code === 'OUTSIDE_SERVICE_AREA') return { outcome: 'archived', reason: 'outside_service_area', verdict: body.verdict, via: 'approve_guard' };
   if (!res.ok) return { outcome: 'error', error: body.error || ('approve HTTP ' + res.status) };
   return { outcome: 'published', activity_id: body.activityId };
+}
+
+// A guarded write on an OPEN incoming row, fully classified (lib/verifiedWrite.js) - a 0-row result is never
+// guessed at. -> { done: true, code } on SUCCESS / NO_CHANGE_ALREADY_SATISFIED, else { done: false, result }
+// where result is the hand-back outcome: 'resolved_externally' (the fresh row is no longer open - another
+// process decided it) or 'error' (the write failed or was denied while the row is still open: the case must
+// retry, never close). Before 2026-09-24 every 0-row / errored write here read as 'resolved_externally'.
+async function guardedIncomingWrite(client, row, patch, alreadySatisfied) {
+  const r = await verifiedFieldUpdate(client, {
+    table: 'incoming_activities', id: row.id, patch,
+    applyGuard: (q) => q.in('status', OPEN_INCOMING),
+    guardStillHolds: (fresh) => OPEN_INCOMING.includes(fresh.status),
+    alreadySatisfied,
+  });
+  if (r.outcome === WRITE_OUTCOME.SUCCESS) return { done: true, code: 'written' };
+  if (r.outcome === WRITE_OUTCOME.NO_CHANGE_ALREADY_SATISFIED) return { done: true, code: 'already_satisfied' };
+  if (r.outcome === WRITE_OUTCOME.PRECONDITION_CHANGED || r.outcome === WRITE_OUTCOME.ROW_NOT_FOUND) return { done: false, result: { outcome: 'resolved_externally', why: r.outcome === WRITE_OUTCOME.ROW_NOT_FOUND ? 'row_not_found' : 'status:' + (r.row && r.row.status) } };
+  return { done: false, result: { outcome: 'error', error: `incoming write not applied (${r.outcome})${r.error ? ': ' + r.error : ''}` } };
 }
 
 // fill-null enrichment of an existing activity from a candidate (never overwrites)

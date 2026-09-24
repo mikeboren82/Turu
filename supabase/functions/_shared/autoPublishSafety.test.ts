@@ -21,9 +21,11 @@ Deno.test("trust never enters the decision: the verdict is the same for any sour
   }
 });
 
-Deno.test("scan-source: autoApproveEligible evaluates content safety BEFORE and independently of trust", async () => {
+Deno.test("scan-source: content safety is part of the canonical policy autoApproveEligible delegates to, independent of trust", async () => {
   const src = await Deno.readTextFile(new URL("../scan-source/index.ts", import.meta.url));
   const fn = src.slice(src.indexOf("function autoApproveEligible("), src.indexOf("async function autoApproveNewActivity("));
-  assert(fn.indexOf("assessAutoPublishSafety(") > 0 && fn.indexOf("assessAutoPublishSafety(") < fn.indexOf("const trusted ="));
+  assert(fn.includes("evaluatePublishPolicy("));
+  const policy = await Deno.readTextFile(new URL("./publishPolicy.ts", import.meta.url));
+  assert(/const safety = assessAutoPublishSafety\(c,/.test(policy) && !/trusted &&[^\n]*safety/.test(policy));
   assert(/if \(!safety\.allow && !issues\.includes\(SAFETY_ISSUE_LABEL\)\) \{ issues\.push\(SAFETY_ISSUE_LABEL\)/.test(src), "held candidates carry the gating label");
 });

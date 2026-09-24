@@ -17,7 +17,7 @@ import Anthropic from 'npm:@anthropic-ai/sdk@0.32';
 import * as cheerio from 'npm:cheerio@1.0.0';
 import {
   buildExtractionSystemPrompt, extractCandidateImages, parseExtractionResponse,
-  filterPastOneTimeActivities, isPlausibleEventDate, looksLikeStaleRepost, fetchHtml, pageTextForExtraction,
+  filterPastOneTimeActivities, looksLikeStaleRepost, fetchHtml, pageTextForExtraction,
   missingTemporalEvidence, repairEntityTypeFromSchedule, TEMPORAL_ISSUE_LABEL,
   assessChildRelevance, AUDIENCE_VALUES, cheapPageText, cheapDiscoverLinks, HEAVY_HTML_BYTES,
   EXTRACTION_MODEL, EXTRACTION_MAX_TOKENS, PAGE_TEXT_CHAR_LIMIT, MAX_TEXT_CHUNKS, splitTextForExtraction,
@@ -50,6 +50,7 @@ import { reconfirmExistingFromPending, type PendingReviewRow } from '../_shared/
 import { applyMissingAccounting, scopeKey, type PageScope, type MissingSummary } from '../_shared/missingScope.ts';
 import { substantiveIssues, priceCompleteness, classifyUpdateDiff, farFutureDeferUntil } from '../_shared/intakePolicy.ts';
 import { assessAutoPublishSafety, SAFETY_ISSUE_LABEL } from '../_shared/autoPublishSafety.ts';
+import { evaluatePublishPolicy } from '../_shared/publishPolicy.ts';
 
 // Largest HTML document we are willing to parse per page (see the CPU-guard note in the page loop).
 const MAX_HTML_BYTES = 1_500_000;
@@ -86,25 +87,13 @@ function isCommitmentActivity(candidate: { entity_type: unknown; category: unkno
 //   (6) ENTITY-TYPE-AWARE temporal evidence (2026-09-19): a recurring event carries its weekdays, an
 //       "אירוע" a one-time date - an evergreen place needs none (missingTemporalEvidence).
 // Everything else lands in the review queue with its confidence/trust visible to the admin.
+// Since 2026-09-24 the rules live in ONE place, _shared/publishPolicy.ts (Node twin lib/publishPolicy.js used by
+// the admin approve route, the evaluate route, the Cleaner hand-back and reprocess-review-queue.js): content
+// safety independent of trust, trust, open issues, place, temporal evidence, date window, stale repost,
+// relevance, access, granularity. The location is then verified inside autoApproveNewActivity.
 interface AutoApproveGate { minTrust: number; maxDaysAhead: number; today: string }
 function autoApproveEligible(candidate: Record<string, unknown>, issues: string[], source: { is_trusted: boolean | null; source_trust_score: number | null; name?: string | null; seed_url?: string | null }, gate: AutoApproveGate): boolean {
-  // (0) CONTENT SAFETY first and independently of trust: trust says how much we believe the publisher, never
-  //     whether this listing is a children's activity (_shared/autoPublishSafety.ts)
-  if (!assessAutoPublishSafety(candidate, { name: source.name ?? null, url: source.seed_url ?? null }).allow) return false;
-  const trusted = !!source.is_trusted || (source.source_trust_score != null && Number(source.source_trust_score) >= gate.minTrust);
-  if (!trusted || issues.length > 0 || !candidate.city || !candidate.location_name) return false;
-  if (missingTemporalEvidence(candidate)) return false;
-  // (7) ACCESS (Phase 1): only 'public' may auto-publish; private_group / mixed / suspicious unknown
-  //     wait for a human. An ordinary unknown keeps today's behaviour.
-  if (blocksAutoPublish(assessAccessType(candidate))) return false;
-  // (8) GRANULARITY (Phase 1, 2026-09-22): only 'independent' may auto-publish; a wrapper/index row
-  //     or a sub-area/zone (not_independent OR uncertain) waits for a human - never auto-rejected,
-  //     never auto-published. See _shared/granularity.ts for the full doctrine.
-  const granularityVerdict = (candidate.granularity_evidence as { verdict?: string } | undefined)?.verdict;
-  if (granularityVerdict && granularityVerdict !== 'independent') return false;
-  if (candidate.schedule_type === 'one_time' && !isPlausibleEventDate(candidate.one_time_date as string | null, gate.today, gate.maxDaysAhead)) return false;
-  if (looksLikeStaleRepost(candidate as { schedule_type?: string | null; one_time_date?: string | null; source_published_date?: string | null }, gate.today)) return false;
-  return true;
+  return evaluatePublishPolicy(candidate, { source, issues, today: gate.today, minTrust: gate.minTrust, maxDaysAhead: gate.maxDaysAhead }).decision === 'ELIGIBLE';
 }
 
 // מקביל-בפועל ל-saveNewActivity ב-tools/import-tool/server.js (אותה תוצאה: location+activity+

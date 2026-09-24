@@ -43,13 +43,14 @@ test('evergreen places and OSM/Google playgrounds stay valid without any schedul
 });
 
 test('the Cleaner hand-back never publishes a trusted candidate that lacks its temporal evidence (policy hold, explained)', async () => {
+  const row = { id: 'i1', source_id: 's1', page_url: 'https://x/y', status: 'new', match_type: 'new', validation_issues: [], extracted_data: { name: 'חוג יצירה לילדים', city: 'חולון', location_name: 'מתנ״ס', lat: 32.01, lng: 34.77, entity_type: 'פעילות', schedule_type: 'recurring', recurring_days: [], audience: 'children' } };
+  // the hand-back decides through the canonical evaluator, which re-reads the CURRENT row
   const client = { from: (table) => { const chain = new Proxy({}, { get(_o, k) {
-    if (k === 'maybeSingle') return () => Promise.resolve({ data: table === 'sources' ? { is_trusted: true, source_trust_score: 95 } : null, error: null });
+    if (k === 'maybeSingle') return () => Promise.resolve({ data: table === 'sources' ? { is_trusted: true, source_trust_score: 95 } : table === 'incoming_activities' ? row : null, error: null });
     if (k === 'then') return (res) => res({ data: [], error: null });
     return () => chain;
   } }); return chain; } };
   const settings = { thresholds: { duplicate: 0.9, needsReview: 0.6, proximityKm: 0.15 }, minTrust: 80, maxDaysAhead: 180 };
-  const row = { id: 'i1', source_id: 's1', page_url: 'https://x/y', status: 'new', validation_issues: [], extracted_data: { name: 'חוג יצירה לילדים', city: 'חולון', location_name: 'מתנ״ס', lat: 32.01, lng: 34.77, entity_type: 'פעילות', schedule_type: 'recurring', recurring_days: [], audience: 'children' } };
   const r = await handBackIncoming(client, row, { settings, userId: 'u', cache: new Map(), today: '2026-09-19', counters: null });
-  assert.equal(r.outcome, 'awaiting_policy'); assert.equal(r.why, 'temporal:recurring_without_days');
+  assert.equal(r.outcome, 'awaiting_policy'); assert.ok(r.reasons.includes('missing_temporal_evidence')); assert.match(r.why, /missing_temporal_evidence:recurring_without_days/);
 });

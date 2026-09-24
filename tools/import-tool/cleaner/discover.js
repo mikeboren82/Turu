@@ -158,11 +158,40 @@ async function upsertCases(client, candidates) {
     if (error) throw new Error('cleaner_cases upsert: ' + error.message);
     created += (data || []).length;
   }
-  // cases whose subject no longer has the issue (fixed by a human / the scanner) => resolved(external)
+  // cases whose subject no longer has the issue => resolved, with the REAL reason (2026-09-24). This used to write
+  // 'resolved_externally' for every one - including incoming rows whose issue vanished because THE CLEANER itself
+  // patched the location and whose hand-back then never completed (3 open, eligible rows closed that way).
   const wanted = new Set(candidates.map(key));
   const stale = known.filter((k) => k.status === 'open' && !wanted.has(key(k)));
-  for (const k of stale) await client.from('cleaner_cases').update({ status: 'resolved', resolution: { outcome: 'resolved_externally' }, resolved_at: new Date().toISOString(), updated_at: new Date().toISOString() }).match({ subject_kind: k.subject_kind, subject_id: k.subject_id, issue: k.issue });
-  return { created, existing, closedExternally: stale.length, skippedByConstraint };
+  const incIds = [...new Set(stale.filter((k) => k.subject_kind === 'incoming').map((k) => k.subject_id))];
+  const incRows = new Map();
+  for (let i = 0; i < incIds.length; i += 150) {
+    const { data, error } = await client.from('incoming_activities').select('id, status, cleaner_location:extracted_data->cleaner_location').in('id', incIds.slice(i, i + 150));
+    if (error) throw new Error('stale-case subject read: ' + error.message);
+    for (const r of data || []) incRows.set(r.id, r);
+  }
+  const outcomes = {};
+  for (const k of stale) {
+    const resolution = staleCaseResolution(k.subject_kind, k.subject_kind === 'incoming' ? (incRows.get(k.subject_id) || null) : undefined);
+    outcomes[resolution.outcome] = (outcomes[resolution.outcome] || 0) + 1;
+    await client.from('cleaner_cases').update({ status: 'resolved', resolution, resolved_at: new Date().toISOString(), updated_at: new Date().toISOString() }).match({ subject_kind: k.subject_kind, subject_id: k.subject_id, issue: k.issue });
+  }
+  return { created, existing, closedExternally: stale.length, staleOutcomes: outcomes, skippedByConstraint };
 }
 
-module.exports = { discoverCases, upsertCases, all, BASE_PRIORITY, MIGRATION_GATED_ISSUES };
+// why an open case's issue disappeared -> its resolution (explicit codes, pure):
+//   resolved_externally  the incoming row was decided / removed by another process (or a non-incoming subject)
+//   handback_pending     the row is still OPEN and carries the Cleaner's own location patch: resolved evidence
+//                        whose publication decision is still owed (the canonical evaluator decides it later -
+//                        never assumed done)
+//   issue_cleared        the row is still open and something other than the Cleaner fixed the data (a rescan)
+const OPEN_INCOMING_STATUSES = ['new', 'needs_review', 'failed'];
+function staleCaseResolution(subjectKind, row) {
+  if (subjectKind !== 'incoming') return { outcome: 'resolved_externally' };
+  if (!row) return { outcome: 'resolved_externally', why: 'row_not_found' };
+  if (!OPEN_INCOMING_STATUSES.includes(row.status)) return { outcome: 'resolved_externally', why: 'status:' + row.status };
+  if (row.cleaner_location) return { outcome: 'handback_pending', why: 'open row carries the Cleaner location patch; publication not decided' };
+  return { outcome: 'issue_cleared', why: 'open row no longer shows the issue' };
+}
+
+module.exports = { discoverCases, upsertCases, all, BASE_PRIORITY, MIGRATION_GATED_ISSUES, staleCaseResolution };

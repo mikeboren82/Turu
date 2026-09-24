@@ -1,0 +1,36 @@
+{
+  "_doc": "Shared table for the canonical publish policy (Deno _shared/publishPolicy.ts, Node lib/publishPolicy.js). Each case = the BASE candidate/context with overrides; expect = decision, humanApprovable and the exact reason codes in order.",
+  "today": "2026-09-24",
+  "minTrust": 80,
+  "maxDaysAhead": 180,
+  "base": {
+    "c": { "name": "סדנת יצירה לילדים", "description": "סדנת יצירה לילדים בגילאי 4-8", "category": "יצירה", "entity_type": "אירוע", "schedule_type": "one_time", "one_time_date": "2026-10-10", "city": "חולון", "location_name": "מתנ\"ס נווה ארזים", "audience": "children", "lat": 32.01, "lng": 34.77 },
+    "source": { "is_trusted": false, "source_trust_score": 85, "name": "עיריית חולון - לוח אירועים", "seed_url": "https://www.holon.muni.il/events" },
+    "issues": ["מחיר"],
+    "row": { "status": "new", "match_type": "new", "deferred_until": null }
+  },
+  "cases": [
+    { "id": "eligible_clean_row", "expect": ["ELIGIBLE", true, []] },
+    { "id": "intake_without_row", "row": null, "expect": ["ELIGIBLE", true, []] },
+    { "id": "untrusted_source", "source": { "source_trust_score": 60 }, "expect": ["HELD", true, ["untrusted_source"]] },
+    { "id": "trust_override_satisfies_source_trust_only", "source": { "source_trust_score": 60 }, "trustOverride": "cleaner_settlement_review", "expect": ["ELIGIBLE", true, []] },
+    { "id": "retail_tenant_trust_95", "source": { "source_trust_score": 95, "name": "קניון כפר סבא הירוקה - לוח אירועים", "seed_url": "https://mall.example/events" }, "c": { "name": "מקדונלדס", "description": "רשת מקדונלד׳ס המציעה תפריט לכל המשפחה", "category": "אחר", "entity_type": "מקום_קבוע", "schedule_type": "fixed_hours", "one_time_date": null, "audience": "family", "location_name": "קניון כפר סבא הירוקה", "city": "כפר סבא" }, "expect": ["HELD", true, ["content_safety"]] },
+    { "id": "retail_tenant_with_trust_override_and_earned_trust", "source": { "is_trusted": true, "source_trust_score": 100, "name": "קניון כפר סבא הירוקה - לוח אירועים", "seed_url": "https://mall.example/events", "auto_publish_earned": true }, "trustOverride": "cleaner_settlement_review", "c": { "name": "מקדונלדס", "description": "רשת מקדונלד׳ס המציעה תפריט לכל המשפחה", "category": "אחר", "entity_type": "מקום_קבוע", "schedule_type": "fixed_hours", "one_time_date": null, "audience": "family", "location_name": "קניון כפר סבא הירוקה", "city": "כפר סבא" }, "expect": ["HELD", true, ["content_safety"]] },
+    { "id": "mall_kids_workshop", "source": { "source_trust_score": 80, "name": "קניון כפר סבא הירוקה - לוח אירועים", "seed_url": "https://mall.example/events" }, "c": { "location_name": "קניון כפר סבא הירוקה", "city": "כפר סבא" }, "expect": ["ELIGIBLE", true, []] },
+    { "id": "other_category_now_held", "c": { "category": "אחר", "description": "סדנה לילדים" }, "expect": ["HELD", true, ["content_safety"]] },
+    { "id": "relevance_review", "c": { "name": "מפגש פתוח", "description": "מפגש פתוח בספרייה", "category": "פעילות קהילתית", "audience": "unknown" }, "expect": ["HELD", true, ["relevance_review"]] },
+    { "id": "relevance_reject", "c": { "name": "הרצאה על השקעות", "description": "הרצאה למבוגרים בלבד", "category": "פעילות קהילתית", "audience": "adults" }, "expect": ["INELIGIBLE", true, ["relevance_reject"]] },
+    { "id": "access_hold", "c": { "offering_access_type": "private_group" }, "expect": ["HELD", true, ["access"]] },
+    { "id": "granularity_stored_verdict", "c": { "granularity_evidence": { "verdict": "uncertain" } }, "expect": ["HELD", true, ["granularity"]] },
+    { "id": "missing_temporal_evidence", "c": { "entity_type": "אירוע_קבוע", "schedule_type": "recurring", "recurring_days": [], "one_time_date": null }, "expect": ["HELD", true, ["missing_temporal_evidence"]] },
+    { "id": "date_beyond_window", "c": { "one_time_date": "2027-06-01" }, "expect": ["HELD", true, ["date_outside_window"]] },
+    { "id": "expired", "c": { "one_time_date": "2026-09-01" }, "expect": ["INELIGIBLE", false, ["expired"]] },
+    { "id": "multi_occurrence_last_date_ahead_not_expired", "c": { "one_time_date": "2026-09-01", "occurrences": [{ "date": "2026-09-01" }, { "date": "2026-10-10" }] }, "expect": ["HELD", true, ["date_outside_window"]] },
+    { "id": "deferred_row", "c": { "one_time_date": "2027-06-01" }, "row": { "status": "new", "match_type": "new", "deferred_until": "2026-12-03" }, "expect": ["HELD", true, ["deferred", "date_outside_window"]] },
+    { "id": "open_substantive_issue", "issues": ["מחיר", "עיר"], "expect": ["HELD", true, ["open_issues"]] },
+    { "id": "no_place", "c": { "city": null }, "expect": ["HELD", true, ["no_place"]] },
+    { "id": "stale_repost", "c": { "source_published_date": "2024-01-01" }, "expect": ["HELD", true, ["stale_repost"]] },
+    { "id": "not_pending", "row": { "status": "approved", "match_type": "new", "deferred_until": null }, "expect": ["INELIGIBLE", false, ["not_pending"]] },
+    { "id": "update_row_is_not_auto_publishable", "row": { "status": "needs_review", "match_type": "update", "deferred_until": null }, "expect": ["HELD", true, ["not_a_new_candidate"]] }
+  ]
+}

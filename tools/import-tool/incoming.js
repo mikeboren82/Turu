@@ -355,7 +355,7 @@ function renderIncomingPage() {
     let failCount = 0, needsDecision = 0;
     for (const id of ids) {
       try {
-        const res = await fetch('/api/incoming/' + id + '/approve', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+        const res = await fetch('/api/incoming/' + id + '/approve', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode: 'human' }) });
         // bulk never decides access on the reviewer's behalf - such items are skipped and counted
         if (res.status === 428) { needsDecision++; continue; }
         if (!res.ok) throw new Error();
@@ -437,7 +437,7 @@ function renderIncomingPage() {
   async function approveItem(id, btn, acknowledgedAccessType, acknowledgedGranularity) {
     btn.disabled = true;
     try {
-      const body = {};
+      const body = { mode: 'human' }; // a reviewer's click (see the approve route's mode contract)
       if (acknowledgedAccessType) body.acknowledged_access_type = acknowledgedAccessType;
       if (acknowledgedGranularity) body.acknowledged_granularity = acknowledgedGranularity;
       const res = await fetch('/api/incoming/' + id + '/approve', {

@@ -35,6 +35,7 @@ const { computeEventFingerprint } = require('./eventFingerprint');
 const { computeEventKey } = require('./lib/eventIdentity');
 const { planScheduleChange, occurrencesPersisted, normalizeOccurrence, occKey } = require('./lib/occurrences');
 const { israelToday } = require('./lib/intakePolicy');
+const { evaluateIncomingRow, approvalBlockers } = require('./lib/incomingEligibility');
 // best-effort future duplicate-candidate detection (2026-09-21 activation) - see the module header
 // for why this can never fail the ingestion it runs after.
 const { detectFutureDuplicates, isMaterialIdentityChange } = require('./lib/futureDuplicateDetection');
@@ -2835,6 +2836,20 @@ app.get('/api/incoming', async (req, res) => {
   }
 });
 
+// READ-ONLY eligibility: evaluates the CURRENT row with the canonical rules (lib/incomingEligibility.js) and
+// returns the decision + machine-readable reasons. No publish, no write, no status change - safe to repeat.
+app.post('/api/incoming/:id/evaluate', async (req, res) => {
+  try {
+    const { client } = await getClient();
+    const ev = await evaluateIncomingRow(client, req.params.id);
+    if (!ev.found) return res.status(404).json({ error: 'הפריט לא נמצא', decision: ev.decision, reasons: ev.reasons });
+    res.json({ id: ev.id, decision: ev.decision, humanApprovable: ev.humanApprovable, reasons: ev.reasons, policy: ev.policy, status: ev.row.status, match_type: ev.row.match_type });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || 'שגיאה בהערכת הזכאות' });
+  }
+});
+
 // "אשר" - מסלול שונה לפי match_type: new יוצר פעילות חדשה (saveNewActivity, אותה זרימה בדיוק
 // כמו הוספת-תוכן ידנית); update מחיל את ה-diff על הפעילות הקיימת (applyIncomingUpdate).
 // duplicate/missing/expired לא "מאשרים" (אין מה ליצור/לעדכן) - יש להם פעולות ייעודיות משלהם.
@@ -2847,6 +2862,18 @@ app.post('/api/incoming/:id/approve', async (req, res) => {
     if (!item) return res.status(404).json({ error: 'הפריט לא נמצא' });
     if (!['new', 'needs_review'].includes(item.status)) {
       return res.status(400).json({ error: 'לא ניתן לאשר פריט במצב "' + item.status + '"' });
+    }
+
+    // CANONICAL ELIGIBILITY at the write boundary (lib/incomingEligibility.js) - the same evaluator as
+    // POST /evaluate, the Cleaner hand-back and reprocess-review-queue.js, re-run here immediately before any
+    // publish. mode 'auto' (the default for every programmatic caller) publishes only an ELIGIBLE row; mode
+    // 'human' (the admin inbox) is the reviewer's decision on trust / relevance / content / metadata holds,
+    // but never on a terminal rule (an expired event). Access and granularity keep their acknowledgement flow.
+    const mode = req.body && req.body.mode === 'human' ? 'human' : 'auto';
+    const evaluation = await evaluateIncomingRow(client, id);
+    const blockers = approvalBlockers(evaluation, mode);
+    if (blockers.length) {
+      return res.status(409).json({ held: true, mode, decision: evaluation.decision, reasons: evaluation.reasons, blockers: blockers.map((r) => r.code), error: 'לא ניתן לפרסם כעת: ' + blockers.map((r) => r.code).join(', ') });
     }
 
     if (item.match_type === 'new') {

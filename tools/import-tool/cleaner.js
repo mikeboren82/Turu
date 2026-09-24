@@ -134,7 +134,9 @@ async function processCase(client, c, ctx) {
         if (DRY) return { outcome: 'dry:' + (r.remaining.length ? 'partial' : 'closed'), method: r.filled.join(',') || '-', error: Object.entries(r.unresolved || {}).map(([k, v]) => k + '=' + v).join('; ') };
         if (r.filled.length) {
           counters.fieldsFilled += r.filled.length; gain(counters, r.filled.map(() => 'metadataFieldsAdded'));
-          if (!r.remaining.length) { m.fullyClosed++; counters.resolved++; const patched = await loadIncoming(client, row.id); const hb = await handBackIncoming(client, patched, ctx); if (hb.outcome === 'published') { counters.published++; gain(counters, ['incomingPromoted']); } else if (hb.outcome === 'duplicate_merged') { counters.duplicatesMerged++; gain(counters, ['duplicatesMerged']); } else if (hb.outcome === 'awaiting_policy') counters.policyHold++; return resolveOrDry(client, c, { outcome: hb.outcome, filled: r.filled, fields: r.fields, handback: hb }); }
+          // a hand-back ERROR (write failed / publish path unreachable) retries like the location path does - it must
+          // never close the case while the row stays open (2026-09-24: an orphaned "resolved_externally" row, קפה מלגות)
+          if (!r.remaining.length) { m.fullyClosed++; const patched = await loadIncoming(client, row.id); const hb = await handBackIncoming(client, patched, ctx); if (hb.outcome === 'error') return markFail(client, c, { method: r.tried, error: hb.error, settings }); counters.resolved++; if (hb.outcome === 'published') { counters.published++; gain(counters, ['incomingPromoted']); } else if (hb.outcome === 'duplicate_merged') { counters.duplicatesMerged++; gain(counters, ['duplicatesMerged']); } else if (hb.outcome === 'awaiting_policy') counters.policyHold++; return resolveOrDry(client, c, { outcome: hb.outcome, filled: r.filled, fields: r.fields, handback: hb }); }
           m.partial++;
         }
         const rr = await markFail(client, c, { method: r.tried, error: 'still missing: ' + r.remaining.join(',') + (Object.keys(r.unresolved || {}).length ? ' | ' + Object.entries(r.unresolved).map(([k, v]) => k + ': ' + v).join('; ').slice(0, 220) : ''), settings, evidence: { remaining: r.remaining, filled: r.filled, unresolved: r.unresolved } });
@@ -394,8 +396,8 @@ async function cycleBody(client, userId, ctx) {
   if (!args['reopen-only'] && !args.case) {
     const { candidates, stats } = await discoverCases(client, { today });
     const up = DRY ? { created: candidates.length, existing: 0, closedExternally: 0 } : await upsertCases(client, candidates);
-    counters.discovered = up.created; counters.closedExternally = up.closedExternally;
-    console.log(`discover: ${candidates.length} candidate issues ${JSON.stringify(stats)} -> new cases ${up.created}, existing ${up.existing}, closed externally ${up.closedExternally}`);
+    counters.discovered = up.created; counters.closedExternally = up.closedExternally; counters.staleOutcomes = up.staleOutcomes || {};
+    console.log(`discover: ${candidates.length} candidate issues ${JSON.stringify(stats)} -> new cases ${up.created}, existing ${up.existing}, closed stale ${up.closedExternally} ${JSON.stringify(up.staleOutcomes || {})}`);
   }
   if (!args['discover-only'] && !args.case) {
     const ro = DRY ? { reopened: 0, scanned: 0 } : await reopenWhereEvidenceChanged(client);
