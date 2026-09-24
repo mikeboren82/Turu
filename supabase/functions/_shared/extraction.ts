@@ -19,6 +19,7 @@ import categorySemantics from './categorySemantics.json' with { type: 'json' };
 import { classifyFetchFailure, type FailureKind } from './sourceHealth.ts';
 import { accessGuidanceBlock } from './accessType.ts';
 import { canonicalPageKey } from './discovery.ts';
+import { trustedAges } from './ageEvidence.ts';
 
 export const CATEGORY_VALUES: string[] = categoryValues.categories;
 
@@ -405,8 +406,16 @@ const SUBSCRIPTION_MARKERS = new Set(['מנוי', 'סדרת']);
 export type ChildRelevanceVerdict = 'reject' | 'review' | 'ok';
 export function childRelevanceEvidence(candidate: { audience?: unknown; name?: unknown; description?: unknown; min_age?: unknown; max_age?: unknown; category?: unknown; source_context?: unknown }): { verdict: ChildRelevanceVerdict; reason: string } {
   const text = `${candidate.name ?? ''} ${candidate.description ?? ''}`.toLowerCase();
-  const explicitChildAge = hasExplicitChildAge(text) || (typeof candidate.max_age === 'number' && candidate.max_age <= 12);
-  const hasChild = CHILD_MARKERS.some((m) => text.includes(m.toLowerCase())) || (typeof candidate.max_age === 'number' && candidate.max_age <= 18) || (typeof candidate.min_age === 'number' && candidate.min_age <= 12) || explicitChildAge;
+  // AGES (2026-09-24, trusted age evidence - ageEvidence twin): an age PROVES child relevance only when event-local
+  // source text states it (the item's title, its bound card, its detail-page content, an event-local Cleaner record).
+  // The model's own min/max and an age phrase in the model-written description are metadata, not proof. A raw
+  // min_age >= 18 stays adult evidence below - an adult age is never hidden because its provenance is weak.
+  const ages = trustedAges(candidate);
+  const explicitChildAge = hasExplicitChildAge(`${candidate.name ?? ''}`.toLowerCase()) || (ages != null && typeof ages.max_age === 'number' && ages.max_age <= 12);
+  const hasChild = CHILD_MARKERS.some((m) => text.includes(m.toLowerCase())) || (ages != null && ((typeof ages.max_age === 'number' && ages.max_age <= 18) || (typeof ages.min_age === 'number' && ages.min_age <= 12))) || explicitChildAge;
+  // an UNVERIFIED child age (the model's numbers, an age phrase in the model-written description) proves nothing, but
+  // it keeps an adult-looking row reviewable - at intake a reject is a silent drop ("קורס שחייה" + model 5-10)
+  const unverifiedChildAge = (typeof candidate.max_age === 'number' && candidate.max_age <= 18) || (typeof candidate.min_age === 'number' && candidate.min_age <= 12) || hasExplicitChildAge(text);
   const strongChild = explicitChildAge || STRONG_CHILD_MARKERS.some((m) => text.includes(m.toLowerCase()));
   // an explicit min_age>=18 is adult evidence on its own, independent of marker text - closes a gap
   // exposed by escape rooms (many operators run an explicit 18+ room alongside kid-friendly ones with
@@ -416,8 +425,8 @@ export function childRelevanceEvidence(candidate: { audience?: unknown; name?: u
   const context = sourceContextAudience(candidate.source_context);
   const hardAdult = ADULT_MARKERS.some((m) => !SUBSCRIPTION_MARKERS.has(m) && text.includes(m.toLowerCase())) || (typeof candidate.min_age === 'number' && candidate.min_age >= 18);
   // an "adults" label contradicted by an explicit child age is reviewable, never silently dropped
-  if (candidate.audience === 'adults') return explicitChildAge ? { verdict: 'review', reason: 'adult_label_vs_child_age' } : { verdict: 'reject', reason: 'adult_label' };
-  if (hasAdult && !hasChild) return { verdict: 'reject', reason: 'adult_marker' };
+  if (candidate.audience === 'adults') return explicitChildAge || unverifiedChildAge ? { verdict: 'review', reason: 'adult_label_vs_child_age' } : { verdict: 'reject', reason: 'adult_label' };
+  if (hasAdult && !hasChild) return unverifiedChildAge ? { verdict: 'review', reason: 'adult_marker_with_unverified_age' } : { verdict: 'reject', reason: 'adult_marker' };
   if (context === 'adult' && !strongChild) return { verdict: 'review', reason: 'first_party_adult_context' };
   // the item's own publisher label says children and the item carries child evidence: subscription words are not adult
   if (context === 'child' && hasChild && !hardAdult) return { verdict: 'ok', reason: 'child_evidence' };

@@ -25,13 +25,18 @@ Deno.test('applyDetailEvidence: fill-null only, provenance fields, image host ru
   const ev = extractDetailEvidence(html, '2026-09-14');
   const c: Record<string, unknown> = { name: 'שעת סיפור מומחזת', schedule_type: 'one_time', one_time_date: null, start_time: null, address: null, min_age: null, max_age: null, audience: 'unknown', price_type: null, price_amount: null, image_urls: [] };
   const filled = applyDetailEvidence(c, ev, 'https://www.givatayim.muni.il/events/10281/', 'givatayim.muni.il');
-  assertEquals(filled, ['address', 'one_time_date', 'start_time', 'ages', 'audience', 'price', 'image']);
+  assertEquals(filled, ['address', 'one_time_date', 'start_time', 'age_evidence', 'ages', 'audience', 'price', 'image']);
+  // the page CONTENT stated the age: trusted age evidence (ageEvidence.ts), not a model number
+  assertEquals(c.age_evidence, { provenance: 'detail_content', evidence: 'לגילאי 3-6', scope: 'detail_page', min_age: 3, max_age: 6, model_agrees: null });
   assertEquals(c.address, 'יבניאלי 30'); assertEquals(c.one_time_date, '2026-09-21'); assertEquals(c.audience, 'children'); assertEquals(c.price_amount, 0);
   assertEquals((c.images as { needs_rights_review: boolean }[])[0].needs_rights_review, false);
   assertEquals(c.detail_url, 'https://www.givatayim.muni.il/events/10281/');
   const keep: Record<string, unknown> = { name: 'x', schedule_type: 'one_time', one_time_date: '2026-10-01', start_time: '10:00', address: 'אחר 1', min_age: 8, audience: 'family', price_type: 'fixed', price_amount: 30, image_urls: ['https://a/b.jpg'] };
-  assertEquals(applyDetailEvidence(keep, ev, 'https://x/y', 'x'), []);
-  assertEquals(keep.one_time_date, '2026-10-01');
+  // nothing is overwritten; the page's own age statement is still RECORDED as trusted age evidence (the model's 8
+  // disagrees with the page's 3-6 - for relevance the page wins, the stored min_age stays the listing's)
+  assertEquals(applyDetailEvidence(keep, ev, 'https://x/y', 'x'), ['age_evidence']);
+  assertEquals(keep.one_time_date, '2026-10-01'); assertEquals(keep.min_age, 8);
+  assertEquals((keep.age_evidence as { model_agrees: boolean }).model_agrees, false);
 });
 
 Deno.test('detailLinkFor: the link whose text names the candidate', () => {

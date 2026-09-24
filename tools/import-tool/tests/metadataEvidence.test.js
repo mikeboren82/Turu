@@ -152,8 +152,12 @@ test('E. a perfectly located row cannot publish on legacy chrome-derived ages: H
   const r = evaluatePublishPolicy(legacy, ctx);
   assert.equal(r.decision, 'HELD');
   assert.deepEqual(r.reasons.map((x) => x.code), ['relevance_review']);
-  // without the guard the same row was ELIGIBLE (the pilot #7 publication)
-  assert.equal(evaluatePublishPolicy({ ...legacy, cleaner_fields: { audience: { ...legacy.cleaner_fields.audience, provenance: 'event_local_explicit_age' } } }, ctx).decision, 'ELIGIBLE');
+  // (aade680's guard alone let this through once the record merely CLAIMED an event-local provenance; since the trusted-
+  // age rule the evidence string itself must parse to an age - bare "גיל הרך" does not - and the row's 0-5 are the
+  // model's / legacy numbers, not proof)
+  assert.equal(evaluatePublishPolicy({ ...legacy, cleaner_fields: { audience: { ...legacy.cleaner_fields.audience, provenance: 'event_local_explicit_age' } } }, ctx).decision, 'HELD');
+  // a genuinely event-local Cleaner record still proves it
+  assert.equal(evaluatePublishPolicy({ ...legacy, cleaner_fields: { audience: { value: 'children', evidence: 'explicit ages: לגיל הרך', confidence: 'MEDIUM', provenance: 'event_local_child_wording' } } }, ctx).decision, 'ELIGIBLE');
 });
 
 test('an invalidated enrichment record is set aside too; event-local provenance and extraction ages are kept', () => {

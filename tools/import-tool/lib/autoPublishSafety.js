@@ -2,6 +2,8 @@
 // rules; tests/autoPublishSafety.test.js asserts parity). Independent of source trust: a trusted publisher's
 // tenant directory is still not a children's activity. Used by the Cleaner hand-back and
 // reprocess-review-queue.js - every automated publish path outside scan-source.
+const { trustedAges } = require('./ageEvidence');
+
 const SAFETY_ISSUE_LABEL = 'רלוונטיות לילדים לא הוכחה';
 
 const STRONG_CHILD_WORDS = ['ילדים', 'ילדה', 'לילד', 'פעוט', 'תינוק', 'גיל הרך', 'קטנטנים', 'בייבי', 'הורה וילד', 'הצגת ילדים', 'תיאטרון ילדים', 'שעת סיפור', 'סדנת יצירה', 'קייטנה', 'מתנפחים', 'קוסם', 'ליצן', 'משחקייה', "ג'ימבורי", 'ג׳ימבורי', 'גני ילדים'];
@@ -24,11 +26,16 @@ function hasExplicitChildAge(text) {
 
 const str = (v) => (typeof v === 'string' ? v : '');
 
+// explicit child ages - the SAME trusted-age rule as the relevance gate (ageEvidence twin, 2026-09-24): an age the
+// source states for this item (title / bound card / detail-page content / event-local Cleaner record), or an age
+// phrase in the item's own title. Never the model's min/max alone, never the model-written description: category
+// 'אחר', a promotion or a mall item cannot pass because the model guessed 0-5.
 function childAgeEvidence(c) {
-  const min = typeof c.min_age === 'number' ? c.min_age : null, max = typeof c.max_age === 'number' ? c.max_age : null;
+  const t = trustedAges(c);
+  const min = t ? t.min_age : null, max = t ? t.max_age : null;
   if (max != null && max <= 12) return `ages ${min ?? '?'}-${max}`;
   if (min != null && min <= 12 && max != null && max <= 16) return `ages ${min}-${max}`;
-  if (hasExplicitChildAge(`${str(c.name)} ${str(c.description)}`)) return 'age phrase in text';
+  if (hasExplicitChildAge(str(c.name))) return 'age phrase in title';
   return null;
 }
 function strongChildWords(c) {

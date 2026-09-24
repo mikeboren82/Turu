@@ -62,7 +62,9 @@ Deno.test("assessChildRelevance: adult events from mixed municipal calendars are
   assertEquals(assessChildRelevance({ audience: "unknown", name: "שעת סיפור בספרייה", description: "לגילאי 3-6" }), "ok");
   assertEquals(assessChildRelevance({ audience: "unknown", name: "אהבה מודרנית", description: "מופע" }), "review");
   assertEquals(assessChildRelevance({ audience: "family", name: "פסטיבל הקוסם מארץ עוץ" }), "ok");
-  assertEquals(assessChildRelevance({ audience: "unknown", name: "יוגה", min_age: 4, max_age: 8 }), "ok");
+  // (2026-09-24 trusted age evidence) the model's own 4-8 proves nothing; the same ages stated by the item's card do
+  assertEquals(assessChildRelevance({ audience: "unknown", name: "יוגה", min_age: 4, max_age: 8 }), "review");
+  assertEquals(assessChildRelevance({ audience: "unknown", name: "יוגה", min_age: 4, max_age: 8, age_evidence: { provenance: "event_local_explicit_age", evidence: "לגילאי 4-8", scope: "listing_card", min_age: 4, max_age: 8, model_agrees: true } } as Record<string, unknown>), "ok");
 });
 
 Deno.test("repairUnescapedQuotes escapes a quoted word inside a string, leaves valid JSON alone", () => {

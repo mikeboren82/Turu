@@ -15,12 +15,13 @@
 // / extractAddressCandidates) - keep in lockstep.
 import { parseJsonLdEvents, applyJsonLdToCandidate, isSinglePlace, type JsonLdEvent } from './jsonld.ts';
 import { containsScore } from './detailLinks.ts';
+import { agesIn } from './ageEvidence.ts';
 
 export interface Occurrence { date: string; start_time: string | null; end_time: string | null; external_id: string | null; booking_url: string | null; evidence: string }
 export interface PriceTier { label: string; amount: number }
 export interface DetailEvidence {
   events: JsonLdEvent[]; ogImage: string | null; addressText: string | null; date: string | null; time: string | null;
-  ages: { min_age: number; max_age: number | null; evidence: string } | null;
+  ages: { min_age: number; max_age: number | null; evidence: string; kind: 'explicit_age' | 'child_wording' } | null;
   price: { price_type: 'free' | 'fixed'; price_amount: number | null; tiers: PriceTier[]; evidence: string } | null;
   occurrences: Occurrence[];
   registrationUrl: string | null; // explicit event-level booking action only (never the detail page itself)
@@ -32,7 +33,6 @@ const CHILD = ['ילדים', 'לילד', 'פעוט', 'תינוק', 'משפחה',
 const ADULT = ['הרצאה', 'סטנדאפ', 'מנוי', 'גיל הזהב', 'ותיקים', 'גמלאים', 'למבוגרים בלבד', '18+', 'ערב נשים', 'טעימות יין'];
 const DATE_RE = /\b(\d{1,2})[./](\d{1,2})(?:[./](\d{2,4}))?\b/g;
 const TIME_RE = /\b([01]?\d|2[0-3]):([0-5]\d)\b/;
-const AGE_RE = /(?:גילאי|לגילאי|לגיל|גיל|בני)\s*(\d{1,2})\s*(?:[-–עד]+\s*(\d{1,2}))?\s*(\+)?/;
 
 // --- Hebrew textual dates: the only form that may produce OCCURRENCES (specific enough: month name +
 // 4-digit year, optional weekday). Loose dd.mm matches (footers, publication dates) never do.
@@ -45,6 +45,17 @@ const BOOKING_TEXT = /רכישה|לרכישה|לרכישת כרטיסים|להז
 const MAX_OCCURRENCES = 40;
 const MAX_DAYS_AHEAD = 365;
 
+// The page's CONTENT: site chrome (header / nav / footer / aside, ARIA banner / navigation / contentinfo landmarks)
+// removed before any AUDIENCE, AGE, ADDRESS or PRICE evidence is read - a municipal menu item "רשות הצעירים והגיל הרך"
+// or a footer address belongs to the site, not the event (verify_location pilot #7; the Cleaner's lib/pageExtract
+// contentText is the same rule). Regex, not a DOM (heavy pages): a nested same-tag landmark can survive partly, and the
+// age parser refuses bare "גיל הרך" wording anyway. Dates / occurrences still read the whole page: an <article>'s own
+// <header> often carries the event's date.
+export function contentOf(html: string): string {
+  return html
+    .replace(/<(header|nav|footer|aside)\b[\s\S]*?<\/\1>/gi, ' ')
+    .replace(/<(div|section|ul)\b[^>]*\brole=["'](?:navigation|banner|contentinfo|menu|menubar)["'][^>]*>[\s\S]*?<\/\1>/gi, ' ');
+}
 function textOf(html: string): string {
   return html.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>|<noscript[\s\S]*?<\/noscript>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
 }
@@ -196,20 +207,21 @@ export function extractDetailEvidence(html: string, today: string, opts: { baseU
   const title = (/<title[^>]*>([^<]*)<\/title>/i.exec(html) || [])[1]?.trim() || '';
   const heading = textOf((/<h1[^>]*>([\s\S]*?)<\/h1>/i.exec(html) || [])[1] || '');
   const text = textOf(html).slice(0, 12000);
-  const addrs = extractAddressCandidates(text, opts.city || null);
+  const content = textOf(contentOf(html)).slice(0, 12000);
+  const addrs = extractAddressCandidates(content, opts.city || null);
   const dates = datesIn(text.slice(0, 3000), today);
   const t = TIME_RE.exec(text.slice(0, 3000));
-  const a = AGE_RE.exec(text);
+  const a = agesIn(content);
   const occurrences = extractOccurrences(html, text, today, opts.baseUrl || null);
   const occUrls = new Set(occurrences.map((o) => o.booking_url).filter(Boolean) as string[]);
-  const lower = text.toLowerCase();
+  const lower = content.toLowerCase();
   return {
     events, ogImage: og ? og[1] : null, addressText: addrs[0] || null,
     date: occurrences.length === 1 ? occurrences[0].date : (occurrences.length ? null : (dates.length === 1 ? dates[0] : null)),
     time: occurrences.length === 1 && occurrences[0].start_time ? occurrences[0].start_time : (t ? `${t[1].padStart(2, '0')}:${t[2]}` : null),
-    // RTL sites write ranges backwards ("לגילאי 4 -2"): the smaller number is always the minimum
-    ages: a ? { min_age: a[2] ? Math.min(Number(a[1]), Number(a[2])) : Number(a[1]), max_age: a[2] ? Math.max(Number(a[1]), Number(a[2])) : null, evidence: a[0] } : (/גיל הרך|לפעוטות|קטנטנים/.test(text) ? { min_age: 0, max_age: 5, evidence: 'גיל הרך' } : null),
-    price: extractPriceTiers(text), occurrences,
+    // the shared age parser (ageEvidence twin): bound ages / bound toddler wording only; reversed RTL ranges normalized
+    ages: a ? { min_age: a.min_age, max_age: a.max_age, evidence: a.evidence, kind: a.kind } : null,
+    price: extractPriceTiers(content), occurrences,
     registrationUrl: eventLevelBookingUrl(html, opts.baseUrl || null, occUrls),
     childMarkers: CHILD.filter((w) => lower.includes(w)).length, adultMarkers: ADULT.filter((w) => lower.includes(w)).length, title, heading,
   };
@@ -252,6 +264,13 @@ export function applyDetailEvidence(candidate: Record<string, any>, ev: DetailEv
   } else {
     if (candidate.schedule_type === 'one_time' && !candidate.one_time_date && ev.date) { candidate.one_time_date = ev.date; filled.push('one_time_date'); }
     if (candidate.schedule_type === 'one_time' && !candidate.start_time && ev.time) { candidate.start_time = ev.time; filled.push('start_time'); }
+  }
+  // an age the detail page CONTENT states is trusted age evidence (ageEvidence.ts) - recorded even when the listing
+  // extraction already had ages, so the model's numbers are either corroborated or overridden for relevance purposes
+  if (ev.ages && ev.ages.min_age <= 18) {
+    const hadAge = typeof candidate.min_age === 'number' || typeof candidate.max_age === 'number';
+    candidate.age_evidence = { provenance: 'detail_content', evidence: ev.ages.evidence, scope: 'detail_page', min_age: ev.ages.min_age, max_age: ev.ages.max_age, model_agrees: hadAge ? (candidate.min_age ?? null) === ev.ages.min_age && (candidate.max_age ?? null) === ev.ages.max_age : null };
+    filled.push('age_evidence');
   }
   if (ev.ages && candidate.min_age == null && ev.ages.min_age <= 18) { candidate.min_age = ev.ages.min_age; if (candidate.max_age == null && ev.ages.max_age != null) candidate.max_age = ev.ages.max_age; filled.push('ages'); if (!candidate.audience || candidate.audience === 'unknown') { candidate.audience = ev.ages.max_age != null && ev.ages.max_age <= 12 ? 'children' : 'family'; filled.push('audience'); } }
   else if ((!candidate.audience || candidate.audience === 'unknown') && ev.childMarkers >= 2 && ev.adultMarkers === 0) { candidate.audience = 'family'; filled.push('audience'); }

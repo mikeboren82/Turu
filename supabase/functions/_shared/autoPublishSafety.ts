@@ -12,6 +12,7 @@
 // model's family_fit ("מתאים לילד ולהורה") is the same boilerplate. autoApproveEligible had no category check.
 // So: the model's audience / family_fit labels and generic family wording are NOT evidence here.
 import { hasExplicitChildAge } from './extraction.ts';
+import { trustedAges } from './ageEvidence.ts';
 
 export const SAFETY_ISSUE_LABEL = 'רלוונטיות לילדים לא הוכחה';
 
@@ -39,18 +40,23 @@ const PROMO_RE = new RegExp(`${B}(?:מבצע|הנחה|הנחות|קופון|שו
 const MARKET_RE = new RegExp(`${B}(?:ה|ב)?(?:שוק|יריד|מרקט|market)${E}`, 'i');
 const openingWords = (s: string, n = 3) => s.trim().split(/\s+/).slice(0, n).join(' ');
 
-export interface SafetyCandidate { name?: unknown; description?: unknown; category?: unknown; entity_type?: unknown; min_age?: unknown; max_age?: unknown; location_name?: unknown }
+export interface SafetyCandidate { name?: unknown; description?: unknown; category?: unknown; entity_type?: unknown; min_age?: unknown; max_age?: unknown; location_name?: unknown; age_evidence?: unknown; cleaner_fields?: unknown }
 export interface SafetySource { name?: string | null; url?: string | null }
 export interface SafetyVerdict { allow: boolean; code: string; commercialContext: boolean; evidence: string[] }
 
 const str = (v: unknown) => (typeof v === 'string' ? v : '');
 
-// explicit child ages: numeric ages that end in childhood, or an age phrase ("לגילאי 3-6") in the text
+// explicit child ages - the SAME trusted-age rule as the relevance gate (ageEvidence twin, 2026-09-24): an age the
+// source states for this item (title / bound card / detail-page content / event-local Cleaner record), or an age
+// phrase in the item's own title. Never the model's min/max alone, never the model-written description: category
+// 'אחר', a promotion or a mall item cannot pass because the model guessed 0-5.
 export function childAgeEvidence(c: SafetyCandidate): string | null {
-  const min = typeof c.min_age === 'number' ? c.min_age : null, max = typeof c.max_age === 'number' ? c.max_age : null;
+  // deno-lint-ignore no-explicit-any
+  const t = trustedAges(c as Record<string, any>);
+  const min = t ? t.min_age : null, max = t ? t.max_age : null;
   if (max != null && max <= 12) return `ages ${min ?? '?'}-${max}`;
   if (min != null && min <= 12 && max != null && max <= 16) return `ages ${min}-${max}`;
-  if (hasExplicitChildAge(`${str(c.name)} ${str(c.description)}`)) return 'age phrase in text';
+  if (hasExplicitChildAge(str(c.name))) return 'age phrase in title';
   return null;
 }
 export function strongChildWords(c: SafetyCandidate): string[] {

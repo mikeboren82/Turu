@@ -169,12 +169,24 @@ function cardHasDate(card: ListingCard, iso: string): boolean {
   const t = card.text;
   return new RegExp(`(^|\\D)0?${d}\\s+ב?${HE_MONTHS[m - 1]}`).test(t) || new RegExp(`(^|\\D)0?${d}[./]0?${m}([./]|\\D|$)`).test(t);
 }
-export function itemSourceContext(cards: ListingCard[], c: { name?: unknown; description?: unknown; location_name?: unknown; one_time_date?: unknown }, audienceOf: (sc: unknown) => string | null): SourceContext | null {
-  const name = normT(c.name); if (name.length < 3) return null;
+// the item's OWN card(s): same title (or a card line that is the title), narrowed by the item's date when repeated
+function matchedCards(cards: ListingCard[], c: { name?: unknown; one_time_date?: unknown }): ListingCard[] {
+  const name = normT(c.name); if (name.length < 3) return [];
   let matched = cards.filter((k) => normT(k.title) === name || k.text.split('\n').some((l) => normT(l) === name));
-  if (!matched.length) return null;
   const date = typeof c.one_time_date === 'string' ? c.one_time_date : null;
   if (date && matched.length > 1) { const onDate = matched.filter((k) => cardHasDate(k, date)); if (onDate.length) matched = onDate; }
+  return matched;
+}
+// the text of the item's own card - item-local age evidence at intake (ageEvidence.ts). Several differing cards for
+// the title and no date to pick one: none (a neighbour's "גיל 4" is not this item's age).
+export function boundCardText(cards: ListingCard[], c: { name?: unknown; one_time_date?: unknown }): string | null {
+  const matched = matchedCards(cards, c);
+  if (!matched.length) return null;
+  return new Set(matched.map((k) => k.text)).size === 1 ? matched[0].text : null;
+}
+export function itemSourceContext(cards: ListingCard[], c: { name?: unknown; description?: unknown; location_name?: unknown; one_time_date?: unknown }, audienceOf: (sc: unknown) => string | null): SourceContext | null {
+  const matched = matchedCards(cards, c);
+  if (!matched.length) return null;
   const sets = matched.map((k) => cardLabels(k, c));
   if (sets.length > 1) {
     // several cards for this title and no single one bound by date: usable only when they all say the same thing

@@ -33,7 +33,8 @@ import { extractJsonLdEvents, applyJsonLdToCandidate, type JsonLdEvent } from '.
 import { findEventDetailLinks, findEventDetailLinksCheap, detailLinkFor, sharedLinkUrls, type DetailLink, type DetailMatch, type DetailTraversalConfig } from '../_shared/detailLinks.ts';
 import { extractDetailEvidence, applyDetailEvidence, detailPageNamesCandidate } from '../_shared/detailEvidence.ts';
 import { parseSitemapUrls, orderForIncrementalScan, isSitemapIndex, type SitemapConfig } from '../_shared/sitemap.ts';
-import { enumerateListingCards, cardAccounting, cardWindows, cardsLookLikeEvents, itemSourceContext, type ListingCard } from '../_shared/listingCards.ts';
+import { enumerateListingCards, cardAccounting, cardWindows, cardsLookLikeEvents, itemSourceContext, boundCardText, type ListingCard } from '../_shared/listingCards.ts';
+import { ageEvidenceFor } from '../_shared/ageEvidence.ts';
 import { hintCategory } from '../_shared/categoryHints.ts';
 // SERVICE AREA (product decision 2026-09-19): a candidate whose verified coordinates fall inside Palestinian-
 // administered territory is stopped at the earliest point that has coordinates (before any activity row exists),
@@ -930,6 +931,17 @@ Deno.serve(async (req: Request) => {
           // ITEM-LOCAL publisher context (the item's own card labels) - first-party evidence the relevance gate ranks above
           // the model's audience label; persisted with the candidate so every later evaluation (Cleaner, reprocess, approve) sees it
           if (!candidate.source_context && pageCards.length) { const sc = itemSourceContext(pageCards, candidate, sourceContextAudience); if (sc) candidate.source_context = sc; }
+          // TRUSTED AGE EVIDENCE (2026-09-24, _shared/ageEvidence.ts): does the item's OWN source text state an age - its
+          // title or its bound listing card (a detail page's content already recorded one in applyDetailEvidence)? Only a
+          // stated age may prove child relevance; the model's own numbers are recorded as provenance 'model' and stay on
+          // the row as metadata. A stated age fills an age the model left empty (fill-null).
+          if (!candidate.age_evidence || candidate.age_evidence.provenance === 'model') {
+            const ae = ageEvidenceFor(candidate, { cardText: pageCards.length ? boundCardText(pageCards, candidate) : null });
+            if (ae) {
+              candidate.age_evidence = ae;
+              if (ae.provenance !== 'model' && candidate.min_age == null && candidate.max_age == null) { candidate.min_age = ae.min_age; candidate.max_age = ae.max_age; }
+            }
+          }
           const relevance = assessChildRelevance(candidate);
           if (relevance === 'reject') { counters.rejectedCount++; listing.rejected_adult++; continue; }
           if (relevance === 'review') issues.push('קהל יעד לא ברור');

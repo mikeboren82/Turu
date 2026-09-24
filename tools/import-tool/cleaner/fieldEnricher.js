@@ -63,61 +63,8 @@ function datesIn(text, today) {
   }
   return [...new Set(out)];
 }
-// Explicit age evidence (rewritten 2026-09-24 after verify_location pilot #7, where the municipal menu item "רשות
-// הצעירים והגיל הרך" made an evening concert "ages 0-5"). Callers pass event-local CONTENT text only (pageBundle):
-//   1. an age word bound to numbers: "גילאי 3-6", "לגילאי 4+", "מגיל 5", "לבני 8-12", "גילאי 6-12, 13-18"
-//   2. a bare number range that is an age range - not a date ("10-12.10", "2026-10-06"), a time ("10:00-12:00"), a
-//      phone number, opening hours ("בשעות 10-12"), grades or a price - with lo < hi <= 18: "6-12", "13–18". Tags that
-//      lost their separator ("13-186-12") split into their ranges. Ranges printed together (<= 40 chars apart) are
-//      ONE audience -> their union (Turu stores a single min_age..max_age span); a later, separate range (another
-//      event on the same page) is not merged in.
-//   3. early-childhood WORDING bound to the event: "לגיל הרך", "בגיל הרך", "לפעוטות", "הורה ופעוט" -> 0-5.
-//      The bare phrase "גיל הרך" is NOT evidence: it names departments and menu sections ("רשות הצעירים והגיל הרך",
-//      "תחום הגיל הרך"), and a department noun right before the bound form ("האגף לגיל הרך") is refused too.
-const HEB = '֐-׿';
-const AGE_WORD_RE = new RegExp(`(?<![${HEB}])(?:גילאי|לגילאי|בגילאי|לגיל|בגיל|מגיל|גיל|לבני|בני)\\s*(\\d{1,2})(?:\\s*(?:[-–]|עד)\\s*(\\d{1,2}))?(\\s*\\+)?`, 'g');
-const RANGE_RE = /(\d{1,2})\s*[-–]\s*(\d{1,2})/g;
-const NOT_AGE_BEFORE_RE = /(?:שעות|בשעות|השעות|שעה|כיתות|כיתה|עמ'|₪|ש"ח|שקל|מחיר|טל'|טלפון)\s*$/;
-const TODDLER_WORDING_RE = new RegExp(`(?<![${HEB}])(?:[לב]גיל הרך|לפעוטות|לתינוקות|לקטנטנים|הורה ופעוט|הורה ותינוק|הורים ופעוטות|הורים ותינוקות)(?![${HEB}])`, 'g');
-const DEPARTMENT_BEFORE_RE = /(?:אגף|האגף|מחלקת|מחלקה|המחלקה|רשות|הרשות|תחום|מינהלת|מנהלת|המינהלת|יחידת|יחידה|היחידה|מדור|לשכת|רכזת|רכז|מנהל|מינהל|המנהל|המינהל|עמותת|העמותה|ועדת|הוועדה|מרכז|המרכז|פורום|תוכנית|התוכנית)\s*$/;
-function ageRangesIn(text) {
-  const t = text || '', found = [];
-  for (const m of t.matchAll(AGE_WORD_RE)) {
-    const lo = Number(m[1]), hi = m[2] != null ? Number(m[2]) : null;
-    if (lo > 18 || (hi != null && hi < lo)) continue;
-    found.push({ at: m.index, end: m.index + m[0].length, min: lo, max: hi, evidence: m[0].trim() });
-  }
-  let lastEnd = -1;
-  for (const m of t.matchAll(RANGE_RE)) {
-    const lo = Number(m[1]), hi = Number(m[2]), end = m.index + m[0].length;
-    if (m.index !== lastEnd && /[\d:./\-–]/.test(t[m.index - 1] || '')) continue; // inside a longer number / date / time
-    if (/^[:./\-–]\d/.test(t.slice(end, end + 2))) continue; // a date / time / phone number continues
-    if (!(lo < hi && hi <= 18)) continue;
-    if (NOT_AGE_BEFORE_RE.test(t.slice(Math.max(0, m.index - 12), m.index))) continue;
-    lastEnd = end;
-    if (found.some((f) => m.index >= f.at && end <= f.end)) continue; // already part of "גילאי 6-12"
-    found.push({ at: m.index, end, min: lo, max: hi, evidence: m[0].replace(/\s+/g, '') });
-  }
-  found.sort((a, b) => a.at - b.at);
-  const cluster = [];
-  for (const f of found) { if (cluster.length && f.at - cluster[cluster.length - 1].end > 40) break; cluster.push(f); }
-  return cluster;
-}
-// -> { min_age, max_age, evidence, kind: 'explicit_age' | 'child_wording' } | null
-function agesIn(text) {
-  const t = text || '';
-  const ranges = ageRangesIn(t);
-  if (ranges.length) {
-    const open = ranges.some((r) => r.max == null); // "מגיל 5", "4+"
-    const maxes = ranges.map((r) => r.max).filter((x) => x != null);
-    return { min_age: Math.min(...ranges.map((r) => r.min)), max_age: open || !maxes.length ? null : Math.max(...maxes), evidence: ranges.map((r) => r.evidence).join(', '), kind: 'explicit_age' };
-  }
-  for (const m of t.matchAll(TODDLER_WORDING_RE)) {
-    if (DEPARTMENT_BEFORE_RE.test(t.slice(Math.max(0, m.index - 20), m.index))) continue;
-    return { min_age: 0, max_age: 5, evidence: m[0], kind: 'child_wording' };
-  }
-  return null;
-}
+// explicit age evidence: ONE parser for every path (lib/ageEvidence.js, twin of _shared/ageEvidence.ts)
+const { agesIn } = require('../lib/ageEvidence');
 
 async function pageBundle(client, row, ed, cache) {
   const out = { source: null, detail: null, detailUrl: null, card: null };
