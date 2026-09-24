@@ -63,7 +63,10 @@ export function seriesRemainders(a: string | null | undefined, b: string | null 
   if (pa.length < 2 || pb.length < 2) return null;
   const head = normalizeForMatch(pa[0]);
   if (!head || head !== normalizeForMatch(pb[0])) return null;
-  const ra = pa.slice(1).join(' '), rb = pb.slice(1).join(' ');
+  // niqqud / cantillation marks are spelling, not identity ("טָארוֹ גּוֹמִי" = "טארו גומי") - stripped for the remainder
+  // comparison only (normalizeForMatch itself feeds event fingerprints and is left unchanged)
+  const plain = (x: string) => x.replace(/[֑-ׇ]/g, '');
+  const ra = plain(pa.slice(1).join(' ')), rb = plain(pb.slice(1).join(' '));
   // "שלגיה - מחזמר": a genre-only remainder means the head IS the title, not a series name
   const distinctive = (t: string) => normalizeForMatch(t).split(' ').some((w) => w.length > 1 && !GENRE_WORDS.has(w) && !/^\d+$/.test(w));
   if (!distinctive(ra) || !distinctive(rb)) return null;

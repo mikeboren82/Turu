@@ -109,4 +109,7 @@ test('matching mirror: festival sub-events sharing a series prefix are not the s
   assert.equal(seriesRemainders('שלגיה - מחזמר', 'שלגיה - הצגה'), null, 'genre-only remainder: the head is the title');
   assert.equal(seriesRemainders('שעת סיפור 11:00', 'שעת סיפור 11:30'), null, 'a time is not a separator');
   assert.equal(seriesRemainders('פסטיבל א: סיור', 'פסטיבל ב: סיור'), null, 'different heads are not one series');
+  // live regression guard (the only one of 1,402 duplicate rows the rule touched): niqqud is spelling, not identity
+  const [x, y] = seriesRemainders('״כולם עושים קקי״ - מאת טָארוֹ גּוֹמִי', '״כולם עושים קקי״ - מאת טארו גומי');
+  assert.equal(x, y);
 });

@@ -317,4 +317,6 @@ Deno.test("series prefix: festival sub-events on one listing are not the same ev
   assert(same.score >= thresholds.duplicate);
   assertEquals(seriesRemainders("שלגיה - מחזמר", "שלגיה - הצגה"), null);
   assertEquals(seriesRemainders("שעת סיפור 11:00", "שעת סיפור 11:30"), null);
+  const r = seriesRemainders("״כולם עושים קקי״ - מאת טָארוֹ גּוֹמִי", "״כולם עושים קקי״ - מאת טארו גומי");
+  assertEquals(r?.[0], r?.[1]);
 });
