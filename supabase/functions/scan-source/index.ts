@@ -45,6 +45,8 @@ import { computeEventKey, findEventMatch, type EventKeyKind } from '../_shared/e
 import { fetchJsonApiText, type JsonApiConfig } from '../_shared/adapters.ts';
 import { computeContentHash } from '../_shared/hashing.ts';
 import { detectFutureDuplicates } from '../_shared/duplicateCandidates.ts';
+import { recordProvenance } from '../_shared/provenance.ts';
+import { reconfirmExistingFromPending, type PendingReviewRow } from '../_shared/reconfirmation.ts';
 
 // Largest HTML document we are willing to parse per page (see the CPU-guard note in the page loop).
 const MAX_HTML_BYTES = 1_500_000;
@@ -252,34 +254,6 @@ async function autoApproveNewActivity(
   if (images.length) await client.from('activity_images').insert(images);
 
   return { id: activityId, lat: finalLat, lng: finalLng };
-}
-
-// Provenance row for every detection (created / seen / updated) - idempotent on (activity, page_url).
-// url_role (0091) says WHAT the page is: 'listing' (discovery/calendar page), 'detail' (the event's own
-// page), 'booking', 'other'. A listing URL is never event identity; only a verified detail URL may be.
-type UrlRole = 'listing' | 'detail' | 'booking' | 'other';
-async function recordProvenance(client: Client, params: { activityId: string; sourceId: string; pageUrl: string; incomingId: string | null; relation: 'created' | 'seen' | 'updated'; urlRole?: UrlRole }) {
-  const now = new Date().toISOString();
-  // URL ROLES reach the product (0097): provenance is admin-only, so the VERIFIED event-detail page is also
-  // kept on the canonical record, fill-null. It is what the app opens when no explicit booking action is
-  // known (official_url > detail_url > source_url) - never the listing, and never written into official_url.
-  if (params.urlRole === 'detail' && /^https?:\/\//i.test(params.pageUrl)) {
-    await client.from('activities').update({ detail_url: params.pageUrl }).eq('id', params.activityId).is('detail_url', null);
-  }
-  const { data: existing } = await client.from('activity_sources').select('id, relation, url_role')
-    .eq('activity_id', params.activityId).eq('page_url', params.pageUrl).maybeSingle();
-  if (existing) {
-    // never downgrade the historical 'created' relation when the same page re-detects the activity
-    const rel = (existing as { relation: string }).relation === 'created' ? 'created' : params.relation;
-    const patch: Record<string, unknown> = { last_seen_at: now, relation: rel, source_id: params.sourceId };
-    if (params.urlRole && !(existing as { url_role: string | null }).url_role) patch.url_role = params.urlRole;
-    await client.from('activity_sources').update(patch).eq('id', (existing as { id: string }).id);
-    return;
-  }
-  await client.from('activity_sources').insert({
-    activity_id: params.activityId, source_id: params.sourceId, page_url: params.pageUrl,
-    incoming_activity_id: params.incomingId, relation: params.relation, url_role: params.urlRole || null, first_seen_at: now, last_seen_at: now,
-  });
 }
 
 const CORS_HEADERS = {
@@ -540,7 +514,7 @@ Deno.serve(async (req: Request) => {
   // DENSE-LISTING RECALL FUNNEL (wave 2): DOM cards detected -> extractor output -> past filter ->
   // accounted cards -> bounded recovery -> rejections / folding / cap. Stored per scan in
   // source_scan_logs.listing_metrics (0095) so recall is a number, not an impression.
-  const listing = { pages_with_cards: 0, cards_detected: 0, ai_returned: 0, past_filtered: 0, cards_matched: 0, cards_unaccounted: 0, recovery_calls: 0, recovered: 0, rejected_no_name: 0, rejected_commitment: 0, rejected_adult: 0, twins_folded: 0, capped: 0, skipped_in_scan_duplicate: 0, skipped_pending_in_queue: 0, outside_service_area: 0, skipped_outside_service_area: 0, identity_backfilled: 0, updates_superseded: 0, recovery_error: null as string | null, recovery_skipped: null as string | null, sitemap: null as null | { entities: number; never_scanned: number; picked: number; error?: string }, sample_unaccounted: [] as string[] };
+  const listing = { pages_with_cards: 0, cards_detected: 0, ai_returned: 0, past_filtered: 0, cards_matched: 0, cards_unaccounted: 0, recovery_calls: 0, recovered: 0, rejected_no_name: 0, rejected_commitment: 0, rejected_adult: 0, twins_folded: 0, capped: 0, skipped_in_scan_duplicate: 0, skipped_pending_in_queue: 0, reconfirmed_pending_review: 0, reconfirm_withheld: {} as Record<string, number>, identity_backfilled: 0, updates_superseded: 0, recovery_error: null as string | null, recovery_skipped: null as string | null, sitemap: null as null | { entities: number; never_scanned: number; picked: number; error?: string }, outside_service_area: 0, skipped_outside_service_area: 0, sample_unaccounted: [] as string[] };
   const RECOVERY_MAX_CARDS = 12;
   const RECOVERY_TIME_LIMIT_MS = 100_000;
 
@@ -563,7 +537,7 @@ Deno.serve(async (req: Request) => {
       updated_count: counters.updatedCount, duplicate_count: counters.duplicateCount,
       rejected_count: counters.rejectedCount, auto_approved_count: counters.autoApprovedCount,
       detail_metrics: detailCfg ? detail : null,
-      listing_metrics: (listing.pages_with_cards || listing.sitemap) ? listing : null,
+      listing_metrics: (listing.pages_with_cards || listing.sitemap || listing.skipped_pending_in_queue) ? listing : null,
     }).eq('id', scanLogId);
   }
 
@@ -997,6 +971,18 @@ Deno.serve(async (req: Request) => {
           // Probed with BOTH candidate-compatible forms (fingerprintProbes) so a candidate whose venue
           // just resolved still finds an older row stored under the city-form - see the dual-probe note
           // above computeEventFingerprintProbes for what this does and does not cover.
+          // no second review row - but a confidently-linked pending row still proves its live activity is present
+          const reconfirmPending = async (rows: PendingReviewRow[]) => {
+            counters.duplicateCount++; listing.skipped_pending_in_queue++;
+            let reason = 'error';
+            try {
+              const r = await reconfirmExistingFromPending(client, { rows, duplicateThreshold: thresholds.duplicate, sourceId: source.id, pageUrl, detailUrl: (candidate.detail_url as string | null) || null });
+              if (r.outcome === 'RECONFIRMED_EXISTING_PENDING_REVIEW') { matchedExistingIds.add(r.activityId); listing.reconfirmed_pending_review++; return; }
+              reason = r.reason;
+            } catch (e) { console.error('reconfirm pending review failed:', e); }
+            listing.reconfirm_withheld[reason] = (listing.reconfirm_withheld[reason] || 0) + 1;
+          };
+          const PENDING_COLUMNS = 'id, match_type, existing_activity_id, confidence_score';
           let fingerprintMatchId: string | null = null;
           if (fingerprintProbes.length) {
             // (a) same event twice within this scan => count as duplicate, no second queue row. Checked
@@ -1012,10 +998,10 @@ Deno.serve(async (req: Request) => {
             // hit the same page minutes apart) => don't queue it again. The 2026-09-13 bulk approval
             // turned exactly these twins into 57 duplicate activities.
             if (!fingerprintMatchId) {
-              const { data: pendingRow } = await client.from('incoming_activities').select('id')
+              const { data: pendingRows } = await client.from('incoming_activities').select(PENDING_COLUMNS)
                 .in('extracted_data->>event_fingerprint', fingerprintProbes)
-                .in('status', ['new', 'needs_review']).limit(1).maybeSingle();
-              if (pendingRow) { counters.duplicateCount++; listing.skipped_pending_in_queue++; continue; }
+                .in('status', ['new', 'needs_review']).limit(5);
+              if (pendingRows && pendingRows.length) { await reconfirmPending(pendingRows as PendingReviewRow[]); continue; }
             }
           }
           // EVENT match (same event, possibly other performances): by event_key across the live catalogue,
@@ -1027,9 +1013,9 @@ Deno.serve(async (req: Request) => {
               const { data: keyRows } = await client.from('activities').select(EXISTING_ACTIVITY_SELECT).eq('event_key', candidate.event_key).eq('status', 'approved').limit(3);
               eventMatch = findEventMatch(candidate, (keyRows || []).map((r) => mapExistingRow(r, todayStr)), source.id, todayStr);
               if (!eventMatch) {
-                const { data: pendingKey } = await client.from('incoming_activities').select('id')
-                  .eq('extracted_data->>event_key', candidate.event_key).in('status', ['new', 'needs_review']).limit(1).maybeSingle();
-                if (pendingKey) { counters.duplicateCount++; listing.skipped_pending_in_queue++; continue; }
+                const { data: pendingKeyRows } = await client.from('incoming_activities').select(PENDING_COLUMNS)
+                  .eq('extracted_data->>event_key', candidate.event_key).in('status', ['new', 'needs_review']).limit(5);
+                if (pendingKeyRows && pendingKeyRows.length) { await reconfirmPending(pendingKeyRows as PendingReviewRow[]); continue; }
               }
             }
             if (!eventMatch && candidate.city) eventMatch = findEventMatch(candidate, await findSimilarActivities(client, candidate, cityCache), source.id, todayStr);
@@ -1270,7 +1256,7 @@ Deno.serve(async (req: Request) => {
       new_count: counters.newCount, updated_count: counters.updatedCount, duplicate_count: counters.duplicateCount,
       rejected_count: counters.rejectedCount, missing_count: counters.missingCount, auto_approved_count: counters.autoApprovedCount,
       error_count: counters.errorCount, error_type: errorType, error_message: errorMessage, failure_kind: failureKind,
-      listing_metrics: (listing.pages_with_cards || listing.sitemap) ? listing : null,
+      listing_metrics: (listing.pages_with_cards || listing.sitemap || listing.skipped_pending_in_queue) ? listing : null,
     }).eq('id', scanLogId);
 
     await finalizeSource(finalStatus, failureKind, {
