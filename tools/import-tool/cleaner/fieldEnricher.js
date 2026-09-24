@@ -128,9 +128,16 @@ async function resolveIncomingMetadata(client, row, ctx) {
       ed.one_time_date = ev.startDate.slice(0, 10); ed.schedule_type = ed.schedule_type || 'one_time'; const t = /T(\d{2}:\d{2})/.exec(ev.startDate); if (t && !ed.start_time) ed.start_time = t[1];
       set('one_time_date', ed.one_time_date, 'HIGH', 'JSON-LD startDate', 'תאריך');
     } else {
-      const ds = datesIn(pages.card || '', today).filter((d) => d >= today);
-      const ds2 = ds.length ? ds : datesIn(pages.detail?.about ? pages.detail.title + ' ' + pages.detail.text.slice(0, 1500) : '', today).filter((d) => d >= today);
-      if (ds2.length === 1) { ed.one_time_date = ds2[0]; ed.schedule_type = ed.schedule_type || 'one_time'; const t = TIME_RE.exec(pages.card || pages.detail?.text.slice(0, 1500) || ''); if (t && !ed.start_time) ed.start_time = `${t[1].padStart(2, '0')}:${t[2]}`; set('one_time_date', ds2[0], 'MEDIUM', (ds.length ? 'single date in the event card' : 'single date on the detail page') + (ed.start_time ? ' + time' : ''), 'תאריך'); }
+      // "single date" means ONE date in the evidence, counted BEFORE dropping past dates: a card reading
+      // "מיום 31.08.2026 עד 30.09.2026" is a range whose start has passed, not a one-day event on 30.09
+      // (2026-09-24, f3bdec33: a month-long programme became a single event on its last day)
+      const cardAll = datesIn(pages.card || '', today);
+      const detailAll = cardAll.length ? [] : datesIn(pages.detail?.about ? pages.detail.title + ' ' + pages.detail.text.slice(0, 1500) : '', today);
+      const ds = cardAll.filter((d) => d >= today);
+      const ds2 = ds.length ? ds : detailAll.filter((d) => d >= today);
+      const all = cardAll.length ? cardAll : detailAll;
+      if (ds2.length === 1 && all.length > 1) unresolved['תאריך'] = 'a date range / several dates in the evidence (' + all.slice(0, 4).join(', ') + ') - not one date';
+      else if (ds2.length === 1) { ed.one_time_date = ds2[0]; ed.schedule_type = ed.schedule_type || 'one_time'; const t = TIME_RE.exec(pages.card || pages.detail?.text.slice(0, 1500) || ''); if (t && !ed.start_time) ed.start_time = `${t[1].padStart(2, '0')}:${t[2]}`; set('one_time_date', ds2[0], 'MEDIUM', (ds.length ? 'single date in the event card' : 'single date on the detail page') + (ed.start_time ? ' + time' : ''), 'תאריך'); }
       else unresolved['תאריך'] = ds2.length > 1 ? 'several dates on the page (' + ds2.slice(0, 4).join(', ') + ') - occurrences, not one date' : (pages.source ? 'no structured date and no date in the event card / detail page' : 'no page evidence');
     }
   }

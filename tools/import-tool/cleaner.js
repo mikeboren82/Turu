@@ -48,7 +48,7 @@ const GAIN_KEYS = ['addressesAdded', 'streetAddressesAdded', 'coordsAdded', 'coo
 // with the write_denied error and the run counts it in `writeDenied`.
 
 async function loadIncoming(client, id) {
-  const { data } = await client.from('incoming_activities').select('id, source_id, page_url, status, match_type, validation_issues, extracted_data, found_at, source:sources(id, name, venue_id, publisher_name, publisher_type, is_trusted, source_trust_score)').eq('id', id).maybeSingle();
+  const { data } = await client.from('incoming_activities').select('id, source_id, page_url, status, match_type, validation_issues, extracted_data, raw_source_snapshot, found_at, source:sources(id, name, venue_id, publisher_name, publisher_type, is_trusted, source_trust_score)').eq('id', id).maybeSingle();
   return data;
 }
 async function loadActivity(client, id) {

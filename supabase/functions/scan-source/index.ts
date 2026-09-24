@@ -51,6 +51,7 @@ import { applyMissingAccounting, scopeKey, type PageScope, type MissingSummary }
 import { substantiveIssues, priceCompleteness, classifyUpdateDiff, farFutureDeferUntil } from '../_shared/intakePolicy.ts';
 import { assessAutoPublishSafety, SAFETY_ISSUE_LABEL } from '../_shared/autoPublishSafety.ts';
 import { evaluatePublishPolicy } from '../_shared/publishPolicy.ts';
+import { cardDateSpan } from '../_shared/temporalShape.ts';
 
 // Largest HTML document we are willing to parse per page (see the CPU-guard note in the page loop).
 const MAX_HTML_BYTES = 1_500_000;
@@ -915,6 +916,12 @@ Deno.serve(async (req: Request) => {
         for (const p of prepared) {
           if (counters.found >= maxActivitiesPerScan) { listing.capped += prepared.length - prepared.indexOf(p); pageCapped = true; break; }
           const candidate = p.candidate; const issues = p.issues;
+          // TEMPORAL SHAPE evidence (2026-09-24): the date range printed right after this item's title on the page - a run /
+          // programme the extraction schema cannot express. Persisted with the candidate; read by the canonical policy.
+          if (candidate.schedule_type === 'one_time' && candidate.name && !candidate.temporal_evidence) {
+            const cs = cardDateSpan(text, String(candidate.name), (candidate.one_time_date as string | null) ?? null);
+            if (cs) candidate.temporal_evidence = { card_span: cs };
+          }
 
           if (issues.length > 0 && !candidate.name) { counters.rejectedCount++; listing.rejected_no_name++; continue; }
           if (isCommitmentActivity(candidate)) { counters.rejectedCount++; listing.rejected_commitment++; continue; }

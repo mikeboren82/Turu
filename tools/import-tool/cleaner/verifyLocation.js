@@ -16,6 +16,7 @@
 // ended RESOLVED_BUT_NOT_AUTO_PUBLISHABLE reopens only when the policy state it was held for has changed; an exhausted
 // case archives non-blocking (the row stays for a person) and may reopen once, on new venue evidence.
 const { evaluatePublishPolicy } = require('../lib/publishPolicy');
+const { withCardEvidence } = require('../lib/temporalShape');
 const { verifyLocationShape, classifyResolution, storedLocationHolds, labelKind } = require('../lib/locationEvidence');
 const { verifiedFieldUpdate, OUTCOME: W } = require('../lib/verifiedWrite');
 const { normalizeCityName } = require('../cityNaming');
@@ -28,7 +29,7 @@ const policySignature = (codes) => [...new Set(codes || [])].sort().join(',');
 // Pure plan for one open row. ctx: { source, settings: {minTrust, maxDaysAhead}, today, settlementOf }
 // -> { kind: 'resolve' | 'handback' | null, bucket, reasons, exclusion? }
 function planRow(row, ctx) {
-  const c = row.extracted_data || {};
+  const c = withCardEvidence(row.extracted_data || {}, row.raw_source_snapshot);
   if (row.match_type !== 'new' || !OPEN.includes(row.status)) return { kind: null, bucket: 'not_an_open_new_row' };
   const core = evaluatePublishPolicy(c, { source: ctx.source, issues: row.validation_issues, today: ctx.today, minTrust: ctx.settings.minTrust, maxDaysAhead: ctx.settings.maxDaysAhead, row });
   const codes = core.reasons.map((r) => r.code);
@@ -66,7 +67,7 @@ async function discoverVerifyLocation(client, { today }) {
   let index = null; try { index = await loadSettlementIndex(client); } catch { index = null; }
   const settlementOf = index && index.size ? (city) => resolveSettlement(index, city) : null;
   const sources = Object.fromEntries((await pageAll(client, 'sources', 'id, name, seed_url, is_trusted, source_trust_score')).map((s) => [s.id, s]));
-  const rows = await pageAll(client, 'incoming_activities', 'id, source_id, match_type, status, validation_issues, deferred_until, extracted_data', (q) => q.in('status', OPEN).eq('match_type', 'new'));
+  const rows = await pageAll(client, 'incoming_activities', 'id, source_id, match_type, status, validation_issues, deferred_until, extracted_data, raw_source_snapshot', (q) => q.in('status', OPEN).eq('match_type', 'new'));
   const stats = {}; const candidates = []; const handbackIds = [];
   for (const row of rows) {
     const p = planRow(row, { source: sources[row.source_id] || null, settings, today, settlementOf });

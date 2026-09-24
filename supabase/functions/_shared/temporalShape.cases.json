@@ -1,0 +1,26 @@
+{
+  "_doc": "Shared table for temporalShape (Deno _shared/temporalShape.ts, Node lib/temporalShape.js). card: cardDateSpan(text, title, date) -> [start, end, days] or null. assess: assessTemporalShape(candidate) -> [collapsed, signals].",
+  "card": [
+    { "id": "f3bdec33_listing", "text": "חבורת הזמר הנהריינים מיום ראשון, 01.03.2026, 20:00 עד יום ראשון, 27.12.2026 20:00 בבית יד לבנים לפרטים נוספים #מוסיקה / זמר פעילות מרכז משלים חודש ספטמבר 2026 מיום שני, 31.08.2026 עד יום רביעי, 30.09.2026 מרכז משלים למשפחה לפרטים נוספים מלגות הפיס העירוניות תשפז מיום רביעי, 02.09.2026, 08:00 עד יום חמישי, 01.10.2026", "title": "פעילות מרכז משלים חודש ספטמבר 2026", "date": "2026-09-30", "expect": ["2026-08-31", "2026-09-30", 30] },
+    { "id": "own_short_range_not_the_next_card", "text": "חינם קמפינג עירוני 28/09/2026 - 30/09/2026 גלי חיפה חינם סוכת ראש העיר: סדנאות 27/09/2026 - 01/10/2026 גן האם", "title": "קמפינג עירוני", "date": "2026-09-28", "expect": ["2026-09-28", "2026-09-30", 2] },
+    { "id": "single_date_card_never_borrows_a_neighbour_range", "text": "סיור סליחות יום חמישי, 17.09.2026 15:45 מרכז צעירים נהריה לפרטים נוספים מלגות מיום רביעי, 02.09.2026 עד 01.10.2026", "title": "סיור סליחות", "date": "2026-09-17", "expect": null },
+    { "id": "ticketing_run", "text": "ספר הג'ונגל המחזמר 19.09 – 31.10.2026 היכל התרבות לרכישה", "title": "ספר הג'ונגל המחזמר", "date": "2026-09-19", "expect": ["2026-09-19", "2026-10-31", 42] },
+    { "id": "textual_rtl_range", "text": "פסטיבל בית גלים ה-16 בתים פתוחים, אמנות ומוזיקה | 27-25 בספטמבר", "title": "פסטיבל בית גלים ה-16", "date": "2026-09-25", "expect": ["2026-09-25", "2026-09-27", 2] },
+    { "id": "title_not_on_page", "text": "משהו אחר 01.10.2026 - 30.10.2026", "title": "אירוע שלא קיים", "date": "2026-10-01", "expect": null }
+  ],
+  "assess": [
+    { "id": "f3bdec33_language_only", "c": { "name": "פעילות מרכז משלים חודש ספטמבר 2026", "description": "פעילויות משפחתיות בניהול מרכז משלים למשפחה בחודש ספטמבר.", "schedule_type": "one_time", "one_time_date": "2026-09-30" }, "expect": [true, ["period_language"]] },
+    { "id": "f3bdec33_with_card_span", "c": { "name": "פעילות מרכז משלים חודש ספטמבר 2026", "description": "פעילויות משפחתיות בניהול מרכז משלים למשפחה בחודש ספטמבר.", "schedule_type": "one_time", "one_time_date": "2026-09-30", "temporal_evidence": { "card_span": { "start": "2026-08-31", "end": "2026-09-30", "days": 30 } } }, "expect": [true, ["date_span", "period_language"]] },
+    { "id": "normal_single_date_event", "c": { "name": "הצגה: הקוסם מארץ עוץ", "description": "הצגת ילדים לגילאי 3-8", "schedule_type": "one_time", "one_time_date": "2026-10-10" }, "expect": [false, []] },
+    { "id": "legit_continuous_three_day_festival", "c": { "name": "פסטיבל ילדים", "description": "פסטיבל 10-12 באוקטובר, 10:00-18:00 ברציפות", "schedule_type": "one_time", "one_time_date": "2026-10-10" }, "expect": [false, []] },
+    { "id": "three_day_festival_represented_by_its_end", "c": { "name": "פסטיבל ילדים", "description": "פסטיבל 10-12 באוקטובר", "schedule_type": "one_time", "one_time_date": "2026-10-12" }, "expect": [true, ["date_span"]] },
+    { "id": "explicit_occurrence_list_preserved", "c": { "name": "סדנת קרמיקה", "description": "הסדנה מתקיימת ב-10.10 וב-17.10", "schedule_type": "one_time", "one_time_date": "2026-10-10", "occurrences": [{ "date": "2026-10-10" }, { "date": "2026-10-17" }] }, "expect": [false, []] },
+    { "id": "recurring_weekday_programme_collapsed", "c": { "name": "העכבר והתפוח - שעת סיפור תיאטרלית", "description": "שעת סיפור תיאטרלית לגילים 3-6, מתקיימת כל יום שלישי.", "schedule_type": "one_time", "one_time_date": "2026-09-15" }, "expect": [true, ["recurring_sessions"]] },
+    { "id": "counted_series_collapsed", "c": { "name": "זמן אבא", "description": "סדרת מפגשים חווייתית לאבות וילדים עם 5 מפגשים", "schedule_type": "one_time", "one_time_date": "2026-10-07" }, "expect": [true, ["recurring_sessions"]] },
+    { "id": "month_frames_one_show", "c": { "name": "לא קל להיות גיבור על", "description": "הצגה תיאטרונית לילדים והורים בעיצומו של חודש אוקטובר (חודש החינוך לשלום).", "schedule_type": "one_time", "one_time_date": "2026-10-13" }, "expect": [false, []] },
+    { "id": "event_within_named_month_programme", "c": { "name": "מפגש עם סופרת", "description": "מפגש במסגרת חודש ספטמבר בספרייה", "schedule_type": "one_time", "one_time_date": "2026-09-20" }, "expect": [false, []] },
+    { "id": "standing_programme_out_of_scope", "c": { "name": "שעת סיפור", "description": "כל יום שלישי", "entity_type": "אירוע_קבוע", "schedule_type": "recurring", "recurring_days": ["שלישי"] }, "expect": [false, []] },
+    { "id": "commitment_course_out_of_scope", "c": { "name": "חוג ציור", "description": "חוג שבועי, 12 מפגשים", "entity_type": "פעילות", "schedule_type": "recurring", "recurring_days": ["שני"] }, "expect": [false, []] },
+    { "id": "times_with_dots_are_not_dates", "c": { "name": "סדנת בישול", "description": "בין השעות 10.00-12.00", "schedule_type": "one_time", "one_time_date": "2026-10-10" }, "expect": [false, []] }
+  ]
+}

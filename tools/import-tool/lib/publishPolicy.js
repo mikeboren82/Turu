@@ -7,6 +7,7 @@ const { assessAccessType, blocksAutoPublish: accessBlocks } = require('./accessT
 const { assessGranularity, blocksAutoPublish: granularityBlocks } = require('./granularity');
 const { assessAutoPublishSafety } = require('./autoPublishSafety');
 const { substantiveIssues, pendingLifecycle } = require('./intakePolicy');
+const { assessTemporalShape } = require('./temporalShape');
 
 // same rules as extraction.ts isPlausibleEventDate / looksLikeStaleRepost
 function isPlausibleEventDate(dateStr, todayStr, maxDaysAhead) {
@@ -53,6 +54,8 @@ function evaluatePublishPolicy(c, ctx) {
   if (temporal) reasons.push(hold('missing_temporal_evidence', temporal));
   if (c.schedule_type === 'one_time' && lc.action !== 'expire' && !isPlausibleEventDate(c.one_time_date ?? null, ctx.today, ctx.maxDaysAhead)) reasons.push(hold('date_outside_window', c.one_time_date ?? null));
   if (looksLikeStaleRepost(c, ctx.today)) reasons.push(hold('stale_repost', c.source_published_date ?? null));
+  const shape = assessTemporalShape(c);
+  if (shape.collapsed) reasons.push(hold('temporal_shape_ambiguous', { signals: shape.signals, evidence: shape.evidence ?? null, span: shape.span ?? null }));
   const relevance = assessChildRelevance(c);
   if (relevance === 'reject') reasons.push(terminal('relevance_reject', true));
   else if (relevance === 'review') reasons.push(hold('relevance_review'));

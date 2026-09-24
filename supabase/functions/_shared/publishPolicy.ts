@@ -19,6 +19,7 @@ import { assessAccessType, blocksAutoPublish as accessBlocks } from './accessTyp
 import { assessGranularity, blocksAutoPublish as granularityBlocks } from './granularity.ts';
 import { assessAutoPublishSafety } from './autoPublishSafety.ts';
 import { substantiveIssues, pendingLifecycle } from './intakePolicy.ts';
+import { assessTemporalShape } from './temporalShape.ts';
 
 export type Severity = 'hold' | 'terminal';
 export interface PolicyReason { code: string; severity: Severity; humanOverridable: boolean; detail?: unknown }
@@ -70,6 +71,9 @@ export function evaluatePublishPolicy(c: Candidate, ctx: PolicyContext): { decis
   if (temporal) reasons.push(hold('missing_temporal_evidence', temporal));
   if (c.schedule_type === 'one_time' && lc.action !== 'expire' && !isPlausibleEventDate(c.one_time_date ?? null, ctx.today, ctx.maxDaysAhead)) reasons.push(hold('date_outside_window', c.one_time_date ?? null));
   if (looksLikeStaleRepost(c as { schedule_type?: string | null; one_time_date?: string | null; source_published_date?: string | null }, ctx.today)) reasons.push(hold('stale_repost', c.source_published_date ?? null));
+  // is ONE occurrence really one occurrence - not a programme / run / series collapsed to a single date (temporalShape.ts)
+  const shape = assessTemporalShape(c);
+  if (shape.collapsed) reasons.push(hold('temporal_shape_ambiguous', { signals: shape.signals, evidence: shape.evidence ?? null, span: shape.span ?? null }));
   // who it is for: children's relevance, then positive child evidence for commercial / אחר content
   const relevance = assessChildRelevance(c);
   if (relevance === 'reject') reasons.push(terminal('relevance_reject', true));
