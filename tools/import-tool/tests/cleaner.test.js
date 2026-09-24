@@ -113,3 +113,19 @@ test('matching mirror: festival sub-events sharing a series prefix are not the s
   const [x, y] = seriesRemainders('״כולם עושים קקי״ - מאת טָארוֹ גּוֹמִי', '״כולם עושים קקי״ - מאת טארו גומי');
   assert.equal(x, y);
 });
+
+// verify_location pilot #3 (2026-09-24): "סוכות בפארקים - פארק האגדות" was rejected as a duplicate of the just-published
+// "סוכות בפארקים - פארק הילדים" - one listing URL, same date, series prefix, generic "פארק" left as the shared word.
+// Two items on one listing that name different places are different events. Mirror of _shared/dedupe.test.ts.
+test('matching mirror: one listing, different places -> never listing-URL identity', () => {
+  const { namesDifferentPlace } = require('../cleaner/matching');
+  const listing = 'https://kivunimb7.smarticket.co.il/sukkot_page_242';
+  const ex = { id: 'e1', name: 'סוכות בפארקים - פארק הילדים', source_url: listing, location_name: 'פארק הילדים', city: 'באר שבע', lat: 31.2615, lng: 34.7608, venue_id: null, event_fingerprint: 'fp-a', one_time_date: '2026-09-30', occurrences: [{ date: '2026-09-30', start_time: '10:00' }], recurring_days: [] };
+  const other = computeConfidence({ name: 'סוכות בפארקים - פארק האגדות', city: 'באר שבע', pageUrl: listing, location_name: 'פארק האגדות', venue_id: null, lat: 31.2344, lng: 34.7721, one_time_date: '2026-09-30', recurring_days: [] }, ex, thresholds);
+  assert.equal(other.breakdown.place_distinct, 1);
+  assert.ok(other.score < thresholds.duplicate, String(other.score));
+  const again = computeConfidence({ name: 'סוכות בפארקים - פארק הילדים', city: 'באר שבע', pageUrl: listing, location_name: 'פארק הילדים', venue_id: null, one_time_date: '2026-09-30', recurring_days: [] }, ex, thresholds);
+  assert.ok(again.score >= thresholds.duplicate, 'the same park event is still a duplicate');
+  for (const [a, b, c] of [['חוף הפרחים', 'חוף הקשתות', 'אשדוד'], ['ספריית סורוקה', 'ספריית פבזנר', 'חיפה'], ['ספריית קריית שמואל', 'ספריית קריית שפרינצק', 'חיפה'], ['פארק הפיראטים', 'פארק אתגרים', 'אשדוד']]) assert.equal(namesDifferentPlace(a, b, c), true, `${a} / ${b}`);
+  for (const [a, b, c] of [['ספרייה עירונית קרית אתא', 'ספרייה העירונית קרית אתא', 'קרית אתא'], ['מרינה אשדוד', 'המרינה', 'אשדוד'], ['אשדוד', 'אמפיתיאטרון העירוני', 'אשדוד'], ['מרכז קהילתי נווה דוד', 'נווה דוד', 'חיפה'], [null, 'מתנ״ס', 'חיפה']]) assert.equal(namesDifferentPlace(a, b, c), false, `${a} / ${b}`);
+});

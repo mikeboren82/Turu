@@ -72,6 +72,25 @@ export function seriesRemainders(a: string | null | undefined, b: string | null 
   if (!distinctive(ra) || !distinctive(rb)) return null;
   return [ra, rb];
 }
+// DIFFERENT PLACES (verify_location pilot #3, 2026-09-24): two items on one listing page that name different places are
+// different events even when their titles share a series prefix and a generic word ("סוכות בפארקים - פארק האגדות" /
+// "... - פארק הילדים" merged at 0.95; live: 58 listing-URL duplicates named another place - "חוף הפרחים" -> "חוף
+// הקשתות", "ספריית סורוקה" -> "ספריית פבזנר"). Compared on DISTINCTIVE place words: the article ה, place-type words
+// and the city are dropped; a label that is only the city / only a type word says nothing. Twin: cleaner/matching.js.
+const PLACE_TYPE_WORDS = new Set(['חוף', 'פארק', 'גן', 'גינה', 'ספרייה', 'ספריה', 'ספריית', 'ספרית', 'מרכז', 'קהילתי', 'קהילתית', 'מתנס', 'בית', 'אולם', 'היכל', 'מוזיאון', 'עירוני', 'עירונית', 'ציבורי', 'ציבורית', 'של', 'קרית', 'שכונת', 'שכונה', 'נוה', 'רמת', 'רמות', 'גבעת']);
+function placeWords(label: string | null | undefined, city: string | null | undefined): Set<string> | null {
+  const f = normalizeForMatch(label).replace(/יי/g, 'י').replace(/וו/g, 'ו');
+  const cw = normalizeForMatch(city).replace(/יי/g, 'י').replace(/וו/g, 'ו');
+  if (!f || f === cw) return null;
+  const cityWords = new Set(cw.split(' ').filter(Boolean));
+  return new Set(f.split(' ').map((w) => w.replace(/^ה(?=[א-ת]{2})/, '')).filter((w) => w.length > 1 && !PLACE_TYPE_WORDS.has(w) && !cityWords.has(w)));
+}
+export function namesDifferentPlace(a: string | null | undefined, b: string | null | undefined, city: string | null | undefined): boolean {
+  const x = placeWords(a, city), y = placeWords(b, city);
+  if (!x || !y || !x.size || !y.size) return false;
+  for (const w of x) if (y.has(w)) return false;
+  return true;
+}
 // both sides name a place and the labels disagree (neither contains the other)
 function placeLabelsDisagree(a: string | null | undefined, b: string | null | undefined): boolean {
   // plene / defective spelling (ספריה = ספרייה, קרית = קריית) is the same word
@@ -390,7 +409,8 @@ export function computeConfidence(candidate: any, existing: ExistingActivity, th
   const datesContradict = cDates.length > 0 && eDates.length > 0 && !cDates.some((d) => eDates.includes(d));
   const placeContradicts = (candidate.venue_id && existing.venue_id) ? candidate.venue_id !== existing.venue_id : placeLabelsDisagree(candidate.location_name, existing.location_name);
   breakdown.association_conflict = datesContradict && placeContradicts ? 1 : 0;
-  const urlIdentity = breakdown.exact_url_match >= 1 && breakdown.name_overlap >= 0.5 && breakdown.distinctive_name >= 1 && !breakdown.association_conflict;
+  breakdown.place_distinct = (candidate.venue_id && existing.venue_id && candidate.venue_id !== existing.venue_id) || namesDifferentPlace(candidate.location_name, existing.location_name, candidate.city || existing.city) ? 1 : 0;
+  const urlIdentity = breakdown.exact_url_match >= 1 && breakdown.name_overlap >= 0.5 && breakdown.distinctive_name >= 1 && !breakdown.association_conflict && !breakdown.place_distinct;
   if (breakdown.fingerprint_match >= 1 || urlIdentity) {
     score = 0.95;
   } else if (breakdown.venue_match >= 1) {

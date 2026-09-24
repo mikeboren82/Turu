@@ -4,7 +4,7 @@
 // must not defeat matching. Run with `npx deno test supabase/functions/_shared/`.
 
 import { assertEquals, assertNotEquals, assert } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { computeConfidence, distinctiveSharedWords, seriesRemainders, hhmm, descriptionMateriallyDiffers, placeLabelChanged, computeEventFingerprint, computeEventFingerprintProbes, computeFieldDiff, getConfidenceThresholds, type ExistingActivity } from "./matching.ts";
+import { computeConfidence, distinctiveSharedWords, seriesRemainders, namesDifferentPlace, hhmm, descriptionMateriallyDiffers, placeLabelChanged, computeEventFingerprint, computeEventFingerprintProbes, computeFieldDiff, getConfidenceThresholds, type ExistingActivity } from "./matching.ts";
 
 const thresholds = getConfidenceThresholds({});
 const existingBase: ExistingActivity = {
@@ -319,4 +319,19 @@ Deno.test("series prefix: festival sub-events on one listing are not the same ev
   assertEquals(seriesRemainders("שעת סיפור 11:00", "שעת סיפור 11:30"), null);
   const r = seriesRemainders("״כולם עושים קקי״ - מאת טָארוֹ גּוֹמִי", "״כולם עושים קקי״ - מאת טארו גומי");
   assertEquals(r?.[0], r?.[1]);
+});
+
+// verify_location pilot #3 (2026-09-24): one listing, same date, different parks -> never listing-URL identity.
+Deno.test("different places on one listing are different events; label variants of one place are not", () => {
+  const listing = "https://kivunimb7.smarticket.co.il/sukkot_page_242";
+  const ex: ExistingActivity = { ...existingBase, name: "סוכות בפארקים - פארק הילדים", source_url: listing, location_name: "פארק הילדים", city: "באר שבע", lat: 31.2615, lng: 34.7608, venue_id: null, event_fingerprint: "fp-a", one_time_date: "2026-09-30", occurrences: [{ date: "2026-09-30", start_time: "10:00", end_time: null }], recurring_days: [] };
+  const other = computeConfidence({ name: "סוכות בפארקים - פארק האגדות", city: "באר שבע", pageUrl: listing, location_name: "פארק האגדות", venue_id: null, lat: 31.2344, lng: 34.7721, one_time_date: "2026-09-30", recurring_days: [] }, ex, thresholds);
+  assertEquals(other.breakdown.place_distinct, 1);
+  assert(other.score < thresholds.duplicate, String(other.score));
+  const again = computeConfidence({ name: "סוכות בפארקים - פארק הילדים", city: "באר שבע", pageUrl: listing, location_name: "פארק הילדים", venue_id: null, one_time_date: "2026-09-30", recurring_days: [] }, ex, thresholds);
+  assert(again.score >= thresholds.duplicate);
+  assertEquals(namesDifferentPlace("חוף הפרחים", "חוף הקשתות", "אשדוד"), true);
+  assertEquals(namesDifferentPlace("ספריית קריית שמואל", "ספריית קריית שפרינצק", "חיפה"), true);
+  assertEquals(namesDifferentPlace("ספרייה עירונית קרית אתא", "ספרייה העירונית קרית אתא", "קרית אתא"), false);
+  assertEquals(namesDifferentPlace("מרינה אשדוד", "המרינה", "אשדוד"), false);
 });

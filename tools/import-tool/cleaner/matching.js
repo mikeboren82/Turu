@@ -108,6 +108,25 @@ function seriesRemainders(a, b) {
   if (!distinctive(ra) || !distinctive(rb)) return null;
   return [ra, rb];
 }
+// DIFFERENT PLACES (verify_location pilot #3, 2026-09-24): two items on one listing page that name different places are
+// different events even when their titles share a series prefix and a generic word ("סוכות בפארקים - פארק האגדות" /
+// "... - פארק הילדים" merged at 0.95; live: 58 listing-URL duplicates named another place - "חוף הפרחים" -> "חוף
+// הקשתות", "ספריית סורוקה" -> "ספריית פבזנר"). Compared on DISTINCTIVE place words: the article ה, place-type words
+// and the city are dropped; a label that is only the city / only a type word says nothing. Twin: _shared/matching.ts.
+const PLACE_TYPE_WORDS = new Set(['חוף', 'פארק', 'גן', 'גינה', 'ספרייה', 'ספריה', 'ספריית', 'ספרית', 'מרכז', 'קהילתי', 'קהילתית', 'מתנס', 'בית', 'אולם', 'היכל', 'מוזיאון', 'עירוני', 'עירונית', 'ציבורי', 'ציבורית', 'של', 'קרית', 'שכונת', 'שכונה', 'נוה', 'רמת', 'רמות', 'גבעת']);
+function placeWords(label, city) {
+  const f = normalizeForMatch(label).replace(/יי/g, 'י').replace(/וו/g, 'ו');
+  const cw = normalizeForMatch(city).replace(/יי/g, 'י').replace(/וו/g, 'ו');
+  if (!f || f === cw) return null;
+  const cityWords = new Set(cw.split(' ').filter(Boolean));
+  return new Set(f.split(' ').map((w) => w.replace(/^ה(?=[א-ת]{2})/, '')).filter((w) => w.length > 1 && !PLACE_TYPE_WORDS.has(w) && !cityWords.has(w)));
+}
+function namesDifferentPlace(a, b, city) {
+  const x = placeWords(a, city), y = placeWords(b, city);
+  if (!x || !y || !x.size || !y.size) return false;
+  for (const w of x) if (y.has(w)) return false;
+  return true;
+}
 function placeLabelsDisagree(a, b) {
   // plene / defective spelling (ספריה = ספרייה, קרית = קריית) is the same word
   const fold = (t) => normalizeForMatch(t).replace(/[׳״]/g, '').replace(/יי/g, 'י').replace(/וו/g, 'ו'); // + geresh / gershayim (מתנ״ס = מתנס)
@@ -186,7 +205,8 @@ function computeConfidence(candidate, existing, thresholds) {
   const placeContradicts = (candidate.venue_id && existing.venue_id) ? candidate.venue_id !== existing.venue_id : placeLabelsDisagree(candidate.location_name, existing.location_name);
   breakdown.association_conflict = datesContradict && placeContradicts ? 1 : 0;
   // a shared listing page + same date is not identity; neither is an overlap of genre words, nor a title whose place AND dates contradict
-  const urlIdentity = breakdown.exact_url_match >= 1 && breakdown.name_overlap >= 0.5 && breakdown.distinctive_name >= 1 && !breakdown.association_conflict;
+  breakdown.place_distinct = (candidate.venue_id && existing.venue_id && candidate.venue_id !== existing.venue_id) || namesDifferentPlace(candidate.location_name, existing.location_name, candidate.city || existing.city) ? 1 : 0;
+  const urlIdentity = breakdown.exact_url_match >= 1 && breakdown.name_overlap >= 0.5 && breakdown.distinctive_name >= 1 && !breakdown.association_conflict && !breakdown.place_distinct;
   if (breakdown.fingerprint_match >= 1 || urlIdentity) score = 0.95;
   else if (breakdown.venue_match >= 1) {
     score = (breakdown.name_overlap * 0.3) + (breakdown.venue_match * 0.3) + (breakdown.schedule_match * 0.3) + (breakdown.city_match * 0.1);
@@ -218,4 +238,4 @@ async function findStandingProgrammeMatch(client, candidate, cache) {
   return similar.filter((existing) => isStandingProgrammeMatch(candidate, existing));
 }
 
-module.exports = { seriesRemainders, distinctiveSharedWords, wordOverlapScore, haversineKm, getConfidenceThresholds, getExistingActivitiesForCity, findSimilarActivities, computeConfidence, bestMatch, mapExistingRow, candidateDates, existingDates, GENRE_WORDS, isStandingProgrammeMatch, titleMatchesStandingProgramme, findStandingProgrammeMatch };
+module.exports = { namesDifferentPlace, seriesRemainders, distinctiveSharedWords, wordOverlapScore, haversineKm, getConfidenceThresholds, getExistingActivitiesForCity, findSimilarActivities, computeConfidence, bestMatch, mapExistingRow, candidateDates, existingDates, GENRE_WORDS, isStandingProgrammeMatch, titleMatchesStandingProgramme, findStandingProgrammeMatch };
