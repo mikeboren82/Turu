@@ -34,6 +34,7 @@ const { computeEventFingerprint } = require('./eventFingerprint');
 // EVENT identity (stable across occurrences) + occurrence persistence planning (0091 model)
 const { computeEventKey } = require('./lib/eventIdentity');
 const { planScheduleChange, occurrencesPersisted, normalizeOccurrence, occKey } = require('./lib/occurrences');
+const { israelToday } = require('./lib/intakePolicy');
 // best-effort future duplicate-candidate detection (2026-09-21 activation) - see the module header
 // for why this can never fail the ingestion it runs after.
 const { detectFutureDuplicates, isMaterialIdentityChange } = require('./lib/futureDuplicateDetection');
@@ -2770,7 +2771,8 @@ app.get('/api/sources/alerts-summary', async (req, res) => {
     const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString();
     const [failedSources, newIncoming, updatedIncoming, missingFlagged, attentionSources, pausedSources, socialBlocked, autoApproved7d, dupes7d] = await Promise.all([
       client.from('sources').select('id', { count: 'exact', head: true }).eq('last_scan_status', 'error'),
-      client.from('incoming_activities').select('id', { count: 'exact', head: true }).eq('match_type', 'new').in('status', ['new', 'needs_review']),
+      // a far-future candidate deferred to its auto-publish window (0110) is not waiting for a person yet
+      client.from('incoming_activities').select('id', { count: 'exact', head: true }).eq('match_type', 'new').in('status', ['new', 'needs_review']).or(`deferred_until.is.null,deferred_until.lte.${israelToday()}`),
       client.from('incoming_activities').select('id', { count: 'exact', head: true }).eq('match_type', 'update').in('status', ['new', 'needs_review']),
       client.from('incoming_activities').select('id', { count: 'exact', head: true }).eq('status', 'missing_flagged'),
       client.from('sources').select('id', { count: 'exact', head: true }).eq('health_status', 'attention_required'),
@@ -2810,7 +2812,7 @@ app.get('/api/incoming', async (req, res) => {
     // 1000-row pages small enough to never trip the client's fetch limits.
     const data = await fetchAllRows(() => client
       .from('incoming_activities')
-      .select('id, source_id, scan_log_id, page_url, match_type, existing_activity_id, confidence_score, confidence_breakdown, source_trust_score, extracted_data, diff, validation_issues, status, reviewed_by, reviewed_at, reject_reason, created_activity_id, found_at, created_at, updated_at')
+      .select('id, source_id, scan_log_id, page_url, match_type, existing_activity_id, confidence_score, confidence_breakdown, source_trust_score, extracted_data, diff, validation_issues, deferred_until, status, reviewed_by, reviewed_at, reject_reason, created_activity_id, found_at, created_at, updated_at')
       .order('found_at', { ascending: false }));
 
     const sourceIds = [...new Set(data.map((r) => r.source_id).filter(Boolean))];

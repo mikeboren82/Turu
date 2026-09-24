@@ -13,6 +13,8 @@ test('every job is bounded, placed and explained; durable jobs are never selecte
   assert.ok(!JOBS.find((j) => j.id === 'cadence').command.includes('--apply'), 'cadence job is dry-run in the pilot');
   assert.ok(/--max=40(s|$)/.test(JOBS.find((j) => j.id === 'cleaner').command), 'Cleaner batch stays at 40');
   assert.ok(!JOBS.find((j) => j.id === 'reprobe').command.includes('--apply'), 're-probe job proposes only');
+  // Phase A: the scheduled pending lifecycle touches NEW ingestion only - the historical queue needs approval
+  assert.ok(/--found-since=\d{4}-\d{2}-\d{2}T/.test(JOBS.find((j) => j.id === 'pending_lifecycle').command), 'pending lifecycle never drains the historical queue unapproved');
   const sel = selectJobs({ state: {}, now: new Date('2026-09-20T10:00:00Z') });
   assert.ok(sel.every((j) => j.where === 'local')); assert.ok(sel.some((j) => j.id === 'relay') && sel.some((j) => j.id === 'cleaner'));
 });
@@ -68,9 +70,10 @@ test('review budget: every row lands in a reason bucket; duplicates / outside-se
   assert.equal(classifyIncoming({ status: 'needs_review', match_type: 'new', validation_issues: ['ימי פעילות'], city: 'x', formatted_address: null }), 'cleaner_resolvable_metadata');
   assert.equal(classifyIncoming({ status: 'needs_review', match_type: 'update' }), 'update_for_review');
   assert.equal(classifyIncoming({ status: 'new', match_type: 'new', validation_issues: [], city: 'x', location_name: 'y', source_trusted: false }), 'held_untrusted_source');
-  assert.equal(classifyIncoming({ status: 'needs_review', match_type: 'new', validation_issues: [], city: 'x', location_name: 'y', confidence_score: 0.4 }), 'low_confidence_extraction');
-  assert.equal(classifyIncoming({ status: 'needs_review', match_type: 'new', validation_issues: [], city: 'x', location_name: 'y' }), 'requires_human_judgment');
-  const window = Array.from({ length: 60 }, (_, i) => ({ status: 'needs_review', match_type: 'new', validation_issues: i % 2 ? ['עיר'] : [], city: 'x', location_name: 'y' }));
+  // Phase A: confidence_score is the MATCH confidence (0 for every new row) - never an extraction-confidence bucket
+  assert.equal(classifyIncoming({ status: 'needs_review', match_type: 'new', validation_issues: [], city: 'x', location_name: 'y', confidence_score: 0.4 }), 'awaiting_publish_checks');
+  assert.equal(classifyIncoming({ status: 'needs_review', match_type: 'new', validation_issues: ['יחידת פעילות'], city: 'x', location_name: 'y' }), 'requires_human_judgment');
+  const window = Array.from({ length: 60 }, (_, i) => ({ status: 'needs_review', match_type: 'new', validation_issues: i % 2 ? ['עיר'] : ['יחידת פעילות'], city: 'x', location_name: 'y' }));
   const b = reviewBudget({ window, openQueue: window, reviewedInWindow: 10, cleanerResolvedInWindow: 5 });
   assert.ok(b.signals.some((s) => s.code === 'review_debt_growing')); assert.equal(b.perCycle.cleaner_resolvable_location, 30); assert.equal(b.humanOnly, 30);
   const calm = reviewBudget({ window: window.slice(0, 10), openQueue: [], reviewedInWindow: 40, cleanerResolvedInWindow: 20 });

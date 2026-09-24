@@ -15,6 +15,7 @@
 
 import { isGenericPlaygroundName } from './playgroundNaming.ts';
 import { normalizeCityName } from './cityNaming.ts';
+import { hhmm, isLessSpecific, occurrenceKnown, sameBookingMeaning } from './intakePolicy.ts';
 
 // deno-lint-ignore no-explicit-any
 export type SettingsMap = Record<string, any>;
@@ -419,7 +420,8 @@ export function computeFieldDiff(candidate: any, existing: ExistingActivity, opt
 
 // ---- what is NOT a change (wave 2, 2026-09-17: 611 pending update rows, most of them manufactured here) ----
 // "17:00:00" (database) vs "17:00" (extractor) is the same time: 172 of 223 queued start_time "changes".
-export const hhmm = (t: unknown): string | null => { const m = /^(\d{1,2}):(\d{2})/.exec(String(t ?? '').trim()); return m ? `${m[1].padStart(2, '0')}:${m[2]}` : null; };
+// (the rule itself lives in intakePolicy.ts since Phase A; re-exported for existing callers)
+export { hhmm };
 // The description is the extractor's own SUMMARY of the page: a rewording ("כולל" -> "כמו") is model
 // variance, not evidence. It is a change only when it fills a gap or says something materially different.
 export function descriptionMateriallyDiffers(before: string | null | undefined, after: string | null | undefined): boolean {
@@ -439,9 +441,12 @@ function computeFieldDiffAll(candidate: any, existing: ExistingActivity): Record
   const diff: Record<string, DiffEntry> = {};
   // A less-detailed page must never ERASE known data: a candidate that simply lacks a field is not a
   // change (applyIncomingUpdate applies `after` verbatim, so null here would wipe price/ages on approve).
+  // Phase A (2026-09-24): a value that says strictly LESS than the record ("2026-09-29" for a known
+  // "2026-09-29 20:00", a truncated address) is the same fact, never an update proposal.
   const compare = (key: string, before: unknown, after: unknown) => {
     if (after == null) return;
     if (before === after) return;
+    if (isLessSpecific(before, after)) return;
     diff[key] = { label: DIFF_FIELD_LABELS[key] || key, before, after };
   };
 
@@ -452,14 +457,15 @@ function computeFieldDiffAll(candidate: any, existing: ExistingActivity): Record
   const multi = cOcc.length >= 2 || eOcc.length >= 2;
   if (multi) {
     const before = eOcc.map((o) => `${o.date}${o.start_time ? ' ' + o.start_time : ''}`);
-    const have = new Set(eOcc.map((o) => `${o.date}|${o.start_time || ''}`));
     const cAll = cOcc.length ? cOcc : (candidate.one_time_date ? [{ date: candidate.one_time_date, start_time: candidate.start_time ? String(candidate.start_time).slice(0, 5) : null, end_time: candidate.end_time ? String(candidate.end_time).slice(0, 5) : null }] : []);
-    const added = cAll.filter((o) => !have.has(`${o.date}|${o.start_time || ''}`));
-    if (added.length) diff.occurrences = { label: DIFF_FIELD_LABELS.occurrences, before, after: added.map((o) => `${o.date}${o.start_time ? ' ' + o.start_time : ''}`) };
+    // an occurrence is new only when the record lacks it: times compare as HH:MM ("17:00:00" = "17:00"), and a
+    // candidate date WITHOUT an hour on a date the record already knows (with an hour) is less specific, not new
+    const added = cAll.filter((o) => !occurrenceKnown(o, eOcc));
+    if (added.length) diff.occurrences = { label: DIFF_FIELD_LABELS.occurrences, before, after: added.map((o) => `${o.date}${hhmm(o.start_time) ? ' ' + hhmm(o.start_time) : ''}`) };
     // a listing-side 'recurring' misread corrected by explicit dated performances on the event's page:
     // only from a detail page, only for <= 2 weekday rows, only when the time agrees
     if (candidate.detail_url && cOcc.length >= 2 && (existing.recurring_days || []).length > 0 && (existing.recurring_days || []).length <= 2 && !eOcc.length
-      && existing.start_time && cOcc.some((o) => o.start_time === String(existing.start_time).slice(0, 5))) {
+      && existing.start_time && cOcc.some((o) => hhmm(o.start_time) === hhmm(existing.start_time))) {
       diff.schedule_type = { label: DIFF_FIELD_LABELS.schedule_type, before: 'recurring', after: 'one_time' };
       // dated, ticketed performances are an EVENT: the class / recurring-event label goes with the conversion
       if (candidate.entity_type === 'אירוע' && existing.entity_type && existing.entity_type !== 'אירוע') diff.entity_type = { label: DIFF_FIELD_LABELS.entity_type, before: existing.entity_type, after: 'אירוע' };
@@ -479,7 +485,8 @@ function computeFieldDiffAll(candidate: any, existing: ExistingActivity): Record
   if (candidate.event_key && !existing.event_key) compare('event_key', null, candidate.event_key);
   compare('min_age', existing.min_age, candidate.min_age);
   compare('max_age', existing.max_age, candidate.max_age);
-  compare('booking_requirement', existing.booking_requirement, candidate.booking_requirement);
+  // labels the product treats as one meaning (walk_in = none, advance_booking = registration_required) are wording
+  if (!sameBookingMeaning(existing.booking_requirement, candidate.booking_requirement)) compare('booking_requirement', existing.booking_requirement, candidate.booking_requirement);
   if (descriptionMateriallyDiffers(existing.description, candidate.description)) {
     compare('description', existing.description, candidate.description);
   }

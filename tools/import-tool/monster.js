@@ -15,6 +15,7 @@ const { getClient } = require('./supabase');
 const { all } = require('./cleaner/discover');
 const { JOBS, selectJobs, lockIsStale, schedulerCommand, pauseCommand } = require('./lib/monsterJobs');
 const { reviewBudget } = require('./lib/reviewBudget');
+const { israelToday } = require('./lib/intakePolicy');
 const { probeCodeLine, codeLineStatus } = require('./lib/codeLine');
 
 const args = Object.fromEntries(process.argv.slice(2).filter((a) => a.startsWith('--')).map((a) => { const [k, v] = a.slice(2).split('='); return [k, v === undefined ? true : v]; }));
@@ -50,7 +51,7 @@ async function status(client) {
   const [logs, incWindow, incOpen, runs, cases, sources, settings] = await Promise.all([
     all(client, 'source_scan_logs', 'source_id, started_at, finished_at, status, pages_checked, pages_changed, ai_calls, activities_found, new_count, updated_count, duplicate_count, auto_approved_count, failure_kind, listing_metrics', (q) => q.gte('started_at', since24)),
     all(client, 'incoming_activities', 'id, status, match_type, archive_reason, validation_issues, confidence_score, found_at, city:extracted_data->>city, formatted_address:extracted_data->>formatted_address, location_name:extracted_data->>location_name', (q) => q.gte('found_at', since7)),
-    all(client, 'incoming_activities', 'id, status, match_type, archive_reason, validation_issues, confidence_score, city:extracted_data->>city, formatted_address:extracted_data->>formatted_address, location_name:extracted_data->>location_name', (q) => q.in('status', ['new', 'needs_review'])),
+    all(client, 'incoming_activities', 'id, status, match_type, archive_reason, validation_issues, confidence_score, diff, deferred_until, city:extracted_data->>city, formatted_address:extracted_data->>formatted_address, location_name:extracted_data->>location_name, schedule_type:extracted_data->>schedule_type, entity_type:extracted_data->>entity_type, one_time_date:extracted_data->>one_time_date, occurrences:extracted_data->occurrences', (q) => q.in('status', ['new', 'needs_review'])),
     all(client, 'cleaner_runs', 'started_at, finished_at, worker, counters, notes', (q) => q.gte('started_at', since24)),
     all(client, 'cleaner_cases', 'issue, status, created_at, resolved_at', (q) => q.or(`created_at.gte.${since7},resolved_at.gte.${since7},status.eq.open`)),
     all(client, 'sources', 'id, name, is_active, health_status, consecutive_failures, last_failure_kind, next_scan_at, strategy, source_kind'),
@@ -65,7 +66,7 @@ async function status(client) {
   const failing = sources.filter((s) => s.is_active && ['failing', 'backed_off', 'attention_required'].includes(s.health_status)).sort((a, b) => (b.consecutive_failures || 0) - (a.consecutive_failures || 0));
   const openCases = cases.filter((c) => c.status === 'open').length;
   const created7 = cases.filter((c) => c.created_at >= since7).length, resolved7 = cases.filter((c) => c.resolved_at && c.resolved_at >= since7).length;
-  const budget = reviewBudget({ window: incWindow, openQueue: incOpen, reviewedInWindow: reviewed7 || 0, cleanerResolvedInWindow: resolved7 });
+  const budget = reviewBudget({ window: incWindow, openQueue: incOpen, reviewedInWindow: reviewed7 || 0, cleanerResolvedInWindow: resolved7, today: israelToday() });
   const report = {
     generatedAt: new Date().toISOString(),
     running: { monster_enabled: settings.monster_enabled !== false, scanning_enabled: settings.scanning_enabled !== false, cleaner_enabled: settings.cleaner_enabled !== false, lastLocalCycle: lastCycle, lastScan: logs.map((l) => l.started_at).sort().pop() || null, jobs: Object.fromEntries(Object.entries(state).filter(([k]) => !k.startsWith('_'))) },

@@ -48,6 +48,7 @@ import { detectFutureDuplicates } from '../_shared/duplicateCandidates.ts';
 import { recordProvenance } from '../_shared/provenance.ts';
 import { reconfirmExistingFromPending, type PendingReviewRow } from '../_shared/reconfirmation.ts';
 import { applyMissingAccounting, scopeKey, type PageScope, type MissingSummary } from '../_shared/missingScope.ts';
+import { substantiveIssues, priceCompleteness, classifyUpdateDiff, farFutureDeferUntil } from '../_shared/intakePolicy.ts';
 
 // Largest HTML document we are willing to parse per page (see the CPU-guard note in the page loop).
 const MAX_HTML_BYTES = 1_500_000;
@@ -335,10 +336,11 @@ function sanitizeCandidate(raw: any, pageUrl: string): { candidate: any; issues:
   if (!candidate.name) issues.push('שם');
   if (!candidate.entity_type) issues.push('סוג ישות');
   if (!candidate.category) issues.push('קטגוריה');
-  // 'מחיר' is a SOFT flag: shown to the admin, but an unknown price stays null (never invented) and
-  // must not by itself keep an otherwise HIGH-confidence item out of the catalogue - 496 of the
-  // first 569 scanned events had only this "issue". See gatingIssues() below.
-  if (!candidate.price_type) issues.push('מחיר');
+  // PRICE is completeness, not a review issue (Human Queue Policy Phase A, 2026-09-24): an unknown price stays
+  // null (never invented) and is recorded as completeness.price = 'unknown' - never in validation_issues, never
+  // a Cleaner case, never a blocker. A stated free event is price_type 'free', so "free" and "not listed" stay
+  // distinguishable. (Legacy rows still carry 'מחיר'; every consumer treats it as non-substantive.)
+  candidate.completeness = { price: priceCompleteness(candidate) };
   if (!candidate.one_time_date && candidate.schedule_type === 'one_time') issues.push('תאריך');
   // temporal evidence the entity type requires (recurring without weekdays, an "אירוע" without a one-time
   // schedule): a GATING issue -> review queue / Cleaner metadata resolver, never a silent approval
@@ -365,9 +367,9 @@ function sanitizeCandidate(raw: any, pageUrl: string): { candidate: any; issues:
   return { candidate, issues };
 }
 
-const SOFT_ISSUES = new Set(['מחיר']);
+// legacy soft flags ('מחיר' on rows queued before Phase A) never gate - see _shared/intakePolicy.ts
 function gatingIssues(issues: string[]): string[] {
-  return issues.filter((i) => !SOFT_ISSUES.has(i));
+  return substantiveIssues(issues);
 }
 
 Deno.serve(async (req: Request) => {
@@ -522,7 +524,7 @@ Deno.serve(async (req: Request) => {
   // DENSE-LISTING RECALL FUNNEL (wave 2): DOM cards detected -> extractor output -> past filter ->
   // accounted cards -> bounded recovery -> rejections / folding / cap. Stored per scan in
   // source_scan_logs.listing_metrics (0095) so recall is a number, not an impression.
-  const listing = { pages_with_cards: 0, cards_detected: 0, ai_returned: 0, past_filtered: 0, cards_matched: 0, cards_unaccounted: 0, recovery_calls: 0, recovered: 0, rejected_no_name: 0, rejected_commitment: 0, rejected_adult: 0, twins_folded: 0, capped: 0, skipped_in_scan_duplicate: 0, skipped_pending_in_queue: 0, reconfirmed_pending_review: 0, reconfirm_withheld: {} as Record<string, number>, missing_accounting: null as MissingSummary | null, missing_accounting_error: null as string | null, identity_backfilled: 0, updates_superseded: 0, recovery_error: null as string | null, recovery_skipped: null as string | null, sitemap: null as null | { entities: number; never_scanned: number; picked: number; error?: string }, outside_service_area: 0, skipped_outside_service_area: 0, sample_unaccounted: [] as string[] };
+  const listing = { pages_with_cards: 0, cards_detected: 0, ai_returned: 0, past_filtered: 0, cards_matched: 0, cards_unaccounted: 0, recovery_calls: 0, recovered: 0, rejected_no_name: 0, rejected_commitment: 0, rejected_adult: 0, twins_folded: 0, capped: 0, skipped_in_scan_duplicate: 0, skipped_pending_in_queue: 0, reconfirmed_pending_review: 0, reconfirm_withheld: {} as Record<string, number>, missing_accounting: null as MissingSummary | null, missing_accounting_error: null as string | null, identity_backfilled: 0, updates_superseded: 0, noop_updates: {} as Record<string, number>, silent_fill: {} as Record<string, number>, deferred_far_future: 0, deferred_released: 0, recovery_error: null as string | null, recovery_skipped: null as string | null, sitemap: null as null | { entities: number; never_scanned: number; picked: number; error?: string }, outside_service_area: 0, skipped_outside_service_area: 0, sample_unaccounted: [] as string[] };
   const RECOVERY_MAX_CARDS = 12;
   const RECOVERY_TIME_LIMIT_MS = 100_000;
 
@@ -887,7 +889,7 @@ Deno.serve(async (req: Request) => {
           const filled = applyDetailEvidence(candidate, ev, link.url, pageHost);
           for (const f of filled) detail.filled[f] = (detail.filled[f] || 0) + 1;
           if (filled.length && candidate.one_time_date) { const i = p.issues.indexOf('תאריך'); if (i >= 0) p.issues.splice(i, 1); }
-          if (filled.includes('price')) { const i = p.issues.indexOf('מחיר'); if (i >= 0) p.issues.splice(i, 1); }
+          if (filled.includes('price')) candidate.completeness = { ...(candidate.completeness || {}), price: priceCompleteness(candidate) };
           // detail-page images go through the same provenance shape sanitizeCandidate builds
           if (filled.includes('image') && Array.isArray(candidate.images)) candidate.images = (candidate.images as { url: string; source_type: string; needs_rights_review: boolean }[]).slice(0, 3);
           candidate.detail_match = { method: link.method, score: link.score, text: link.text.slice(0, 120) };
@@ -1001,7 +1003,13 @@ Deno.serve(async (req: Request) => {
             } catch (e) { console.error('reconfirm pending review failed:', e); }
             listing.reconfirm_withheld[reason] = (listing.reconfirm_withheld[reason] || 0) + 1;
           };
-          const PENDING_COLUMNS = 'id, match_type, existing_activity_id, confidence_score';
+          // (0110) deferred_until: a far-future candidate waits outside the inbox until its date enters the
+          // auto-publish window. When that day has come, THIS rescan re-evaluates it through the full pipeline
+          // (fresh evidence, auto-publish included) and writes the result back into the SAME row.
+          const PENDING_COLUMNS = 'id, match_type, existing_activity_id, confidence_score, status, deferred_until';
+          let releaseIncomingId: string | null = null;
+          const dueDeferred = (rows: { id: string; match_type?: string; status?: string; deferred_until?: string | null }[]) =>
+            rows.find((r) => r.match_type === 'new' && r.status === 'new' && !!r.deferred_until && r.deferred_until <= todayStr)?.id ?? null;
           let fingerprintMatchId: string | null = null;
           if (fingerprintProbes.length) {
             // (a) same event twice within this scan => count as duplicate, no second queue row. Checked
@@ -1020,7 +1028,10 @@ Deno.serve(async (req: Request) => {
               const { data: pendingRows } = await client.from('incoming_activities').select(PENDING_COLUMNS)
                 .in('extracted_data->>event_fingerprint', fingerprintProbes)
                 .in('status', ['new', 'needs_review']).limit(5);
-              if (pendingRows && pendingRows.length) { await reconfirmPending(pendingRows as PendingReviewRow[]); continue; }
+              if (pendingRows && pendingRows.length) {
+                releaseIncomingId = dueDeferred(pendingRows as { id: string }[]);
+                if (!releaseIncomingId) { await reconfirmPending(pendingRows as PendingReviewRow[]); continue; }
+              }
             }
           }
           // EVENT match (same event, possibly other performances): by event_key across the live catalogue,
@@ -1034,7 +1045,11 @@ Deno.serve(async (req: Request) => {
               if (!eventMatch) {
                 const { data: pendingKeyRows } = await client.from('incoming_activities').select(PENDING_COLUMNS)
                   .eq('extracted_data->>event_key', candidate.event_key).in('status', ['new', 'needs_review']).limit(5);
-                if (pendingKeyRows && pendingKeyRows.length) { await reconfirmPending(pendingKeyRows as PendingReviewRow[]); continue; }
+                if (pendingKeyRows && pendingKeyRows.length) {
+                  const due = dueDeferred(pendingKeyRows as { id: string }[]);
+                  if (!due) { await reconfirmPending(pendingKeyRows as PendingReviewRow[]); continue; }
+                  releaseIncomingId = releaseIncomingId ?? due;
+                }
               }
             }
             if (!eventMatch && candidate.city) eventMatch = findEventMatch(candidate, await findSimilarActivities(client, candidate, cityCache), source.id, todayStr);
@@ -1086,18 +1101,46 @@ Deno.serve(async (req: Request) => {
             break;
           }
 
-          // An "update" whose ONLY content is the event identity of a row that has none (rows created before
-          // wave 1) is not a change a person can judge - it is bookkeeping. It is written fill-null on the
-          // confirmed match (exact fingerprint / event match) and the candidate counts as a duplicate, instead
-          // of adding one review item per legacy row per scan (2026-09-17: 4 of 13 Ra'anana "updates").
-          const backfillIdentityOnly = async (activityId: string, d: Record<string, unknown>): Promise<boolean> => {
-            const keys = Object.keys(d);
-            if (keys.length !== 1 || keys[0] !== 'event_key' || !candidate.event_key) return false;
-            const entry = d.event_key as { before?: unknown };
-            if (entry && entry.before != null) return false; // a DIFFERENT existing key is a real identity question
-            const { data: w } = await client.from('activities').update({ event_key: candidate.event_key, event_key_kind: candidate.event_key_kind ?? null }).eq('id', activityId).is('event_key', null).select('id');
-            if (w && w.length) listing.identity_backfilled++;
-            return true;
+          // ONLY A MATERIAL DIFF IS HUMAN WORK (Human Queue Policy Phase A, 2026-09-24). A matched candidate whose
+          // diff is empty, only restates the record (format / a less specific value), or - on a CONFIRMED identity
+          // (fingerprint, event match, >= duplicate threshold) - holds only enrichment a person cannot judge
+          // (description / image / event identity) never becomes an update row: it counts as the same activity
+          // (duplicate; seen + provenance exactly as before). Enrichment is written fill-null, never over a value:
+          //   event_key   identity bookkeeping (was backfillIdentityOnly, 2026-09-17), any source
+          //   description only when the record has none, only from the activity's own source
+          //   image       only when the record has no image, only from the activity's own source
+          // On an UNCERTAIN identity (needs-review band, standing programme) a description/image difference stays
+          // a review row: there the person's question is "is this the same activity?", not the enrichment.
+          const silentEnrich = async (existing: ExistingActivity | null, activityId: string, keys: string[], d: Record<string, unknown>) => {
+            const note = (k: string) => { listing.silent_fill[k] = (listing.silent_fill[k] || 0) + 1; };
+            const entry = d.event_key as { before?: unknown } | undefined;
+            if (keys.includes('event_key') && candidate.event_key && entry && entry.before == null) {
+              const { data: w } = await client.from('activities').update({ event_key: candidate.event_key, event_key_kind: candidate.event_key_kind ?? null }).eq('id', activityId).is('event_key', null).select('id');
+              if (w && w.length) { listing.identity_backfilled++; note('event_key'); }
+            }
+            const ownSource = !!existing && existing.source_id === source.id;
+            if (ownSource && keys.includes('description') && typeof candidate.description === 'string' && candidate.description.trim() && !(existing!.description || '').trim()) {
+              const { data: w } = await client.from('activities').update({ description: candidate.description.trim() }).eq('id', activityId).or('description.is.null,description.eq.').select('id');
+              if (w && w.length) note('description');
+            }
+            if (ownSource && keys.includes('has_image') && Array.isArray(candidate.images) && candidate.images.length) {
+              const { count } = await client.from('activity_images').select('id', { count: 'exact', head: true }).eq('activity_id', activityId);
+              if (count === 0) {
+                const rows = (candidate.images as { url: string; source_type?: string; needs_rights_review?: boolean }[])
+                  .filter((img) => img && typeof img.url === 'string' && img.url.trim()).slice(0, 3)
+                  .map((img) => ({ activity_id: activityId, url: img.url, uploaded_by: source.created_by ?? null, image_source_url: img.url, image_source_type: img.source_type || 'UNKNOWN', needs_rights_review: !!img.needs_rights_review }));
+                if (rows.length) { const { error: imgErr } = await client.from('activity_images').insert(rows); if (!imgErr) note('image'); }
+              }
+            }
+          };
+          // -> true when the diff is human work (an update row); false = same activity, no material update
+          const needsHumanUpdate = async (existing: ExistingActivity | null, activityId: string, d: Record<string, unknown>, confirmedIdentity: boolean): Promise<boolean> => {
+            const cls = classifyUpdateDiff(d as Record<string, { before?: unknown; after?: unknown }>);
+            if (cls.kind === 'material') return true;
+            if (cls.kind === 'non_human' && !confirmedIdentity) return true;
+            listing.noop_updates[cls.kind] = (listing.noop_updates[cls.kind] || 0) + 1;
+            if (cls.kind === 'non_human') await silentEnrich(existing, activityId, cls.nonHuman, d);
+            return false;
           };
 
           let matchType: 'new' | 'update' | 'duplicate' = 'new';
@@ -1115,11 +1158,12 @@ Deno.serve(async (req: Request) => {
             // Monster would knowingly leave Cleaner debt it just found the answer to. Wording-only
             // differences (description) are ignored here: they are extraction variance, not evidence.
             let enrichment: Record<string, unknown> = {};
+            let fpExisting: ExistingActivity | null = null;
             if (candidate.detail_url || candidate.event_key) {
               const { data: exRow } = await client.from('activities').select(EXISTING_ACTIVITY_SELECT).eq('id', fingerprintMatchId).maybeSingle();
-              if (exRow) enrichment = computeFieldDiff(candidate, mapExistingRow(exRow, todayStr), { enrichmentOnly: true });
+              if (exRow) { fpExisting = mapExistingRow(exRow, todayStr); enrichment = computeFieldDiff(candidate, fpExisting, { enrichmentOnly: true }); }
             }
-            if (Object.keys(enrichment).length && !(await backfillIdentityOnly(fingerprintMatchId, enrichment))) { matchType = 'update'; status = 'needs_review'; diff = enrichment; counters.updatedCount++; }
+            if (await needsHumanUpdate(fpExisting, fingerprintMatchId, enrichment, true)) { matchType = 'update'; status = 'needs_review'; diff = enrichment; counters.updatedCount++; }
             else { matchType = 'duplicate'; status = 'duplicate'; counters.duplicateCount++; }
           } else if (eventMatch) {
             // same EVENT: new occurrences / stronger evidence become an UPDATE for review, else a duplicate.
@@ -1127,27 +1171,29 @@ Deno.serve(async (req: Request) => {
             const fieldDiff = computeFieldDiff(candidate, eventMatch.activity, { enrichmentOnly: true });
             existingActivityId = eventMatch.activity.id;
             confidenceScore = eventMatch.reason === 'event_key' ? 0.96 : 0.93; confidenceBreakdown = { ...eventMatch.breakdown, [eventMatch.reason]: 1 };
-            if (Object.keys(fieldDiff).length === 0 || (await backfillIdentityOnly(eventMatch.activity.id, fieldDiff))) { matchType = 'duplicate'; status = 'duplicate'; counters.duplicateCount++; }
-            else { matchType = 'update'; status = 'needs_review'; diff = fieldDiff; counters.updatedCount++; }
+            if (await needsHumanUpdate(eventMatch.activity, eventMatch.activity.id, fieldDiff, true)) { matchType = 'update'; status = 'needs_review'; diff = fieldDiff; counters.updatedCount++; }
+            else { matchType = 'duplicate'; status = 'duplicate'; counters.duplicateCount++; }
           } else if (bestMatch && bestMatch.confidence.score >= thresholds.duplicate) {
             const fieldDiff = computeFieldDiff(candidate, bestMatch.activity);
             existingActivityId = bestMatch.activity.id;
             confidenceScore = bestMatch.confidence.score; confidenceBreakdown = bestMatch.confidence.breakdown;
-            if (Object.keys(fieldDiff).length === 0) { matchType = 'duplicate'; status = 'duplicate'; counters.duplicateCount++; }
-            else { matchType = 'update'; status = 'needs_review'; diff = fieldDiff; counters.updatedCount++; }
+            if (await needsHumanUpdate(bestMatch.activity, bestMatch.activity.id, fieldDiff, true)) { matchType = 'update'; status = 'needs_review'; diff = fieldDiff; counters.updatedCount++; }
+            else { matchType = 'duplicate'; status = 'duplicate'; counters.duplicateCount++; }
           } else if (bestMatch && bestMatch.confidence.score >= thresholds.needsReview) {
-            matchType = 'update'; status = 'needs_review';
+            // uncertain identity: an empty / restating diff is still "nothing to decide" (duplicate); anything
+            // else - including a description-only difference - stays a review row (is it the same activity?)
             existingActivityId = bestMatch.activity.id;
             confidenceScore = bestMatch.confidence.score; confidenceBreakdown = bestMatch.confidence.breakdown;
-            diff = computeFieldDiff(candidate, bestMatch.activity);
-            counters.updatedCount++;
+            const fieldDiff = computeFieldDiff(candidate, bestMatch.activity);
+            if (await needsHumanUpdate(bestMatch.activity, bestMatch.activity.id, fieldDiff, false)) { matchType = 'update'; status = 'needs_review'; diff = fieldDiff; counters.updatedCount++; }
+            else { matchType = 'duplicate'; status = 'duplicate'; counters.duplicateCount++; }
           } else if (standingMatch) {
             // fixed, documented rule-based score - not a weighted computeConfidence output
-            matchType = 'update'; status = 'needs_review';
             existingActivityId = standingMatch.id;
             confidenceScore = 0.65; confidenceBreakdown = { standing_programme_match: 1 };
-            diff = computeFieldDiff(candidate, standingMatch);
-            counters.updatedCount++;
+            const fieldDiff = computeFieldDiff(candidate, standingMatch);
+            if (await needsHumanUpdate(standingMatch, standingMatch.id, fieldDiff, false)) { matchType = 'update'; status = 'needs_review'; diff = fieldDiff; counters.updatedCount++; }
+            else { matchType = 'duplicate'; status = 'duplicate'; counters.duplicateCount++; }
           } else {
             matchType = 'new';
             status = gatingIssues(issues).length > 0 ? 'needs_review' : 'new';
@@ -1199,8 +1245,13 @@ Deno.serve(async (req: Request) => {
             }
           }
 
+          // FAR-FUTURE (Phase A): a clean new candidate beyond the auto-publish horizon is not human work - it is
+          // kept and deferred to the day its date enters the window (then released: rescan or pending lifecycle)
+          const deferredUntil = matchType === 'new' && status === 'new' && !autoApprovedActivityId ? farFutureDeferUntil(candidate, gate.today, gate.maxDaysAhead) : null;
+          if (deferredUntil) listing.deferred_far_future++;
           const { venue: _venueObj, ...storedCandidate } = candidate;
           const incomingPayload = {
+            deferred_until: deferredUntil,
             source_id: source.id, scan_log_id: scanLogId, page_url: pageUrl,
             match_type: matchType, existing_activity_id: existingActivityId,
             confidence_score: confidenceScore, confidence_breakdown: confidenceBreakdown,
@@ -1223,6 +1274,11 @@ Deno.serve(async (req: Request) => {
                 .eq('id', (pendingUpd as { id: string }).id).eq('status', 'needs_review').select('id').maybeSingle();
               if (upd) { incomingId = (upd as { id: string }).id; listing.updates_superseded++; }
             }
+          }
+          if (!incomingId && releaseIncomingId) {
+            const { data: rel } = await client.from('incoming_activities').update({ ...incomingPayload, found_at: new Date().toISOString() })
+              .eq('id', releaseIncomingId).eq('status', 'new').select('id').maybeSingle();
+            if (rel) { incomingId = (rel as { id: string }).id; listing.deferred_released++; }
           }
           if (!incomingId) {
             const { data: incomingRow } = await client.from('incoming_activities').insert(incomingPayload).select('id').maybeSingle();

@@ -1,11 +1,17 @@
 // TuRu - CONTINUOUS MONSTER: the job model (pure, testable). Durable jobs run inside Supabase (pg_cron); LOCAL jobs
 // run through `monster.js cycle` on the admin machine (pilot). Every job is bounded (max work per run), idempotent
 // (safe to repeat), isolated (one job's failure never stops the cycle) and has an explicit cadence with a reason.
+// rows found before this instant are the historical queue (Phase A cleanup waits for approval)
+const PHASE_A_CUTOFF = '2026-09-24T07:00:00Z';
 const JOBS = [
   { id: 'scan_due_sources', where: 'supabase', cadence: 'every 15 min (pg_cron scan-due-sources)', maxWork: 20, reason: 'dated events have a median lead time of 14 d (p25 5 d): a healthy event source must be revisited every 1-2 days; the dispatcher takes at most 20 due sources per tick so the edge function never sees a thundering herd', command: 'select public._scan_due_sources_cron()' },
   { id: 'cleanup_expired', where: 'supabase', cadence: 'daily 03:00 (pg_cron cleanup-expired-activities-daily)', maxWork: null, reason: 'a one-time event whose last date passed must leave Results the next morning', command: 'select public._cleanup_expired_activities_cron()' },
   { id: 'relay', where: 'local', everyHours: 6, maxWork: 6, reason: 'WAF-blocked sources (Holon, Tel Aviv, Lod...) are only reachable from a local IP; 10 sources with 72-168 h frequencies need ~2 relays per cycle - 6 per cycle absorbs a backlog after downtime', command: 'node relay-scan.js --max=6' },
   { id: 'cleaner', where: 'local', everyHours: 1, maxWork: 40, reason: 'resolvable debt follows ingestion asynchronously; one bounded batch per hour (40 cases, leases + run guard) clears ~1,000 cases/day when due', command: 'node cleaner.js --max=40' },
+  // Human Queue Policy Phase A (2026-09-24): expired pending candidates leave the inbox, far-future ones are
+  // deferred. --found-since = the Phase A deploy: NEW ingestion only. The historical queue is drained only by an
+  // explicitly approved run without it (tests assert the cutoff stays on the scheduled command).
+  { id: 'pending_lifecycle', where: 'local', everyHours: 24, maxWork: 200, reason: 'a one-time candidate whose last date passed can no longer be decided and a valid event > 180 d ahead cannot publish yet - neither is human work; one bounded daily pass (200 rows) keeps both out of the inbox', command: `node pending-lifecycle.js --apply --max=200 --found-since=${PHASE_A_CUTOFF}` },
   { id: 'coverage', where: 'local', everyHours: 24 * 7, maxWork: null, reason: 'coverage gaps move slowly; a weekly read-only report feeds the next discovery targets', command: 'node report-coverage.js --json-only' },
   { id: 'discovery', where: 'local', everyHours: 24 * 7, maxWork: 20, reason: 'new sources are found from OpenStreetMap venue records with a website (free, provenance-aware) inside the service area, verified by a fetch, deduplicated against the registry, and registered INACTIVE for a person to activate - at most 20 candidates per week so review stays bounded', command: 'node discover-sources-osm.js --max=20 --register' },
   { id: 'cadence', where: 'local', everyHours: 24 * 7, maxWork: 0, reason: 'scan frequencies follow 30-day yield (live calendars daily, quiet venue sites fortnightly). PILOT (Phase D, 2026-09-19): the weekly job only writes the plan (dry run, source-cadence-<date>-dryrun.json) - applying it (38 -> 60 scans/day, +55 % AI calls) is NOT approved; a person runs `tune-source-cadence.js --apply --max=40 --budget=60` after approval', command: 'node tune-source-cadence.js --budget=60' },
@@ -32,4 +38,4 @@ function schedulerCommand({ root, everyMinutes = 60, taskName = 'TuRu Monster' }
 }
 function pauseCommand(root) { return `node ${root}\\monster.js pause   (sets automation_settings.monster_enabled=false; pg_cron scanning: automation_settings.scanning_enabled=false)`; }
 
-module.exports = { JOBS, isDue, selectJobs, lockIsStale, schedulerCommand, pauseCommand };
+module.exports = { JOBS, PHASE_A_CUTOFF, isDue, selectJobs, lockIsStale, schedulerCommand, pauseCommand };

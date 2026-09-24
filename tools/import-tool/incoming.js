@@ -148,16 +148,33 @@ function renderIncomingPage() {
   // מה לאשר בכלל, אז שורת הסימון-המרוכז לא רלוונטית שם ומוסתרת.
   const BULK_APPROVABLE_TABS = new Set(['new', 'update']);
 
+  // Phase A (2026-09-24): a far-future candidate deferred to its auto-publish window (deferred_until, 0110) is
+  // not waiting for a person yet - it has its own tab until that day
+  const todayIso = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+  const isDeferred = (r) => !!r.deferred_until && r.deferred_until > todayIso;
   const TABS = [
-    { key: 'new', label: '🆕 חדשות', match: (r) => r.match_type === 'new' && ['new', 'needs_review'].includes(r.status) },
+    { key: 'new', label: '🆕 חדשות', match: (r) => r.match_type === 'new' && ['new', 'needs_review'].includes(r.status) && !isDeferred(r) },
     { key: 'update', label: '🔄 עדכונים', match: (r) => r.match_type === 'update' && ['new', 'needs_review'].includes(r.status) },
     { key: 'duplicate', label: '👥 כפילויות', match: (r) => r.match_type === 'duplicate' && r.status !== 'rejected' },
     { key: 'missing', label: '⚠️ נעלמו מהמקור', match: (r) => r.status === 'missing_flagged' },
+    { key: 'deferred', label: '⏳ עתידיות רחוקות', match: (r) => r.match_type === 'new' && ['new', 'needs_review'].includes(r.status) && isDeferred(r) },
     { key: 'history', label: '✅ טופלו', match: (r) => ['approved', 'updated', 'rejected', 'archived_expired'].includes(r.status) },
   ];
 
   function escapeHtml(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+  // Phase A: an unknown price is completeness, not a problem - never a "⚠️ חסר" badge (legacy rows still carry
+  // 'מחיר' in validation_issues). "Free" (price_type 'free') and "not listed" stay distinguishable.
+  function renderIssues(r, c) {
+    const issues = (r.validation_issues || []).filter((i) => i !== 'מחיר');
+    const priceUnknown = !c.price_type && (r.match_type === 'new' || r.match_type === 'duplicate');
+    const deferred = isDeferred(r) ? '<span class="badge trust">⏳ ממתינה לחלון הפרסום - חוזרת ב-' + escapeHtml(r.deferred_until) + '</span>' : '';
+    if (!issues.length && !priceUnknown && !deferred) return '';
+    return '<div class="issues-row">' +
+      issues.map((i) => '<span class="badge issue">⚠️ חסר: ' + escapeHtml(i) + '</span>').join('') +
+      (priceUnknown ? '<span class="badge">ℹ️ מחיר לא צוין במקור</span>' : '') + deferred +
+      '</div>';
   }
   function formatDate(iso) {
     if (!iso) return '—';
@@ -289,9 +306,7 @@ function renderIncomingPage() {
         (c.venue_id ? '<span class="badge trust">🏬 מקום קנוני מזוהה</span>' : '') +
         (c.organizer_name ? '<span>מארגן: ' + escapeHtml(c.organizer_name) + '</span>' : '') +
       '</div>' +
-      (r.validation_issues && r.validation_issues.length
-        ? '<div class="issues-row">' + r.validation_issues.map((i) => '<span class="badge issue">⚠️ חסר: ' + escapeHtml(i) + '</span>').join('') + '</div>'
-        : '') +
+      renderIssues(r, c) +
       renderAccess(c) +
       renderGranularity(c) +
       renderImageWarnings(c) +
