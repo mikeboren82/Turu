@@ -127,6 +127,19 @@ async function handBackIncoming(client, row, { settings, userId, cache, today, c
   const temporal = missingTemporalEvidence(c);
   const rel = assessChildRelevance(c);
   if (rel === 'reject') { await client.from('incoming_activities').update({ status: 'rejected', archive_reason: 'invalid_event', reject_reason: 'קהל יעד למבוגרים (THE CLEANER)', reviewed_at: now }).eq('id', row.id).in('status', OPEN_INCOMING); return { outcome: 'archived', reason: 'invalid_event' }; }
+  // SERVICE AREA (2026-09-19): resolved coordinates inside Palestinian-administered territory end the candidate's life
+  // here - rejected with the geographic evidence, never published, never re-queued (the Monster remembers the reason)
+  if (c.lat != null && c.lng != null) {
+    const { classifyServiceArea } = require('../lib/serviceArea');
+    const { loadSettlementIndex } = require('../lib/canonicalSettlement');
+    let index = null; try { index = await loadSettlementIndex(client); } catch { index = null; }
+    const v = classifyServiceArea({ lat: c.lat, lng: c.lng }, { index, reverse: c.cleaner_location?.evidence?.reverse || null, cityHint: c.city || null });
+    if (v.klass === 'OUTSIDE_SERVICE_AREA') {
+      const { data } = await client.from('incoming_activities').update({ status: 'rejected', archive_reason: 'outside_service_area', reject_reason: 'מחוץ לאזור השירות של תורו (THE CLEANER: ' + v.reason + ')', extracted_data: { ...c, service_area: v }, reviewed_at: now }).eq('id', row.id).in('status', OPEN_INCOMING).select('id');
+      if (!data || !data.length) return { outcome: 'resolved_externally' };
+      return { outcome: 'archived', reason: 'outside_service_area', verdict: v };
+    }
+  }
   if (!(trusted && gating.length === 0 && dateOk && !temporal && rel === 'ok')) return { outcome: 'awaiting_policy', why: !trusted ? 'untrusted_source' : gating.length ? 'issues:' + gating.join(',') : !dateOk ? 'date' : temporal ? 'temporal:' + temporal : 'relevance_' + rel };
   // WHO MAY ATTEND (Phase 1): the automated hand-back never answers the access question. A row the
   // access assessment holds stays in the queue for a human (policy hold, same as temporal evidence).

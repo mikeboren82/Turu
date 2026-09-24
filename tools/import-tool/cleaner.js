@@ -28,6 +28,7 @@ const { patchIncomingLocation, handBackIncoming, applyAddressToActivity, applyCi
 const { proposeCity } = require('./cleaner/cityResolver');
 const { reverseAddress } = require('./cleaner/reverse');
 const { loadSettlementIndex, resolveSettlement, heKey, learnSettlementAlias } = require('./lib/canonicalSettlement');
+const { classifyServiceArea } = require('./lib/serviceArea');
 const { classifyPlayVenue } = require('./lib/playVenueClassifier');
 const { resolveVenueClusters } = require('./cleaner/venueClusters');
 const { auditCityCentroids, isSharedMultiLabelPoint } = require('./cleaner/centroidAudit');
@@ -223,10 +224,18 @@ async function processCase(client, c, ctx) {
         const r = await archiveOrDry(client, c, { reason: 'outside_service_area', note: 'הקואורדינטות מחוץ לישראל: ' + (p.raw || ''), methods, evidence: record }); countArchive(counters, r); return r;
       }
       if (p.klass === 'OTHER' && p.reason === 'palestinian_locality') {
-        // the locality is correct, it is not a TURU settlement: a SERVICE-AREA decision for a person, never a
-        // rename and never an automatic archive (the activity stays exactly as it is)
+        // SERVICE AREA (product decision 2026-09-19): the geographic classifier decides. CONFIRMED outside -> the
+        // activity is archived outside_service_area (verified write) and the case closes with the same reason;
+        // AMBIGUOUS (Hebron / Kiryat Arba, outposts, border towns) -> requires_human_judgment, activity untouched.
         mc.palestinianLocality++;
-        const r = await archiveOrDry(client, c, { reason: 'requires_human_judgment', note: 'PALESTINIAN_LOCALITY_CORRECT_BUT_OUTSIDE_CBS: ' + (p.raw || L.city || '') + ' - service-area decision needed', methods, evidence: { ...record, klass: 'PALESTINIAN_LOCALITY', evidence: p.evidence } }); countArchive(counters, r); return r;
+        const v = classifyServiceArea({ lat: L.lat, lng: L.lng }, { index, reverse: p.evidence?.reverse ? { countryCode: p.evidence.reverse.country, state: null, localities: p.evidence.reverse.localities || [] } : null, cityHint: L.city || null });
+        if (v.klass === 'OUTSIDE_SERVICE_AREA' && DRY) return { outcome: 'dry:OUTSIDE_SERVICE_AREA', method: 'service_area', error: v.reason };
+        if (v.klass === 'OUTSIDE_SERVICE_AREA') {
+          const w = await applyActivityPatch(client, a.id, { status: 'archived', archive_reason: 'outside_service_area', archived_at: new Date().toISOString() }, (q) => q.eq('status', 'approved'), (row) => row.status === 'approved');
+          if (!w.wrote && w.why === 'write_denied') { counters.writeDenied = (counters.writeDenied || 0) + 1; const r = await markFail(client, c, { method: 'service_area', error: deniedError('activities', ['status']), settings }); countArchive(counters, r); return r; }
+          const r = await archiveOrDry(client, c, { reason: 'outside_service_area', note: 'SERVICE AREA: ' + v.reason, methods, evidence: { ...record, klass: 'OUTSIDE_SERVICE_AREA', service_area: v } }); countArchive(counters, r); return r;
+        }
+        const r = await archiveOrDry(client, c, { reason: 'requires_human_judgment', note: 'PALESTINIAN_LOCALITY_' + v.klass + ': ' + (p.raw || L.city || '') + ' - ' + v.reason, methods, evidence: { ...record, klass: 'PALESTINIAN_LOCALITY', service_area: v, evidence: p.evidence } }); countArchive(counters, r); return r;
       }
       const reason = p.klass === 'CONFLICT' ? 'requires_human_judgment' : 'city_unresolved';
       if (p.klass === 'CONFLICT') mc.conflict++; else if (p.klass === 'NEEDS_CORROBORATION') mc.needsCorroboration++; else if (p.klass === 'INVALID_COORDINATES') mc.invalidCoordinates++; else mc.unresolved++;

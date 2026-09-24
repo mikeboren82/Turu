@@ -165,7 +165,9 @@ async function buildPages(seedUrl, detail = { maxPages: 0, allowHosts: [], linkS
   let q = client.from('sources').select('id, name, seed_url, strategy, next_scan_at, adapter_config').eq('is_active', true);
   if (args.source) q = q.eq('id', String(args.source));
   else { q = q.eq('strategy', 'local_relay'); if (!args.all) q = q.lte('next_scan_at', new Date().toISOString()); }
-  const { data: sources, error } = await q.order('priority', { ascending: false });
+  // --max=N (Continuous Monster cycle): a bounded batch, highest priority then longest overdue first
+  if (args.max) q = q.order('priority', { ascending: false }).order('next_scan_at', { ascending: true }).limit(Number(args.max));
+  const { data: sources, error } = await (args.max ? q : q.order('priority', { ascending: false }));
   if (error) throw error;
   console.log(`relaying ${sources.length} source(s)`);
   for (const s of sources) {
