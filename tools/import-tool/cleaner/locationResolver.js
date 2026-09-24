@@ -109,12 +109,23 @@ async function inferCityFromSource(client, sourceId) {
   return null;
 }
 
+// the row's own location label and a venue name name the same place (no label: nothing contradicts the venue)
+function labelAgreesWithVenue(label, venueName) {
+  const fold = (t) => String(t || '').replace(/["'`״׳]/g, '').replace(/יי/g, 'י').replace(/וו/g, 'ו').replace(/\s+/g, ' ').trim();
+  const a = fold(label), b = fold(venueName);
+  if (!a) return true;
+  if (!b) return false;
+  return a.includes(b) || b.includes(a) || wordOverlapScore(a, b) >= 0.5;
+}
+
 // ---- stage: existing data ----
 async function stageExisting(client, s, counters) {
   const out = [];
   for (const [label, kind] of [[s.location_name, 'existing_venue'], [s.organizer_name, 'existing_venue'], [s.name, 'existing_venue']]) {
     if (!label) continue;
     const v = await resolveVenue(client, { locationName: label, city: s.city });
+    // a venue found through the ORGANIZER or the TITLE is this event's place only when the row's own label agrees
+    if (v && label !== s.location_name && !labelAgreesWithVenue(s.location_name, v.name_he)) continue;
     if (v) {
       const full = await client.from('venues').select('id, name_he, city, address, lat, lng, website_url, events_url, updated_at').eq('id', v.id).maybeSingle();
       const venue = full.data || v;
@@ -125,7 +136,10 @@ async function stageExisting(client, s, counters) {
   }
   if (!out.length && s.source_venue_id) {
     const { data: venue } = await client.from('venues').select('id, name_he, city, address, lat, lng, website_url, events_url, updated_at').eq('id', s.source_venue_id).maybeSingle();
-    if (venue) { const co = await coordsForVenue(client, venue, s.city, counters); out.push({ location_name: s.location_name || venue.name_he, address: co?.address || venue.address || null, city: normalizeCityName(venue.city || s.city), lat: co?.lat ?? null, lng: co?.lng ?? null, venue_id: venue.id, method: 'existing_source_venue', confidence: co ? co.confidence : 'LOW', evidence: { source_venue: venue.name_he, coords: co?.how || 'none', geocode: co?.geocode }, venue }); }
+    // SOURCE-VENUE GUARD (pilot #3 dry-run, 2026-09-24): a source linked to one venue can publish a whole NETWORK
+    // ("בית אריאלה וספריות תל אביב-יפו" -> "ספריית מנדל ביפו", "המרכז הערבי־יהודי"); the source's venue is the event's
+    // place only when the row's own label names it
+    if (venue && labelAgreesWithVenue(s.location_name, venue.name_he)) { const co = await coordsForVenue(client, venue, s.city, counters); out.push({ location_name: s.location_name || venue.name_he, address: co?.address || venue.address || null, city: normalizeCityName(venue.city || s.city), lat: co?.lat ?? null, lng: co?.lng ?? null, venue_id: venue.id, method: 'existing_source_venue', confidence: co ? co.confidence : 'LOW', evidence: { source_venue: venue.name_he, coords: co?.how || 'none', geocode: co?.geocode }, venue }); }
   }
   if (!out.length && s.location_name && s.source_id) {
     const { data } = await client.from('activities').select('id, name, venue_id, locations!inner(name, address, city, lat, lng, address_confidence)').eq('source_id', s.source_id).eq('status', 'approved').ilike('locations.name', s.location_name).not('locations.lat', 'is', null).limit(3);
@@ -379,4 +393,4 @@ async function resolveLocation(client, subject, opts = {}) {
 function finish(best, tried, skipped, errors, venue) { return { result: best && best.lat != null ? strip(best) : (best ? { ...strip(best), lat: null, lng: null } : null), tried, skipped, errors, venue: venue ? { id: venue.id, name_he: venue.name_he } : null }; }
 function strip(r) { const { venue, city_ok, evidence_geocode, ...rest } = r; if (evidence_geocode) rest.evidence = { ...(rest.evidence || {}), geocode: evidence_geocode }; return rest; }
 
-module.exports = { addressBound, evidenceFromPage, resolveLocation, STAGES, EVIDENCE_STAGES, EXTERNAL_LIMIT, geocodeAddress, geocodeText, cityAgrees, coordsForVenue, inferCityFromSource, stageAvailability, placeLookup, ADMIN_TYPES };
+module.exports = { labelAgreesWithVenue, addressBound, evidenceFromPage, resolveLocation, STAGES, EVIDENCE_STAGES, EXTERNAL_LIMIT, geocodeAddress, geocodeText, cityAgrees, coordsForVenue, inferCityFromSource, stageAvailability, placeLookup, ADMIN_TYPES };

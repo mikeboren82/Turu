@@ -67,6 +67,18 @@ function verifyLocationShape(c, { settlementOf = null } = {}) {
   return { ok: true };
 }
 
+// the row's label and a venue name name the same place (containment or >= half the words shared; no label = no conflict)
+function labelNamesVenue(label, venueName) {
+  const fold = (t) => norm(t).replace(/יי/g, 'י').replace(/וו/g, 'ו');
+  const a = fold(label), b = fold(venueName);
+  if (!a) return true;
+  if (!b) return false;
+  if (a.includes(b) || b.includes(a)) return true;
+  const wa = new Set(a.split(' ').filter((w) => w.length > 1)), wb = new Set(b.split(' ').filter((w) => w.length > 1));
+  let common = 0; wa.forEach((w) => { if (wb.has(w)) common++; });
+  return common / Math.max(wa.size, wb.size, 1) >= 0.5;
+}
+
 // The evidence ladder over one resolveLocation result for a subject with a KNOWN city.
 //   HIGH   canonical venue (+ matching city + coordinates), prior approved activity of the same source/label, an existing
 //          verified location row, page/detail-page geo with city agreement
@@ -86,6 +98,8 @@ function classifyResolution(result, subject = {}) {
   switch (result.method) {
     case 'existing_venue': case 'existing_source_venue':
       if (!result.venue_id) return { class: 'VERIFY_MORE', rule: 'venue_without_id' };
+      // the venue must be the place the row itself names (a network source's venue is not every branch's venue)
+      if (!labelNamesVenue(subject.location_name, ev.venue || ev.source_venue || result.location_name)) return { class: 'VERIFY_MORE', rule: 'venue_label_mismatch' };
       return /venue_name_geocoded/.test(String(ev.coords || '')) ? { class: 'MEDIUM', rule: 'canonical_venue_name_geocoded' } : { class: 'HIGH', rule: 'canonical_venue' };
     case 'prior_activity': return { class: result.confidence, rule: 'prior_activity_same_source_label' };
     case 'existing_location': return { class: result.confidence, rule: 'existing_verified_location' };

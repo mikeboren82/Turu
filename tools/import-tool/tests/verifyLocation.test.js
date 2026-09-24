@@ -128,7 +128,7 @@ const caseOf = (over = {}) => ({ id: 'case-1', issue: 'verify_location', subject
 
 test('HANDLER: HIGH evidence -> verified write of coordinates + evidence (label untouched) -> canonical hand-back -> RESOLVED_AND_PUBLISHED', async () => {
   const db = fakeDb({ incoming_activities: [row()], sources: [TRUSTED] });
-  const { h, calls } = helpers({ resolveLocation: async () => ({ result: { method: 'existing_source_venue', confidence: 'HIGH', lat: 32.01, lng: 34.77, city: 'חולון', address: 'הרצל 5', venue_id: 'v1', location_name: 'שם אחר מהגאוקודר', evidence: { coords: 'venue' } }, tried: ['existing'], skipped: [], errors: [] }) });
+  const { h, calls } = helpers({ resolveLocation: async () => ({ result: { method: 'existing_source_venue', confidence: 'HIGH', lat: 32.01, lng: 34.77, city: 'חולון', address: 'הרצל 5', venue_id: 'v1', location_name: 'שם אחר מהגאוקודר', evidence: { coords: 'venue', source_venue: 'מתנ"ס נווה ארזים' } }, tried: ['existing'], skipped: [], errors: [] }) });
   const r = await processVerifyLocation(db.client, caseOf(), db.t.incoming_activities[0], { settings: SETTINGS, today: TODAY, counters: { gain: {} }, cache: new Map() }, h);
   assert.equal(r.outcome, 'RESOLVED_AND_PUBLISHED'); assert.equal(calls.resolve[0].outcome, 'RESOLVED_AND_PUBLISHED');
   const ed = db.t.incoming_activities[0].extracted_data;
@@ -139,7 +139,7 @@ test('HANDLER: HIGH evidence -> verified write of coordinates + evidence (label 
 });
 
 test('HANDLER outcomes: policy-held hand-back is RESOLVED_BUT_NOT_AUTO_PUBLISHABLE (no retry); temporary failures retry; conflict archives non-blocking; nothing -> NO_EVIDENCE retry', async () => {
-  const hit = { result: { method: 'existing_source_venue', confidence: 'HIGH', lat: 32.01, lng: 34.77, city: 'חולון', venue_id: 'v1', evidence: { coords: 'venue' } }, tried: ['existing'], skipped: [], errors: [] };
+  const hit = { result: { method: 'existing_source_venue', confidence: 'HIGH', lat: 32.01, lng: 34.77, city: 'חולון', venue_id: 'v1', evidence: { coords: 'venue', source_venue: 'מתנ"ס נווה ארזים' } }, tried: ['existing'], skipped: [], errors: [] };
   let db = fakeDb({ incoming_activities: [row()], sources: [TRUSTED] });
   let { h, calls } = helpers({ resolveLocation: async () => hit, handBackIncoming: async () => ({ outcome: 'awaiting_policy', reasons: ['untrusted_source'], publish: 'POLICY_HELD' }) });
   await processVerifyLocation(db.client, caseOf(), db.t.incoming_activities[0], { settings: SETTINGS, today: TODAY, counters: { gain: {} } }, h);
@@ -267,4 +267,22 @@ test('hand-back: a new performance of a known show is an update, never a duplica
   assert.deepEqual(missingOccurrences({ one_time_date: '2026-09-28' }, act([['2026-09-28', '10:00:00']])), [], 'no hour given: the date suffices');
   assert.deepEqual(missingOccurrences({ schedule_type: 'recurring', recurring_days: ['שני'] }, act([])), [], 'undated rows keep the existing rule');
   assert.deepEqual(missingOccurrences({ one_time_date: '2026-09-29', start_time: '17:00' }, { one_time_date: '2026-09-29', start_time: '17:00:00' }), [], 'legacy activity shape without occurrences');
+});
+
+// pilot #3 dry-run 2026-09-24 (before any write): a NETWORK source linked to one venue ("בית אריאלה וספריות תל אביב-יפו")
+// put "ספריית מנדל ביפו" and "המרכז הערבי־יהודי" at Beit Ariela, שאול המלך 25. The source's venue - or a venue found via
+// the organizer / title - is the event's place only when the row's own label names it; the ladder re-checks it.
+test('source / organizer venue is never another branch\'s place', () => {
+  const { labelAgreesWithVenue } = require('../cleaner/locationResolver');
+  assert.equal(labelAgreesWithVenue('ספריית מנדל ביפו', 'בית אריאלה'), false);
+  assert.equal(labelAgreesWithVenue('המרכז הערבי־יהודי', 'בית אריאלה'), false);
+  assert.equal(labelAgreesWithVenue('בית אריאלה', 'בית אריאלה'), true);
+  assert.equal(labelAgreesWithVenue('ספריית בית אריאלה', 'בית אריאלה'), true);
+  assert.equal(labelAgreesWithVenue('מרכז ענב', 'מרכז ענב לתרבות'), true);
+  const src = fs.readFileSync(path.join(__dirname, '..', 'cleaner', 'locationResolver.js'), 'utf8');
+  assert.match(src, /if \(venue && labelAgreesWithVenue\(s\.location_name, venue\.name_he\)\)/, 'source venue guarded');
+  assert.match(src, /label !== s\.location_name && !labelAgreesWithVenue\(s\.location_name, v\.name_he\)/, 'organizer / title venue guarded');
+  const beitAriela = { method: 'existing_source_venue', venue_id: 'v-ba', lat: 32.0766841, lng: 34.7862804, city: 'תל אביב יפו', confidence: 'HIGH', evidence: { source_venue: 'בית אריאלה', coords: 'venue' } };
+  assert.deepEqual(classifyResolution(beitAriela, { city: 'תל אביב יפו', location_name: 'ספריית מנדל ביפו' }), { class: 'VERIFY_MORE', rule: 'venue_label_mismatch' });
+  assert.equal(classifyResolution(beitAriela, { city: 'תל אביב יפו', location_name: 'בית אריאלה' }).class, 'HIGH');
 });
