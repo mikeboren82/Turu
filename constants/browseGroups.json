@@ -1,0 +1,34 @@
+{
+  "_doc": [
+    "TuRu - USER-FACING BROWSE GROUPS (2026-09-25). A PRESENTATION-ONLY union over canonical categories:",
+    "tapping a group sets filters.category to its `members` (canonical strings exactly as stored).",
+    "Groups are never stored, never written to activities.category, never sent to ingestion, the",
+    "classifier, Smart Search or analytics. Search keeps resolving to canonical values only.",
+    "",
+    "DRIFT GUARD: every value in categoryValues.categories + storageOnlyCategories appears EXACTLY",
+    "ONCE, either in one group's `members` or in `internal` (tests/browseGroups.test.js). A new",
+    "canonical value therefore fails the test suite until it is assigned here - never a silent fallback.",
+    "",
+    "  id           stable ASCII key; the display label lives in lib/i18n/locales/*/domain.json",
+    "               under browseGroups.<id> (never stored here).",
+    "  homeDefault  one of the fixed Home 'מה עוד מעניין אתכם?' tiles. A USER-INTENT choice, never",
+    "               derived from catalogue counts (coverage is playground-biased by ingestion history).",
+    "  order        deterministic picker order, independent of translated text.",
+    "  internal     canonical values that are valid in storage but have no user-facing browse entry",
+    "               ('אחר' catch-all, 'חוג'/'קייטנה' commitment/archive semantics)."
+  ],
+  "groups": [
+    { "id": "playgrounds_parks", "emoji": "🛝", "members": ["גן שעשועים", "פארק"], "homeDefault": true, "order": 10 },
+    { "id": "shows", "emoji": "🎭", "members": ["הצגה", "מוזיקה", "ריקוד"], "homeDefault": true, "order": 20 },
+    { "id": "cinema", "emoji": "🎬", "members": ["קולנוע לילדים"], "homeDefault": false, "order": 30 },
+    { "id": "indoor_play", "emoji": "🧸", "members": ["משחקייה", "ג'ימבורי", "טרמפולינות"], "homeDefault": true, "order": 40 },
+    { "id": "animals", "emoji": "🐾", "members": ["חיות וגני חיות", "חווה", "פינת חי", "בעלי חיים"], "homeDefault": true, "order": 50 },
+    { "id": "nature", "emoji": "🌿", "members": ["טבע"], "homeDefault": false, "order": 60 },
+    { "id": "museums_science", "emoji": "🏛️", "members": ["מוזיאון לילדים", "מדע"], "homeDefault": false, "order": 70 },
+    { "id": "workshops", "emoji": "🎨", "members": ["סדנה", "יצירה", "בישול"], "homeDefault": true, "order": 80 },
+    { "id": "story_hour", "emoji": "📖", "members": ["שעת סיפור", "ספרייה"], "homeDefault": false, "order": 90 },
+    { "id": "water_attractions", "emoji": "🎢", "members": ["פעילות מים", "בריכה", "פארק שעשועים", "אטרקציה", "חדרי בריחה", "ספורט"], "homeDefault": true, "order": 100 },
+    { "id": "festivals_events", "emoji": "🎉", "members": ["פעילות קהילתית", "פעילות עירונית"], "homeDefault": false, "order": 110 }
+  ],
+  "internal": ["אחר", "חוג", "קייטנה"]
+}

@@ -19,6 +19,7 @@ import { fetchUserPreferences, saveExcludedCategories, saveExcludedCities, saveE
 import { supabase } from '../lib/supabase';
 import { DEFAULT_FILTERS, CATEGORY_FILTER_OPTIONS } from '../constants/filterSchema';
 import { categorySummary, buildResultsSummary, buildActiveChips, shouldReopenLocationChooser } from '../lib/filterSummaries';
+import { BROWSE_GROUP_OPTIONS, withManualCategorySelection } from '../lib/browseGroups';
 import { rankActivitiesWithSmartRadius, countActiveFilters, normalizeFilters, getOpenNowInfo, haversineKm, locationWithDrivingTime } from '../lib/filterActivities';
 import { formatBenefitCardTag } from '../lib/benefits';
 import { buildMatchReasons } from '../lib/matchReasons';
@@ -1209,6 +1210,8 @@ export default function ActivitiesScreen() {
         </Pressable>
       </Modal>
 
+      {/* Hiding stays FLAT and CANONICAL on purpose (no browse groups): "hide this activity type"
+          is a precise choice, and excludeCategory is matched value-by-value. */}
       <QuickPicker
         visible={hideCategoriesModalOpen}
         title={t('activities.hide.categoriesTitle')}
@@ -1330,10 +1333,11 @@ export default function ActivitiesScreen() {
         title={t('activities.gate.categoryLabel')}
         subtitle={t('activities.gate.categorySubtitle')}
         options={CATEGORY_FILTER_OPTIONS}
+        groups={BROWSE_GROUP_OPTIONS}
         value={filters.category}
         multiple
         showAll
-        onChange={(v) => setField('category', v)}
+        onChange={(v) => setFilters((prev) => withManualCategorySelection(prev, v))}
         onClose={() => setGateCategoryOpen(false)}
       />
       <LocationQuickPicker

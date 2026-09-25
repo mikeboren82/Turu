@@ -22,6 +22,9 @@ import {
 } from '../constants/filterSchema';
 import { normalizeFilters, locationWithDrivingTime } from '../lib/filterActivities';
 import { whenSummary, listJoin } from '../lib/filterSummaries';
+import {
+  BROWSE_GROUP_OPTIONS, homeDefaultGroups, membersOf, browseSelectionItems, withManualCategorySelection,
+} from '../lib/browseGroups';
 import { supabase } from '../lib/supabase';
 import { fetchUserPreferences, saveDefaultHomeFilters } from '../lib/preferences';
 import { childrenToDefaultAgeFilter, formatChildAge } from '../lib/children';
@@ -40,7 +43,7 @@ import {
 import { useRecentSearches } from '../lib/useRecentSearches';
 import { colors, fonts, radii, spacing } from '../constants/theme';
 import { useI18n, createStyles, t } from '../lib/i18n';
-import { categoryLabel, compactLocationText } from '../lib/i18n/format';
+import { compactLocationText } from '../lib/i18n/format';
 
 // המסך הראשי - יש מסך-בית אחד בלבד (בקשת המשתמש 2026-09-12: "יש למחוק את מסך הבית 2, מעכשיו
 // יש רק מסך בית אחד"). קודם לכן היו שני מסכי-בית מקבילים (app/index.js ו-app/home2.js) שמוזגו
@@ -70,14 +73,11 @@ const CONTENT_MAX_WIDTH = 480;
 // באף קוד אחר - נתיב-נסיגה מיידי, לא feature-flag מורכב. אין state/logic אחר תלוי בדגל הזה.
 const SHOW_UNIFIED_GUIDED_SEARCH = true;
 
-const DISCOVERY_TILES = [
-  { id: 'nature', emoji: '🌳', category: 'טבע' }, // i18n-ignore
-  { id: 'museums', emoji: '🏛️', category: 'מוזיאון לילדים' }, // i18n-ignore
-  { id: 'playgrounds', emoji: '🛝', category: 'פארק' }, // i18n-ignore
-  { id: 'animals', emoji: '🐾', category: 'חווה' }, // i18n-ignore
-  { id: 'water', emoji: '💦', category: 'פעילות מים' }, // i18n-ignore
-  { id: 'crafts', emoji: '🎨', category: 'יצירה' }, // i18n-ignore
-];
+// "מה עוד מעניין אתכם?" - the six fixed browse groups (constants/browseGroups.json homeDefault, in
+// `order`). A tile is a group, so a tap filters by ALL its canonical members (filters.category =
+// membersOf(id)) - previously each group-like label filtered ONE canonical value. Static on purpose:
+// never reordered by catalogue counts (coverage is ingestion-biased) or session state.
+const DISCOVERY_TILES = homeDefaultGroups();
 
 // שורת שלד-כרטיס בזמן טעינת ההמלצות - בלי טקסט "טוען...", רק מלבנים אפורים בגובה/רוחב של
 // ActivityCard אמיתי כדי שהקרוסלה לא "קופצת" כשהנתונים מגיעים.
@@ -134,15 +134,21 @@ function summaryForHomeFilterKey(key, filters) {
 // נשארת קצרה מספיק לשורה אחת בפקד-הכוונה-המאוחד ב-375px (נמדד בפועל בדפדפן, לא ניחוש) -
 // אחרת נופל לאותה "2 סוגי פעילויות" כמו 3+, כדי לא לייצר "...ופארקים ו..." חתוך. 3+ -> תמיד
 // "N סוגי פעילויות" - אף פעם לא שרשור שמות (המשתמש תמיד יודע כמה נבחרו בלי לנחש מהריכוז).
+// Browse groups (2026-09-25): the units counted/joined are browseSelectionItems - a fully selected
+// group is ONE unit shown by its group label ("גני שעשועים ופארקים", never "2 סוגי פעילויות"); exact
+// picks stay canonical; several complete groups -> "N קבוצות"; internal values are never shown.
 const CATEGORY_JOIN_MAX_CHARS = 16;
 function compactCategoryLabel(selected) {
   if (!selected || selected.length === 0) return t('home.guided.whatEmpty');
-  if (selected.length === 1) return categoryLabel(selected[0]);
-  if (selected.length === 2) {
-    const joined = listJoin(selected.map(categoryLabel));
+  const { items, hiddenCount } = browseSelectionItems(selected);
+  if (items.length === 0) return t('domain.summary.activityTypes', { count: hiddenCount });
+  if (items.length === 1) return items[0].label;
+  if (items.length === 2) {
+    const joined = listJoin(items.map((i) => i.label));
     if (joined.length <= CATEGORY_JOIN_MAX_CHARS) return joined;
   }
-  return t('domain.summary.activityTypes', { count: selected.length });
+  if (items.every((i) => i.kind === 'group')) return t('domain.summary.groups', { count: items.length });
+  return t('domain.summary.activityTypes', { count: items.length });
 }
 
 function ChevronDown() {
@@ -819,7 +825,7 @@ export default function HomeScreen() {
       subtitle: hasSelectedCategory ? compactCategoryLabel(filters.category) : t('domain.summary.all'),
       // a11yValue: כשהתצוגה מכווצת ל-"N סוגי פעילויות" (2+), ה-screen reader עדיין מקבל את
       // הרשימה המלאה של הקטגוריות הנבחרות בפועל - לא רק את המספר.
-      a11yValue: filters.category.length > 0 ? listJoin(filters.category.map(categoryLabel)) : t('domain.summary.all'),
+      a11yValue: filters.category.length > 0 ? listJoin(browseSelectionItems(filters.category).items.map((i) => i.label)) : t('domain.summary.all'),
       a11yHint: t('home.guided.whatHint'),
       active: hasSelectedCategory,
       // decorIcon: assets/Kangaroo.png (חדש, 2026-09-20, בקשת המשתמש: "יש בתיקיה assets תמונה
@@ -980,7 +986,9 @@ export default function HomeScreen() {
   // ב-app/activities.js לוקח את זה משם והלאה, כולל אם יש מעט תוצאות (סעיף 3 בבקשה). שאר
   // הפילטרים (גיל/מחיר/וכו') מתאפסים בכוונה - זה shortcut ל"גלו קטגוריה", לא המשך של שאר
   // הבחירות שאולי כבר קיימות ב-filters.
-  const navigateToCategoryResults = (category) => {
+  // categories - a canonical array: a browse group's members (tile / "לכל הקטגוריות" group tap) or
+  // one exact canonical value (member chip). Smart Search alias phrases never ride along.
+  const navigateToCategoryResults = (categories) => {
     // homeLocation - commit מפורש (ראו ההערה המלאה ליד ה-state): לחיצה על shortcut-גילוי היא
     // עצמה פעולת-הגשה (נכנסים ישר לתוצאות), אז filters.location הנוכחי (תמיד truthy כאן - שני
     // הקוראים בודקים locationKnown קודם) הופך למיקום-מחויב עבור הקרוסלה, בדיוק כמו handleGo.
@@ -988,7 +996,7 @@ export default function HomeScreen() {
     router.push({
       pathname: '/activities',
       params: buildResultsParams({
-        filters: { ...DEFAULT_FILTERS, category: [category], location: filters.location },
+        filters: { ...withManualCategorySelection(DEFAULT_FILTERS, categories), location: filters.location },
         coords: deviceCoords,
         childAges: childAgesForSearch,
       }),
@@ -999,11 +1007,12 @@ export default function HomeScreen() {
   // המבוקש (location שנבחר בסשן > saved/default > current-location שכבר אושר) - אין צורך
   // בלוגיקת-עדיפות נפרדת כאן, זו בדיוק המשמעות של locationKnown. אם לא ידוע - פותחים את אותו
   // LocationQuickPicker כמו "איפה נוח לכם?" (לא modal חדש) ושומרים את הקטגוריה הממתינה.
-  const handleDiscoveryTilePress = (category) => {
+  const handleDiscoveryTilePress = (groupId) => {
+    const categories = membersOf(groupId);
     if (locationKnown) {
-      navigateToCategoryResults(category);
+      navigateToCategoryResults(categories);
     } else {
-      setPendingCategory(category);
+      setPendingCategory(categories);
       setWhereQuickOpen(true);
     }
   };
@@ -1059,14 +1068,14 @@ export default function HomeScreen() {
     });
   };
 
+  // ids - the picked group's members, or one exact canonical value (see QuickPicker group mode).
   const handleAllCategoriesSelect = (ids) => {
     setAllCategoriesOpen(false);
-    const category = ids[0];
-    if (!category) return;
+    if (!ids?.length) return;
     if (locationKnown) {
-      navigateToCategoryResults(category);
+      navigateToCategoryResults(ids);
     } else {
-      setPendingCategory(category);
+      setPendingCategory(ids);
       setWhereQuickOpen(true);
     }
   };
@@ -1590,10 +1599,10 @@ export default function HomeScreen() {
             <Pressable
               key={tile.id}
               style={({ pressed }) => [styles.discoveryTile, pressed && styles.discoveryTilePressed]}
-              onPress={() => handleDiscoveryTilePress(tile.category)}
+              onPress={() => handleDiscoveryTilePress(tile.id)}
             >
               <Text style={styles.discoveryEmoji}>{tile.emoji}</Text>
-              <Text style={styles.discoveryLabel}>{t(`home.discovery.tiles.${tile.id}`)}</Text>
+              <Text style={styles.discoveryLabel}>{tile.label}</Text>
             </Pressable>
           ))}
         </View>
@@ -1617,10 +1626,11 @@ export default function HomeScreen() {
         title={t('home.pickers.categoryTitle')}
         subtitle={t('home.pickers.categorySubtitle')}
         options={CATEGORY_FILTER_OPTIONS}
+        groups={BROWSE_GROUP_OPTIONS}
         value={filters.category}
         multiple
         showAll
-        onChange={(v) => setField('category', v)}
+        onChange={(v) => setFilters((prev) => withManualCategorySelection(prev, v))}
         onClose={() => setCategoryQuickOpen(false)}
       />
       {/* "לכל הקטגוריות" (מ"מה עוד מעניין אתכם?") - אותה קומפוננטה בדיוק כמו QuickPicker למעלה,
@@ -1632,6 +1642,7 @@ export default function HomeScreen() {
         title={t('home.pickers.allTitle')}
         subtitle={t('home.pickers.allSubtitle')}
         options={CATEGORY_FILTER_OPTIONS}
+        groups={BROWSE_GROUP_OPTIONS}
         value={[]}
         multiple={false}
         onChange={handleAllCategoriesSelect}

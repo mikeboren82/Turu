@@ -33,6 +33,19 @@
     "אחר": "אחר",
     "חיות וגני חיות": "חיות וגני חיות"
   },
+  "browseGroups": {
+    "playgrounds_parks": "גני שעשועים ופארקים",
+    "shows": "הצגות ומופעים",
+    "cinema": "קולנוע לילדים",
+    "indoor_play": "משחקיות ומתחמי משחק",
+    "animals": "חיות, חוות וגני חיות",
+    "nature": "טבע וטיולים",
+    "museums_science": "מוזיאונים ומדע",
+    "workshops": "סדנאות ויצירה",
+    "story_hour": "ספריות ושעת סיפור",
+    "water_attractions": "מים, אטרקציות ואקסטרים",
+    "festivals_events": "פסטיבלים ואירועים"
+  },
   "regions": {
     "גוש דן והמרכז": "גוש דן והמרכז",
     "השרון": "השרון",
@@ -150,7 +163,9 @@
     "activityTypes_one": "סוג פעילות אחד",
     "activityTypes_other": "{{count}} סוגי פעילויות",
     "ageRange": "לגילאי {{min}}–{{max}}",
-    "ageFrom": "מגיל {{min}}"
+    "ageFrom": "מגיל {{min}}",
+    "groups_one": "קבוצה אחת",
+    "groups_other": "{{count}} קבוצות"
   },
   "location": {
     "nationwide": "כל הארץ",
