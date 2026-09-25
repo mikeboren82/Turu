@@ -178,6 +178,21 @@ test('diversity: an alternative-category activity ranked just below the limit is
   assert.ok(result.some((a) => a.id === 'workshop'), 'the workshop must be pulled into the top 8, not silently dropped by the limit');
 });
 
+test('diversity: the carousel uses a NARROWER prefix than the full results page (limit + lookahead, not the 20-item default) - an alternative far past the visible cut is not reached for', () => {
+  // 15 playgrounds then a workshop at rank position 15 - well past limit(8) + the default
+  // lookahead(6) = 14, so the carousel-scoped prefix cannot reach it (a scrollable /activities page
+  // reaching its own wider 20-item default would, and does - see tests/resultDiversity.test.js).
+  // Explicit descending created_at pins the exact rank order deterministically (equal ratings alone
+  // would otherwise tie-break on id string, not array position - see lib/filterActivities.js#scoreSortCompare).
+  const activities = [
+    ...Array.from({ length: 15 }, (_, i) => activity(`gs-${i}`, { rating: 5, created_at: new Date(2026, 0, 20 - i).toISOString() })),
+    activity('far-workshop', { category: 'סדנה', rating: 5, created_at: new Date(2026, 0, 1).toISOString() }),
+  ];
+  const result = buildHomeDiscoveryCandidates(baseInput({ activities, limit: 8 }));
+  assert.equal(result.length, 8);
+  assert.ok(!result.some((a) => a.id === 'far-workshop'), 'an alternative this far past the visible carousel should not be reached for');
+});
+
 test('diversity is skipped entirely when the caller has explicit category intent (defensive - the carousel itself never sets this today, but the shared gate must still work if it ever does)', () => {
   const activities = [
     ...Array.from({ length: 8 }, (_, i) => activity(`gs-${i}`, { rating: 5 })),
