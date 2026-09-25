@@ -148,7 +148,8 @@
       "ageMatchAll_other": "Matches the ages of all selected children",
       "openNow": "Open now",
       "noRegistration": "No registration needed"
-    }
+    },
+    "registrationRequired": "Registration required"
   },
   "map": {
     "emptyOverlay": "The selected activities have no known location to show on the map",

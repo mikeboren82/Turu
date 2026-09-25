@@ -754,9 +754,9 @@ export default function ActivityScreen() {
           <ImageBackground source={{ uri: activity.imageUrl }} style={styles.hero}>
             {heroActions}
           </ImageBackground>
-        ) : placeholderImageFor(activity.placeholderGroup, activity.id) ? (
+        ) : placeholderImageFor(activity.placeholderGroup, activity.id, activity.category) ? (
           <ImageBackground
-            source={placeholderImageFor(activity.placeholderGroup, activity.id)}
+            source={placeholderImageFor(activity.placeholderGroup, activity.id, activity.category)}
             resizeMode="contain"
             style={[styles.hero, { backgroundColor: placeholderBgColorFor(activity.placeholderGroup) }]}
           >

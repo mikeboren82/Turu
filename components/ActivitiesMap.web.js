@@ -95,9 +95,9 @@ function SingleActivityPreview({ activity, onOpen }) {
     <Pressable style={styles.previewCard} onPress={onOpen}>
       {activity.imageUrl ? (
         <Image source={{ uri: activity.imageUrl }} style={styles.previewImage} />
-      ) : placeholderImageFor(activity.placeholderGroup, activity.id) ? (
+      ) : placeholderImageFor(activity.placeholderGroup, activity.id, activity.category) ? (
         <Image
-          source={placeholderImageFor(activity.placeholderGroup, activity.id)}
+          source={placeholderImageFor(activity.placeholderGroup, activity.id, activity.category)}
           resizeMode="contain"
           style={[styles.previewImage, { backgroundColor: placeholderBgColorFor(activity.placeholderGroup) }]}
         />

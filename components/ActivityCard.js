@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import { colors, fonts, radii } from '../constants/theme';
 import { StarIcon, HideIcon, CheckIcon, NoteIcon, LocationPinIcon, ChevronLeftIcon } from './icons';
 import { placeholderImageFor, placeholderBgColorFor } from '../lib/placeholderImages';
+import { buildCardStatFacts } from '../lib/cardMetadata';
 import { useI18n, createStyles } from '../lib/i18n';
 import { categoryLabel, placeName } from '../lib/i18n/format';
 
@@ -18,10 +19,13 @@ function ActionButton({ children, onPress, accessibilityLabel }) {
 // בכל רינדור של הרשימה כולה, גם כשאף prop שלו לא השתנה בפועל (ה-audit מדד ~118ms תקיעת-thread
 // על סימון-מועדף/ביקרתי בודד ברשימה של אלפי כרטיסים). ההשוואה הרדודה-כברירת-מחדל של memo
 // מספיקה: כל ה-props המועברים כאן הם primitives (מחרוזות/booleans/מספרים) חוץ מ-recommendedBy/
-// gradient - שניהם references שנשארים יציבים בין רינדורים כשהפעילות עצמה לא השתנתה (ראו
+// gradient/openHours - שלושתם references שנשארים יציבים בין רינדורים כשהפעילות עצמה לא השתנתה
+// (נקבעים פעם אחת ב-mapActivityRow, lib/activities.js, לא מחושבים-מחדש בכל render; ראו
 // app/activities.js#filteredActivities: השכבה היקרה שמחשבת distance/matchReason/gradient
 // מופרדת מהשכבה הזולה שרק מצרפת favorite/visited/hasNote - כך שלכרטיסים לא-קשורים כל
-// ה-props נשארים === בין רינדורים, וה-memo חוסך את כל עץ-ה-JSX למטה).
+// ה-props נשארים === בין רינדורים, וה-memo חוסך את כל עץ-ה-JSX למטה). category/entity_type/
+// price_type/price_amount/booking_requirement/nextDate (חדש - Card Metadata Policy, 2026-09-25,
+// lib/cardMetadata.js) הם primitives רגילים, לא נוגעים בהנחה הזו.
 // onToggleFavorite/onToggleVisited/onOpenNote/onHide (חדש - שינוי-API) מקבלים עכשיו את ה-id
 // (ואת title, ל-onOpenNote) כפרמטר בזמן-הקריאה, במקום שה-parent יעטוף כל אחד ב-closure חדש
 // per-item per-render (`() => handleToggleFavorite(a.id)`); ה-parent מזין את אותה פונקציה
@@ -35,8 +39,13 @@ function ActivityCard({
   ageRange,
   min_age = null,
   max_age = null,
-  price,
-  hours,
+  category = null,
+  entity_type = null,
+  price_type = null,
+  price_amount = null,
+  booking_requirement = null,
+  openHours = null,
+  nextDate = null,
   gradient,
   imageUrl,
   placeholderGroup,
@@ -58,6 +67,11 @@ function ActivityCard({
 
   const cardBg = favorite ? colors.accentTintLight : visited ? colors.greenTint : colors.card;
   const cardBorder = favorite ? colors.accentTint : visited ? '#a9e3b6' : colors.border;
+
+  // Card Metadata Policy (2026-09-25, lib/cardMetadata.js) - up to 2 category-aware facts, each
+  // shown only when explicitly known (never a "not specified"/"unspecified" placeholder text the way
+  // the raw price/hours getters do elsewhere, e.g. the full activity detail page).
+  const statFacts = buildCardStatFacts({ category, entity_type, price_type, price_amount, booking_requirement, openHours, nextDate });
 
   const stop = (fn) => (e) => { e.stopPropagation?.(); fn?.(); };
   // העיר תמיד מוצגת, אלא אם כבר כתובה בשורת המיקום עצמה. בלי מקור-מרחק, formatDistance מציג
@@ -90,9 +104,9 @@ function ActivityCard({
         <ImageBackground source={{ uri: imageUrl }} style={styles.image}>
           {imageOverlay}
         </ImageBackground>
-      ) : placeholderImageFor(placeholderGroup, id) ? (
+      ) : placeholderImageFor(placeholderGroup, id, category) ? (
         <ImageBackground
-          source={placeholderImageFor(placeholderGroup, id)}
+          source={placeholderImageFor(placeholderGroup, id, category)}
           resizeMode="contain"
           style={[styles.image, { backgroundColor: placeholderBgColorFor(placeholderGroup) }]}
         >
@@ -134,8 +148,9 @@ function ActivityCard({
                 ageRange עצמו (lib/activities.js#formatAgeRange) כבר מטפל בהבחנה בין "לא הוזן" ל
                 "הוזן חלקית". */}
             {min_age != null || max_age != null ? <Text style={styles.stat}>{ageRange}</Text> : null}
-            <Text style={[styles.stat, styles.statPrice]}>{price}</Text>
-            <Text style={styles.stat}>{hours}</Text>
+            {statFacts.map((fact) => (
+              <Text key={fact.key} style={[styles.stat, fact.key === 'price' && styles.statPrice]}>{fact.text}</Text>
+            ))}
             {requiresTicket ? <Text style={styles.ticketBadge}>{t('activities.card.ticket')}</Text> : null}
             {benefitTag ? <Text style={styles.benefitBadge} numberOfLines={1}>🏷️ {benefitTag}</Text> : null}
           </View>

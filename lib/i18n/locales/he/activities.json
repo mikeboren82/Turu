@@ -147,7 +147,8 @@
       "ageMatchAll_other": "מתאים לגילים של כל הילדים שנבחרו",
       "openNow": "פתוח עכשיו",
       "noRegistration": "ללא הרשמה מראש"
-    }
+    },
+    "registrationRequired": "בהרשמה מראש"
   },
   "map": {
     "emptyOverlay": "לפעילויות שנבחרו אין מיקום ידוע להצגה על המפה",
