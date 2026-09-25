@@ -11,6 +11,14 @@ export const colors = {
   accentTint: '#c2ecfe',
   accentTintLight: '#e1f2f9',
 
+  // heroHillTeal/heroHillMint (2026-09-22, "Home Screen Visual Redesign") - a soft turquoise/mint
+  // pair for the hero background's gentle hill silhouettes, same lightness family as accentTint so
+  // it reads as "part of the same sky", but shifted toward green so the two waves are distinguishable
+  // from the blue accent used everywhere else (buttons, active states). Pastel-only, never a
+  // saturated color - restrained per the brief.
+  heroHillTeal: '#bfe8df',
+  heroHillMint: '#dff5ee',
+
   coral: '#d35d31',
   coralStrong: '#ec6d3d',
   coralTint: '#ffd9c5',

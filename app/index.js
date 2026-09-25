@@ -7,6 +7,7 @@ import * as Location from 'expo-location';
 import Svg, { Polyline } from 'react-native-svg';
 import Header from '../components/Header';
 import SkyBackground from '../components/SkyBackground';
+import HomeHeroScenery from '../components/HomeHeroScenery';
 import LoginRequiredModal from '../components/LoginRequiredModal';
 import QuickPicker from '../components/QuickPicker';
 import LocationQuickPicker, { locationSummary } from '../components/LocationQuickPicker';
@@ -1350,6 +1351,7 @@ export default function HomeScreen() {
   return (
     <View style={styles.screen}>
       <SkyBackground />
+      <HomeHeroScenery />
 
       <ScrollView
         contentContainerStyle={styles.content}
@@ -1724,19 +1726,19 @@ const styles = createStyles((d) => ({
     flexDirection: 'row', alignItems: 'center', gap: 10,
     paddingVertical: 10, paddingHorizontal: 2, minHeight: 48,
   },
-  // 32x32 (היה 40x40, 2026-09-20, "reduce their visual dominance slightly... function as playful
-  // TURU accents, not compete with the question text" - בקשת המשתמש) - שני האייקונים (וה-emoji
-  // fallback למטה) הוקטנו באותו יחס בדיוק (⁓0.8) כדי שישארו מכוילים אחד מול השני.
-  guidedIntentIconImage: { width: 32, height: 32, flexShrink: 0 },
+  // 42x42 (היה 32x32, בקשת המשתמש 2026-09-23: "תגדיל את האייקונים של הקנגרו והבית ב'בחירה
+  // מהירה'") - שני האייקונים (וה-emoji fallback למטה) גדלו באותו יחס בדיוק (⁓1.31) כדי שישארו
+  // מכוילים אחד מול השני.
+  guidedIntentIconImage: { width: 42, height: 42, flexShrink: 0 },
   // guidedIntentIconImageWide - ראו ההערה המלאה ליד decorIconStyle ב-PRIMARY_FILTERS למעלה (למה
-  // house-tree.png צריך קופסה רחבה+resizeMode="stretch"). 47x30+marginLeft:-5 (היה 59x37/-6) -
-  // אותו יחס-הקטנה (⁓0.8) כמו guidedIntentIconImage למעלה.
-  guidedIntentIconImageWide: { width: 47, height: 30, flexShrink: 0, marginLeft: -5 },
-  // guidedIntentIconEmoji (fallback בלבד) - אותה קופסה בדיוק (32x32) כמו guidedIntentIconImage
-  // כדי שהשורה לא תזוז אם ה-fallback הזה אי-פעם כן ירונדר. fontSize:17/lineHeight:32 (היה 21/40) -
-  // אותו יחס-הקטנה (⁓0.8) כמו שאר האייקונים למעלה.
+  // house-tree.png צריך קופסה רחבה+resizeMode="stretch"). 62x39+marginLeft:-6 (היה 47x30/-5) -
+  // אותו יחס-הגדלה (⁓1.31) כמו guidedIntentIconImage למעלה.
+  guidedIntentIconImageWide: { width: 62, height: 39, flexShrink: 0, marginLeft: -6 },
+  // guidedIntentIconEmoji (fallback בלבד) - אותה קופסה בדיוק (42x42) כמו guidedIntentIconImage
+  // כדי שהשורה לא תזוז אם ה-fallback הזה אי-פעם כן ירונדר. fontSize:22/lineHeight:42 (היה 17/32) -
+  // אותו יחס-הגדלה (⁓1.31) כמו שאר האייקונים למעלה.
   guidedIntentIconEmoji: {
-    width: 32, height: 32, flexShrink: 0, fontSize: 17, lineHeight: 32, textAlign: 'center',
+    width: 42, height: 42, flexShrink: 0, fontSize: 22, lineHeight: 42, textAlign: 'center',
   },
   guidedIntentSegmentMain: {
     flex: 1, minWidth: 0, gap: 0,
@@ -1911,16 +1913,21 @@ const styles = createStyles((d) => ({
   emptyRecAction: { fontFamily: fonts.bold, fontSize: 13, color: colors.accent },
 
   discoveryGrid: { flexDirection: d.row, flexWrap: 'wrap', gap: 10, marginBottom: 14 },
+  // "Home Screen Visual Redesign" (2026-09-22, Section 8: "consistent radius, cleaner visual
+  // rhythm, avoid heavy borders") - the 1px borderLight edge is replaced with a very soft shadow
+  // (the same restrained shadow language as the redesigned side buttons, HomeHero.js), so the cards
+  // read as gently raised rather than outlined. Radius/spacing/grid untouched (no IA change).
   discoveryTile: {
     width: '31%', aspectRatio: 1, backgroundColor: colors.card, borderRadius: radii.lg,
-    borderWidth: 1, borderColor: colors.borderLight, alignItems: 'center', justifyContent: 'center', gap: 6, padding: 6,
+    alignItems: 'center', justifyContent: 'center', gap: 6, padding: 6,
+    shadowColor: '#0d2b36', shadowOpacity: 0.06, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 2,
   },
   discoveryEmoji: { fontSize: 26 },
   discoveryLabel: { fontFamily: fonts.semiBold, fontSize: 11.5, color: colors.textSecondary, textAlign: 'center' },
   // pressed state עדין בלבד (רקע קליל, בלי scale/אנימציה) - "tap feedback מיידי, לא מוגזם"
   // (בקשת המשתמש). לא selected state קבוע - זה נעלם ברגע שמרימים את האצבע, כי הלחיצה היא
   // navigation, לא בחירת filter (סעיף 7 בבקשה).
-  discoveryTilePressed: { backgroundColor: colors.accentTintLight, borderColor: colors.accentTint },
+  discoveryTilePressed: { backgroundColor: colors.accentTintLight },
   allCategoriesLink: { alignSelf: 'center', marginBottom: 24 },
   allCategoriesLinkText: { fontFamily: fonts.semiBold, fontSize: 12.5, color: colors.accent },
 }));
