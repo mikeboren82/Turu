@@ -28,3 +28,72 @@ test('repairHebrewGershayim mirrors the Deno repair', () => {
   assert.equal(repairHebrewGershayim('{"a":"ב","c":"ד"}'), '{"a":"ב","c":"ד"}');
   assert.equal(JSON.parse(repairHebrewGershayim('[{"name":"מתנ"ס ע"ש רבין"}]'))[0].name, 'מתנ״ס ע״ש רבין');
 });
+
+// R2/R3 generic venue labels (Phase 1 libraries golden cases L-A..L-C, 2026-09-25): the SAME table as the
+// Deno twin (_shared/venues.test.ts). The in-memory client honours the eq/is filters and the
+// venue_aliases -> venues!inner join, so a missing is_active / merged_into / venue_type filter fails here.
+const fs = require('fs');
+const path = require('path');
+const { resolveVenue, GENERIC_VENUE_LABEL_TYPES, genericVenueType, sameCityStrict, cityMatches } = require('../venueNaming');
+
+const table = JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', '..', 'supabase', 'functions', '_shared', 'venues.cases.json'), 'utf8'));
+function worldOf(name) {
+  const w = table.worlds[name];
+  if (!w.extends) return { venues: w.venues, aliases: w.aliases };
+  const base = worldOf(w.extends);
+  const drop = new Set(w.drop_aliases || []);
+  return { venues: [...base.venues, ...w.venues], aliases: [...base.aliases.filter((a) => !drop.has(a.alias_normalized)), ...w.aliases] };
+}
+function memClient(world) {
+  const calls = [];
+  const byId = new Map(world.venues.map((v) => [v.id, v]));
+  return {
+    calls,
+    from(tableName) {
+      const filters = [];
+      const q = {
+        select() { return q; },
+        eq(col, val) { filters.push((r) => r[col] === val); return q; },
+        is(col, val) { filters.push((r) => (r[col] ?? null) === val); return q; },
+        then(resolve, reject) {
+          calls.push(tableName);
+          const data = tableName === 'venue_aliases'
+            ? world.aliases.filter((a) => filters.every((f) => f(a))).map((a) => ({ venue: byId.get(a.venue_id) })).filter((r) => r.venue)
+            : tableName === 'venues' ? world.venues.filter((v) => filters.every((f) => f(v))) : [];
+          return Promise.resolve({ data, error: null }).then(resolve, reject);
+        },
+      };
+      return q;
+    },
+  };
+}
+
+test('generic labels: the key set is the shared table\'s and every key is already normalizeVenueAlias output', () => {
+  assert.deepEqual([...GENERIC_VENUE_LABEL_TYPES.keys()].sort(), [...table.generic_label_keys].sort());
+  for (const k of GENERIC_VENUE_LABEL_TYPES.keys()) assert.equal(normalizeVenueAlias(k), k);
+});
+
+test('shared table: genericVenueType / sameCityStrict / cityMatches (unchanged)', () => {
+  for (const k of table.classify) assert.equal(genericVenueType(k.label), k.expect, k.id);
+  for (const k of table.city_strict) assert.equal(sameCityStrict(k.a, k.b), k.expect, k.id);
+  for (const k of table.city_matches) assert.equal(cityMatches(k.a, k.b), k.expect, k.id);
+});
+
+test('shared table: resolveVenue golden cases (R2 no-city null, R3 generic+city+unique type, regressions)', async () => {
+  for (const k of table.resolve) {
+    const world = worldOf(k.world);
+    if (k.expect) assert.ok(world.venues.some((v) => v.id === k.expect), `${k.id}: fixture venue exists`);
+    const c = memClient(world);
+    const r = await resolveVenue(c, { locationName: k.label, city: k.city });
+    assert.equal(r?.id ?? null, k.expect, k.id);
+    if (k.no_query) assert.deepEqual(c.calls, [], `${k.id}: no DB query`);
+  }
+});
+
+test('RECURRENCE: a new story hour "ספרייה"/רמת השרון after the generic aliases are deleted still binds; Haifa never guesses', async () => {
+  const after = worldOf('after_e1');
+  assert.equal(after.aliases.some((a) => a.alias_normalized === 'ספרייה' || a.alias_normalized === 'ספרייה העירונית'), false);
+  assert.equal((await resolveVenue(memClient(after), { locationName: 'ספרייה', city: 'רמת השרון' }))?.id, 'rh_lib');
+  assert.equal(await resolveVenue(memClient(after), { locationName: 'ספרייה', city: 'חיפה' }), null);
+  assert.equal(await resolveVenue(memClient(after), { locationName: 'ספרייה', city: null }), null);
+});

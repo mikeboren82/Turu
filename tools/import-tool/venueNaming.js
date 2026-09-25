@@ -47,13 +47,52 @@ function repairModelJson(raw) {
   return repairUnescapedQuotes(repairHebrewGershayim(raw));
 }
 
+// Mirror of _shared/venues.ts GENERIC_VENUE_LABEL_TYPES (R2/R3, Phase 1 libraries golden cases): a label
+// naming only a KIND of place. Keys are normalizeVenueAlias output; both spellings listed, never folded
+// inside normalizeVenueAlias. Libraries only - shared cases in _shared/venues.cases.json pin both twins.
+const GENERIC_VENUE_LABEL_TYPES = new Map([
+  ['ספרייה', 'library'], ['ספריה', 'library'],
+  ['ספרייה עירונית', 'library'], ['ספריה עירונית', 'library'],
+  ['ספרייה העירונית', 'library'], ['ספריה העירונית', 'library'],
+]);
+
+function genericVenueType(name) {
+  const norm = normalizeVenueAlias(name);
+  return (norm && GENERIC_VENUE_LABEL_TYPES.get(norm)) || null;
+}
+
+// Mirror of _shared/venues.ts sameCityStrict: both cities known and equal after normalizeCityName - no
+// "one side unknown" pass and no containment ("יבנה" ~ "גן יבנה") for a generic label.
+function sameCityStrict(a, b) {
+  const { normalizeCityName } = require('./cityNaming');
+  const na = normalizeCityName(a || null) || '';
+  const nb = normalizeCityName(b || null) || '';
+  return !!na && na === nb;
+}
+
+// R3: the city's single active, non-merged venue of the type; 0 or several => null (never first/nearest).
+async function resolveGenericInCity(client, venueType, city) {
+  const { data, error } = await client
+    .from('venues')
+    .select('id, name_he, city, venue_type, lat, lng, address, is_active, merged_into')
+    .eq('venue_type', venueType)
+    .eq('is_active', true)
+    .is('merged_into', null);
+  if (error || !data) return null;
+  const inCity = data.filter((v) => v && v.is_active && !v.merged_into && v.venue_type === venueType && sameCityStrict(v.city, city));
+  return inCity.length === 1 ? inCity[0] : null;
+}
+
 // Node mirror of _shared/venues.ts resolveVenue - conservative: exact normalized alias + city
-// agreement (or one side without a city); ambiguity => null, never an unsafe auto-link.
+// agreement (or one side without a city); ambiguity => null, never an unsafe auto-link. A generic
+// label never links through an alias: no city => null (R2), with a city => by type only (R3).
 async function resolveVenue(client, { locationName, city }) {
   const { normalizeCityName } = require('./cityNaming');
   const norm = normalizeVenueAlias(locationName);
   if (!norm) return null;
   const cityNorm = normalizeCityName(city || null);
+  const genericType = genericVenueType(locationName);
+  if (genericType) return cityNorm ? resolveGenericInCity(client, genericType, cityNorm) : null;
   const { data, error } = await client
     .from('venue_aliases')
     .select('venue:venues!inner(id, name_he, city, venue_type, lat, lng, address, is_active)')
@@ -79,4 +118,4 @@ function cityMatches(a, b) {
   return short.length >= 3 && (long === short || long.startsWith(short + ' ') || long.endsWith(' ' + short) || long.includes(' ' + short + ' '));
 }
 
-module.exports = { normalizeVenueAlias, repairHebrewGershayim, repairUnescapedQuotes, repairModelJson, resolveVenue };
+module.exports = { normalizeVenueAlias, repairHebrewGershayim, repairUnescapedQuotes, repairModelJson, resolveVenue, GENERIC_VENUE_LABEL_TYPES, genericVenueType, sameCityStrict, cityMatches };
