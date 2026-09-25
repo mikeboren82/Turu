@@ -21,7 +21,7 @@ addHook(
 
 const {
   shouldApplyHomeDefaults, buildCarouselFilters, resolveCommittedHomeLocation,
-  buildResultsParams, resolveSmartSearchCoords,
+  buildResultsParams, resolveSmartSearchCoords, paramsChanged,
 } = require('../lib/homeSession');
 
 // --- 1. shouldApplyHomeDefaults (app/index.js focus effect) ---
@@ -181,4 +181,40 @@ test('resolveSmartSearchCoords: neither address coords nor deviceCoords known ->
 test('resolveSmartSearchCoords: location can be missing mode entirely (e.g. no fallback resolved) without throwing', () => {
   const builtFilters = { location: {} };
   assert.equal(resolveSmartSearchCoords(builtFilters, null), undefined);
+});
+
+// --- 6. paramsChanged (app/activities.js re-sync effect) ---
+// The reported bug: expo-router reuses an already-mounted /activities screen instance instead of
+// remounting it when Home pushes the route again (docs.expo.dev/router/advanced/stack, "removes
+// duplicate screens when pushing a route that is already in the stack") - so filters/deviceCoords/
+// childAges, seeded once via useState(() => parseJson(...)), never picked up a second Home->push
+// with a new location (e.g. switching to נתניה) in the same session. paramsChanged decides when
+// that reseed should actually happen.
+
+test('paramsChanged: identical raw params (same push replayed, or an unrelated re-render) -> false, no reseed', () => {
+  const params = { homeFilters: '{"location":{"mode":"city","city":"נתניה"}}', homeCoords: '', homeChildAges: '[]' };
+  assert.equal(paramsChanged(params, { ...params }), false);
+});
+
+test('paramsChanged: Home pushes a new location (the reported bug scenario) -> true, must reseed filters/deviceCoords', () => {
+  const first = { homeFilters: '{"location":{"mode":"city","city":"ינוב"}}', homeCoords: '', homeChildAges: '[]' };
+  const second = { homeFilters: '{"location":{"mode":"current","city":"","radiusKm":10}}', homeCoords: '{"latitude":32.3,"longitude":34.87}', homeChildAges: '[]' };
+  assert.equal(paramsChanged(first, second), true);
+});
+
+test('paramsChanged: only homeCoords differs (e.g. a fresh GPS fix for the same current-location mode) -> true', () => {
+  const first = { homeFilters: '{"location":{"mode":"current"}}', homeCoords: '{"latitude":1,"longitude":1}', homeChildAges: '[]' };
+  const second = { ...first, homeCoords: '{"latitude":2,"longitude":2}' };
+  assert.equal(paramsChanged(first, second), true);
+});
+
+test('paramsChanged: only homeChildAges differs -> true (personalization must also survive a reused screen instance)', () => {
+  const first = { homeFilters: '{}', homeCoords: '', homeChildAges: '[4]' };
+  const second = { ...first, homeChildAges: '[4,7]' };
+  assert.equal(paramsChanged(first, second), true);
+});
+
+test('paramsChanged: both sides undefined (arriving with no route params at all, e.g. from a menu) -> false', () => {
+  const empty = { homeFilters: undefined, homeCoords: undefined, homeChildAges: undefined };
+  assert.equal(paramsChanged(empty, { ...empty }), false);
 });

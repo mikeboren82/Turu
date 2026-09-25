@@ -23,6 +23,7 @@ import { rankActivitiesWithSmartRadius, countActiveFilters, normalizeFilters, ge
 import { formatBenefitCardTag } from '../lib/benefits';
 import { buildMatchReasons } from '../lib/matchReasons';
 import { parseSmartSearchQuery, intentToFilters } from '../lib/smartSearch';
+import { paramsChanged } from '../lib/homeSession';
 import { t, useI18n, createStyles } from '../lib/i18n';
 import { formatKm } from '../lib/i18n/format';
 
@@ -79,7 +80,29 @@ export default function ActivitiesScreen() {
   // בפרופיל) - מגיע כפרמטר-route קטן בדיוק כמו homeFilters/homeCoords, אך ורק לצורך שורת-
   // ההסבר "✓ מתאים לגילים..." (lib/matchReasons.js) - לא נוגע בשום פילטר/דירוג. הגעה ישירה
   // לעמוד (בלי homeChildAges, למשל מהתפריט) -> [] -> ageMatchFact פשוט לא מציע הסבר-גיל.
-  const [childAges] = useState(() => parseJson(homeChildAges, []));
+  const [childAges, setChildAges] = useState(() => parseJson(homeChildAges, []));
+  // Bug fix (2026-09-25, "Home CTA returns zero results while Quick Search works"): expo-router's
+  // Stack navigator reuses an already-mounted screen instance instead of remounting it when the
+  // same route is pushed again ("removes duplicate screens when pushing a route that is already
+  // in the stack", docs.expo.dev/router/advanced/stack) - so the three useState initializers above
+  // only ever ran for the FIRST /activities push this screen instance ever saw. Going back to Home,
+  // picking a different location (e.g. Netanya) and pressing the main search CTA again reused that
+  // same instance and silently kept the stale filters/deviceCoords/childAges from the first visit -
+  // the results query ran against whatever location was current the first time, not the new one.
+  // Quick Search/FiltersSheet never hit this because they write straight into `filters` state
+  // in-place (no navigation, no route param involved) - only the Home->push path went through this
+  // parse-once seam. paramsChanged (lib/homeSession.js, tested there with node --test) re-syncs
+  // these three pieces of state whenever Home actually pushes new params; it does not fire on
+  // in-page edits, since those never touch homeFilters/homeCoords/homeChildAges (the raw params).
+  const parsedParamsRef = useRef({ homeFilters, homeCoords, homeChildAges });
+  useEffect(() => {
+    const next = { homeFilters, homeCoords, homeChildAges };
+    if (!paramsChanged(parsedParamsRef.current, next)) return;
+    parsedParamsRef.current = next;
+    setFilters(normalizeFilters(parseJson(homeFilters, {})));
+    setDeviceCoords(parseJson(homeCoords, null));
+    setChildAges(parseJson(homeChildAges, []));
+  }, [homeFilters, homeCoords, homeChildAges]);
   // כשמגיעים דרך "סינון מתקדם" מהעמוד הראשי - פותחים ישר את הפאנל, אבל עדיין מציגים תוצאות
   // (בניגוד למודל הישן, הפאנל עכשיו inline מעל תוצאות חיות, לא חוסם אותן).
   const [sheetOpen, setSheetOpen] = useState(openFilters === 'true');
