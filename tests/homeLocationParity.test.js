@@ -1,14 +1,24 @@
-// Regression tests for the reported bug: "Home location search returns zero results while Quick
-// Search + filters finds activities in the same area" (2026-09-25).
+// Regression tests for two related tickets (2026-09-25):
 //
-// Root cause (see app/activities.js and lib/homeSession.js#paramsChanged for the full note): a
-// React screen-instance-reuse bug in expo-router, NOT a flaw in the canonical location/filter model
-// itself (lib/filterActivities.js#applyFilters/matchesLocation). That model was already correct and
-// already covered by tests/searchIntent.test.js's TRAVEL_CATALOG suite. This file exists to pin down,
-// explicitly and by name, the specific semantics this bug report's own hypotheses were about -
-// city='' + mode='current' must not zero out a result, and the Home CTA's canonical location shape
-// must return the SAME nearby set as Quick Search's for the same real-world area - so a future change
-// cannot silently reintroduce either failure mode even though the actual fix lived elsewhere.
+// 1. "Home location search returns zero results while Quick Search + filters finds activities in
+//    the same area" - root cause was a React screen-instance-reuse bug in expo-router (see
+//    app/activities.js and lib/homeSession.js#paramsChanged for the full note), NOT a flaw in the
+//    canonical location/filter model itself (lib/filterActivities.js#applyFilters/matchesLocation).
+//    That model was already correct and already covered by tests/searchIntent.test.js's
+//    TRAVEL_CATALOG suite. Sections A/B/C/F/"current mode with radiusKm:null" below pin down,
+//    explicitly and by name, the specific semantics this bug report's own hypotheses were about -
+//    city='' + mode='current' must not zero out a result, and the Home CTA's canonical location
+//    shape must return the SAME nearby set as Quick Search's for the same real-world area.
+//
+// 2. "Home current-location radius UI/query mismatch" - Home's silent auto-locate fallbacks
+//    (app/index.js: the mount bootstrap effect and handleGo's "!filters.location?.mode" branch)
+//    used to set radiusKm:10 WITHOUT travelMode:'driving'. Because locationSummaryText/
+//    compactLocationText (lib/i18n/format.js) only render "up to Nkm" text when travelMode is
+//    'driving', that shape's chip silently read as plain "My location" while the query was already
+//    capped to 10km underneath it - a real chip/query divergence, just not the one that caused zero
+//    results. The fix makes both call sites reuse locationWithDrivingTime (lib/filterActivities.js),
+//    the same canonical shape LocationQuickPicker's own driving-time chips produce, instead of
+//    inventing a Home-only "radiusKm without travelMode" variant. Section D below covers this.
 //
 // Same require-hook (babel commonjs + stubs) as tests/searchIntent.test.js / tests/i18n.test.js.
 const test = require('node:test');
@@ -39,9 +49,14 @@ addHook(
   { exts: ['.js'], matcher: (f) => f.startsWith(path.join(ROOT, 'lib')) || f.startsWith(path.join(ROOT, 'constants')) },
 );
 
-const { applyFilters } = require('../lib/filterActivities');
+const { applyFilters, locationWithDrivingTime } = require('../lib/filterActivities');
 const { DEFAULT_FILTERS, DEFAULT_PRECISE_RADIUS_KM } = require('../constants/filterSchema');
 const { compactLocationText, locationSummaryText } = require('../lib/i18n/format');
+// Same decorative default app/index.js now uses for its silent auto-locate fallbacks (bootstrap
+// effect + handleGo) - the exact value never changes the radius (locationWithDrivingTime maps
+// 15/30/45 to the same DEFAULT_PRECISE_RADIUS_KM), only which driving-time chip would show as
+// selected if the picker were reopened afterward.
+const HOME_AUTO_LOCATE_DRIVING_MINUTES = 30;
 
 // Netanya-area catalog + one far-away control (~280 km away, Eilat) - mirrors the ticket's own
 // "an area around Netanya" repro scenario.
@@ -77,11 +92,10 @@ test('C. current mode + city:"" + valid coords -> does not zero out (city is nev
   assert.ok(result.length > 0, 'an empty city string must never be treated as "no matches" for mode:current');
 });
 
-// D. The radius chip must never CLAIM a distance restriction ("עד 10 ק"מ ממני") that the query does
-// not actually apply. locationSummaryText/compactLocationText only render that "up to Nkm" text for
-// travelMode:'driving' (the explicit picker chip, which always sets radiusKm+travelMode together via
-// locationWithDrivingTime, lib/filterActivities.js) - so this direction of the report's own leading
-// hypothesis (a chip claiming a radius that is not enforced) cannot occur through that path.
+// D. The radius chip must never diverge from the actual query state, in EITHER direction: it must
+// never claim a restriction ("עד 10 ק"מ ממני") that is not enforced, and it must never enforce a
+// restriction the chip stays silent about (the secondary bug this section fixes).
+
 test('D1. driving-chip shape (mode current, travelMode driving, radiusKm=10) -> chip shows the SAME 10km actually enforced', () => {
   const withRadius = { mode: 'current', city: '', region: [], travelMode: 'driving', radiusKm: DEFAULT_PRECISE_RADIUS_KM, coords: null };
   assert.match(locationSummaryText(withRadius), new RegExp(String(DEFAULT_PRECISE_RADIUS_KM)), 'chip must show the real radius that is actually applied');
@@ -93,21 +107,53 @@ test('D2. no travel preference + radiusKm=null (nearMe/"מה קרוב?" shape) -
   assert.doesNotMatch(locationSummaryText(withoutRadius), /\d/, 'no radius applied (nearMe-style unrestricted search) must never show a fabricated distance chip');
 });
 
-// D3. Separately-discovered gap (NOT the reported zero-results cause, left as-is in this fix - see
-// final report): handleGo's own auto-locate fallback (app/index.js, "!filters.location?.mode" branch)
-// sets radiusKm:10 WITHOUT travelMode:'driving'. Because the "up to Nkm" text requires travelMode
-// (see the note above locationSummaryText), that shape's chip reads as a plain "My location" while
-// the query IS quietly capped to 10km underneath it - the opposite direction from the report's
-// hypothesis (an unstated restriction, not a stated-but-unenforced one). Documented here so this
-// does not get "silently fixed" as a side effect of an unrelated change without a deliberate decision.
-test('D3 (documents an existing gap, not a regression): radiusKm set without travelMode -> chip stays silent about the 10km cap that IS enforced', () => {
-  const homeGoFallbackShape = { mode: 'current', city: '', region: [], radiusKm: 10, coords: null }; // no travelMode
-  assert.doesNotMatch(locationSummaryText(homeGoFallbackShape), /\d/, 'current behavior: chip does not mention the radius here (travelMode is required for that branch)');
-  const restricted = applyFilters(
-    [{ id: 'near', lat: 32.32, lng: 34.85 }, { id: 'far', lat: 29.55, lng: 34.95 }],
-    { ...DEFAULT_FILTERS, location: homeGoFallbackShape }, NETANYA_COORDS, [], [], [], []
-  );
-  assert.deepEqual(ids(restricted), ['near'], 'meanwhile the query really is limited to 10km, undisclosed by the chip above');
+// D3. Home's silent auto-locate fallback (app/index.js: bootstrap effect + handleGo's
+// "!filters.location?.mode" branch) now reuses locationWithDrivingTime instead of hand-rolling
+// { mode:'current', radiusKm: x || 10 } - reproduce that exact call here (same helper, same
+// arguments Home now passes) and prove the chip and the query agree.
+for (const minutes of [15, 30, 45]) {
+  test(`D3. Home auto-locate fallback at ${minutes} min -> chip shows 10km AND the query is actually limited to 10km`, () => {
+    const homeAutoLocateShape = locationWithDrivingTime({ ...DEFAULT_FILTERS.location, mode: 'current' }, minutes);
+    assert.equal(homeAutoLocateShape.travelMode, 'driving', 'no travel/radius divergence: radiusKm never appears without travelMode from this helper');
+    assert.equal(homeAutoLocateShape.radiusKm, DEFAULT_PRECISE_RADIUS_KM);
+    assert.match(locationSummaryText(homeAutoLocateShape), new RegExp(String(DEFAULT_PRECISE_RADIUS_KM)), 'chip must now disclose the 10km cap');
+    const restricted = applyFilters(
+      [{ id: 'near', lat: 32.32, lng: 34.85 }, { id: 'far', lat: 29.55, lng: 34.95 }],
+      { ...DEFAULT_FILTERS, location: homeAutoLocateShape }, NETANYA_COORDS, [], [], [], []
+    );
+    assert.deepEqual(ids(restricted), ['near'], 'query really is limited to 10km, and the chip above now says so');
+  });
+}
+
+// D4. Canonical-shape parity: Home's auto-locate fallback must produce the IDENTICAL object shape
+// LocationQuickPicker's own driving-time chip produces for the same starting location - not a
+// Home-only variant of "current location with a radius".
+test('D4. Home auto-locate fallback shape === LocationQuickPicker driving-chip shape (same helper, same inputs)', () => {
+  const startingLocation = { ...DEFAULT_FILTERS.location, mode: 'current' };
+  const fromHome = locationWithDrivingTime(startingLocation, HOME_AUTO_LOCATE_DRIVING_MINUTES);
+  const fromPicker = locationWithDrivingTime(startingLocation, HOME_AUTO_LOCATE_DRIVING_MINUTES); // what selectDrivingMinutes would produce
+  assert.deepEqual(fromHome, fromPicker);
+});
+
+// Quick Search semantics unchanged: city-mode filtering never reads travelMode/radiusKm at all
+// (lib/filterActivities.js#matchesLocation), so this fix - which only touches Home's current-location
+// fallbacks - cannot affect it.
+test('D5. Quick Search (city mode) semantics are unaffected by the Home current-location fix', () => {
+  const quickSearchFilters = { ...DEFAULT_FILTERS, location: { mode: 'city', city: 'נתניה', region: [], radiusKm: null, coords: null } };
+  const result = applyFilters(CATALOG, quickSearchFilters, null, [], [], [], []);
+  assert.deepEqual(ids(result), ['n1', 'n2']);
+  assert.doesNotMatch(locationSummaryText(quickSearchFilters.location), /\d/, 'city-mode chip never shows a km figure regardless of any radiusKm/travelMode leftovers');
+});
+
+// Clearing location must drop the radius/travel state cleanly, not leave a stale 10km cap behind
+// once the location itself is reset to "unknown" (DEFAULT_FILTERS.location, used by
+// handleRemoveChip in lib/filterSummaries.js and clearAllFilters in app/index.js).
+test('D6. clearing location resets radius/travelMode too - DEFAULT_FILTERS.location has no lingering radius state', () => {
+  assert.equal(DEFAULT_FILTERS.location.radiusKm, null);
+  assert.equal('travelMode' in DEFAULT_FILTERS.location, false);
+  assert.equal('travelMinutes' in DEFAULT_FILTERS.location, false);
+  const result = applyFilters(CATALOG, { ...DEFAULT_FILTERS, location: DEFAULT_FILTERS.location }, NETANYA_COORDS, [], [], [], []);
+  assert.deepEqual(ids(result), ['far', 'n1', 'n2'], 'clearing location must not leave any activity excluded by a stale radius');
 });
 
 // F. A normal city-based filter still works standalone (no coordinates involved at all) - the fix

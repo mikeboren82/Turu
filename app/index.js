@@ -20,7 +20,7 @@ import {
   CATEGORY_FILTER_OPTIONS, DEFAULT_FILTERS, FILTER_SCHEMA,
   PRICE_OPTIONS, PLACE_TYPE_OPTIONS, BOOKING_OPTIONS, DURATION_OPTIONS, AMENITY_COMFORT_OPTIONS,
 } from '../constants/filterSchema';
-import { normalizeFilters } from '../lib/filterActivities';
+import { normalizeFilters, locationWithDrivingTime } from '../lib/filterActivities';
 import { whenSummary, listJoin } from '../lib/filterSummaries';
 import { supabase } from '../lib/supabase';
 import { fetchUserPreferences, saveDefaultHomeFilters } from '../lib/preferences';
@@ -98,6 +98,14 @@ function SkeletonCard() {
 // בכלל - יש לו כבר default_home_filters אמיתי ב-DB (saveDefaultHomeFilters), שני מקורות-אמת
 // יריבים לאותו דבר היו רק מבלבלים.
 const GUEST_HOME_LOCATION_KEY = 'turu_guest_home_location';
+
+// דקורטיבי בלבד (2026-09-25, "chip/query mismatch" תיקון) - כל אחד מ-15/30/45 שהמשתמש יכול
+// לבחור ב-LocationQuickPicker ממופה לאותו DEFAULT_PRECISE_RADIUS_KM בפועל (locationWithDrivingTime,
+// lib/filterActivities.js), אז אין כאן "כוונת-משתמש" אמיתית להעריך - שני נתיבי-האיתור השקטים של
+// Home (bootstrap effect + handleGo fallback, שניהם למטה) צריכים רק travelMode:'driving' קבוע
+// כלשהו כדי שהתקציר (locationSummaryText) יציג את ה-10 ק"מ שבפועל כבר מוחל, לא ליצור וריאציה
+// חדשה של "מיקום נוכחי" משלהם.
+const HOME_AUTO_LOCATE_DRIVING_MINUTES = 30;
 
 // לכל מפתח פילטר "ניתן-להוספה" (מה שהמשתמש הפעיל בעמוד האישי, ראו app/profile.js) - איך
 // לתקצר את הערך הנוכחי שלו לטקסט קצר בקישור העדין במסך הראשי.
@@ -506,7 +514,14 @@ export default function HomeScreen() {
             setDeviceCoords({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
             setFilters((prev) => {
               if (prev.location?.mode) return prev;
-              const next = { ...prev.location, mode: 'current', radiusKm: prev.location.radiusKm || 10 };
+              // locationWithDrivingTime (lib/filterActivities.js) - אותה צורה קנונית בדיוק כמו
+              // בחירת צ'יפ-נסיעה ב-LocationQuickPicker, לא radiusKm בלי travelMode (2026-09-25,
+              // תיקון-פער: chip/query mismatch) - קובעת גם travelMode:'driving' כדי שהתקציר
+              // (locationSummaryText) יציג בפועל "עד Xק"מ ממני" ולא "המיקום שלי" סתמי בזמן
+              // שהשאילתה כבר מוגבלת ל-10 ק"מ. HOME_AUTO_LOCATE_DRIVING_MINUTES - דקורטיבי בלבד
+              // (כל אחד מ-15/30/45 ממופה לאותו DEFAULT_PRECISE_RADIUS_KM, ראו locationWithDrivingTime) -
+              // לא כוונת-משתמש אמיתית, רק כדי שהתמונה תישאר עקבית אם הבורר ייפתח אחר-כך.
+              const next = locationWithDrivingTime({ ...prev.location, mode: 'current' }, HOME_AUTO_LOCATE_DRIVING_MINUTES);
               // homeLocation (ראו ההערה המלאה ליד ה-state למעלה) - "פתרון-מיקום ראשוני", לא
               // עריכת-טיוטה: resolveCommittedHomeLocation לא דורסת אם כבר יש מיקום-מחויב (לא
               // אמור לקרות כאן בפועל, ה-effect רץ פעם אחת ב-mount, אבל אותה הגנה בכל זאת - עקביות
@@ -835,7 +850,10 @@ export default function HomeScreen() {
         return;
       }
       goCoords = result.coords;
-      goFilters = { ...filters, location: { ...filters.location, mode: 'current', radiusKm: filters.location.radiusKm || 10 } };
+      // locationWithDrivingTime (ראו ההערה המלאה ליד ה-bootstrap effect למעלה, אותו תיקון-פער
+      // בדיוק) - לא radiusKm בלי travelMode: בלעדיו הצ'יפ הציג "המיקום שלי" בזמן שהשאילתה כבר
+      // הוגבלה ל-10 ק"מ (2026-09-25, "chip/query mismatch").
+      goFilters = { ...filters, location: locationWithDrivingTime({ ...filters.location, mode: 'current' }, HOME_AUTO_LOCATE_DRIVING_MINUTES) };
       setDeviceCoords(goCoords);
       setFilters(goFilters);
     }
