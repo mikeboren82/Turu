@@ -1,7 +1,16 @@
 {
   "detail": {
     "loadError": "Couldn't load this activity. Please try again.",
-    "notFound": "We couldn't find this activity",
+    "unavailableTitle": "This activity is no longer available",
+    "unavailableBody": "It may have ended or been removed. There are plenty more kids and family activities waiting for you on TURU.",
+    "loadErrorBody": "Check your internet connection.",
+    "discoverTuru": "Discover activities on TURU",
+    "discoverNearby": "Discover more activities nearby",
+    "discoverNearbyIn": "Discover more activities around {{place}}",
+    "discoverBody": "TURU brings kids and family activities together in one place - search and explore without signing up.",
+    "discoverCta": "Keep exploring",
+    "notPublicBanner": "This activity isn't publicly visible right now, so it can't be shared.",
+    "linkOpenFailed": "We couldn't open this link",
     "locationNotSpecified": "Location not specified",
     "recommendedBy": "Recommended by {{name}} ⭐{{stars}}",
     "info": {

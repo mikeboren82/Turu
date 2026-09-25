@@ -1,7 +1,16 @@
 {
   "detail": {
     "loadError": "שגיאה בטעינה",
-    "notFound": "לא מצאנו את הפעילות הזו",
+    "unavailableTitle": "הפעילות הזו כבר לא זמינה",
+    "unavailableBody": "ייתכן שהיא הסתיימה או הוסרה. יש עוד הרבה פעילויות לילדים ולמשפחות שמחכות לכם ב-TURU.",
+    "loadErrorBody": "בדקו את החיבור לאינטרנט ונסו שוב.",
+    "discoverTuru": "גלו פעילויות ב-TURU",
+    "discoverNearby": "גלו עוד פעילויות באזור",
+    "discoverNearbyIn": "גלו עוד פעילויות באזור {{place}}",
+    "discoverBody": "TURU מרכזת פעילויות לילדים ולמשפחות במקום אחד - אפשר לחפש ולגלות בלי הרשמה.",
+    "discoverCta": "להמשך גילוי",
+    "notPublicBanner": "הפעילות הזו לא מוצגת לציבור כרגע, ולכן אי אפשר לשתף אותה.",
+    "linkOpenFailed": "לא הצלחנו לפתוח את הקישור",
     "locationNotSpecified": "מיקום לא צוין",
     "recommendedBy": "הומלץ ע\"י {{name}} ⭐{{stars}}",
     "info": {

@@ -199,7 +199,9 @@ export default function Header({
       {showBack ? (
         <Pressable
           style={[styles.iconBtn, styles.side, styles.sideLeft]}
-          onPress={() => router.back()}
+          // A screen opened from a shared link / web refresh / cold deep link has no history - back()
+          // was a dead tap there (or left the site on web). Home is the natural parent in that case.
+          onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))}
           accessibilityLabel={t('nav.header.backA11y')}
         >
           <BackIcon />
