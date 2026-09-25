@@ -24,6 +24,7 @@ import { formatBenefitCardTag } from '../lib/benefits';
 import { buildMatchReasons } from '../lib/matchReasons';
 import { parseSmartSearchQuery, intentToFilters } from '../lib/smartSearch';
 import { paramsChanged } from '../lib/homeSession';
+import { isBroadDiscovery, diversifyResults } from '../lib/resultDiversity';
 import { t, useI18n, createStyles } from '../lib/i18n';
 import { formatKm } from '../lib/i18n/format';
 
@@ -754,13 +755,18 @@ export default function ActivitiesScreen() {
     ? filteredActivities.slice(0, SPONTANEOUS_TOP_COUNT)
     : filteredActivities;
 
-  // ↕️ מיון - 'recommended' משאיר את הסדר בדיוק כפי שהוא (זהה ל-filteredActivities, אותו
-  // reference אפילו - "ברירת המחדל חייבת להישאר בדיוק כמו היום"). 'distance' ממיין *עותק* לפי
-  // distanceKm ASC בלבד - לא search חדש, לא נוגע ב-rankedResult/filters/Smart Radius. Array.sort
-  // של JS יציב (מובטח מ-ES2019, גם ב-Hermes) - אז תוצאות-בלי-distanceKm (Infinity) נופלות תמיד
-  // לסוף בסדר-היציבות המקורי שלהן, ותוצאות עם מרחק-שווה נשארות באותו סדר-מומלץ יחסי ביניהן
-  // (secondary sort key) - בדיוק "distance ASC, then existingRank ASC" מהבקשה, בלי צורך
-  // בקומפרטור-משני מפורש.
+  // ↕️ מיון - 'recommended' (2026-09-25, "Result Diversity / Playground Saturation" - עדכון לכלל
+  // הישן "חייב להישאר בדיוק כמו היום", ראו lib/resultDiversity.js לנימוק המלא: הכלל ההוא נועד
+  // למנוע רה-סידור *בטעות*, לא לאסור רה-סידור מכוון-ומתועד. broad discovery בלבד (isBroadDiscovery -
+  // אין קטגוריה נבחרת/חיפוש-חופשי/כוונת-קטגוריה מ-alias, ראו שם) עובר דרך diversifyResults, שמונע
+  // רצף ארוך מדי של אותה קטגוריה (בעיקר גני-שעשועים - נמדד: עד 87% מהקטלוג המאושר כולו) בלי לזרוק/
+  // לשכפל/לערבב כלום - כל שאר המקרים (כוונה מפורשת) ממשיכים לקבל בדיוק את filteredActivities, אותו
+  // reference אפילו, ללא שינוי. 'distance' ממיין *עותק* לפי distanceKm ASC בלבד - לא search חדש,
+  // לא נוגע ב-rankedResult/filters/Smart Radius/diversity (בחירת-מיון מפורשת של המשתמש תמיד מנצחת -
+  // ראו lib/resultDiversity.js). Array.sort של JS יציב (מובטח מ-ES2019, גם ב-Hermes) - אז תוצאות-
+  // בלי-distanceKm (Infinity) נופלות תמיד לסוף בסדר-היציבות המקורי שלהן, ותוצאות עם מרחק-שווה
+  // נשארות באותו סדר-מומלץ יחסי ביניהן (secondary sort key) - בדיוק "distance ASC, then
+  // existingRank ASC" מהבקשה, בלי צורך בקומפרטור-משני מפורש.
   // NEARME_RESULT_LIMIT = 50 (2026-09-20, "CENTRAL RADAR update" - בקשת המשתמש: "50 is a RESULT
   // LIMIT, not a distance rule... return up to 50 activities ordered by proximity"). חל רק
   // כשהגענו דרך "מה קרוב?" (nearMe==='true', route param קבוע לכל חיי המסך הזה) - לא על מיון-
@@ -773,11 +779,11 @@ export default function ActivitiesScreen() {
   const NEARME_RESULT_LIMIT = 50;
   const sortedActivities = useMemo(() => {
     const base = sortMode !== 'distance'
-      ? filteredActivities
+      ? (isBroadDiscovery(filters) ? diversifyResults(filteredActivities) : filteredActivities)
       : [...filteredActivities].sort((a, b) => (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity));
     if (nearMe !== 'true') return base;
     return base.filter((a) => a.distanceKm != null).slice(0, NEARME_RESULT_LIMIT);
-  }, [filteredActivities, sortMode, nearMe]);
+  }, [filteredActivities, sortMode, nearMe, filters]);
 
   const setField = (key, value) => setFilters((prev) => ({ ...prev, [key]: value }));
   const clearAll = () => setFilters(DEFAULT_FILTERS);

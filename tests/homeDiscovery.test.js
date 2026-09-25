@@ -162,6 +162,36 @@ test('buildHomeDiscoveryCandidates: excludedCategories/excludedCities are applie
   assert.deepEqual(result.map((a) => a.id), ['kept']);
 });
 
+// --- Result Diversity (2026-09-25, lib/resultDiversity.js) - the carousel's own filters always
+// strip category (buildCarouselFilters), so it is always broad discovery: diversify runs BEFORE the
+// `limit` slice, so an alternative sitting just past the cut can still make it onto the carousel.
+
+test('diversity: an alternative-category activity ranked just below the limit is pulled into the visible carousel instead of being cut off', () => {
+  // Playground-heavy ranking (rating ties, so score order == input order) with one workshop at
+  // position 9 - just past a limit of 8. Without diversity it would never be shown at all.
+  const activities = [
+    ...Array.from({ length: 8 }, (_, i) => activity(`gs-${i}`, { rating: 5 })),
+    activity('workshop', { category: 'סדנה', rating: 5 }),
+  ];
+  const result = buildHomeDiscoveryCandidates(baseInput({ activities, limit: 8 }));
+  assert.equal(result.length, 8);
+  assert.ok(result.some((a) => a.id === 'workshop'), 'the workshop must be pulled into the top 8, not silently dropped by the limit');
+});
+
+test('diversity is skipped entirely when the caller has explicit category intent (defensive - the carousel itself never sets this today, but the shared gate must still work if it ever does)', () => {
+  const activities = [
+    ...Array.from({ length: 8 }, (_, i) => activity(`gs-${i}`, { rating: 5 })),
+    activity('workshop', { category: 'סדנה', rating: 5 }),
+  ];
+  const filters = { ...DEFAULT_FILTERS, category: ['גן שעשועים'] };
+  const result = buildHomeDiscoveryCandidates(baseInput({ activities, filters, limit: 8 }));
+  // Explicit category intent: matchesCategoryIntent/hasExactCategoryMatch (lib/filterActivities.js)
+  // already restrict the ranked set to גן שעשועים itself, and diversity is bypassed on top of that -
+  // the workshop is excluded by the category filter regardless, proving no special-case is needed for
+  // "explicit intent + workshop already filtered out" to coexist correctly.
+  assert.deepEqual(result.map((a) => a.id).sort(), Array.from({ length: 8 }, (_, i) => `gs-${i}`).sort());
+});
+
 test('buildHomeDiscoveryCandidates: Smart Radius expansion still fires when stage-1 (city match) has too few results and originCoords is supplied - a more-distant activity is pulled in rather than left out', () => {
   // מרכז-ינוב בערך (32.0/34.9) - originCoords מייצג את נקודת-הייחוס להרחבה (למשל settlementCoords
   // של homeLocation, ראו app/index.js). 'far' רחוקה מספיק שלא הייתה נכללת ב-city match ישיר
