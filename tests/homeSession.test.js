@@ -218,3 +218,49 @@ test('paramsChanged: both sides undefined (arriving with no route params at all,
   const empty = { homeFilters: undefined, homeCoords: undefined, homeChildAges: undefined };
   assert.equal(paramsChanged(empty, { ...empty }), false);
 });
+
+// --- 6b. paramsChanged, generalized (2026-09-25, "Search / Location State Consistency Sweep") ---
+// The same reused-screen-instance problem also stuck sortMode ("מה קרוב?"/nearMe) and the
+// spontaneous ("⚡ עכשיו") toggle at whatever they were on the FIRST /activities push, because
+// their useEffect(() => {...}, []) blocks had empty dependency arrays. app/activities.js now
+// includes openFilters/view/nearMe/spontaneous in the object it hands to paramsChanged (generic
+// over whatever keys are passed - see lib/homeSession.js), so a repeat push is detected even when
+// only these extra flags differ.
+
+test('paramsChanged: nearMe stays "true" on both pushes but homeCoords differs (realistic - each "מה קרוב?" press re-fetches GPS) -> true, sortMode must reset to distance again', () => {
+  const first = { homeFilters: '{}', homeCoords: '{"latitude":32.1,"longitude":34.8}', homeChildAges: '[]', nearMe: 'true' };
+  const second = { ...first, homeCoords: '{"latitude":32.11,"longitude":34.81}' };
+  assert.equal(paramsChanged(first, second), true);
+});
+
+test('paramsChanged: nearMe present then absent (guided search after a "מה קרוב?" visit, same instance) -> true, sortMode must fall back to recommended', () => {
+  const first = { homeFilters: '{}', homeCoords: '', homeChildAges: '[]', nearMe: 'true' };
+  const second = { homeFilters: '{}', homeCoords: '', homeChildAges: '[]', nearMe: undefined };
+  assert.equal(paramsChanged(first, second), true);
+});
+
+test('paramsChanged: spontaneous absent then "true" (a fresh "⚡ עכשיו" press on a reused instance) -> true, must re-arm spontaneous even though homeFilters/homeCoords/homeChildAges are unchanged', () => {
+  const first = { homeFilters: '{}', homeCoords: '{"latitude":1,"longitude":1}', homeChildAges: '[]', spontaneous: undefined };
+  const second = { ...first, spontaneous: 'true' };
+  assert.equal(paramsChanged(first, second), true);
+});
+
+test('paramsChanged: openFilters differs (Advanced Filters pressed again on a reused instance) -> true, the sheet must reopen', () => {
+  const first = { homeFilters: '{}', homeCoords: '', homeChildAges: '[]', openFilters: undefined };
+  const second = { ...first, openFilters: 'true' };
+  assert.equal(paramsChanged(first, second), true);
+});
+
+test('paramsChanged: view differs ("🗺️ מפה" from BottomNav on a reused instance) -> true, viewMode must switch to map', () => {
+  const first = { homeFilters: '{}', homeCoords: '', homeChildAges: '[]', view: 'list' };
+  const second = { ...first, view: 'map' };
+  assert.equal(paramsChanged(first, second), true);
+});
+
+test('paramsChanged: fully identical 7-field navigation snapshot (an unrelated re-render, not a new push) -> false, no reseed', () => {
+  const params = {
+    homeFilters: '{"category":["מוזיאון"]}', homeCoords: '', homeChildAges: '[]',
+    openFilters: 'true', view: 'list', nearMe: undefined, spontaneous: undefined,
+  };
+  assert.equal(paramsChanged(params, { ...params }), false);
+});

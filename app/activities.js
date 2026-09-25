@@ -81,28 +81,6 @@ export default function ActivitiesScreen() {
   // ההסבר "✓ מתאים לגילים..." (lib/matchReasons.js) - לא נוגע בשום פילטר/דירוג. הגעה ישירה
   // לעמוד (בלי homeChildAges, למשל מהתפריט) -> [] -> ageMatchFact פשוט לא מציע הסבר-גיל.
   const [childAges, setChildAges] = useState(() => parseJson(homeChildAges, []));
-  // Bug fix (2026-09-25, "Home CTA returns zero results while Quick Search works"): expo-router's
-  // Stack navigator reuses an already-mounted screen instance instead of remounting it when the
-  // same route is pushed again ("removes duplicate screens when pushing a route that is already
-  // in the stack", docs.expo.dev/router/advanced/stack) - so the three useState initializers above
-  // only ever ran for the FIRST /activities push this screen instance ever saw. Going back to Home,
-  // picking a different location (e.g. Netanya) and pressing the main search CTA again reused that
-  // same instance and silently kept the stale filters/deviceCoords/childAges from the first visit -
-  // the results query ran against whatever location was current the first time, not the new one.
-  // Quick Search/FiltersSheet never hit this because they write straight into `filters` state
-  // in-place (no navigation, no route param involved) - only the Home->push path went through this
-  // parse-once seam. paramsChanged (lib/homeSession.js, tested there with node --test) re-syncs
-  // these three pieces of state whenever Home actually pushes new params; it does not fire on
-  // in-page edits, since those never touch homeFilters/homeCoords/homeChildAges (the raw params).
-  const parsedParamsRef = useRef({ homeFilters, homeCoords, homeChildAges });
-  useEffect(() => {
-    const next = { homeFilters, homeCoords, homeChildAges };
-    if (!paramsChanged(parsedParamsRef.current, next)) return;
-    parsedParamsRef.current = next;
-    setFilters(normalizeFilters(parseJson(homeFilters, {})));
-    setDeviceCoords(parseJson(homeCoords, null));
-    setChildAges(parseJson(homeChildAges, []));
-  }, [homeFilters, homeCoords, homeChildAges]);
   // כשמגיעים דרך "סינון מתקדם" מהעמוד הראשי - פותחים ישר את הפאנל, אבל עדיין מציגים תוצאות
   // (בניגוד למודל הישן, הפאנל עכשיו inline מעל תוצאות חיות, לא חוסם אותן).
   const [sheetOpen, setSheetOpen] = useState(openFilters === 'true');
@@ -113,8 +91,52 @@ export default function ActivitiesScreen() {
   // 'distance' (מיון-לקוח בלבד מעל אותו result set, ראו sortedActivities למטה - לא חיפוש חדש,
   // לא נוגע ב-Smart Radius/filters/matching). state מקומי גרידא (לא AsyncStorage/DB) - נעלם
   // בחזרה ל-'recommended' עם עזיבת המסך, בדיוק כמו viewMode/sheetOpen למעלה - האפליקציה לא
-  // שומרת העדפת-מיון בשום מקום אחר היום, אז לא ממציאים persistence חדש כאן.
-  const [sortMode, setSortMode] = useState('recommended');
+  // שומרת העדפת-מיון בשום מקום אחר היום, אז לא ממציאים persistence חדש כאן. "מה קרוב?" (nearMe)
+  // מתחיל כבר ב-'distance' - ראו ההערה המלאה למטה ליד lastSeenNavParams, אותו מקור בדיוק.
+  const [sortMode, setSortMode] = useState(() => (nearMe === 'true' ? 'distance' : 'recommended'));
+  // Bug fix (2026-09-25, "Home CTA returns zero results while Quick Search works"; extended the
+  // same day by the "Search / Location State Consistency Sweep" audit to every piece of state below
+  // that is seeded from a route param, not just the original three): expo-router's Stack navigator
+  // reuses an already-mounted screen instance instead of remounting it when the same route is
+  // pushed again ("removes duplicate screens when pushing a route that is already in the stack",
+  // docs.expo.dev/router/advanced/stack) - confirmed to apply here specifically because
+  // components/BottomNav.js navigates via router.dismissTo, which explicitly keeps a target
+  // screen's own instance alive in the stack rather than unmounting it. So every one-shot
+  // useState(paramValue) above (filters/deviceCoords/childAges/sheetOpen/viewMode/sortMode) only
+  // ever ran for the FIRST /activities push this screen instance ever saw - going back to Home
+  // (e.g. via the bottom nav), picking a different location/opening filters again/switching to map
+  // view and pressing the main search CTA again reused that same instance and silently kept every
+  // one of those stale values from the first visit. Quick Search/FiltersSheet never hit this
+  // because they write straight into this state in-place (no navigation, no route param involved) -
+  // only the Home->push path goes through this parse-once seam.
+  //
+  // Fixed with React's documented "adjust state during render" pattern (not a useEffect): comparing
+  // the just-rendered params against the last ones we actually seeded state from, and calling the
+  // setters right here in the render body when they differ. This is deliberately NOT a useEffect
+  // (paramsChanged, lib/homeSession.js) fixed the original 3-field version of this bug that way,
+  // but the "Search / Location State Consistency Sweep" audit found that an effect leaves one full
+  // render painted with the STALE state before the effect corrects it a tick later - on a reused
+  // instance that can flash the wrong result list or a false "nothing found" empty state for a
+  // frame. Adjusting state directly during render instead means React discards that stale render
+  // before it ever paints, so the very first frame the user sees already reflects the new params.
+  // Calling multiple setters here is safe and terminates: on the very next render `lastSeenNavParams`
+  // already equals the current params, so this block simply does not run again until Home pushes
+  // something new. `spontaneous` participates in the comparison (so a repeat push toward the same
+  // instance is still detected) but is deliberately NOT reset here - it drives a live GPS/permission
+  // side effect (activateSpontaneous), which cannot run inside a pure render; see the guarded
+  // useEffect next to toggleSpontaneous below, keyed on this same lastSeenNavParams value.
+  const [lastSeenNavParams, setLastSeenNavParams] = useState({
+    homeFilters, homeCoords, homeChildAges, openFilters, view, nearMe, spontaneous,
+  });
+  if (paramsChanged(lastSeenNavParams, { homeFilters, homeCoords, homeChildAges, openFilters, view, nearMe, spontaneous })) {
+    setLastSeenNavParams({ homeFilters, homeCoords, homeChildAges, openFilters, view, nearMe, spontaneous });
+    setFilters(normalizeFilters(parseJson(homeFilters, {})));
+    setDeviceCoords(parseJson(homeCoords, null));
+    setChildAges(parseJson(homeChildAges, []));
+    setSheetOpen(openFilters === 'true');
+    setViewMode(view === 'map' ? 'map' : 'list');
+    setSortMode(nearMe === 'true' ? 'distance' : 'recommended');
+  }
   // תצוגה/מיון - Modal קטן נפרד מ-sheetOpen (הפילטרים), אותו recipe בדיוק (Modal transparent
   // animationType="slide" + backdrop) רק בגודל קטן משמעותית - שני radio-groups בלבד (תצוגה/מיון),
   // לא accordion שלם. סוגר את sheetOpen כשנפתח (ולהפך, ראו onPress למטה) כדי שלעולם לא יהיו
@@ -387,24 +409,20 @@ export default function ActivitiesScreen() {
     await activateSpontaneous();
   };
 
-  // "⚡ עכשיו" עבר להיות טריגר מעמוד הבית בלבד (למשתמשים מחוברים) - לא עוד chip בתוך
-  // FiltersSheet. אותו zרימת-הרשאה בדיוק כמו לחיצה ידנית על הכפתור הישן (toggleSpontaneous
-  // עצמו, בלי עותק מקביל) - רק מופעל פעם אחת אוטומטית ב-mount כש-spontaneous=true הגיע
-  // ב-route param, בדיוק כמו openFilters/view למעלה.
+  // "⚡ עכשיו" עבר להיות טריגר מעמוד הבית בלבד (למשתמשים מחוברים) - לא עוד chip בתוך FiltersSheet.
+  // אותו זרימת-הרשאה בדיוק כמו לחיצה ידנית על הכפתור הישן (toggleSpontaneous עצמו, בלי עותק
+  // מקביל). לא useEffect(..., []) עוד (2026-09-25, "Search / Location State Consistency Sweep" -
+  // ראו ההערה המלאה ליד lastSeenNavParams למעלה): מפתח-תלות ריק היה מריץ את זה פעם אחת בלבד
+  // לכל חיי מופע-המסך - לחיצה חוזרת על "⚡ עכשיו" מעמוד הבית על אותו מופע-מסך ממוחזר (BottomNav
+  // dismissTo) פשוט לא הייתה עושה כלום, כי spontaneous:'true' הוא אותו מחרוזת בדיוק בשתי
+  // הפעמים. תלוי ב-lastSeenNavParams (אותו אובייקט-מעקב שה-render-time block למעלה מעדכן) כדי
+  // שדחיפה חדשה תזוהה גם כשהערך הגולמי של spontaneous עצמו לא השתנה. !spontaneousActive - שומר
+  // ששחזור על דחיפה שבה הספונטני כבר פעיל מהפעם הקודמת יישאר no-op, לא יכבה אותו בטעות
+  // (toggleSpontaneous מהפך את מה שכבר קיים).
   useEffect(() => {
-    if (spontaneous === 'true') toggleSpontaneous();
+    if (spontaneous === 'true' && !spontaneousActive) toggleSpontaneous();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // "מה קרוב?" (app/index.js handleNearMePress/goNearMe) - GPS/הרשאה כבר טופלו בעמוד הבית לפני
-  // הניווט (homeFilters כבר מגיע עם location.mode:'current'+radiusKm:null - בלי חיתוך-רדיוס,
-  // ראו ההערה המלאה ב-goNearMe; homeCoords עם הקואורדינטות שהתקבלו); כל מה שנשאר לעשות כאן זה
-  // sortMode:'distance' פעם אחת ב-mount, בדיוק כמו טיפול spontaneous/view למעלה - לא זרימת-
-  // הרשאה מקבילה. חיתוך-ל-50 (NEARME_RESULT_LIMIT) קורה בנפרד ב-sortedActivities למטה.
-  useEffect(() => {
-    if (nearMe === 'true') setSortMode('distance');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [lastSeenNavParams]);
 
   // 🔎 חיפוש חופשי קומפקטי - אותו זרימת-הבהרה בדיוק כמו app/index.js (handleSmartSearch/
   // handleClarifyCity), רק שבמקום לנווט ל-/activities עם homeFilters (אנחנו כבר כאן), כותבים
