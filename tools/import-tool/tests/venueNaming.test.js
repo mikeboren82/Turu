@@ -30,8 +30,9 @@ test('repairHebrewGershayim mirrors the Deno repair', () => {
 });
 
 // R2/R3 generic venue labels (Phase 1 libraries golden cases L-A..L-C, 2026-09-25): the SAME table as the
-// Deno twin (_shared/venues.test.ts). The in-memory client honours the eq/is filters and the
-// venue_aliases -> venues!inner join, so a missing is_active / merged_into / venue_type filter fails here.
+// Deno twin (_shared/venues.test.ts). R3 = explicit generic-alias attestation only. The in-memory client
+// honours eq/in/is and the venue_aliases -> venues!inner join, and serves ONLY the table asked for, so a
+// missing is_active / merged_into / venue_type / city check or a venues-table query fails here.
 const fs = require('fs');
 const path = require('path');
 const { resolveVenue, GENERIC_VENUE_LABEL_TYPES, genericVenueType, sameCityStrict, cityMatches } = require('../venueNaming');
@@ -54,11 +55,12 @@ function memClient(world) {
       const q = {
         select() { return q; },
         eq(col, val) { filters.push((r) => r[col] === val); return q; },
+        in(col, vals) { filters.push((r) => vals.includes(r[col])); return q; },
         is(col, val) { filters.push((r) => (r[col] ?? null) === val); return q; },
         then(resolve, reject) {
           calls.push(tableName);
           const data = tableName === 'venue_aliases'
-            ? world.aliases.filter((a) => filters.every((f) => f(a))).map((a) => ({ venue: byId.get(a.venue_id) })).filter((r) => r.venue)
+            ? world.aliases.filter((a) => filters.every((f) => f(a))).map((a) => ({ alias_normalized: a.alias_normalized, venue: byId.get(a.venue_id) })).filter((r) => r.venue)
             : tableName === 'venues' ? world.venues.filter((v) => filters.every((f) => f(v))) : [];
           return Promise.resolve({ data, error: null }).then(resolve, reject);
         },
@@ -79,7 +81,7 @@ test('shared table: genericVenueType / sameCityStrict / cityMatches (unchanged)'
   for (const k of table.city_matches) assert.equal(cityMatches(k.a, k.b), k.expect, k.id);
 });
 
-test('shared table: resolveVenue golden cases (R2 no-city null, R3 generic+city+unique type, regressions)', async () => {
+test('shared table: resolveVenue golden cases (R2 no-city null, R3 explicit attestation, monotonicity, regressions)', async () => {
   for (const k of table.resolve) {
     const world = worldOf(k.world);
     if (k.expect) assert.ok(world.venues.some((v) => v.id === k.expect), `${k.id}: fixture venue exists`);
@@ -90,10 +92,12 @@ test('shared table: resolveVenue golden cases (R2 no-city null, R3 generic+city+
   }
 });
 
-test('RECURRENCE: a new story hour "ספרייה"/רמת השרון after the generic aliases are deleted still binds; Haifa never guesses', async () => {
-  const after = worldOf('after_e1');
-  assert.equal(after.aliases.some((a) => a.alias_normalized === 'ספרייה' || a.alias_normalized === 'ספרייה העירונית'), false);
-  assert.equal((await resolveVenue(memClient(after), { locationName: 'ספרייה', city: 'רמת השרון' }))?.id, 'rh_lib');
-  assert.equal(await resolveVenue(memClient(after), { locationName: 'ספרייה', city: 'חיפה' }), null);
-  assert.equal(await resolveVenue(memClient(after), { locationName: 'ספרייה', city: null }), null);
+test('RECURRENCE: a new story hour "ספרייה"/רמת השרון binds only while a human attestation exists; Haifa never guesses', async () => {
+  const story = (world, city) => resolveVenue(memClient(worldOf(world)), { locationName: 'ספרייה', city });
+  assert.equal((await story('rh_attested', 'רמת השרון'))?.id, 'rh_lib');
+  const after = worldOf('rh_unattested');
+  assert.equal(after.aliases.some((a) => genericVenueType(a.alias_normalized)), false);
+  assert.equal(await story('rh_unattested', 'רמת השרון'), null); // E-1 without re-attestation => unbound, never guessed
+  assert.equal(await story('haifa_three', 'חיפה'), null);
+  assert.equal(await story('rh_attested', null), null);
 });

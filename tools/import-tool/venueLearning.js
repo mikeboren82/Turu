@@ -3,7 +3,7 @@
 // evidence": re-resolves the alias immediately before insert (parallel Cleaner/Monster/admin work
 // cannot create twins), inserts the alias with onConflict, and links nothing by itself.
 const { normalizeCityName } = require('./cityNaming');
-const { resolveVenue, normalizeVenueAlias } = require('./venueNaming');
+const { resolveVenue, normalizeVenueAlias, genericVenueType } = require('./venueNaming');
 
 const GENERIC_LABELS = new Set(['ספרייה', 'הספרייה', 'ספריה', 'מתנס', 'מתנ"ס', 'המתנס', 'פארק', 'גן', 'גינה', 'הגינה', 'מרכז', 'המרכז', 'אולם', 'היכל', 'בית', 'חוף', 'הפארק', 'קניון', 'הקניון', 'כיכר', 'מגרש', 'אודיטוריום', 'מרכז קהילתי', 'מרכז מסחרי', 'בית ספר', 'גן ילדים', 'מקוון', 'zoom', 'online', 'ספרייה עירונית', 'הספרייה העירונית', 'ספריה עירונית']);
 // organizers are not places: "עיריית X" / "מועצה אזורית X" / "החברה להגנת הטבע" label the publisher
@@ -11,10 +11,22 @@ const NON_PLACE = /שכונ|ברחבי|רחבי העיר|מקוון|אונליי
 const TYPE_RULES = [[/קניון|סנטר|מרכז מסחרי|מול\b/, 'mall'], [/ספרי/, 'library'], [/מתנ"?ס|מרכז קהילתי|מרכזים קהילתיים|קהילה/, 'community_center'], [/היכל|תיאטרון|אולם|אודיטוריום|מרכז הבמה/, 'theater'], [/מוזיאון|מוזאון|מדעטק|טכנודע/, 'museum'], [/פארק|גן |גינה|יער|חורש/, 'park'], [/חווה|פינת חי|משק/, 'farm'], [/מרכז תרבות|בית תרבות|תרבות/, 'cultural_center'], [/בריכה|קאנטרי|ספורט|מגרש/, 'sports_center'], [/כיכר|רחבה|טיילת|חוף/, 'public_square'], [/מרכז מבקרים/, 'visitor_center']];
 const REGIONS = new Set(['הצפון והגליל', 'עמק יזרעאל והעמקים', 'חיפה והקריות', 'השרון', 'גוש דן והמרכז', 'ירושלים והסביבה', 'השפלה', 'הדרום והנגב', 'יו"ש והבנימין']);
 
+// genericVenueType: every spelling the resolver treats as a generic label (R2/R3) is refused too - a stored
+// generic alias is a human ATTESTATION that the label means this venue in its city, so no evidence-driven
+// writer may ever create one (GENERIC_LABELS alone missed "ספרייה העירונית" / "הספריה העירונית").
 function isLearnableLabel(label) {
   const l = (label || '').trim(); if (!l) return false;
   const norm = normalizeVenueAlias(l);
-  return !!norm && norm.length >= 3 && !GENERIC_LABELS.has(norm) && !GENERIC_LABELS.has(l) && !NON_PLACE.test(l);
+  return !!norm && norm.length >= 3 && !GENERIC_LABELS.has(norm) && !GENERIC_LABELS.has(l) && !NON_PLACE.test(l) && !genericVenueType(l);
+}
+
+// Alias rows written WITHOUT a person explicitly typing that alias for that venue (a venue merge carrying
+// the loser's name/aliases, a manifest re-seed) -> { rows, dropped }: generic attestation keys are dropped.
+// Explicit admin alias entry (POST /api/venues/:id/alias) does not go through here - attesting stays possible.
+function withoutGenericAliases(rows) {
+  const keep = [], dropped = [];
+  for (const r of rows || []) (genericVenueType(r.alias) || genericVenueType(r.alias_normalized) ? dropped : keep).push(r);
+  return { rows: keep, dropped };
 }
 function inferVenueType(label) { return (TYPE_RULES.find(([re]) => re.test(label || '')) || [null, 'other'])[1]; }
 
@@ -36,4 +48,4 @@ async function createVenueWithAlias(client, { label, city, region, type, lat, ln
   return { venue: v, created: true };
 }
 
-module.exports = { GENERIC_LABELS, NON_PLACE, TYPE_RULES, REGIONS, isLearnableLabel, inferVenueType, createVenueWithAlias };
+module.exports = { GENERIC_LABELS, NON_PLACE, TYPE_RULES, REGIONS, isLearnableLabel, inferVenueType, createVenueWithAlias, withoutGenericAliases };

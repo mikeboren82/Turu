@@ -1,5 +1,5 @@
 {
- "_doc": "Shared venue-resolution table (Deno _shared/venues.ts, Node tools/import-tool/venueNaming.js). worlds: in-memory venues + venue_aliases a fake client serves with the exact query shapes resolveVenue issues. resolve: resolveVenue(world, {locationName, city}) -> venue id or null; no_query = the call must return without touching the DB. generic_label_keys: the exact GENERIC_VENUE_LABEL_TYPES keys of both twins. classify: genericVenueType(label). city_strict: sameCityStrict(a,b). city_matches: the global cityMatches, pinned UNCHANGED (its containment is why R3 uses sameCityStrict). Venue ids are short stand-ins; rh_lib = production 6801a6f3 (הספרייה העירונית רמת השרון), whose two generic aliases (ledger E-1) are in world 'today' and gone in world 'after_e1'.",
+ "_doc": "Shared venue-resolution table (Deno _shared/venues.ts, Node tools/import-tool/venueNaming.js). worlds: in-memory venues + venue_aliases a fake client serves with the exact query shapes resolveVenue issues (eq / in / is filters, venue_aliases -> venues!inner join). resolve: resolveVenue(world, {locationName, city}) -> venue id or null; no_query = must return without touching the DB. R3 semantics: a generic library label with a city resolves ONLY to the single active, non-merged library venue in exactly that city that carries an explicit generic alias (an ATTESTATION, any spelling of the type) - how many venues a city happens to store is never evidence. generic_label_keys: the exact GENERIC_VENUE_LABEL_TYPES keys of both twins. classify: genericVenueType(label). city_strict: sameCityStrict(a,b). city_matches: the global cityMatches, pinned UNCHANGED. Venue ids are short stand-ins: rh_lib = production 6801a6f3 (הספרייה העירונית רמת השרון), ks_lib = 10f003b0 (ספריית הילדים והנוער כפר סבא), ka_lib = f5357010 (הספרייה העירונית קריית אתא). World 'base' holds NO generic alias anywhere; production today = 'rh_attested'.",
  "generic_label_keys": ["ספרייה", "ספריה", "ספרייה עירונית", "ספריה עירונית", "ספרייה העירונית", "ספריה העירונית"],
  "classify": [
   { "id": "bare_yy", "label": "ספרייה", "expect": "library" },
@@ -11,10 +11,12 @@
   { "id": "municipal_y", "label": "ספריה עירונית", "expect": "library" },
   { "id": "municipal_y_article", "label": "הספריה העירונית", "expect": "library" },
   { "id": "municipal_yy_second_article_only", "label": "ספרייה העירונית", "expect": "library" },
+  { "id": "municipal_y_second_article_only", "label": "ספריה העירונית", "expect": "library" },
   { "id": "punctuation_and_spaces", "label": "  הספרייה.  ", "expect": "library" },
   { "id": "specific_pevzner", "label": "ספריית פבזנר", "expect": null },
   { "id": "specific_kfar_saba", "label": "ספריית הילדים והנוער כפר סבא", "expect": null },
   { "id": "specific_ariela", "label": "בית אריאלה", "expect": null },
+  { "id": "specific_reut", "label": "ספריית רעות", "expect": null },
   { "id": "specific_municipal_with_city", "label": "הספרייה העירונית רמת השרון", "expect": null },
   { "id": "construct_form_not_phase1", "label": "ספריית", "expect": null },
   { "id": "title_mentioning_library", "label": "שעת סיפור בספרייה", "expect": null },
@@ -46,14 +48,16 @@
   { "id": "unchanged_tel_mond", "a": "תל אביב יפו", "b": "תל מונד", "expect": false }
  ],
  "worlds": {
-  "today": {
-   "_doc": "production shape at 0633bd4 (abbreviated): the two generic Ramat HaSharon aliases present, no Haifa library venue",
+  "base": {
+   "_doc": "production venue shape (abbreviated), specific aliases only - NO generic attestation anywhere. Includes the production specific alias 'הספרייה העירונית כפר סבא' on ks_lib (ledger defect, documented, not repaired here) and a library venue with no city.",
    "venues": [
     { "id": "rh_lib", "name_he": "הספרייה העירונית רמת השרון", "city": "רמת השרון", "venue_type": "library", "is_active": true, "merged_into": null },
     { "id": "ariela", "name_he": "בית אריאלה", "city": "תל אביב יפו", "venue_type": "library", "is_active": true, "merged_into": null },
     { "id": "ks_lib", "name_he": "ספריית הילדים והנוער כפר סבא", "city": "כפר סבא", "venue_type": "library", "is_active": true, "merged_into": null },
+    { "id": "ka_lib", "name_he": "הספרייה העירונית קריית אתא", "city": "קריית אתא", "venue_type": "library", "is_active": true, "merged_into": null },
     { "id": "yavne_lib", "name_he": "כותר - הספרייה העירונית יבנה", "city": "יבנה", "venue_type": "library", "is_active": true, "merged_into": null },
     { "id": "reut_lib", "name_he": "ספריית רעות", "city": "מודיעין מכבים רעות", "venue_type": "library", "is_active": true, "merged_into": null },
+    { "id": "nocity_lib", "name_he": "ספרייה ניידת", "city": null, "venue_type": "library", "is_active": true, "merged_into": null },
     { "id": "mediatheque", "name_he": "מדיטק חולון", "city": "חולון", "venue_type": "cultural_center", "is_active": true, "merged_into": null },
     { "id": "rot", "name_he": "מרכז רוטשטיין", "city": "קדימה צורן", "venue_type": "mall", "is_active": true, "merged_into": null },
     { "id": "grand_haifa", "name_he": "גרנד קניון חיפה", "city": "חיפה", "venue_type": "mall", "is_active": true, "merged_into": null },
@@ -62,11 +66,12 @@
     { "id": "safari", "name_he": "הספארי", "city": "רמת גן", "venue_type": "attraction", "is_active": true, "merged_into": null }
    ],
    "aliases": [
-    { "alias_normalized": "ספרייה", "venue_id": "rh_lib" },
-    { "alias_normalized": "ספרייה העירונית", "venue_id": "rh_lib" },
     { "alias_normalized": "ספרייה העירונית רמת השרון", "venue_id": "rh_lib" },
+    { "alias_normalized": "ספריית רמת השרון", "venue_id": "rh_lib" },
     { "alias_normalized": "בית אריאלה", "venue_id": "ariela" },
     { "alias_normalized": "ספריית הילדים והנוער כפר סבא", "venue_id": "ks_lib" },
+    { "alias_normalized": "ספרייה העירונית כפר סבא", "venue_id": "ks_lib" },
+    { "alias_normalized": "ספרייה עירונית קרית אתא", "venue_id": "ka_lib" },
     { "alias_normalized": "כותר", "venue_id": "yavne_lib" },
     { "alias_normalized": "ספריית רעות", "venue_id": "reut_lib" },
     { "alias_normalized": "מדיטק", "venue_id": "mediatheque" },
@@ -78,100 +83,219 @@
     { "alias_normalized": "ספארי", "venue_id": "safari" }
    ]
   },
-  "after_e1": {
-   "_doc": "after ledger E-1 (both generic Ramat HaSharon aliases deleted) and the Phase 1 Haifa library venues; plus a library venue with no city, which a cityMatches-based filter would count in every city",
-   "extends": "today",
-   "drop_aliases": ["ספרייה", "ספרייה העירונית"],
+  "rh_attested": {
+   "_doc": "RH_ATTESTED = production today: the two generic Ramat HaSharon alias rows exist (both on rh_lib - deduplicated to one venue)",
+   "extends": "base",
+   "venues": [],
+   "aliases": [
+    { "alias_normalized": "ספרייה", "venue_id": "rh_lib" },
+    { "alias_normalized": "ספרייה העירונית", "venue_id": "rh_lib" }
+   ]
+  },
+  "rh_unattested": {
+   "_doc": "RH_UNATTESTED = after ledger E-1 (both generic Ramat HaSharon aliases deleted); no product decision is encoded either way",
+   "extends": "base",
+   "venues": [],
+   "aliases": []
+  },
+  "ka_attested": {
+   "_doc": "a hypothetical explicit human attestation for Kiryat Ata - NOT production data",
+   "extends": "base",
+   "venues": [],
+   "aliases": [ { "alias_normalized": "ספרייה עירונית", "venue_id": "ka_lib" } ]
+  },
+  "haifa_three": {
+   "extends": "base",
    "venues": [
     { "id": "haifa_pevzner", "name_he": "ספריית פבזנר", "city": "חיפה", "venue_type": "library", "is_active": true, "merged_into": null },
     { "id": "haifa_soroka", "name_he": "ספריית סורוקה", "city": "חיפה", "venue_type": "library", "is_active": true, "merged_into": null },
-    { "id": "haifa_gefen", "name_he": "ספריית בית הגפן", "city": "חיפה", "venue_type": "library", "is_active": true, "merged_into": null },
-    { "id": "nocity_lib", "name_he": "ספרייה ניידת", "city": null, "venue_type": "library", "is_active": true, "merged_into": null }
+    { "id": "haifa_gefen", "name_he": "ספריית בית הגפן", "city": "חיפה", "venue_type": "library", "is_active": true, "merged_into": null }
    ],
    "aliases": [
     { "alias_normalized": "ספריית פבזנר", "venue_id": "haifa_pevzner" },
     { "alias_normalized": "ספריית סורוקה", "venue_id": "haifa_soroka" }
    ]
   },
-  "merged_loser": {
-   "_doc": "repository merge convention (server.js /api/venues/merge): loser is_active=false + merged_into=keeper",
-   "extends": "after_e1",
-   "venues": [
-    { "id": "rh_loser", "name_he": "ספריית רמת השרון (כפילות)", "city": "רמת השרון", "venue_type": "library", "is_active": false, "merged_into": "rh_lib" }
-   ],
-   "aliases": []
+  "mono_a1_first_branch": {
+   "_doc": "MONOTONICITY A: עכו had 0 venues (world base); a first library venue arrives WITHOUT a generic alias",
+   "extends": "base",
+   "venues": [ { "id": "acre_lib", "name_he": "ספריית עכו", "city": "עכו", "venue_type": "library", "is_active": true, "merged_into": null } ],
+   "aliases": [ { "alias_normalized": "ספריית עכו", "venue_id": "acre_lib" } ]
   },
-  "merged_flag_only": {
-   "_doc": "defence in depth: a loser whose merged_into is set but is_active was left true is still not a candidate",
-   "extends": "after_e1",
-   "venues": [
-    { "id": "rh_loser_active_flag", "name_he": "ספריית רמת השרון (כפילות)", "city": "רמת השרון", "venue_type": "library", "is_active": true, "merged_into": "rh_lib" }
-   ],
-   "aliases": []
+  "mono_b1_new_branch_beside_attested": {
+   "_doc": "MONOTONICITY B: rh_attested + a second Ramat HaSharon library venue with no generic alias",
+   "extends": "rh_attested",
+   "venues": [ { "id": "rh_branch", "name_he": "ספריית נווה גן", "city": "רמת השרון", "venue_type": "library", "is_active": true, "merged_into": null } ],
+   "aliases": [ { "alias_normalized": "ספריית נווה גן", "venue_id": "rh_branch" } ]
   },
-  "inactive_other": {
-   "extends": "after_e1",
+  "mono_c_two_attestations": {
+   "_doc": "MONOTONICITY C: two library venues in one city both attested (different spellings)",
+   "extends": "base",
    "venues": [
-    { "id": "rh_closed", "name_he": "ספריית נווה רסקו (סגורה)", "city": "רמת השרון", "venue_type": "library", "is_active": false, "merged_into": null }
-   ],
-   "aliases": []
-  },
-  "generic_alias_on_other_type": {
-   "_doc": "a generic library alias stored on a NON-library venue never decides: R3 counts library venues only",
-   "extends": "after_e1",
-   "venues": [
-    { "id": "nahariya_cc", "name_he": "מתנ\"ס נהריה", "city": "נהריה", "venue_type": "community_center", "is_active": true, "merged_into": null }
+    { "id": "hz_a", "name_he": "ספריית הרצליה א", "city": "הרצליה", "venue_type": "library", "is_active": true, "merged_into": null },
+    { "id": "hz_b", "name_he": "ספריית הרצליה ב", "city": "הרצליה", "venue_type": "library", "is_active": true, "merged_into": null }
    ],
    "aliases": [
-    { "alias_normalized": "ספריה עירונית", "venue_id": "nahariya_cc" }
+    { "alias_normalized": "ספרייה", "venue_id": "hz_a" },
+    { "alias_normalized": "ספריה עירונית", "venue_id": "hz_b" }
    ]
+  },
+  "mono_d0_two_unattested": {
+   "_doc": "MONOTONICITY D before: two unattested library venues in נס ציונה; nz_a's NAME is generic but no generic alias row exists",
+   "extends": "base",
+   "venues": [
+    { "id": "nz_a", "name_he": "הספרייה העירונית", "city": "נס ציונה", "venue_type": "library", "is_active": true, "merged_into": null },
+    { "id": "nz_b", "name_he": "ספריית נס ציונה", "city": "נס ציונה", "venue_type": "library", "is_active": true, "merged_into": null }
+   ],
+   "aliases": [ { "alias_normalized": "ספריית נס ציונה", "venue_id": "nz_b" } ]
+  },
+  "mono_d1_after_merge": {
+   "_doc": "MONOTONICITY D after: nz_a merged into nz_b by the repository convention (loser is_active=false + merged_into); the loser's generic NAME is not carried as an alias (venueLearning.withoutGenericAliases; the Node test re-derives this)",
+   "extends": "base",
+   "venues": [
+    { "id": "nz_a", "name_he": "הספרייה העירונית", "city": "נס ציונה", "venue_type": "library", "is_active": false, "merged_into": "nz_b" },
+    { "id": "nz_b", "name_he": "ספריית נס ציונה", "city": "נס ציונה", "venue_type": "library", "is_active": true, "merged_into": null }
+   ],
+   "aliases": [ { "alias_normalized": "ספריית נס ציונה", "venue_id": "nz_b" } ]
+  },
+  "merge_no_transfer": {
+   "_doc": "an attested loser merged into an unattested keeper: the attestation stays on the (now inert) loser and is never re-used for the keeper",
+   "extends": "base",
+   "venues": [
+    { "id": "ra_old", "name_he": "ספריית רעננה הישנה", "city": "רעננה", "venue_type": "library", "is_active": false, "merged_into": "ra_new" },
+    { "id": "ra_new", "name_he": "ספריית רעננה", "city": "רעננה", "venue_type": "library", "is_active": true, "merged_into": null }
+   ],
+   "aliases": [ { "alias_normalized": "ספרייה", "venue_id": "ra_old" } ]
+  },
+  "merged_loser": {
+   "_doc": "rh_attested + an unattested merged loser in the same city (repository merge convention)",
+   "extends": "rh_attested",
+   "venues": [ { "id": "rh_loser", "name_he": "ספריית רמת השרון (כפילות)", "city": "רמת השרון", "venue_type": "library", "is_active": false, "merged_into": "rh_lib" } ],
+   "aliases": []
+  },
+  "merged_flag_only_attested": {
+   "_doc": "defence in depth: an ATTESTED loser whose merged_into is set but is_active was left true is still not a candidate",
+   "extends": "rh_attested",
+   "venues": [ { "id": "rh_loser_active_flag", "name_he": "ספריית רמת השרון (כפילות)", "city": "רמת השרון", "venue_type": "library", "is_active": true, "merged_into": "rh_lib" } ],
+   "aliases": [ { "alias_normalized": "ספרייה", "venue_id": "rh_loser_active_flag" } ]
+  },
+  "inactive_other": {
+   "extends": "rh_attested",
+   "venues": [ { "id": "rh_closed", "name_he": "ספריית נווה רסקו (סגורה)", "city": "רמת השרון", "venue_type": "library", "is_active": false, "merged_into": null } ],
+   "aliases": [ { "alias_normalized": "ספרייה", "venue_id": "rh_closed" } ]
+  },
+  "inactive_attested_only": {
+   "_doc": "the only attested venue is inactive: nothing resolves",
+   "extends": "base",
+   "venues": [ { "id": "rh_closed", "name_he": "ספריית נווה רסקו (סגורה)", "city": "רמת השרון", "venue_type": "library", "is_active": false, "merged_into": null } ],
+   "aliases": [ { "alias_normalized": "ספרייה", "venue_id": "rh_closed" } ]
+  },
+  "wrong_type_attestation": {
+   "_doc": "generic library aliases stored on NON-library venues never count (venue_type must equal the generic type)",
+   "extends": "base",
+   "venues": [ { "id": "nahariya_cc", "name_he": "מתנ\"ס נהריה", "city": "נהריה", "venue_type": "community_center", "is_active": true, "merged_into": null } ],
+   "aliases": [
+    { "alias_normalized": "ספריה עירונית", "venue_id": "nahariya_cc" },
+    { "alias_normalized": "ספרייה", "venue_id": "mediatheque" }
+   ]
+  },
+  "yavne_attested": {
+   "extends": "base",
+   "venues": [],
+   "aliases": [ { "alias_normalized": "ספרייה", "venue_id": "yavne_lib" } ]
+  },
+  "nocity_attested": {
+   "_doc": "an attestation on a library venue that has no city proves nothing about any city",
+   "extends": "base",
+   "venues": [],
+   "aliases": [ { "alias_normalized": "ספרייה", "venue_id": "nocity_lib" } ]
   }
  },
  "resolve": [
-  { "id": "A_generic_no_city_unique_alias_today", "world": "today", "label": "ספרייה", "city": null, "expect": null, "no_query": true },
-  { "id": "A_generic_empty_city", "world": "today", "label": "ספרייה", "city": "", "expect": null, "no_query": true },
-  { "id": "A_generic_blank_city", "world": "today", "label": "הספרייה", "city": "   ", "expect": null, "no_query": true },
-  { "id": "B_municipal_article_no_city", "world": "today", "label": "הספרייה העירונית", "city": null, "expect": null, "no_query": true },
-  { "id": "C_municipal_y_no_city", "world": "today", "label": "ספריה עירונית", "city": null, "expect": null, "no_query": true },
-  { "id": "C_bare_y_article_no_city", "world": "today", "label": "הספריה", "city": null, "expect": null, "no_query": true },
-  { "id": "C_municipal_y_article_no_city", "world": "today", "label": "הספריה העירונית", "city": null, "expect": null, "no_query": true },
-  { "id": "D_rh_single_library_today", "world": "today", "label": "ספרייה", "city": "רמת השרון", "expect": "rh_lib" },
-  { "id": "D_rh_single_library_after_e1", "world": "after_e1", "label": "ספרייה", "city": "רמת השרון", "expect": "rh_lib" },
-  { "id": "D_rh_municipal_hyphen_city_after_e1", "world": "after_e1", "label": "הספרייה העירונית", "city": "רמת-השרון", "expect": "rh_lib" },
-  { "id": "D_rh_plene_spelling_after_e1", "world": "after_e1", "label": "ספריה", "city": "רמת השרון", "expect": "rh_lib" },
-  { "id": "E_haifa_three_libraries", "world": "after_e1", "label": "ספרייה", "city": "חיפה", "expect": null },
-  { "id": "E_haifa_municipal_three_libraries", "world": "after_e1", "label": "הספרייה העירונית", "city": "חיפה", "expect": null },
-  { "id": "F_city_with_zero_libraries", "world": "after_e1", "label": "ספרייה", "city": "נהריה", "expect": null },
-  { "id": "F_city_with_zero_libraries_today", "world": "today", "label": "ספרייה", "city": "רעננה", "expect": null },
-  { "id": "G_specific_pevzner_haifa", "world": "after_e1", "label": "ספריית פבזנר", "city": "חיפה", "expect": "haifa_pevzner" },
-  { "id": "G_specific_pevzner_no_city_unique", "world": "after_e1", "label": "ספריית פבזנר", "city": null, "expect": "haifa_pevzner" },
-  { "id": "H_merged_loser_does_not_make_ambiguous", "world": "merged_loser", "label": "ספרייה", "city": "רמת השרון", "expect": "rh_lib" },
-  { "id": "H_merged_flag_alone_excludes", "world": "merged_flag_only", "label": "ספרייה", "city": "רמת השרון", "expect": "rh_lib" },
-  { "id": "I_inactive_other_library_ignored", "world": "inactive_other", "label": "ספרייה", "city": "רמת השרון", "expect": "rh_lib" },
-  { "id": "J_region_not_city", "world": "after_e1", "label": "ספרייה", "city": "השרון", "expect": null },
-  { "id": "J_containment_gan_yavne_not_yavne", "world": "after_e1", "label": "ספרייה", "city": "גן יבנה", "expect": null },
-  { "id": "J_partial_city_word", "world": "after_e1", "label": "ספרייה", "city": "רמת", "expect": null },
-  { "id": "J_modiin_illit_not_modiin", "world": "after_e1", "label": "ספרייה", "city": "מודיעין עילית", "expect": null },
-  { "id": "J_generic_alias_on_other_type_never_decides", "world": "generic_alias_on_other_type", "label": "ספריה עירונית", "city": "נהריה", "expect": null },
-  { "id": "R3_canonical_short_city_modiin", "world": "after_e1", "label": "ספרייה", "city": "מודיעין", "expect": "reut_lib" },
-  { "id": "R3_yavne_exact", "world": "after_e1", "label": "הספרייה העירונית", "city": "יבנה", "expect": "yavne_lib" },
-  { "id": "R3_tel_aviv_one_library_venue_binds_as_specified", "world": "after_e1", "label": "ספרייה", "city": "תל אביב", "expect": "ariela" },
-  { "id": "REG_mall_alias_variant_same_city", "world": "today", "label": "מרכז רוטשטיין", "city": "קדימה-צורן", "expect": "rot" },
-  { "id": "REG_mall_unique_alias_no_city", "world": "today", "label": "קניון רוטשטיין", "city": null, "expect": "rot" },
-  { "id": "REG_mall_ambiguous_no_city", "world": "today", "label": "גרנד קניון", "city": null, "expect": null },
-  { "id": "REG_mall_ambiguous_with_city", "world": "today", "label": "גרנד קניון", "city": "חיפה", "expect": "grand_haifa" },
-  { "id": "REG_community_center", "world": "today", "label": "מתנ\"ס גן יבנה", "city": "גן יבנה", "expect": "gy_cc" },
-  { "id": "REG_community_center_no_city_unique", "world": "today", "label": "מתנס גן יבנה", "city": null, "expect": "gy_cc" },
-  { "id": "REG_cultural_center", "world": "today", "label": "מדיטק", "city": "חולון", "expect": "mediatheque" },
-  { "id": "REG_library_word_alias_on_cultural_center", "world": "today", "label": "ספריית המדיטק", "city": "חולון", "expect": "mediatheque" },
-  { "id": "REG_attraction", "world": "today", "label": "ספארי", "city": "רמת גן", "expect": "safari" },
-  { "id": "REG_attraction_no_city_unique", "world": "today", "label": "הספארי", "city": null, "expect": "safari" },
-  { "id": "REG_specific_library_kfar_saba", "world": "today", "label": "ספריית הילדים והנוער כפר סבא", "city": "כפר סבא", "expect": "ks_lib" },
-  { "id": "REG_specific_library_ariela_short_city", "world": "today", "label": "בית אריאלה", "city": "תל אביב", "expect": "ariela" },
-  { "id": "REG_specific_library_ariela_no_city", "world": "today", "label": "בית אריאלה", "city": null, "expect": "ariela" },
-  { "id": "REG_specific_library_wrong_city", "world": "today", "label": "בית אריאלה", "city": "תל מונד", "expect": null },
-  { "id": "REG_specific_municipal_name_no_city", "world": "today", "label": "הספרייה העירונית רמת השרון", "city": null, "expect": "rh_lib" },
-  { "id": "REG_unknown_label", "world": "today", "label": "מקום לא ידוע", "city": "חיפה", "expect": null },
-  { "id": "REG_empty_label", "world": "today", "label": "", "city": "חיפה", "expect": null, "no_query": true }
+  { "id": "R2_no_city_even_with_production_attestation", "world": "rh_attested", "label": "ספרייה", "city": null, "expect": null, "no_query": true },
+  { "id": "R2_empty_city", "world": "rh_attested", "label": "ספרייה", "city": "", "expect": null, "no_query": true },
+  { "id": "R2_blank_city", "world": "rh_attested", "label": "הספרייה", "city": "   ", "expect": null, "no_query": true },
+  { "id": "R2_municipal_article_no_city", "world": "rh_attested", "label": "הספרייה העירונית", "city": null, "expect": null, "no_query": true },
+  { "id": "R2_municipal_y_no_city", "world": "rh_attested", "label": "ספריה עירונית", "city": null, "expect": null, "no_query": true },
+  { "id": "R2_bare_y_article_no_city", "world": "rh_attested", "label": "הספריה", "city": null, "expect": null, "no_query": true },
+  { "id": "R2_municipal_y_article_no_city", "world": "rh_attested", "label": "הספריה העירונית", "city": null, "expect": null, "no_query": true },
+
+  { "id": "REQ_A_tel_aviv_one_stored_library_unattested", "world": "base", "label": "ספרייה", "city": "תל אביב", "expect": null },
+  { "id": "REQ_B_modiin_one_stored_library_unattested", "world": "base", "label": "ספרייה", "city": "מודיעין", "expect": null },
+  { "id": "REQ_C_yavne_one_stored_library_unattested", "world": "base", "label": "הספרייה העירונית", "city": "יבנה", "expect": null },
+  { "id": "REQ_D_rh_unattested_bare", "world": "rh_unattested", "label": "ספרייה", "city": "רמת השרון", "expect": null },
+  { "id": "REQ_D_rh_unattested_municipal", "world": "rh_unattested", "label": "הספרייה העירונית", "city": "רמת השרון", "expect": null },
+  { "id": "REQ_D_rh_unattested_plene", "world": "rh_unattested", "label": "ספריה", "city": "רמת השרון", "expect": null },
+  { "id": "REQ_D_rh_unattested_municipal_y", "world": "rh_unattested", "label": "ספריה עירונית", "city": "רמת השרון", "expect": null },
+  { "id": "REQ_E_rh_attested_bare", "world": "rh_attested", "label": "ספרייה", "city": "רמת השרון", "expect": "rh_lib" },
+  { "id": "REQ_E_rh_attested_bare_article", "world": "rh_attested", "label": "הספרייה", "city": "רמת השרון", "expect": "rh_lib" },
+  { "id": "REQ_E_rh_attested_plene", "world": "rh_attested", "label": "ספריה", "city": "רמת השרון", "expect": "rh_lib" },
+  { "id": "REQ_E_rh_attested_plene_article", "world": "rh_attested", "label": "הספריה", "city": "רמת השרון", "expect": "rh_lib" },
+  { "id": "REQ_E_rh_attested_municipal", "world": "rh_attested", "label": "ספרייה עירונית", "city": "רמת השרון", "expect": "rh_lib" },
+  { "id": "REQ_E_rh_attested_municipal_article", "world": "rh_attested", "label": "הספרייה העירונית", "city": "רמת השרון", "expect": "rh_lib" },
+  { "id": "REQ_E_rh_attested_municipal_y", "world": "rh_attested", "label": "ספריה עירונית", "city": "רמת השרון", "expect": "rh_lib" },
+  { "id": "REQ_E_rh_attested_municipal_y_article", "world": "rh_attested", "label": "הספריה העירונית", "city": "רמת השרון", "expect": "rh_lib" },
+  { "id": "REQ_E_rh_attested_hyphen_city", "world": "rh_attested", "label": "ספרייה", "city": "רמת-השרון", "expect": "rh_lib" },
+  { "id": "REQ_E_rh_attested_wrong_city", "world": "rh_attested", "label": "ספרייה", "city": "הוד השרון", "expect": null },
+
+  { "id": "KS_generic_municipal_label_no_attestation", "world": "base", "label": "ספרייה העירונית", "city": "כפר סבא", "expect": null },
+  { "id": "KS_generic_article_label_no_attestation", "world": "base", "label": "הספרייה העירונית", "city": "כפר סבא", "expect": null },
+  { "id": "KS_production_specific_alias_defect_still_binds_documented", "world": "base", "label": "הספרייה העירונית כפר סבא", "city": "כפר סבא", "expect": "ks_lib" },
+  { "id": "KA_unattested", "world": "base", "label": "ספרייה עירונית", "city": "קריית אתא", "expect": null },
+  { "id": "KA_attested", "world": "ka_attested", "label": "ספרייה עירונית", "city": "קריית אתא", "expect": "ka_lib" },
+  { "id": "KA_attested_other_spelling_and_city_form", "world": "ka_attested", "label": "הספריה", "city": "קרית אתא", "expect": "ka_lib" },
+  { "id": "KA_specific_alias_unchanged", "world": "base", "label": "ספרייה עירונית קרית אתא", "city": "קריית אתא", "expect": "ka_lib" },
+
+  { "id": "HAIFA_three_unattested", "world": "haifa_three", "label": "ספרייה", "city": "חיפה", "expect": null },
+  { "id": "HAIFA_municipal_three_unattested", "world": "haifa_three", "label": "הספרייה העירונית", "city": "חיפה", "expect": null },
+  { "id": "HAIFA_specific_pevzner", "world": "haifa_three", "label": "ספריית פבזנר", "city": "חיפה", "expect": "haifa_pevzner" },
+  { "id": "HAIFA_specific_pevzner_no_city_unique", "world": "haifa_three", "label": "ספריית פבזנר", "city": null, "expect": "haifa_pevzner" },
+
+  { "id": "MONO_A0_city_with_zero_venues", "world": "base", "label": "ספרייה", "city": "עכו", "expect": null },
+  { "id": "MONO_A1_first_library_without_attestation", "world": "mono_a1_first_branch", "label": "ספרייה", "city": "עכו", "expect": null },
+  { "id": "MONO_B0_attested_resolves", "world": "rh_attested", "label": "ספרייה", "city": "רמת השרון", "expect": "rh_lib" },
+  { "id": "MONO_B1_new_unattested_branch_keeps_attested", "world": "mono_b1_new_branch_beside_attested", "label": "ספרייה", "city": "רמת השרון", "expect": "rh_lib" },
+  { "id": "MONO_B1_specific_branch_alias", "world": "mono_b1_new_branch_beside_attested", "label": "ספריית נווה גן", "city": "רמת השרון", "expect": "rh_branch" },
+  { "id": "MONO_C_two_attestations_never_pick", "world": "mono_c_two_attestations", "label": "ספרייה", "city": "הרצליה", "expect": null },
+  { "id": "MONO_C_two_attestations_other_spelling", "world": "mono_c_two_attestations", "label": "ספריה עירונית", "city": "הרצליה", "expect": null },
+  { "id": "MONO_D0_two_unattested", "world": "mono_d0_two_unattested", "label": "ספרייה", "city": "נס ציונה", "expect": null },
+  { "id": "MONO_D0_generic_venue_name_is_not_an_attestation", "world": "mono_d0_two_unattested", "label": "הספרייה העירונית", "city": "נס ציונה", "expect": null },
+  { "id": "MONO_D1_merge_never_manufactures", "world": "mono_d1_after_merge", "label": "ספרייה", "city": "נס ציונה", "expect": null },
+  { "id": "MONO_D1_merge_never_manufactures_municipal", "world": "mono_d1_after_merge", "label": "הספרייה העירונית", "city": "נס ציונה", "expect": null },
+  { "id": "MERGE_attested_loser_not_transferred", "world": "merge_no_transfer", "label": "ספרייה", "city": "רעננה", "expect": null },
+
+  { "id": "H_unattested_merged_loser_ignored", "world": "merged_loser", "label": "ספרייה", "city": "רמת השרון", "expect": "rh_lib" },
+  { "id": "H_attested_loser_with_merge_flag_only_excluded", "world": "merged_flag_only_attested", "label": "ספרייה", "city": "רמת השרון", "expect": "rh_lib" },
+  { "id": "I_attested_inactive_other_ignored", "world": "inactive_other", "label": "ספרייה", "city": "רמת השרון", "expect": "rh_lib" },
+  { "id": "I_only_attestation_inactive", "world": "inactive_attested_only", "label": "ספרייה", "city": "רמת השרון", "expect": null },
+  { "id": "TYPE_community_center_attestation_ignored", "world": "wrong_type_attestation", "label": "ספריה עירונית", "city": "נהריה", "expect": null },
+  { "id": "TYPE_cultural_center_attestation_ignored", "world": "wrong_type_attestation", "label": "ספרייה", "city": "חולון", "expect": null },
+  { "id": "CITY_attested_yavne_exact", "world": "yavne_attested", "label": "ספרייה", "city": "יבנה", "expect": "yavne_lib" },
+  { "id": "CITY_attested_yavne_not_gan_yavne", "world": "yavne_attested", "label": "ספרייה", "city": "גן יבנה", "expect": null },
+  { "id": "CITY_region_not_city", "world": "rh_attested", "label": "ספרייה", "city": "השרון", "expect": null },
+  { "id": "CITY_partial_word", "world": "rh_attested", "label": "ספרייה", "city": "רמת", "expect": null },
+  { "id": "CITY_modiin_illit", "world": "base", "label": "ספרייה", "city": "מודיעין עילית", "expect": null },
+  { "id": "CITY_attestation_on_cityless_venue_proves_nothing", "world": "nocity_attested", "label": "ספרייה", "city": "רמת השרון", "expect": null },
+  { "id": "CITY_attestation_on_cityless_venue_other_city", "world": "nocity_attested", "label": "ספרייה", "city": "חיפה", "expect": null },
+
+  { "id": "REG_mall_alias_variant_same_city", "world": "base", "label": "מרכז רוטשטיין", "city": "קדימה-צורן", "expect": "rot" },
+  { "id": "REG_mall_unique_alias_no_city", "world": "base", "label": "קניון רוטשטיין", "city": null, "expect": "rot" },
+  { "id": "REG_mall_ambiguous_no_city", "world": "base", "label": "גרנד קניון", "city": null, "expect": null },
+  { "id": "REG_mall_ambiguous_with_city", "world": "base", "label": "גרנד קניון", "city": "חיפה", "expect": "grand_haifa" },
+  { "id": "REG_community_center", "world": "base", "label": "מתנ\"ס גן יבנה", "city": "גן יבנה", "expect": "gy_cc" },
+  { "id": "REG_community_center_no_city_unique", "world": "base", "label": "מתנס גן יבנה", "city": null, "expect": "gy_cc" },
+  { "id": "REG_cultural_center", "world": "base", "label": "מדיטק", "city": "חולון", "expect": "mediatheque" },
+  { "id": "REG_library_word_alias_on_cultural_center", "world": "base", "label": "ספריית המדיטק", "city": "חולון", "expect": "mediatheque" },
+  { "id": "REG_attraction", "world": "base", "label": "ספארי", "city": "רמת גן", "expect": "safari" },
+  { "id": "REG_attraction_no_city_unique", "world": "base", "label": "הספארי", "city": null, "expect": "safari" },
+  { "id": "REG_specific_library_kfar_saba", "world": "base", "label": "ספריית הילדים והנוער כפר סבא", "city": "כפר סבא", "expect": "ks_lib" },
+  { "id": "REG_specific_library_reut_short_city", "world": "base", "label": "ספריית רעות", "city": "מודיעין", "expect": "reut_lib" },
+  { "id": "REG_specific_library_ariela_short_city", "world": "base", "label": "בית אריאלה", "city": "תל אביב", "expect": "ariela" },
+  { "id": "REG_specific_library_ariela_no_city", "world": "base", "label": "בית אריאלה", "city": null, "expect": "ariela" },
+  { "id": "REG_specific_library_wrong_city", "world": "base", "label": "בית אריאלה", "city": "תל מונד", "expect": null },
+  { "id": "REG_specific_municipal_name_no_city", "world": "base", "label": "הספרייה העירונית רמת השרון", "city": null, "expect": "rh_lib" },
+  { "id": "REG_specific_rh_alias_with_city", "world": "rh_unattested", "label": "ספריית רמת השרון", "city": "רמת השרון", "expect": "rh_lib" },
+  { "id": "REG_unknown_label", "world": "base", "label": "מקום לא ידוע", "city": "חיפה", "expect": null },
+  { "id": "REG_empty_label", "world": "base", "label": "", "city": "חיפה", "expect": null, "no_query": true }
  ]
 }

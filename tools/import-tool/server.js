@@ -30,6 +30,7 @@ const { assessAccessType, approvalDecision, sanitizeAccessType, ACCESS_LABEL_HE,
 const { assessGranularity, granularityDecision, GRANULARITY_LABEL_HE, GRANULARITY_ISSUE_LABEL } = require('./lib/granularity');
 const { normalizeIncomingCandidate } = require('./incomingShape');
 const { repairModelJson, resolveVenue, normalizeVenueAlias } = require('./venueNaming');
+const { withoutGenericAliases } = require('./venueLearning');
 const { computeEventFingerprint } = require('./eventFingerprint');
 // EVENT identity (stable across occurrences) + occurrence persistence planning (0091 model)
 const { computeEventKey } = require('./lib/eventIdentity');
@@ -3560,12 +3561,14 @@ app.post('/api/venues/merge', async (req, res) => {
       if (error) throw error;
     }
     const { data: loserAliases } = await client.from('venue_aliases').select('alias, alias_normalized').eq('venue_id', loserId);
-    const rows = [...(loserAliases || []), { alias: loser.name_he, alias_normalized: normalizeVenueAlias(loser.name_he) }]
-      .map((a) => ({ ...a, venue_id: keeperId })).filter((r) => r.alias_normalized);
+    // a merge never carries a generic attestation ("ספרייה") to the keeper - that is a fresh human decision
+    // for the keeper's city (R3); the loser keeps its rows, inert because it is inactive + merged
+    const { rows: carried, dropped: genericNotCarried } = withoutGenericAliases([...(loserAliases || []), { alias: loser.name_he, alias_normalized: normalizeVenueAlias(loser.name_he) }]);
+    const rows = carried.map((a) => ({ ...a, venue_id: keeperId })).filter((r) => r.alias_normalized);
     if (rows.length) await client.from('venue_aliases').upsert(rows, { onConflict: 'alias_normalized,venue_id' });
     const { error: updErr } = await client.from('venues').update({ is_active: false, merged_into: keeperId, updated_at: new Date().toISOString() }).eq('id', loserId);
     if (updErr) throw updErr;
-    res.json({ ok: true });
+    res.json({ ok: true, generic_aliases_not_carried: genericNotCarried.map((a) => a.alias) });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message || 'שגיאה במיזוג מקומות' });

@@ -48,8 +48,10 @@ function repairModelJson(raw) {
 }
 
 // Mirror of _shared/venues.ts GENERIC_VENUE_LABEL_TYPES (R2/R3, Phase 1 libraries golden cases): a label
-// naming only a KIND of place. Keys are normalizeVenueAlias output; both spellings listed, never folded
-// inside normalizeVenueAlias. Libraries only - shared cases in _shared/venues.cases.json pin both twins.
+// naming only a KIND of place. A venue_aliases row with one of these keys is a human ATTESTATION (R3) -
+// automated writers must never store one (venueLearning.js). Keys are normalizeVenueAlias output; both
+// spellings listed, never folded inside normalizeVenueAlias. Libraries only - shared cases in
+// _shared/venues.cases.json pin both twins.
 const GENERIC_VENUE_LABEL_TYPES = new Map([
   ['ספרייה', 'library'], ['ספריה', 'library'],
   ['ספרייה עירונית', 'library'], ['ספריה עירונית', 'library'],
@@ -70,29 +72,39 @@ function sameCityStrict(a, b) {
   return !!na && na === nb;
 }
 
-// R3: the city's single active, non-merged venue of the type; 0 or several => null (never first/nearest).
-async function resolveGenericInCity(client, venueType, city) {
+function genericAliasKeys(venueType) {
+  return [...GENERIC_VENUE_LABEL_TYPES].filter(([, t]) => t === venueType).map(([k]) => k);
+}
+
+// Mirror of _shared/venues.ts resolveAttestedGeneric (R3): exactly one distinct active, non-merged venue
+// of the type, in exactly this city, carrying a generic alias of the type; 0 or several => null. Venue
+// counts are never evidence - adding/merging venues can never create a match.
+async function resolveAttestedGeneric(client, venueType, city) {
+  const keys = genericAliasKeys(venueType);
   const { data, error } = await client
-    .from('venues')
-    .select('id, name_he, city, venue_type, lat, lng, address, is_active, merged_into')
-    .eq('venue_type', venueType)
-    .eq('is_active', true)
-    .is('merged_into', null);
+    .from('venue_aliases')
+    .select('alias_normalized, venue:venues!inner(id, name_he, city, venue_type, lat, lng, address, is_active, merged_into)')
+    .in('alias_normalized', keys);
   if (error || !data) return null;
-  const inCity = data.filter((v) => v && v.is_active && !v.merged_into && v.venue_type === venueType && sameCityStrict(v.city, city));
-  return inCity.length === 1 ? inCity[0] : null;
+  const byId = new Map();
+  for (const r of data) {
+    const v = r && r.venue;
+    if (!v || !keys.includes(r.alias_normalized) || v.venue_type !== venueType || !v.is_active || v.merged_into) continue;
+    if (sameCityStrict(v.city, city)) byId.set(v.id, v);
+  }
+  return byId.size === 1 ? [...byId.values()][0] : null;
 }
 
 // Node mirror of _shared/venues.ts resolveVenue - conservative: exact normalized alias + city
 // agreement (or one side without a city); ambiguity => null, never an unsafe auto-link. A generic
-// label never links through an alias: no city => null (R2), with a city => by type only (R3).
+// label never takes that path: no city => null (R2), with a city => explicit attestation only (R3).
 async function resolveVenue(client, { locationName, city }) {
   const { normalizeCityName } = require('./cityNaming');
   const norm = normalizeVenueAlias(locationName);
   if (!norm) return null;
   const cityNorm = normalizeCityName(city || null);
   const genericType = genericVenueType(locationName);
-  if (genericType) return cityNorm ? resolveGenericInCity(client, genericType, cityNorm) : null;
+  if (genericType) return cityNorm ? resolveAttestedGeneric(client, genericType, cityNorm) : null;
   const { data, error } = await client
     .from('venue_aliases')
     .select('venue:venues!inner(id, name_he, city, venue_type, lat, lng, address, is_active)')
@@ -118,4 +130,4 @@ function cityMatches(a, b) {
   return short.length >= 3 && (long === short || long.startsWith(short + ' ') || long.endsWith(' ' + short) || long.includes(' ' + short + ' '));
 }
 
-module.exports = { normalizeVenueAlias, repairHebrewGershayim, repairUnescapedQuotes, repairModelJson, resolveVenue, GENERIC_VENUE_LABEL_TYPES, genericVenueType, sameCityStrict, cityMatches };
+module.exports = { normalizeVenueAlias, repairHebrewGershayim, repairUnescapedQuotes, repairModelJson, resolveVenue, GENERIC_VENUE_LABEL_TYPES, genericVenueType, genericAliasKeys, sameCityStrict, cityMatches };

@@ -11,7 +11,7 @@
 require('dotenv').config();
 const { getClient } = require('./supabase');
 const { normalizeCityName } = require('./cityNaming');
-const { resolveVenue, normalizeVenueAlias } = require('./venueNaming');
+const { resolveVenue, normalizeVenueAlias, genericVenueType } = require('./venueNaming');
 const { haversineKm } = require('./cleaner/matching');
 const { verifiedConditionalUpdate, isNoopOk, describe } = require('./lib/verifiedWrite');
 
@@ -31,7 +31,7 @@ const median = (xs) => { const s = [...xs].sort((a, b) => a - b); return s[Math.
   for (const a of acts) {
     const label = (a.locations.name || '').trim(); const city = normalizeCityName(a.locations.city || null);
     if (!label || !city) continue;
-    const norm = normalizeVenueAlias(label); if (!norm || GENERIC.has(norm) || GENERIC.has(label) || norm.length < 3 || /שכונ|ברחבי|רחבי העיר|מקוון|אונליין|zoom|יקבע|יפורסם|לפי בחירה/.test(label)) continue;
+    const norm = normalizeVenueAlias(label); if (!norm || GENERIC.has(norm) || GENERIC.has(label) || genericVenueType(label) || norm.length < 3 || /שכונ|ברחבי|רחבי העיר|מקוון|אונליין|zoom|יקבע|יפורסם|לפי בחירה/.test(label)) continue;
     (groups[`${norm}|${city}`] ||= { label, norm, city, acts: [] }).acts.push(a);
   }
   const proposals = [], skipped = [];

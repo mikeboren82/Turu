@@ -25,6 +25,7 @@ const fs = require('fs');
 const path = require('path');
 const { getClient } = require('./supabase');
 const { normalizeVenueAlias } = require('./venueNaming');
+const { withoutGenericAliases } = require('./venueLearning');
 const { normalizeCityName } = require('./cityNaming');
 
 const APPLY = process.argv.includes('--apply');
@@ -70,8 +71,10 @@ async function main() {
       const aliases = [...new Set([v.name_he, ...(v.aliases || [])])];
       // several spellings can normalize to the same key ("קניון איילון"/"איילון") - one row per key
       const seenNorm = new Set();
-      const rows = aliases.map((a) => ({ alias: a, alias_normalized: normalizeVenueAlias(a), venue_id: venueId }))
-        .filter((r) => r.alias_normalized && !seenNorm.has(r.alias_normalized) && seenNorm.add(r.alias_normalized));
+      // a re-seed never (re)creates a generic attestation ("ספרייה") - that is an explicit admin alias only
+      const { rows, dropped } = withoutGenericAliases(aliases.map((a) => ({ alias: a, alias_normalized: normalizeVenueAlias(a), venue_id: venueId }))
+        .filter((r) => r.alias_normalized && !seenNorm.has(r.alias_normalized) && seenNorm.add(r.alias_normalized)));
+      if (dropped.length) console.log('  generic aliases not seeded (explicit attestation only):', v.name_he, dropped.map((r) => r.alias).join(', '));
       const { error } = await client.from('venue_aliases').upsert(rows, { onConflict: 'alias_normalized,venue_id' });
       if (error) console.error('alias upsert failed', v.name_he, error.message);
     }

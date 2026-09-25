@@ -50,8 +50,9 @@ Deno.test("resolveVenue: alias in another city is not this venue; inactive venue
 });
 
 // R2/R3 generic venue labels (Phase 1 libraries golden cases L-A..L-C, 2026-09-25): the SAME table as the
-// Node twin (tools/import-tool/tests/venueNaming.test.js). The in-memory client honours the eq/is filters and
-// the venue_aliases -> venues!inner join, so a missing is_active / merged_into / venue_type filter fails here.
+// Node twin (tools/import-tool/tests/venueNaming.test.js). R3 = explicit generic-alias attestation only. The
+// in-memory client honours eq/in/is and the venue_aliases -> venues!inner join, and serves ONLY the table
+// asked for, so a missing is_active / merged_into / venue_type / city check or a venues-table query fails here.
 const table = JSON.parse(await Deno.readTextFile(new URL("./venues.cases.json", import.meta.url)));
 // deno-lint-ignore no-explicit-any
 type Row = Record<string, any>;
@@ -72,11 +73,12 @@ function memClient(world: { venues: Row[]; aliases: Row[] }) {
       const q = {
         select() { return q; },
         eq(col: string, val: unknown) { filters.push((r) => r[col] === val); return q; },
+        in(col: string, vals: unknown[]) { filters.push((r) => vals.includes(r[col])); return q; },
         is(col: string, val: unknown) { filters.push((r) => (r[col] ?? null) === val); return q; },
         then(resolve: (x: unknown) => unknown, reject?: (e: unknown) => unknown) {
           calls.push(tableName);
           const data = tableName === "venue_aliases"
-            ? world.aliases.filter((a) => filters.every((f) => f(a))).map((a) => ({ venue: byId.get(a.venue_id) })).filter((r) => r.venue)
+            ? world.aliases.filter((a) => filters.every((f) => f(a))).map((a) => ({ alias_normalized: a.alias_normalized, venue: byId.get(a.venue_id) })).filter((r) => r.venue)
             : tableName === "venues" ? world.venues.filter((v) => filters.every((f) => f(v))) : [];
           return Promise.resolve({ data, error: null }).then(resolve, reject);
         },
