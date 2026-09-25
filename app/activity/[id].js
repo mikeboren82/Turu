@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { View, Text, ScrollView, Pressable, TextInput, Linking, ActivityIndicator, ImageBackground, Image, Modal, Share, Platform } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import Head from 'expo-router/head';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import Header from '../../components/Header';
@@ -20,14 +21,17 @@ import { supabase } from '../../lib/supabase';
 import { uploadActivityPhoto } from '../../lib/photoUpload';
 import { relativeDate } from '../../lib/formatDate';
 import { useI18n, t as translate, createStyles, DEFAULT_LOCALE } from '../../lib/i18n';
-import { categoryLabel, placeName } from '../../lib/i18n/format';
+import { categoryLabel, placeName, regionLabel } from '../../lib/i18n/format';
 import { openNavigationTo } from '../../lib/openNavigation';
 import { formatBenefitDetailLines, addActivityBenefit } from '../../lib/benefits';
 import {
   fetchActivityFlags, toggleFavorite, toggleVisited, toggleHidden, togglePlanned,
   fetchPersonalNote, savePersonalNote, fetchCommunityNotes, postCommunityNote,
 } from '../../lib/interactions';
-import { buildActivityShareUrl, buildActivityShareMessage } from '../../lib/shareActivity';
+import { buildActivityShareUrl, buildActivityShareMessage, buildSharePayload } from '../../lib/shareActivity';
+import {
+  normalizeActivityIdParam, loadActivityPage, loadActivityExtras, isPubliclyShareable, buildDiscoveryParamsForActivity,
+} from '../../lib/activityPage';
 
 const PRICE_ICON_COLOR = colors.green;
 
@@ -134,9 +138,17 @@ export default function ActivityScreen() {
   const router = useRouter();
   const { t, dir, formatDate } = useI18n();
   const { id } = useLocalSearchParams();
+  // null for anything that is not a well-formed activity uuid (lib/activityPage.js) - such a URL can
+  // only ever be "not found", never a network error.
+  const activityId = normalizeActivityIdParam(id);
   const [activity, setActivity] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState(null);
+  // 'ok' | 'not_found' | 'error' - see loadActivityPage (lib/activityPage.js).
+  const [pageStatus, setPageStatus] = useState('ok');
+  const [reloadKey, setReloadKey] = useState(0);
+  // Arrived with no in-app history: a shared link, a web refresh, or a cold deep link. Read once at
+  // mount. Drives the "discover more nearby" card - in-app visitors already have Back + "find similar".
+  const [enteredCold] = useState(() => !router.canGoBack());
   const [userId, setUserId] = useState(null);
   const [favorite, setFavorite] = useState(false);
   const [visited, setVisited] = useState(false);
@@ -181,43 +193,66 @@ export default function ActivityScreen() {
   // (פתיחת WhatsApp Web / העתקת קישור) במקום גיליון שיתוף מובנה, ראו handleShare למטה.
   const [showWebShareFallback, setShowWebShareFallback] = useState(false);
 
+  // Direct-entry safe: everything is fetched from the URL's id alone - nothing is expected in
+  // navigation state, so a shared link, a web refresh or a cold deep link all load the same way.
+  // Two independent phases, started together (lib/activityPage.js):
+  //   primary (loadActivityPage) - the only thing that decides ok / not_found / error;
+  //   extras (loadActivityExtras) - session, personal flags/note, admin role, community notes. Each
+  //   fails on its own; before this split a failed community-notes fetch shared the primary's
+  //   try/catch and replaced an already-loaded activity with the error screen.
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    (async () => {
-      try {
-        const [data, { data: { session } }] = await Promise.all([fetchActivityById(String(id)), supabase.auth.getSession()]);
+    setPageStatus('ok');
+    loadActivityPage(id, { fetchActivity: fetchActivityById }).then((result) => {
+      if (cancelled) return;
+      setActivity(result.activity);
+      setPageStatus(result.status);
+      setLoading(false);
+    });
+    if (activityId) {
+      loadActivityExtras(activityId, {
+        getSessionUserId: async () => (await supabase.auth.getSession()).data.session?.user?.id || null,
+        fetchFlags: fetchActivityFlags,
+        fetchPersonalNote,
+        fetchProfile: async (uid) => {
+          const { data, error } = await supabase.from('profiles').select('role, benefit_clubs').eq('id', uid).maybeSingle();
+          if (error) throw error;
+          return data;
+        },
+        fetchCommunityNotes,
+      }).then(({ userId: uid, flags, note, profile, communityNotes: notes }) => {
         if (cancelled) return;
-        setActivity(data);
-        if (session?.user?.id) {
-          setUserId(session.user.id);
-          const [flags, note, profile] = await Promise.all([
-            fetchActivityFlags(session.user.id, String(id)),
-            fetchPersonalNote(session.user.id, String(id)),
-            supabase.from('profiles').select('role, benefit_clubs').eq('id', session.user.id).maybeSingle(),
-          ]);
-          if (cancelled) return;
+        setUserId(uid);
+        if (flags) {
           setFavorite(flags.isFavorite);
           setVisited(flags.isVisited);
           setHidden(flags.isHidden);
           setPlanned(flags.isPlanned);
-          setPersonalNote(note);
-          setEditingNote(!note);
-          setIsAdmin(profile.data?.role === 'admin');
-          setBenefitClubs(profile.data?.benefit_clubs || []);
         }
-        const notes = await fetchCommunityNotes(String(id));
-        if (!cancelled) setCommunityNotes(notes);
-      } catch (err) {
-        if (!cancelled) setLoadError(true);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
+        setPersonalNote(note);
+        setEditingNote(!note);
+        setIsAdmin(profile?.role === 'admin');
+        setBenefitClubs(profile?.benefit_clubs || []);
+        setCommunityNotes(notes);
+      });
+    }
     return () => { cancelled = true; };
-  }, [id]);
+    // activityId is derived from id - listing id is enough; reloadKey drives the retry button.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, reloadKey]);
 
   const showNotice = (text) => { setNotice(text); setTimeout(() => setNotice(''), 3000); };
+
+  // Booking/source/benefit links come from scraped data - a malformed or unreachable URL rejected
+  // Linking.openURL unhandled and the tap silently did nothing.
+  const openExternal = async (url) => {
+    try {
+      await Linking.openURL(url);
+    } catch {
+      showNotice(t('activity.detail.linkOpenFailed'));
+    }
+  };
 
   const requireLogin = () => { setShowRegisterPrompt(true); };
 
@@ -229,14 +264,14 @@ export default function ActivityScreen() {
     if (!userId) return requireLogin();
     const next = !favorite;
     setFavorite(next);
-    try { await toggleFavorite(userId, String(id), next); } catch { setFavorite(!next); showNotice(t('common.toast.actionFailed')); }
+    try { await toggleFavorite(userId, activityId, next); } catch { setFavorite(!next); showNotice(t('common.toast.actionFailed')); }
   };
 
   const handleToggleVisited = async () => {
     if (!userId) return requireLogin();
     const next = !visited;
     setVisited(next);
-    try { await toggleVisited(userId, String(id), next); } catch { setVisited(!next); showNotice(t('common.toast.actionFailed')); }
+    try { await toggleVisited(userId, activityId, next); } catch { setVisited(!next); showNotice(t('common.toast.actionFailed')); }
   };
 
   // תיקון-עקביות (2026-09-20, "reliability pass" audit סעיף 5): כשל כאן היה משחזר את המצב הקודם
@@ -250,7 +285,7 @@ export default function ActivityScreen() {
     const next = !hidden;
     setHidden(next);
     try {
-      await toggleHidden(userId, String(id), next);
+      await toggleHidden(userId, activityId, next);
       showNotice(next ? t('activity.detail.hiddenNotice') : t('activity.detail.unhiddenNotice'));
     } catch {
       setHidden(!next);
@@ -263,7 +298,10 @@ export default function ActivityScreen() {
   // שורת fallback (WhatsApp Web + העתקת קישור). תוכן ההודעה/הקישור מגיעים מ-lib/shareActivity.js
   // (פונקציות טהורות, ראו tests/shareActivity.test.js) - כאן רק ה-IO (Share/Clipboard/Linking).
   const shareContent = () => {
-    const url = buildActivityShareUrl(String(id));
+    // ב-Web: המקור (origin) של הדף עצמו הוא כתובת ציבורית אמיתית כשהאתר מוגש ב-https - עדיף על
+    // wabbit:// כש-EXPO_PUBLIC_SITE_URL לא הוגדר בבנייה (ראו buildActivityShareUrl).
+    const origin = Platform.OS === 'web' && typeof window !== 'undefined' ? window.location.origin : undefined;
+    const url = buildActivityShareUrl(activityId, { origin });
     const message = buildActivityShareMessage(activity, { url, t, formatDate });
     return { url, message };
   };
@@ -273,10 +311,10 @@ export default function ActivityScreen() {
     setSharing(true);
     try {
       if (Platform.OS === 'web') {
-        const { message, url } = shareContent();
+        const { message } = shareContent();
         if (typeof navigator !== 'undefined' && navigator.share) {
           try {
-            await navigator.share({ text: message, url });
+            await navigator.share(buildSharePayload({ platform: 'web', message }));
           } catch (err) {
             if (err?.name !== 'AbortError') showNotice(t('activity.share.failed')); // AbortError = המשתמש ביטל, לא שגיאה
           }
@@ -284,7 +322,7 @@ export default function ActivityScreen() {
           setShowWebShareFallback((v) => !v);
         }
       } else {
-        await Share.share({ message: shareContent().message }); // ביטול ע"י המשתמש (dismissedAction) לא זורק/לא מציג הודעה
+        await Share.share(buildSharePayload({ platform: Platform.OS, message: shareContent().message })); // ביטול ע"י המשתמש (dismissedAction) לא זורק/לא מציג הודעה
       }
     } catch {
       showNotice(t('activity.share.failed'));
@@ -325,7 +363,7 @@ export default function ActivityScreen() {
     const next = !planned;
     setPlanned(next);
     try {
-      await togglePlanned(userId, String(id), next);
+      await togglePlanned(userId, activityId, next);
       showNotice(next ? t('activity.detail.plannedAdded') : t('activity.detail.plannedRemoved'));
     } catch {
       setPlanned(!next);
@@ -338,7 +376,7 @@ export default function ActivityScreen() {
     // noteStatus holds a status code ('saving' | 'saved' | 'error'), rendered via t() below.
     setNoteStatus('saving');
     try {
-      await savePersonalNote(userId, String(id), personalNote);
+      await savePersonalNote(userId, activityId, personalNote);
       setNoteStatus('saved');
       if (personalNote.trim()) setEditingNote(false);
       setTimeout(() => setNoteStatus(''), 2000);
@@ -352,9 +390,9 @@ export default function ActivityScreen() {
     if (!communityDraft.trim()) return;
     setPostingNote(true);
     try {
-      await postCommunityNote(userId, String(id), communityDraft);
+      await postCommunityNote(userId, activityId, communityDraft);
       setCommunityDraft('');
-      const notes = await fetchCommunityNotes(String(id));
+      const notes = await fetchCommunityNotes(activityId);
       setCommunityNotes(notes);
     } catch {
       showNotice(t('activity.notes.postError'));
@@ -384,7 +422,7 @@ export default function ActivityScreen() {
     // photoStatus holds a status code ('uploading' | 'sent' | 'error'), rendered via t() below.
     setPhotoStatus('uploading');
     try {
-      await uploadActivityPhoto(userId, String(id), result.assets[0].uri);
+      await uploadActivityPhoto(userId, activityId, result.assets[0].uri);
       setPhotoStatus('sent');
       setTimeout(() => setPhotoStatus(''), 4000);
     } catch {
@@ -428,7 +466,7 @@ export default function ActivityScreen() {
         city: editForm.city.trim() || null,
       };
       await updateActivityAsAdmin(activity, fields, location);
-      const refreshed = await fetchActivityById(String(id));
+      const refreshed = await fetchActivityById(activityId);
       setActivity(refreshed);
       setShowEditModal(false);
       showNotice(t('activity.admin.updated'));
@@ -443,7 +481,7 @@ export default function ActivityScreen() {
     setDeleteSaving(true);
     setDeleteError('');
     try {
-      await deleteActivityAsAdmin(String(id));
+      await deleteActivityAsAdmin(activityId);
       router.replace('/activities');
     } catch {
       setDeleteError(t('activity.admin.deleteError'));
@@ -471,7 +509,7 @@ export default function ActivityScreen() {
     setBenefitSaving(true);
     setBenefitError('');
     try {
-      await addActivityBenefit(String(id), {
+      await addActivityBenefit(activityId, {
         provider: benefitForm.provider,
         benefit_type: benefitForm.benefit_type,
         value: benefitForm.value.trim() || null,
@@ -482,7 +520,7 @@ export default function ActivityScreen() {
         coupon_code: benefitForm.redemption_method === 'coupon_code' && benefitForm.coupon_code.trim() ? benefitForm.coupon_code.trim() : null,
         terms: benefitForm.terms.trim() || null,
       });
-      const refreshed = await fetchActivityById(String(id));
+      const refreshed = await fetchActivityById(activityId);
       setActivity(refreshed);
       setShowAddBenefitModal(false);
       showNotice(t('activity.admin.benefit.added'));
@@ -508,7 +546,7 @@ export default function ActivityScreen() {
       const { error } = await supabase.from('reports').insert({
         reporter_id: userId,
         target_type: 'activity',
-        target_id: String(id),
+        target_id: activityId,
         reason: note || null,
       });
       if (error) throw error;
@@ -545,7 +583,7 @@ export default function ActivityScreen() {
       const { error } = await supabase.from('reports').insert({
         reporter_id: userId,
         target_type: 'activity',
-        target_id: String(id),
+        target_id: activityId,
         reason: note
           ? translate('activity.report.fieldReasonWithNote', { field: fieldLabel, note }, DEFAULT_LOCALE)
           : translate('activity.report.fieldReason', { field: fieldLabel }, DEFAULT_LOCALE),
@@ -577,14 +615,30 @@ export default function ActivityScreen() {
     );
   }
 
-  if (loadError || !activity) {
+  // No dead ends for someone who arrived from a shared link: "error" is retryable (network/server),
+  // "not_found" covers unknown ids AND rows this viewer may not read - an expired activity is
+  // archived by the daily cron and archived is hidden from end users (lib/activityPage.js), so a
+  // stale shared link lands here too, with a way into TURU instead of a bare sentence.
+  if (pageStatus !== 'ok' || !activity) {
+    const isError = pageStatus === 'error';
     return (
       <View style={styles.screen}>
         <SkyBackground />
         <View style={styles.content}>
           <Header showBack onMenuPress={() => {}} />
           <View style={styles.notFound}>
-            <Text style={styles.notFoundText}>{loadError ? t('activity.detail.loadError') : t('activity.detail.notFound')}</Text>
+            <Text style={styles.notFoundText}>{isError ? t('activity.detail.loadError') : t('activity.detail.unavailableTitle')}</Text>
+            <Text style={styles.unavailableBody}>{isError ? t('activity.detail.loadErrorBody') : t('activity.detail.unavailableBody')}</Text>
+            <View style={styles.unavailableActions}>
+              {isError ? (
+                <Pressable style={styles.navBtn} onPress={() => setReloadKey((k) => k + 1)} accessibilityRole="button">
+                  <Text style={styles.navBtnText}>{t('common.actions.retry')}</Text>
+                </Pressable>
+              ) : null}
+              <Pressable style={isError ? styles.similarBtnInline : styles.navBtn} onPress={() => router.replace('/')} accessibilityRole="button">
+                <Text style={isError ? styles.similarBtnText : styles.navBtnText}>{t('activity.detail.discoverTuru')}</Text>
+              </Pressable>
+            </View>
           </View>
         </View>
       </View>
@@ -622,6 +676,17 @@ export default function ActivityScreen() {
     });
   };
 
+  const shareable = isPubliclyShareable(activity);
+
+  // Shared-link visitor -> normal discovery around this activity's own place (lib/activityPage.js
+  // buildDiscoveryParamsForActivity, same canonical buildResultsParams payload as every Home entry
+  // point). push, not replace: Back returns to the shared activity. No login involved - /activities
+  // is public.
+  const discoverPlace = placeName(activity.city) || (activity.region ? regionLabel(activity.region) : '');
+  const discoverNearby = () => {
+    router.push({ pathname: '/activities', params: buildDiscoveryParamsForActivity(activity) });
+  };
+
   // ageKnown (2026-09-20, "reliability pass" audit סעיף 2) - min_age/max_age חסרים-שניהם כבר
   // לא מתורגמים ל"כל הגילאים" (ראו formatAgeRange, lib/activities.js) אלא ל"לא צוין" - מחרוזת
   // ניטרלית שמתאימה כערך-שדה עצמאי (activity.ageRange בכרטיס-מידע למעלה), אבל לא בתוך המשפט הזה
@@ -640,9 +705,13 @@ export default function ActivityScreen() {
   const heroActions = (
     <>
       <View style={styles.actionRowRight}>
-        <ActionButton onPress={handleShare} disabled={sharing} accessibilityLabel={t('activity.share.button')}>
-          <ShareIcon size={16} />
-        </ActionButton>
+        {/* Only approved rows open for an anonymous recipient - a pending/archived row seen by an
+            admin or its creator would produce a link that lands on "no longer available". */}
+        {shareable ? (
+          <ActionButton onPress={handleShare} disabled={sharing} accessibilityLabel={t('activity.share.button')}>
+            <ShareIcon size={16} />
+          </ActionButton>
+        ) : null}
         {/* accessibilityLabel לכל כפתור (2026-09-20, "reliability pass" audit סעיף 6: כפתורי-
             אייקון-בלבד נחשפו לנגישות רק כ"כפתור" גנרי, בלי לתאר את הפעולה) - מתאר את הפעולה
             הנוכחית (מצב תלוי-toggle, לא תווית קבועה) בדיוק כמו a11y המקביל שכבר קיים בכרטיס-
@@ -668,6 +737,13 @@ export default function ActivityScreen() {
 
   return (
     <View style={styles.screen}>
+      {/* Browser tab/history title for someone who opened a shared link. Web only, and client-side
+          only: the web build is a single-page app (web.output "single"), so link-preview crawlers
+          that don't run JS (WhatsApp) never see this - see the final report on OG previews. Not on
+          iOS, where expo-router's Head registers Handoff metadata instead. */}
+      {Platform.OS === 'web' ? (
+        <Head><title>{`${activity.title} · TURU`}</title></Head>
+      ) : null}
       <SkyBackground />
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={styles.headerWrap}>
@@ -678,9 +754,9 @@ export default function ActivityScreen() {
           <ImageBackground source={{ uri: activity.imageUrl }} style={styles.hero}>
             {heroActions}
           </ImageBackground>
-        ) : placeholderImageFor(activity.placeholderGroup, activity.id) ? (
+        ) : placeholderImageFor(activity.placeholderGroup, activity.id, activity.category) ? (
           <ImageBackground
-            source={placeholderImageFor(activity.placeholderGroup, activity.id)}
+            source={placeholderImageFor(activity.placeholderGroup, activity.id, activity.category)}
             resizeMode="contain"
             style={[styles.hero, { backgroundColor: placeholderBgColorFor(activity.placeholderGroup) }]}
           >
@@ -694,6 +770,7 @@ export default function ActivityScreen() {
 
         <View style={styles.content}>
           {notice ? <View style={styles.noticeBox}><Text style={styles.noticeText}>{notice}</Text></View> : null}
+          {!shareable ? <View style={styles.noticeBox}><Text style={styles.noticeText}>{t('activity.detail.notPublicBanner')}</Text></View> : null}
           {showWebShareFallback ? (
             <View style={styles.webShareFallbackRow}>
               <Pressable style={styles.webShareWhatsAppBtn} onPress={handleOpenWhatsAppWeb} accessibilityRole="button" accessibilityLabel={t('activity.share.openWhatsAppWeb')}>
@@ -753,7 +830,7 @@ export default function ActivityScreen() {
                 <View key={`${o.date}-${o.start || ''}`} style={{ flexDirection: dir.row, justifyContent: 'space-between', paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: colors.border }}>
                   <Text style={{ fontFamily: fonts.bold, color: colors.textPrimary }}>{formatDate(o.date, { weekday: 'short', day: 'numeric', month: 'numeric' })}{o.start ? ` · ${o.start}${o.end ? `–${o.end}` : ''}` : ''}</Text>
                   {o.bookingUrl ? (
-                    <Pressable onPress={() => Linking.openURL(o.bookingUrl)}><Text style={{ fontFamily: fonts.bold, color: colors.accent }}>{t('activity.detail.occurrenceBuy')}</Text></Pressable>
+                    <Pressable onPress={() => openExternal(o.bookingUrl)}><Text style={{ fontFamily: fonts.bold, color: colors.accent }}>{t('activity.detail.occurrenceBuy')}</Text></Pressable>
                   ) : null}
                 </View>
               ))}
@@ -762,7 +839,7 @@ export default function ActivityScreen() {
           ) : null}
 
           {activity.requiresTicket && (activity.actionUrl || activity.sourceUrl) ? (
-            <Pressable onPress={() => Linking.openURL(activity.actionUrl || activity.sourceUrl)} style={styles.ticketBtnWrap}>
+            <Pressable onPress={() => openExternal(activity.actionUrl || activity.sourceUrl)} style={styles.ticketBtnWrap}>
               <LinearGradient colors={['#ffbb4d', '#ff8a3d']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.ticketBtn}>
                 <Text style={styles.ticketBtnText}>{t('activity.detail.buyTickets')}</Text>
               </LinearGradient>
@@ -782,7 +859,7 @@ export default function ActivityScreen() {
                     {b.redemptionText ? <Text style={styles.benefitMeta}>{t('activity.benefits.howToRedeem', { text: b.redemptionText })}</Text> : null}
                     {b.terms ? <Text style={styles.benefitTerms}>{b.terms}</Text> : null}
                     {b.redemptionUrl ? (
-                      <Pressable onPress={() => Linking.openURL(b.redemptionUrl)} hitSlop={6}>
+                      <Pressable onPress={() => openExternal(b.redemptionUrl)} hitSlop={6}>
                         <Text style={styles.sourceLink}>{t('activity.benefits.detailsLink')}</Text>
                       </Pressable>
                     ) : null}
@@ -798,15 +875,27 @@ export default function ActivityScreen() {
                 bidi auto-detection doesn't flip the whole English sentence. Real DB descriptions keep auto. */}
             <Text style={[styles.desc, !activity.description && { writingDirection: dir.writingDirection }]}>{descText}</Text>
             {activity.officialUrl ? (
-              <Pressable onPress={() => Linking.openURL(activity.officialUrl)} hitSlop={6}>
+              <Pressable onPress={() => openExternal(activity.officialUrl)} hitSlop={6}>
                 <Text style={styles.sourceLink}>{t('activity.detail.officialSite')}</Text>
               </Pressable>
             ) : activity.sourceUrl && !activity.sourceUrl.includes('openstreetmap.org') ? (
-              <Pressable onPress={() => Linking.openURL(activity.sourceUrl)} hitSlop={6}>
+              <Pressable onPress={() => openExternal(activity.sourceUrl)} hitSlop={6}>
                 <Text style={styles.sourceLink}>{t('activity.detail.sourceLink')}</Text>
               </Pressable>
             ) : null}
           </View>
+
+          {enteredCold ? (
+            <View style={styles.discoverCard}>
+              <Text style={styles.discoverTitle}>
+                {discoverPlace ? t('activity.detail.discoverNearbyIn', { place: discoverPlace }) : t('activity.detail.discoverNearby')}
+              </Text>
+              <Text style={styles.discoverBody}>{t('activity.detail.discoverBody')}</Text>
+              <Pressable style={styles.navBtn} onPress={discoverNearby} accessibilityRole="button">
+                <Text style={styles.navBtnText}>{t('activity.detail.discoverCta')}</Text>
+              </Pressable>
+            </View>
+          ) : null}
 
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>{t('activity.detail.location')}</Text>
@@ -1323,6 +1412,18 @@ const styles = createStyles((d) => ({
     borderRadius: radii.pill, paddingVertical: 10, alignItems: 'center',
   },
   similarBtnText: { fontFamily: fonts.bold, fontSize: 12.5, color: colors.textPrimary },
+  similarBtnInline: {
+    borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card,
+    borderRadius: radii.pill, paddingVertical: 8, paddingHorizontal: 14,
+  },
+
+  // Same accent-tint card language as benefitCardPersonalized, with navBtn as the action.
+  discoverCard: {
+    borderWidth: 1, borderColor: colors.accentTint, backgroundColor: colors.accentTintLight,
+    borderRadius: radii.lg, padding: 16, marginBottom: 26, alignItems: 'center', gap: 8,
+  },
+  discoverTitle: { fontFamily: fonts.extraBold, fontSize: 15, color: colors.textPrimary, textAlign: 'center' },
+  discoverBody: { fontFamily: fonts.regular, fontSize: 12.5, lineHeight: 19, color: colors.textSecondary, textAlign: 'center', marginBottom: 4 },
 
   photoRow: { flexDirection: d.row, flexWrap: 'wrap', justifyContent: 'flex-start', gap: 8, marginBottom: 12 },
   photoThumb: { width: 96, height: 96, borderRadius: radii.md, backgroundColor: colors.card },
@@ -1405,7 +1506,12 @@ const styles = createStyles((d) => ({
   registerBackdrop: { flex: 1, backgroundColor: 'rgba(20,30,35,0.4)', justifyContent: 'center', padding: spacing.xl },
 
   notFound: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 60 },
-  notFoundText: { fontFamily: fonts.bold, fontSize: 15, color: colors.textSecondary },
+  notFoundText: { fontFamily: fonts.bold, fontSize: 15, color: colors.textSecondary, textAlign: 'center' },
+  unavailableBody: {
+    fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.textSecondary,
+    textAlign: 'center', marginTop: 8, maxWidth: 320,
+  },
+  unavailableActions: { flexDirection: d.row, gap: 10, marginTop: 18, flexWrap: 'wrap', justifyContent: 'center' },
 
   editSheet: { flex: 1, backgroundColor: colors.bg },
   editHeader: {

@@ -6,6 +6,10 @@ import {
 } from '../constants/filterSchema';
 import { countForKey } from '../lib/filterActivities';
 import { chipsSelectionLabels, whenSelectionLabels, firstValuePlusN } from '../lib/filterSummaries';
+import {
+  BROWSE_GROUP_OPTIONS, browseSelectionItems, browseSelectionCount, toggleGroupSelection, toggleCategorySelection,
+} from '../lib/browseGroups';
+import BrowseGroupGrid from './BrowseGroupGrid';
 import { colors, fonts, radii, spacing } from '../constants/theme';
 import { ChevronDownIcon, ChevronLeftIcon } from './icons';
 import LocationQuickPicker, { locationSummary } from './LocationQuickPicker';
@@ -63,7 +67,11 @@ function ChipsGrid({ options, value, multiple, onChange }) {
 //   - 'chips': chipsSelectionLabels ממפה את הבחירה (בסדר-הבחירה) ל-labels המפוענחים כבר על
 //     section.options עצמו (FILTER_SCHEMA) - אין טבלת-תרגום כפולה.
 // שלושתם מסתיימים ב-firstValuePlusN: "VALUE" (1) | "VALUE +N" (2+) | null (0, בלי תקציר-מומצא).
+// "סוג פעילות" is browse-group aware (lib/browseGroups.js): a complete group is ONE summary unit and
+// ONE badge count ("גני שעשועים ופארקים", not "גן שעשועים +1"); exact picks stay canonical labels;
+// internal values are never surfaced. filters.category itself stays a canonical array.
 function selectionSummaryFor(section, filters) {
+  if (section.key === 'category') return firstValuePlusN(browseSelectionItems(filters.category).items.map((i) => i.label));
   if (section.type === 'location') return filters.location?.mode ? locationSummary(filters.location) : null;
   if (section.type === 'when') return firstValuePlusN(whenSelectionLabels(filters.when, filters.hour));
   if (section.type === 'chips') return firstValuePlusN(chipsSelectionLabels(filters[section.key], section.options));
@@ -209,6 +217,15 @@ export default function FiltersSheet({
       return;
     }
     onChange(key, DEFAULT_FILTERS[key]);
+    if (key === 'category') onChange('categoryAliasPhrases', []);
+  };
+
+  // Manual category change (browse group tile / exact member chip): the canonical array changes and
+  // any Smart Search soft-recall alias phrases are dropped, so a browse union never over-recalls.
+  const setCategory = (next) => {
+    animate();
+    onChange('category', next);
+    onChange('categoryAliasPhrases', []);
   };
 
   return (
@@ -220,7 +237,7 @@ export default function FiltersSheet({
 
       {sections.map((section) => {
         const isOpen = openKeys.has(section.key);
-        const count = countForKey(filters, section.key);
+        const count = section.key === 'category' ? browseSelectionCount(filters.category) : countForKey(filters, section.key);
         const summary = selectionSummaryFor(section, filters);
         return (
           <View key={section.key} style={styles.section}>
@@ -280,7 +297,16 @@ export default function FiltersSheet({
                     onChangeHour={(v) => onChange('hour', v)}
                   />
                 )}
-                {section.type === 'chips' && (
+                {section.key === 'category' && (
+                  <BrowseGroupGrid
+                    groups={BROWSE_GROUP_OPTIONS}
+                    options={section.options}
+                    value={filters.category}
+                    onGroupPress={(id) => setCategory(toggleGroupSelection(id, filters.category))}
+                    onMemberPress={(id) => setCategory(toggleCategorySelection(id, filters.category))}
+                  />
+                )}
+                {section.type === 'chips' && section.key !== 'category' && (
                   <ChipsGrid
                     options={section.options}
                     value={filters[section.key]}

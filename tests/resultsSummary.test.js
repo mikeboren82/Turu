@@ -59,8 +59,15 @@ test('category only -> "מציג כעת <קטגוריה>"', () => {
 });
 
 test('category only, 4+ selected -> falls back to the existing "{{count}} קטגוריות" summary (reused, not a new format)', () => {
-  const f = { ...base(), category: ['גן שעשועים', 'פארק', 'חווה', 'בריכה'] };
+  // four exact values that complete no browse group (a complete group reads as its group label -
+  // lib/browseGroups.js browseSummary; see tests/browseGroups.test.js)
+  const f = { ...base(), category: ['גן שעשועים', 'הצגה', 'חווה', 'בריכה'] };
   assert.equal(buildResultsSummary(f), 'מציג כעת 4 קטגוריות');
+});
+
+test('category = a complete browse group -> the group label', () => {
+  const f = { ...base(), category: ['גן שעשועים', 'פארק'] };
+  assert.equal(buildResultsSummary(f), 'מציג כעת גני שעשועים ופארקים');
 });
 
 // --- 2. location only --------------------------------------------------------------------------
@@ -264,7 +271,7 @@ test('a long combination of every fragment still produces one well-formed senten
   loc = locationWithDrivingTime(loc, 30);
   const f = {
     ...base(),
-    category: ['גן שעשועים', 'פארק'],
+    category: ['גן שעשועים', 'חווה'],
     location: loc,
     age: ['2-3', '4-6'],
     when: { options: ['weekend'], date: null },
@@ -274,6 +281,7 @@ test('a long combination of every fragment still produces one well-formed senten
   assert.ok(!summary.includes('  '), 'no double spaces');
   assert.ok(!summary.includes(' ,'), 'no space-before-comma artifacts');
   // הקטגוריות מצטרפות עם "ו" (listJoin, אותו מנגנון בדיוק כמו categorySummary בכל מקום אחר
-  // באפליקציה - לא פסיק) - "גן שעשועים ופארק", לא "גן שעשועים, פארק".
-  assert.equal(summary, 'מציג כעת גן שעשועים ופארק בסוף השבוע בבוקר באזור השרון, גוש דן והמרכז, לגילאי 2–6, ובסביבה');
+  // באפליקציה - לא פסיק) - "גן שעשועים וחווה", לא "גן שעשועים, חווה". (Two values that do NOT complete
+  // a browse group - גן שעשועים+פארק would now read as the group label, see the test above.)
+  assert.equal(summary, 'מציג כעת גן שעשועים וחווה בסוף השבוע בבוקר באזור השרון, גוש דן והמרכז, לגילאי 2–6, ובסביבה');
 });

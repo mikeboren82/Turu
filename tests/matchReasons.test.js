@@ -14,6 +14,7 @@ const STUBS = {
   '@react-native-async-storage/async-storage': {
     default: { getItem: async () => null, setItem: async () => {} },
   },
+  './supabase': { supabase: {} }, // lib/cardMetadata.js -> lib/activities.js pulls the Supabase client; no network in tests
 };
 const origResolve = Module._resolveFilename;
 Module._resolveFilename = function resolve(request, ...rest) {
@@ -103,6 +104,33 @@ test('spontaneous mode still surfaces a real age-match reason (not fully suppres
   const activity = { min_age: 2, max_age: 6, ...OPEN_ALL_DAY, booking_requirement: 'walk_in' };
   const reason = buildMatchReasons(activity, { childAges: [4], spontaneousActive: true });
   assert.equal(reason, '✓ מתאים לגיל הילד/ה שנבחר/ה');
+});
+
+// --- Card Metadata Policy (2026-09-25): "no registration required" is suppressed for public
+// playgrounds/parks specifically - expected/obvious there, not a useful "why this matches" reason.
+
+test('playground: open now + explicitly not-required booking -> "no registration" is suppressed, open-now still shown', () => {
+  const activity = { category: 'גן שעשועים', min_age: null, max_age: null, ...OPEN_ALL_DAY, booking_requirement: 'walk_in' };
+  const reason = buildMatchReasons(activity, { childAges: [] });
+  assert.equal(reason, '✓ פתוח עכשיו');
+});
+
+test('public park (פארק): same suppression as גן שעשועים', () => {
+  const activity = { category: 'פארק', min_age: null, max_age: null, ...OPEN_ALL_DAY, booking_requirement: 'none' };
+  const reason = buildMatchReasons(activity, { childAges: [] });
+  assert.equal(reason, '✓ פתוח עכשיו');
+});
+
+test('non-playground category (e.g. a workshop) keeps the "no registration" reason as before', () => {
+  const activity = { category: 'סדנה', min_age: null, max_age: null, ...OPEN_ALL_DAY, booking_requirement: 'walk_in' };
+  const reason = buildMatchReasons(activity, { childAges: [] });
+  assert.equal(reason, '✓ פתוח עכשיו · ללא הרשמה מראש');
+});
+
+test('no category at all (unknown kind, defaults to venue) keeps the "no registration" reason', () => {
+  const activity = { min_age: null, max_age: null, ...OPEN_ALL_DAY, booking_requirement: 'walk_in' };
+  const reason = buildMatchReasons(activity, { childAges: [] });
+  assert.equal(reason, '✓ פתוח עכשיו · ללא הרשמה מראש');
 });
 
 test('selectedChildAges: only children in the selected id set, skips missing/invalid birthdates', () => {

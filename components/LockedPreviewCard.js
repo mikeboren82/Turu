@@ -19,7 +19,7 @@ import { placeholderImageFor, PLACEHOLDER_IMAGES } from '../lib/placeholderImage
 const PREVIEW_FALLBACK_IMAGES = Object.values(PLACEHOLDER_IMAGES).flat();
 function sourceForLockedCard(activity, index) {
   if (activity?.imageUrl) return { uri: activity.imageUrl };
-  const ph = activity?.placeholderGroup ? placeholderImageFor(activity.placeholderGroup, activity?.id ?? index) : null;
+  const ph = activity?.placeholderGroup ? placeholderImageFor(activity.placeholderGroup, activity?.id ?? index, activity?.category) : null;
   if (ph) return ph;
   return PREVIEW_FALLBACK_IMAGES[index % PREVIEW_FALLBACK_IMAGES.length];
 }

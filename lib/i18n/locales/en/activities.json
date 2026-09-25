@@ -69,6 +69,8 @@
   },
   "results": {
     "loadError": "We couldn't load activities",
+    "retry": "Try again",
+    "refreshFailed": "We couldn't refresh the list - some details may be out of date. Tap to try again",
     "emptyWalking": "We didn't find activities within walking distance 🚶",
     "empty": "😕 We didn't find an activity that exactly matches your search.",
     "clearAllFilters": "Clear all filters",
@@ -148,7 +150,8 @@
       "ageMatchAll_other": "Matches the ages of all selected children",
       "openNow": "Open now",
       "noRegistration": "No registration needed"
-    }
+    },
+    "registrationRequired": "Registration required"
   },
   "map": {
     "emptyOverlay": "The selected activities have no known location to show on the map",

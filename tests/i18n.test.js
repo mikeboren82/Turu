@@ -153,6 +153,13 @@ test('categories and regions: canonical Hebrew ids, localized labels', () => {
   assert.equal(playground.label, 'גן שעשועים');
 });
 
+test('community category displays as "Festivals & events" (stored value unchanged, precedent: מתחם אטרקציות)', () => {
+  assert.equal(format.categoryLabel('פעילות קהילתית'), 'פסטיבלים ואירועים');
+  withLocale('en', () => {
+    assert.equal(format.categoryLabel('פעילות קהילתית'), 'Festivals & events');
+  });
+});
+
 test('every canonical category has an English label', () => {
   const { CATEGORY_OPTIONS } = require('../constants/filterSchema');
   withLocale('en', () => {

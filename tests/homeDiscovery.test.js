@@ -162,6 +162,51 @@ test('buildHomeDiscoveryCandidates: excludedCategories/excludedCities are applie
   assert.deepEqual(result.map((a) => a.id), ['kept']);
 });
 
+// --- Result Diversity (2026-09-25, lib/resultDiversity.js) - the carousel's own filters always
+// strip category (buildCarouselFilters), so it is always broad discovery: diversify runs BEFORE the
+// `limit` slice, so an alternative sitting just past the cut can still make it onto the carousel.
+
+test('diversity: an alternative-category activity ranked just below the limit is pulled into the visible carousel instead of being cut off', () => {
+  // Playground-heavy ranking (rating ties, so score order == input order) with one workshop at
+  // position 9 - just past a limit of 8. Without diversity it would never be shown at all.
+  const activities = [
+    ...Array.from({ length: 8 }, (_, i) => activity(`gs-${i}`, { rating: 5 })),
+    activity('workshop', { category: 'סדנה', rating: 5 }),
+  ];
+  const result = buildHomeDiscoveryCandidates(baseInput({ activities, limit: 8 }));
+  assert.equal(result.length, 8);
+  assert.ok(result.some((a) => a.id === 'workshop'), 'the workshop must be pulled into the top 8, not silently dropped by the limit');
+});
+
+test('diversity: the carousel uses a NARROWER prefix than the full results page (limit + lookahead, not the 20-item default) - an alternative far past the visible cut is not reached for', () => {
+  // 15 playgrounds then a workshop at rank position 15 - well past limit(8) + the default
+  // lookahead(6) = 14, so the carousel-scoped prefix cannot reach it (a scrollable /activities page
+  // reaching its own wider 20-item default would, and does - see tests/resultDiversity.test.js).
+  // Explicit descending created_at pins the exact rank order deterministically (equal ratings alone
+  // would otherwise tie-break on id string, not array position - see lib/filterActivities.js#scoreSortCompare).
+  const activities = [
+    ...Array.from({ length: 15 }, (_, i) => activity(`gs-${i}`, { rating: 5, created_at: new Date(2026, 0, 20 - i).toISOString() })),
+    activity('far-workshop', { category: 'סדנה', rating: 5, created_at: new Date(2026, 0, 1).toISOString() }),
+  ];
+  const result = buildHomeDiscoveryCandidates(baseInput({ activities, limit: 8 }));
+  assert.equal(result.length, 8);
+  assert.ok(!result.some((a) => a.id === 'far-workshop'), 'an alternative this far past the visible carousel should not be reached for');
+});
+
+test('diversity is skipped entirely when the caller has explicit category intent (defensive - the carousel itself never sets this today, but the shared gate must still work if it ever does)', () => {
+  const activities = [
+    ...Array.from({ length: 8 }, (_, i) => activity(`gs-${i}`, { rating: 5 })),
+    activity('workshop', { category: 'סדנה', rating: 5 }),
+  ];
+  const filters = { ...DEFAULT_FILTERS, category: ['גן שעשועים'] };
+  const result = buildHomeDiscoveryCandidates(baseInput({ activities, filters, limit: 8 }));
+  // Explicit category intent: matchesCategoryIntent/hasExactCategoryMatch (lib/filterActivities.js)
+  // already restrict the ranked set to גן שעשועים itself, and diversity is bypassed on top of that -
+  // the workshop is excluded by the category filter regardless, proving no special-case is needed for
+  // "explicit intent + workshop already filtered out" to coexist correctly.
+  assert.deepEqual(result.map((a) => a.id).sort(), Array.from({ length: 8 }, (_, i) => `gs-${i}`).sort());
+});
+
 test('buildHomeDiscoveryCandidates: Smart Radius expansion still fires when stage-1 (city match) has too few results and originCoords is supplied - a more-distant activity is pulled in rather than left out', () => {
   // מרכז-ינוב בערך (32.0/34.9) - originCoords מייצג את נקודת-הייחוס להרחבה (למשל settlementCoords
   // של homeLocation, ראו app/index.js). 'far' רחוקה מספיק שלא הייתה נכללת ב-city match ישיר

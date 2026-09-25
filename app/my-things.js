@@ -389,9 +389,9 @@ export default function MyThingsScreen() {
                       <View style={styles.noteCardTop}>
                         {thumb ? (
                           <Image source={{ uri: thumb }} style={styles.noteThumb} />
-                        ) : placeholderImageFor(note.activity.placeholder_group, note.activity.id) ? (
+                        ) : placeholderImageFor(note.activity.placeholder_group, note.activity.id, note.activity.category) ? (
                           <Image
-                            source={placeholderImageFor(note.activity.placeholder_group, note.activity.id)}
+                            source={placeholderImageFor(note.activity.placeholder_group, note.activity.id, note.activity.category)}
                             resizeMode="contain"
                             style={[styles.noteThumb, { backgroundColor: placeholderBgColorFor(note.activity.placeholder_group) }]}
                           />
@@ -542,9 +542,9 @@ export default function MyThingsScreen() {
                       <View style={styles.cardTop}>
                         {thumb ? (
                           <Image source={{ uri: thumb }} style={styles.thumb} />
-                        ) : placeholderImageFor(a.placeholder_group, a.id) ? (
+                        ) : placeholderImageFor(a.placeholder_group, a.id, a.category) ? (
                           <Image
-                            source={placeholderImageFor(a.placeholder_group, a.id)}
+                            source={placeholderImageFor(a.placeholder_group, a.id, a.category)}
                             resizeMode="contain"
                             style={[styles.thumb, { backgroundColor: placeholderBgColorFor(a.placeholder_group) }]}
                           />

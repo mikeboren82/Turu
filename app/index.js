@@ -7,6 +7,7 @@ import * as Location from 'expo-location';
 import Svg, { Polyline } from 'react-native-svg';
 import Header from '../components/Header';
 import SkyBackground from '../components/SkyBackground';
+import HomeHeroScenery from '../components/HomeHeroScenery';
 import LoginRequiredModal from '../components/LoginRequiredModal';
 import QuickPicker from '../components/QuickPicker';
 import LocationQuickPicker, { locationSummary } from '../components/LocationQuickPicker';
@@ -19,8 +20,11 @@ import {
   CATEGORY_FILTER_OPTIONS, DEFAULT_FILTERS, FILTER_SCHEMA,
   PRICE_OPTIONS, PLACE_TYPE_OPTIONS, BOOKING_OPTIONS, DURATION_OPTIONS, AMENITY_COMFORT_OPTIONS,
 } from '../constants/filterSchema';
-import { normalizeFilters } from '../lib/filterActivities';
+import { normalizeFilters, locationWithDrivingTime } from '../lib/filterActivities';
 import { whenSummary, listJoin } from '../lib/filterSummaries';
+import {
+  BROWSE_GROUP_OPTIONS, homeDefaultGroups, membersOf, browseSelectionItems, withManualCategorySelection,
+} from '../lib/browseGroups';
 import { supabase } from '../lib/supabase';
 import { fetchUserPreferences, saveDefaultHomeFilters } from '../lib/preferences';
 import { childrenToDefaultAgeFilter, formatChildAge } from '../lib/children';
@@ -28,7 +32,8 @@ import { parseSmartSearchQuery, intentToFilters, needsAreaClarification } from '
 import {
   requestCurrentPosition, CURRENT_POSITION_ERROR_KEYS, checkNearMePermission, requestNearMePermission,
 } from '../lib/currentPosition';
-import { fetchApprovedActivities, fetchSettlementCoords } from '../lib/activities';
+import { fetchSettlementCoords } from '../lib/activities';
+import { useActivitiesCatalogue } from '../lib/useActivitiesCatalogue';
 import { fetchUserActivityFlags, toggleFavorite, toggleVisited, fetchAllPersonalNotes, toggleWithFeedback, hideActivityWithFeedback } from '../lib/interactions';
 import { selectedChildAges } from '../lib/matchReasons';
 import { buildHomeDiscoveryCandidates } from '../lib/homeDiscovery';
@@ -39,7 +44,7 @@ import {
 import { useRecentSearches } from '../lib/useRecentSearches';
 import { colors, fonts, radii, spacing } from '../constants/theme';
 import { useI18n, createStyles, t } from '../lib/i18n';
-import { categoryLabel, compactLocationText } from '../lib/i18n/format';
+import { compactLocationText } from '../lib/i18n/format';
 
 // המסך הראשי - יש מסך-בית אחד בלבד (בקשת המשתמש 2026-09-12: "יש למחוק את מסך הבית 2, מעכשיו
 // יש רק מסך בית אחד"). קודם לכן היו שני מסכי-בית מקבילים (app/index.js ו-app/home2.js) שמוזגו
@@ -69,14 +74,11 @@ const CONTENT_MAX_WIDTH = 480;
 // באף קוד אחר - נתיב-נסיגה מיידי, לא feature-flag מורכב. אין state/logic אחר תלוי בדגל הזה.
 const SHOW_UNIFIED_GUIDED_SEARCH = true;
 
-const DISCOVERY_TILES = [
-  { id: 'nature', emoji: '🌳', category: 'טבע' }, // i18n-ignore
-  { id: 'museums', emoji: '🏛️', category: 'מוזיאון לילדים' }, // i18n-ignore
-  { id: 'playgrounds', emoji: '🛝', category: 'פארק' }, // i18n-ignore
-  { id: 'animals', emoji: '🐾', category: 'חווה' }, // i18n-ignore
-  { id: 'water', emoji: '💦', category: 'פעילות מים' }, // i18n-ignore
-  { id: 'crafts', emoji: '🎨', category: 'יצירה' }, // i18n-ignore
-];
+// "מה עוד מעניין אתכם?" - the six fixed browse groups (constants/browseGroups.json homeDefault, in
+// `order`). A tile is a group, so a tap filters by ALL its canonical members (filters.category =
+// membersOf(id)) - previously each group-like label filtered ONE canonical value. Static on purpose:
+// never reordered by catalogue counts (coverage is ingestion-biased) or session state.
+const DISCOVERY_TILES = homeDefaultGroups();
 
 // שורת שלד-כרטיס בזמן טעינת ההמלצות - בלי טקסט "טוען...", רק מלבנים אפורים בגובה/רוחב של
 // ActivityCard אמיתי כדי שהקרוסלה לא "קופצת" כשהנתונים מגיעים.
@@ -97,6 +99,14 @@ function SkeletonCard() {
 // בכלל - יש לו כבר default_home_filters אמיתי ב-DB (saveDefaultHomeFilters), שני מקורות-אמת
 // יריבים לאותו דבר היו רק מבלבלים.
 const GUEST_HOME_LOCATION_KEY = 'turu_guest_home_location';
+
+// דקורטיבי בלבד (2026-09-25, "chip/query mismatch" תיקון) - כל אחד מ-15/30/45 שהמשתמש יכול
+// לבחור ב-LocationQuickPicker ממופה לאותו DEFAULT_PRECISE_RADIUS_KM בפועל (locationWithDrivingTime,
+// lib/filterActivities.js), אז אין כאן "כוונת-משתמש" אמיתית להעריך - שני נתיבי-האיתור השקטים של
+// Home (bootstrap effect + handleGo fallback, שניהם למטה) צריכים רק travelMode:'driving' קבוע
+// כלשהו כדי שהתקציר (locationSummaryText) יציג את ה-10 ק"מ שבפועל כבר מוחל, לא ליצור וריאציה
+// חדשה של "מיקום נוכחי" משלהם.
+const HOME_AUTO_LOCATE_DRIVING_MINUTES = 30;
 
 // לכל מפתח פילטר "ניתן-להוספה" (מה שהמשתמש הפעיל בעמוד האישי, ראו app/profile.js) - איך
 // לתקצר את הערך הנוכחי שלו לטקסט קצר בקישור העדין במסך הראשי.
@@ -125,15 +135,21 @@ function summaryForHomeFilterKey(key, filters) {
 // נשארת קצרה מספיק לשורה אחת בפקד-הכוונה-המאוחד ב-375px (נמדד בפועל בדפדפן, לא ניחוש) -
 // אחרת נופל לאותה "2 סוגי פעילויות" כמו 3+, כדי לא לייצר "...ופארקים ו..." חתוך. 3+ -> תמיד
 // "N סוגי פעילויות" - אף פעם לא שרשור שמות (המשתמש תמיד יודע כמה נבחרו בלי לנחש מהריכוז).
+// Browse groups (2026-09-25): the units counted/joined are browseSelectionItems - a fully selected
+// group is ONE unit shown by its group label ("גני שעשועים ופארקים", never "2 סוגי פעילויות"); exact
+// picks stay canonical; several complete groups -> "N קבוצות"; internal values are never shown.
 const CATEGORY_JOIN_MAX_CHARS = 16;
 function compactCategoryLabel(selected) {
   if (!selected || selected.length === 0) return t('home.guided.whatEmpty');
-  if (selected.length === 1) return categoryLabel(selected[0]);
-  if (selected.length === 2) {
-    const joined = listJoin(selected.map(categoryLabel));
+  const { items, hiddenCount } = browseSelectionItems(selected);
+  if (items.length === 0) return t('domain.summary.activityTypes', { count: hiddenCount });
+  if (items.length === 1) return items[0].label;
+  if (items.length === 2) {
+    const joined = listJoin(items.map((i) => i.label));
     if (joined.length <= CATEGORY_JOIN_MAX_CHARS) return joined;
   }
-  return t('domain.summary.activityTypes', { count: selected.length });
+  if (items.every((i) => i.kind === 'group')) return t('domain.summary.groups', { count: items.length });
+  return t('domain.summary.activityTypes', { count: items.length });
 }
 
 function ChevronDown() {
@@ -446,9 +462,6 @@ export default function HomeScreen() {
   // ✨ המלצות מותאמות - excludedCategories/excludedCities/benefitClubs זהים בדיוק למה
   // ש-app/activities.js טוען, כדי שהקרוסלה כאן תתאים לאותם חוקי-דירוג/הסתרה בדיוק כמו עמוד
   // התוצאות.
-  const [recActivities, setRecActivities] = useState([]);
-  const [recLoading, setRecLoading] = useState(true);
-  const [recError, setRecError] = useState(null);
   const [recFavoriteIds, setRecFavoriteIds] = useState(new Set());
   const [recVisitedIds, setRecVisitedIds] = useState(new Set());
   const [recHiddenIds, setRecHiddenIds] = useState(new Set());
@@ -466,25 +479,15 @@ export default function HomeScreen() {
     recentSearches, recordRecentSearch, clearRecentSearches, removeRecentSearch,
   } = useRecentSearches();
 
-  // כל הפעילויות המאושרות - נטען פעם אחת בלבד ב-mount (לא ב-useFocusEffect כמו user/children
-  // למטה): payload כבד (אלפי פעילויות, ראו lib/activities.js) - טעינה חוזרת בכל חזרה למסך הבית
-  // תהיה מיותרת ויקרה. הדירוג עצמו (recommendations, useMemo למטה) עדיין מתעדכן חי ככל
-  // שהפילטרים/מיקום/מועדפים משתנים, בלי לדרוש fetch חדש.
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setRecLoading(true);
-      try {
-        const data = await fetchApprovedActivities();
-        if (!cancelled) setRecActivities(data);
-      } catch (err) {
-        if (!cancelled) setRecError(err || true);
-      } finally {
-        if (!cancelled) setRecLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, []);
+  // כל הפעילויות המאושרות - מהמטמון המשותף לכל האפליקציה (lib/useActivitiesCatalogue.js, מדיניות-
+  // הרעננות ב-lib/catalogueCache.js), אותו payload בדיוק ש-/activities קורא: מי שנטען ראשון משלם
+  // על הטעינה, והשני (וכל חזרה בתוך חלון-הרעננות, כולל remount של Home דרך הסרגל התחתון) מרנדר
+  // מהזיכרון. הדירוג עצמו (recommendations, useMemo למטה) עדיין מתעדכן חי ככל שהפילטרים/מיקום/
+  // מועדפים משתנים, בלי לדרוש fetch חדש. כשל-רענון של מטמון תקף משאיר את הקרוסלה כמו שהיא.
+  const catalogue = useActivitiesCatalogue();
+  const recActivities = catalogue.activities;
+  const recLoading = catalogue.status === 'loading';
+  const recError = catalogue.status === 'error' ? catalogue.error : null;
 
   // locationKnown bootstrap (ראו הערה מלאה ליד isPersonalized/locationKnown למטה) - רץ פעם אחת
   // ב-mount, לפני שיודעים בכלל אם יש session מחובר. אם מתברר מאוחר יותר (ה-useFocusEffect למטה)
@@ -505,7 +508,14 @@ export default function HomeScreen() {
             setDeviceCoords({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
             setFilters((prev) => {
               if (prev.location?.mode) return prev;
-              const next = { ...prev.location, mode: 'current', radiusKm: prev.location.radiusKm || 10 };
+              // locationWithDrivingTime (lib/filterActivities.js) - אותה צורה קנונית בדיוק כמו
+              // בחירת צ'יפ-נסיעה ב-LocationQuickPicker, לא radiusKm בלי travelMode (2026-09-25,
+              // תיקון-פער: chip/query mismatch) - קובעת גם travelMode:'driving' כדי שהתקציר
+              // (locationSummaryText) יציג בפועל "עד Xק"מ ממני" ולא "המיקום שלי" סתמי בזמן
+              // שהשאילתה כבר מוגבלת ל-10 ק"מ. HOME_AUTO_LOCATE_DRIVING_MINUTES - דקורטיבי בלבד
+              // (כל אחד מ-15/30/45 ממופה לאותו DEFAULT_PRECISE_RADIUS_KM, ראו locationWithDrivingTime) -
+              // לא כוונת-משתמש אמיתית, רק כדי שהתמונה תישאר עקבית אם הבורר ייפתח אחר-כך.
+              const next = locationWithDrivingTime({ ...prev.location, mode: 'current' }, HOME_AUTO_LOCATE_DRIVING_MINUTES);
               // homeLocation (ראו ההערה המלאה ליד ה-state למעלה) - "פתרון-מיקום ראשוני", לא
               // עריכת-טיוטה: resolveCommittedHomeLocation לא דורסת אם כבר יש מיקום-מחויב (לא
               // אמור לקרות כאן בפועל, ה-effect רץ פעם אחת ב-mount, אבל אותה הגנה בכל זאת - עקביות
@@ -803,7 +813,7 @@ export default function HomeScreen() {
       subtitle: hasSelectedCategory ? compactCategoryLabel(filters.category) : t('domain.summary.all'),
       // a11yValue: כשהתצוגה מכווצת ל-"N סוגי פעילויות" (2+), ה-screen reader עדיין מקבל את
       // הרשימה המלאה של הקטגוריות הנבחרות בפועל - לא רק את המספר.
-      a11yValue: filters.category.length > 0 ? listJoin(filters.category.map(categoryLabel)) : t('domain.summary.all'),
+      a11yValue: filters.category.length > 0 ? listJoin(browseSelectionItems(filters.category).items.map((i) => i.label)) : t('domain.summary.all'),
       a11yHint: t('home.guided.whatHint'),
       active: hasSelectedCategory,
       // decorIcon: assets/Kangaroo.png (חדש, 2026-09-20, בקשת המשתמש: "יש בתיקיה assets תמונה
@@ -834,7 +844,10 @@ export default function HomeScreen() {
         return;
       }
       goCoords = result.coords;
-      goFilters = { ...filters, location: { ...filters.location, mode: 'current', radiusKm: filters.location.radiusKm || 10 } };
+      // locationWithDrivingTime (ראו ההערה המלאה ליד ה-bootstrap effect למעלה, אותו תיקון-פער
+      // בדיוק) - לא radiusKm בלי travelMode: בלעדיו הצ'יפ הציג "המיקום שלי" בזמן שהשאילתה כבר
+      // הוגבלה ל-10 ק"מ (2026-09-25, "chip/query mismatch").
+      goFilters = { ...filters, location: locationWithDrivingTime({ ...filters.location, mode: 'current' }, HOME_AUTO_LOCATE_DRIVING_MINUTES) };
       setDeviceCoords(goCoords);
       setFilters(goFilters);
     }
@@ -961,7 +974,9 @@ export default function HomeScreen() {
   // ב-app/activities.js לוקח את זה משם והלאה, כולל אם יש מעט תוצאות (סעיף 3 בבקשה). שאר
   // הפילטרים (גיל/מחיר/וכו') מתאפסים בכוונה - זה shortcut ל"גלו קטגוריה", לא המשך של שאר
   // הבחירות שאולי כבר קיימות ב-filters.
-  const navigateToCategoryResults = (category) => {
+  // categories - a canonical array: a browse group's members (tile / "לכל הקטגוריות" group tap) or
+  // one exact canonical value (member chip). Smart Search alias phrases never ride along.
+  const navigateToCategoryResults = (categories) => {
     // homeLocation - commit מפורש (ראו ההערה המלאה ליד ה-state): לחיצה על shortcut-גילוי היא
     // עצמה פעולת-הגשה (נכנסים ישר לתוצאות), אז filters.location הנוכחי (תמיד truthy כאן - שני
     // הקוראים בודקים locationKnown קודם) הופך למיקום-מחויב עבור הקרוסלה, בדיוק כמו handleGo.
@@ -969,7 +984,7 @@ export default function HomeScreen() {
     router.push({
       pathname: '/activities',
       params: buildResultsParams({
-        filters: { ...DEFAULT_FILTERS, category: [category], location: filters.location },
+        filters: { ...withManualCategorySelection(DEFAULT_FILTERS, categories), location: filters.location },
         coords: deviceCoords,
         childAges: childAgesForSearch,
       }),
@@ -980,11 +995,12 @@ export default function HomeScreen() {
   // המבוקש (location שנבחר בסשן > saved/default > current-location שכבר אושר) - אין צורך
   // בלוגיקת-עדיפות נפרדת כאן, זו בדיוק המשמעות של locationKnown. אם לא ידוע - פותחים את אותו
   // LocationQuickPicker כמו "איפה נוח לכם?" (לא modal חדש) ושומרים את הקטגוריה הממתינה.
-  const handleDiscoveryTilePress = (category) => {
+  const handleDiscoveryTilePress = (groupId) => {
+    const categories = membersOf(groupId);
     if (locationKnown) {
-      navigateToCategoryResults(category);
+      navigateToCategoryResults(categories);
     } else {
-      setPendingCategory(category);
+      setPendingCategory(categories);
       setWhereQuickOpen(true);
     }
   };
@@ -1040,14 +1056,14 @@ export default function HomeScreen() {
     });
   };
 
+  // ids - the picked group's members, or one exact canonical value (see QuickPicker group mode).
   const handleAllCategoriesSelect = (ids) => {
     setAllCategoriesOpen(false);
-    const category = ids[0];
-    if (!category) return;
+    if (!ids?.length) return;
     if (locationKnown) {
-      navigateToCategoryResults(category);
+      navigateToCategoryResults(ids);
     } else {
-      setPendingCategory(category);
+      setPendingCategory(ids);
       setWhereQuickOpen(true);
     }
   };
@@ -1350,6 +1366,7 @@ export default function HomeScreen() {
   return (
     <View style={styles.screen}>
       <SkyBackground />
+      <HomeHeroScenery />
 
       <ScrollView
         contentContainerStyle={styles.content}
@@ -1570,10 +1587,10 @@ export default function HomeScreen() {
             <Pressable
               key={tile.id}
               style={({ pressed }) => [styles.discoveryTile, pressed && styles.discoveryTilePressed]}
-              onPress={() => handleDiscoveryTilePress(tile.category)}
+              onPress={() => handleDiscoveryTilePress(tile.id)}
             >
               <Text style={styles.discoveryEmoji}>{tile.emoji}</Text>
-              <Text style={styles.discoveryLabel}>{t(`home.discovery.tiles.${tile.id}`)}</Text>
+              <Text style={styles.discoveryLabel}>{tile.label}</Text>
             </Pressable>
           ))}
         </View>
@@ -1597,10 +1614,11 @@ export default function HomeScreen() {
         title={t('home.pickers.categoryTitle')}
         subtitle={t('home.pickers.categorySubtitle')}
         options={CATEGORY_FILTER_OPTIONS}
+        groups={BROWSE_GROUP_OPTIONS}
         value={filters.category}
         multiple
         showAll
-        onChange={(v) => setField('category', v)}
+        onChange={(v) => setFilters((prev) => withManualCategorySelection(prev, v))}
         onClose={() => setCategoryQuickOpen(false)}
       />
       {/* "לכל הקטגוריות" (מ"מה עוד מעניין אתכם?") - אותה קומפוננטה בדיוק כמו QuickPicker למעלה,
@@ -1612,6 +1630,7 @@ export default function HomeScreen() {
         title={t('home.pickers.allTitle')}
         subtitle={t('home.pickers.allSubtitle')}
         options={CATEGORY_FILTER_OPTIONS}
+        groups={BROWSE_GROUP_OPTIONS}
         value={[]}
         multiple={false}
         onChange={handleAllCategoriesSelect}
@@ -1724,19 +1743,19 @@ const styles = createStyles((d) => ({
     flexDirection: 'row', alignItems: 'center', gap: 10,
     paddingVertical: 10, paddingHorizontal: 2, minHeight: 48,
   },
-  // 32x32 (היה 40x40, 2026-09-20, "reduce their visual dominance slightly... function as playful
-  // TURU accents, not compete with the question text" - בקשת המשתמש) - שני האייקונים (וה-emoji
-  // fallback למטה) הוקטנו באותו יחס בדיוק (⁓0.8) כדי שישארו מכוילים אחד מול השני.
-  guidedIntentIconImage: { width: 32, height: 32, flexShrink: 0 },
+  // 42x42 (היה 32x32, בקשת המשתמש 2026-09-23: "תגדיל את האייקונים של הקנגרו והבית ב'בחירה
+  // מהירה'") - שני האייקונים (וה-emoji fallback למטה) גדלו באותו יחס בדיוק (⁓1.31) כדי שישארו
+  // מכוילים אחד מול השני.
+  guidedIntentIconImage: { width: 42, height: 42, flexShrink: 0 },
   // guidedIntentIconImageWide - ראו ההערה המלאה ליד decorIconStyle ב-PRIMARY_FILTERS למעלה (למה
-  // house-tree.png צריך קופסה רחבה+resizeMode="stretch"). 47x30+marginLeft:-5 (היה 59x37/-6) -
-  // אותו יחס-הקטנה (⁓0.8) כמו guidedIntentIconImage למעלה.
-  guidedIntentIconImageWide: { width: 47, height: 30, flexShrink: 0, marginLeft: -5 },
-  // guidedIntentIconEmoji (fallback בלבד) - אותה קופסה בדיוק (32x32) כמו guidedIntentIconImage
-  // כדי שהשורה לא תזוז אם ה-fallback הזה אי-פעם כן ירונדר. fontSize:17/lineHeight:32 (היה 21/40) -
-  // אותו יחס-הקטנה (⁓0.8) כמו שאר האייקונים למעלה.
+  // house-tree.png צריך קופסה רחבה+resizeMode="stretch"). 62x39+marginLeft:-6 (היה 47x30/-5) -
+  // אותו יחס-הגדלה (⁓1.31) כמו guidedIntentIconImage למעלה.
+  guidedIntentIconImageWide: { width: 62, height: 39, flexShrink: 0, marginLeft: -6 },
+  // guidedIntentIconEmoji (fallback בלבד) - אותה קופסה בדיוק (42x42) כמו guidedIntentIconImage
+  // כדי שהשורה לא תזוז אם ה-fallback הזה אי-פעם כן ירונדר. fontSize:22/lineHeight:42 (היה 17/32) -
+  // אותו יחס-הגדלה (⁓1.31) כמו שאר האייקונים למעלה.
   guidedIntentIconEmoji: {
-    width: 32, height: 32, flexShrink: 0, fontSize: 17, lineHeight: 32, textAlign: 'center',
+    width: 42, height: 42, flexShrink: 0, fontSize: 22, lineHeight: 42, textAlign: 'center',
   },
   guidedIntentSegmentMain: {
     flex: 1, minWidth: 0, gap: 0,
@@ -1911,16 +1930,21 @@ const styles = createStyles((d) => ({
   emptyRecAction: { fontFamily: fonts.bold, fontSize: 13, color: colors.accent },
 
   discoveryGrid: { flexDirection: d.row, flexWrap: 'wrap', gap: 10, marginBottom: 14 },
+  // "Home Screen Visual Redesign" (2026-09-22, Section 8: "consistent radius, cleaner visual
+  // rhythm, avoid heavy borders") - the 1px borderLight edge is replaced with a very soft shadow
+  // (the same restrained shadow language as the redesigned side buttons, HomeHero.js), so the cards
+  // read as gently raised rather than outlined. Radius/spacing/grid untouched (no IA change).
   discoveryTile: {
     width: '31%', aspectRatio: 1, backgroundColor: colors.card, borderRadius: radii.lg,
-    borderWidth: 1, borderColor: colors.borderLight, alignItems: 'center', justifyContent: 'center', gap: 6, padding: 6,
+    alignItems: 'center', justifyContent: 'center', gap: 6, padding: 6,
+    shadowColor: '#0d2b36', shadowOpacity: 0.06, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 2,
   },
   discoveryEmoji: { fontSize: 26 },
   discoveryLabel: { fontFamily: fonts.semiBold, fontSize: 11.5, color: colors.textSecondary, textAlign: 'center' },
   // pressed state עדין בלבד (רקע קליל, בלי scale/אנימציה) - "tap feedback מיידי, לא מוגזם"
   // (בקשת המשתמש). לא selected state קבוע - זה נעלם ברגע שמרימים את האצבע, כי הלחיצה היא
   // navigation, לא בחירת filter (סעיף 7 בבקשה).
-  discoveryTilePressed: { backgroundColor: colors.accentTintLight, borderColor: colors.accentTint },
+  discoveryTilePressed: { backgroundColor: colors.accentTintLight },
   allCategoriesLink: { alignSelf: 'center', marginBottom: 24 },
   allCategoriesLinkText: { fontFamily: fonts.semiBold, fontSize: 12.5, color: colors.accent },
 }));

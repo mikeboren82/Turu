@@ -199,7 +199,9 @@ export default function Header({
       {showBack ? (
         <Pressable
           style={[styles.iconBtn, styles.side, styles.sideLeft]}
-          onPress={() => router.back()}
+          // A screen opened from a shared link / web refresh / cold deep link has no history - back()
+          // was a dead tap there (or left the site on web). Home is the natural parent in that case.
+          onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))}
           accessibilityLabel={t('nav.header.backA11y')}
         >
           <BackIcon />
@@ -210,19 +212,30 @@ export default function Header({
 
       {!hideLogo && (
         <Pressable style={styles.logoWrap} onPress={() => router.push('/')} accessibilityLabel={t('nav.header.logoA11y')}>
-          {/* resizeMode="stretch" (היה "contain") - בקשת המשתמש: "מעט יותר גדול אבל יותר מתוח
-              לצדדים" - contain היה שומר על יחס-הרוחב/גובה המקורי של קובץ-התמונה עצמו (ריבוע
-              logoImage רחב יותר היה רק מוסיף שוליים ריקים משני הצדדים, לא מותח את הלוגו עצמו).
-              stretch ממלא את הקופסה בדיוק (רוחב/גובה בנפרד) - עיוות-קל ומכוון, לא תקלה. */}
+          {/* logo-turu-gradient-transparent.png (2026-09-22, "Home Screen Visual Redesign" - new
+              main logo. The file the user added, "Logo Turu Gradient.png", is kept UNTOUCHED on
+              disk, but it is an opaque RGB PNG with a solid black background baked into the pixels
+              (verified via its PNG header: colorType=2, no alpha channel at all - not a resizeMode/
+              rendering bug). tools/make-logo-transparent.js produced this cutout version (background
+              removed with edge decontamination, see that script's header) so the logo sits cleanly
+              on the sky background instead of showing a black box. turu-logo.png (the OLD logo) is
+              also kept on disk unchanged/still available.
+              Its artwork aspect ratio (1586x992 ≈ 1.60) is very different from the old file's
+              (740x333 ≈ 2.22), so resizeMode is "contain" here (not "stretch" - the old file's
+              deliberate stretch choice does not transfer: stretching a differently-proportioned
+              gradient wordmark would visibly distort it). Box widths below were recalculated for the
+              new ratio while keeping the exact same HEIGHT as before on every variant, so the logo
+              occupies the same visual scale in the header row it always did - only the width adapts
+              to the real artwork shape. */}
           <Image
-            source={require('../assets/turu-logo.png')}
+            source={require('../assets/logo-turu-gradient-transparent.png')}
             style={[
               styles.logoImage,
               logoCompact && styles.logoImageCompact,
               largeLogo && styles.logoImageLarge,
               largeLogo && logoCompact && styles.logoImageLargeCompact,
             ]}
-            resizeMode="stretch"
+            resizeMode="contain"
           />
         </Pressable>
       )}
@@ -380,10 +393,13 @@ const styles = createStyles((d) => ({
   // 212x92 (היה 250x108) - סבב "hero area visual refinement" (2026-09-19, בקשת המשתמש: "the logo
   // occupies a lot of visual space... reduce the logo block modestly. Do NOT make it tiny") -
   // כיווץ עדין (~85%) ששומר על אותו יחס-מתיחה בערך (2.304, היה 2.315), לא צמצום דרסטי.
-  logoImage: { width: 212, height: 92 },
-  // logoCompact (<360px, ראו ההערה המלאה ליד ה-state למעלה) - כווץ באותו יחס בדיוק (~85%) כמו
-  // logoImage הרגיל, כדי שהיחס בין שני המצבים יישאר עקבי.
-  logoImageCompact: { width: 162, height: 70 },
+  // width recalculated for the new logo's real aspect ratio (1586/992 ≈ 1.599), height UNCHANGED
+  // (92) - same visual size/prominence as before, no stretch-distortion (see the resizeMode comment
+  // above). 92*1.599 ≈ 147.
+  logoImage: { width: 147, height: 92 },
+  // logoCompact (<360px, ראו ההערה המלאה ליד ה-state למעלה) - אותו יחס-רוחב/גובה בדיוק (1.599),
+  // height נשאר 70 כמו קודם. 70*1.599 ≈ 112.
+  logoImageCompact: { width: 112, height: 70 },
   // largeLogo (2026-09-20, "TURU HOME SCREEN — SMALL VISUAL POLISH", בקשת המשתמש: "the logo...
   // should feel more prominent... keep its aspect ratio") - Home בלבד מזין largeLogo (ראו
   // app/index.js), שאר המסכים ממשיכים ב-logoImage הרגיל. ×1.10 בדיוק על שני הממדים (212x92 →
@@ -396,8 +412,10 @@ const styles = createStyles((d) => ({
   // המשתמש: "להגדיל אותו ממש מעט" - עוד קצת, זהירות: נבדק שוב בפועל בדפדפן בשני הרוחבים (320/375)
   // שהלוגו המוגדל-נוסף עדיין לא מתנגש בכפתור-התפריט. יחס-המתיחה (240/104≈2.308, 184/80=2.3)
   // עדיין קרוב ל-2.304/2.314 המקוריים.
-  logoImageLarge: { width: 240, height: 104 },
-  logoImageLargeCompact: { width: 184, height: 80 },
+  // same recalculation for largeLogo (Home screen only) - height unchanged (104/80), width fitted
+  // to the new artwork's real ratio (1.599): 104*1.599 ≈ 166, 80*1.599 ≈ 128.
+  logoImageLarge: { width: 166, height: 104 },
+  logoImageLargeCompact: { width: 128, height: 80 },
 
   backdrop: { flex: 1, alignItems: 'flex-end' },
   dropdown: {

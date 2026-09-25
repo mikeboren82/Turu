@@ -32,6 +32,11 @@
   "quickPicker": {
     "searchPlaceholder": "🔍 חיפוש..."
   },
+  "browse": {
+    "expand": "הצגת סוגי הפעילות ב{{group}}",
+    "collapse": "הסתרת סוגי הפעילות ב{{group}}",
+    "partial": "נבחר חלקית"
+  },
   "exclude": {
     "title": "⛔ הסר אזורים מהחיפוש",
     "subtitle": "בחרו אזורים או מקומות שלא תרצו לראות בתוצאות",

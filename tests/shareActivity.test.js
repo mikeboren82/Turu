@@ -30,7 +30,7 @@ addHook(
   { exts: ['.js'], matcher: (f) => f.startsWith(path.join(ROOT, 'lib')) || f.startsWith(path.join(ROOT, 'constants')) },
 );
 
-const { buildActivityShareUrl, buildActivityShareMessage, isProductionShareUrl } = require('../lib/shareActivity');
+const { buildActivityShareUrl, buildActivityShareMessage, isProductionShareUrl, buildSharePayload } = require('../lib/shareActivity');
 const { t, formatDate, setLocale } = require('../lib/i18n');
 
 setLocale('he', { persist: false });
@@ -121,6 +121,77 @@ test('buildActivityShareMessage: English locale produces English content with th
   assert.ok(message.startsWith('Found an activity that looks great for us on TURU 😊'));
   assert.ok(message.endsWith('What do you think?'));
   assert.ok(message.includes('Suitable for ages 4–10'));
+});
+
+// --- Public Activity Sharing (2026-09-25): web-origin fallback, exact URL contract, share payload ---
+
+const UUID = '3f2b9c1e-8a4d-4e6f-9b2a-1c3d5e7f9a0b';
+
+test('A. share URL contract is exactly <base>/activity/<stable id> - no slug, query or hash', () => {
+  process.env.EXPO_PUBLIC_SITE_URL = 'https://wabbit.expo.app';
+  const url = buildActivityShareUrl(UUID);
+  assert.equal(url, `https://wabbit.expo.app/activity/${UUID}`);
+  assert.ok(!url.includes('?') && !url.includes('#'));
+  delete process.env.EXPO_PUBLIC_SITE_URL;
+});
+
+test('A. hosted web build with no EXPO_PUBLIC_SITE_URL: the page\'s own https origin gives a real link instead of wabbit://', () => {
+  delete process.env.EXPO_PUBLIC_SITE_URL;
+  const url = buildActivityShareUrl(UUID, { origin: 'https://wabbit--q0r1h6sy31.expo.app' });
+  assert.equal(url, `https://wabbit--q0r1h6sy31.expo.app/activity/${UUID}`);
+  assert.equal(isProductionShareUrl(url), true);
+});
+
+test('A. configured EXPO_PUBLIC_SITE_URL wins over the page origin (canonical domain, even when opened from a preview URL)', () => {
+  process.env.EXPO_PUBLIC_SITE_URL = 'https://wabbit.expo.app';
+  const url = buildActivityShareUrl(UUID, { origin: 'https://wabbit--preview.expo.app' });
+  assert.equal(url, `https://wabbit.expo.app/activity/${UUID}`);
+  delete process.env.EXPO_PUBLIC_SITE_URL;
+});
+
+test('A. a non-https origin (local dev web) is never used - a recipient could not open it; falls back to the app scheme', () => {
+  delete process.env.EXPO_PUBLIC_SITE_URL;
+  assert.equal(buildActivityShareUrl(UUID, { origin: 'http://localhost:8081' }), `wabbit://activity/${UUID}`);
+  assert.equal(buildActivityShareUrl(UUID, { origin: 'http://192.168.1.10:8081' }), `wabbit://activity/${UUID}`);
+  assert.equal(buildActivityShareUrl(UUID, { origin: 'https://evil.example/path' }), `wabbit://activity/${UUID}`, 'origin with a path is not a bare origin');
+});
+
+test('A. the id is URL-encoded, so a malformed id can never inject a path, query or fragment', () => {
+  process.env.EXPO_PUBLIC_SITE_URL = 'https://wabbit.expo.app';
+  const url = buildActivityShareUrl('x/../y?user=1#z');
+  assert.equal(url, 'https://wabbit.expo.app/activity/x%2F..%2Fy%3Fuser%3D1%23z');
+  delete process.env.EXPO_PUBLIC_SITE_URL;
+});
+
+test('G. the share URL carries no personal, filter or location state - only the stable id', () => {
+  process.env.EXPO_PUBLIC_SITE_URL = 'https://wabbit.expo.app';
+  const url = buildActivityShareUrl(UUID, { origin: 'https://wabbit.expo.app' });
+  assert.ok(!/homeFilters|homeCoords|homeChildAges|latitude|longitude|lat=|lng=|city=|user|token|session/i.test(url));
+  delete process.env.EXPO_PUBLIC_SITE_URL;
+});
+
+test('D. Web Share payload is text only - the message already contains the link, so passing url too duplicated it', () => {
+  const message = `hello\nhttps://wabbit.expo.app/activity/${UUID}`;
+  const payload = buildSharePayload({ platform: 'web', message });
+  assert.deepEqual(payload, { text: message });
+  assert.ok(!('url' in payload));
+});
+
+test('D. native share payload is { message } on both iOS and Android - not WhatsApp-specific, the OS sheet picks the target', () => {
+  const message = 'hello';
+  assert.deepEqual(buildSharePayload({ platform: 'ios', message }), { message });
+  assert.deepEqual(buildSharePayload({ platform: 'android', message }), { message });
+});
+
+test('D. the full shared message contains the title, the place and exactly one copy of the public link', () => {
+  process.env.EXPO_PUBLIC_SITE_URL = 'https://wabbit.expo.app';
+  const url = buildActivityShareUrl(UUID);
+  const message = buildActivityShareMessage({ ...FULL_ACTIVITY, id: UUID }, { url, t, formatDate });
+  const payload = buildSharePayload({ platform: 'web', message });
+  assert.ok(payload.text.includes('גן המדע'));
+  assert.ok(payload.text.includes('רחובות'));
+  assert.equal(payload.text.split(url).length - 1, 1);
+  delete process.env.EXPO_PUBLIC_SITE_URL;
 });
 
 test('buildActivityShareMessage: never includes personal data (no note/favorite/child fields exist on the input to leak)', () => {

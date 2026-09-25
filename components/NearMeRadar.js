@@ -5,16 +5,17 @@ import { LocationPinIcon } from './icons';
 import { fonts } from '../constants/theme';
 import { useI18n } from '../lib/i18n';
 
-// RADAR_GRADIENT_LIGHT (2026-09-20, "visual refinement: Near Me color treatment" - בקשת המשתמש:
-// "Change the main blue circle from flat blue into a SUBTLE TURU BLUE GRADIENT... #007598 as the
-// foundation and transition toward a slightly lighter/brighter blue from the same family...
-// restrained and elegant... NOT glossy/neon/cyan/purple/metallic") - נגזר מ-colors.accent
-// (#007598, HSL 194°/100%/30%) ב-lightness+9 וגם saturation-8 יחד (לא רק lightness) - הורדת-
-// הרוויה הקלה היא בדיוק מה שמונע מהגוון-הבהיר-יותר "לגלוש" לכיוון cyan/neon בעת הבהרה על אותו
-// hue (194° כבר גבולי-cyan) - עדיין "בלתי-ניתן-לטעות כחול-TURU", רק קליל יותר. קבוע מקומי (לא
-// פרופ' כללי) כי יש caller ייצור אחד בלבד (HomeHero.js, color=colors.accent) - לא תשתית-הבהרה
-// גנרית שאין לה עדיין שימוש שני.
-const RADAR_GRADIENT_LIGHT = '#0894be';
+// LOGO_BLUE_TOP/BOTTOM (2026-09-23, בקשת המשתמש: "תבדוק מה הצבע המדויק של האותיות בלוגו עם
+// הגרדיאנט ותדאג שבדיוק אותו הצבע יהיה בכפתור הגדול") - נמדדו ישירות מהפיקסלים של
+// assets/logo-turu-gradient-transparent.png (אותה שיטה בדיוק כמו colors.logoOrange ב-
+// constants/theme.js - מדידת-פיקסלים אמיתית, לא ניחוש): סרקנו את כל שורות ה-"תורי" הכחולות
+// (לא כולל "TURU" הקטן מתחת, שהוא מופע-גרדיאנט נפרד), ומיצענו את 6% השורות העליונות/תחתונות
+// בנפרד. התוצאה: הגרדיאנט של הלוגו הרבה יותר חי/רווי מ-RADAR_GRADIENT_LIGHT הישן (#0894be) -
+// עובר מתכלת-טורקיז בהיר למעלה לכחול עמוק יותר למטה, לא מ"כחול TURU" מרוכך לכחול-בהיר-מרוכך.
+// קבועים מקומיים (לא ב-theme.js) בכוונה - השינוי מוגבל ל"כפתור הגדול" (הדיסקית המרכזית של
+// NearMeRadar) בלבד, לא ל-colors.accent הכללי שמשמש בעשרות מקומות אחרים באפליקציה.
+const LOGO_BLUE_TOP = '#03b9da';
+const LOGO_BLUE_BOTTOM = '#01499b';
 
 // PHASE 1 EXTRACTION (2026-09-19, "safe presentational extraction" - ראו הביקורת הארכיטקטונית):
 // הועבר byte-for-byte מ-app/index.js, בלי שום שינוי בגיאומטריה/פרופס/state-ownership - קומפוננטה
@@ -60,7 +61,10 @@ const RADAR_TEXT_ARC_PATH = `M ${radarTextArcStart.x} ${radarTextArcStart.y} A $
 // הגיאומטריה הפנימית (דיסקית/הילה/טבעות/נקודות) גדלה פרופורציונלית יחד, בלי שינוי ביחסים
 // הפנימיים - עדיין מעוגל ומרוכז בדיוק כמו קודם. קוטר-האורביט החיצוני בפועל
 // (RADAR_R_ORBIT_OUTER*2=116 בתוך viewBox 180 רוחב) = RADAR_SVG_W * (116/180) ≈ 101.9px.
-const RADAR_SVG_W = 158;
+// 174 (היה 158, "Home Screen Visual Redesign" round 2, 2026-09-22, בקשת המשתמש: "large center
+// primary circle" + "do not shrink its importance") - פרמטר יחיד (ראו ההערה למעלה), כל הגיאומטריה
+// הפנימית גדלה פרופורציונלית יחד.
+const RADAR_SVG_W = 174;
 const RADAR_SVG_H = 160;
 // גובה-קנבס קומפקטי (2026-09-20, בקשת המשתמש: הרדאר עצמו הוא הגיבור המרכזי בשורת-הירו החדשה,
 // בלי קשת-הטקסט "מה קורה סביבי?" סביבו - שלוש התוויות הסמוכות (חיפוש חופשי/בחירה מהירה + כיתוב-
@@ -113,11 +117,13 @@ export default function NearMeRadar({ loading, color, showLabel = true }) {
           בעצמה את "הקשר בין המרכז לאורביט" שהטבעת-הדקה ניסתה להוסיף, אז שתיהן יחד קראו "טבעתי"
           יותר מהנדרש. נשארים: הילה (fill רך) + דיסקית-מרכז מלאה + אייקון-המיקום - "keep: central
           blue circle, location icon, strong central positioning". */}
-      <Circle cx={RADAR_CX} cy={RADAR_CY} r={RADAR_R_HALO} fill={color} opacity={0.13} />
-      {/* fill="url(#nearMeDiscGradient)" (היה fill={color} שטוח, 2026-09-20, "visual refinement:
-          Near Me color treatment") - גרדיאנט עדין, לא צבע אחיד - ראו RADAR_GRADIENT_LIGHT למעלה
-          וה-Defs ב-JSX החיצוני להגדרת ה-gradient עצמו. ה-halo מעל (r=RADAR_R_HALO) נשאר צבע-שטוח
-          בכוונה - שכבת-זוהר רכה ב-13% opacity, גרדיאנט עליה לא היה נראה כלל ורק מוסיף מורכבות.*/}
+      {/* טבעת דקה וברורה (stroke) במקום הילה רכה ומטושטשת (fill) - "Home Screen Visual Redesign"
+          round 2 (2026-09-22, בקשת המשתמש: "cleaner outer ring... reduce exaggerated depth...
+          less spherical/puffy"). fill רך תמיד קורא כ"זוהר/נפח" (עומק מלאכותי); קו דק וחד סביב
+          ההילה נותן בדיוק את "הקשר בין המרכז לאורביט" שההילה נתנה, אבל בשפה שטוחה ומודרנית. */}
+      <Circle cx={RADAR_CX} cy={RADAR_CY} r={RADAR_R_HALO} fill="none" stroke={color} strokeWidth={2.5} opacity={0.28} />
+      {/* fill="url(#nearMeDiscGradient)" - גרדיאנט תואם-לוגו, לא צבע אחיד - ראו LOGO_BLUE_TOP/
+          BOTTOM למעלה וה-Defs ב-JSX החיצוני להגדרת ה-gradient עצמו. */}
       <Circle cx={RADAR_CX} cy={RADAR_CY} r={RADAR_R_CIRCLE} fill="url(#nearMeDiscGradient)" />
       {/* אותו LocationPinIcon בדיוק כמו בכל שאר האפליקציה (למשל LocationQuickPicker) - לא צורת-פין
           חדשה מצוירת ידנית, רק גדול יותר (32, היה 24 - "too small relative to the disc"). נשאר
@@ -146,12 +152,14 @@ export default function NearMeRadar({ loading, color, showLabel = true }) {
           (לא רק כש-showLabel), כי הדיסקית-המרכזית (fill="url(#nearMeDiscGradient)" למעלה) צריכה
           את ה-gradient הזה גם במצב הקומפקטי (showLabel=false, השימוש היחיד בפועל ב-HomeHero.js) -
           הטקסט-קשת (nearMeRadarTextPath) עדיין מותנה-showLabel כמו קודם, רק ה-Defs העוטף אותו לא.
-          x1/y1/x2/y2 (0,0)->(0,1) - גרדיאנט אנכי פשוט (כהה למעלה, בהיר-מעט למטה), "restrained",
-          לא אלכסוני/רדיאלי שהיה יכול להיראות "glossy". */}
+          x1/y1/x2/y2 (0,0)->(0,1) - גרדיאנט אנכי פשוט, לא אלכסוני/רדיאלי שהיה יכול להיראות
+          "glossy". כיוון הופך (2026-09-23, "תבדוק... בדיוק אותו הצבע") - בהיר-טורקיז למעלה,
+          כחול-עמוק למטה, זהה לכיוון הגרדיאנט האמיתי באותיות הלוגו עצמו (ראו LOGO_BLUE_TOP/BOTTOM
+          למעלה) - לא רק אותם שני צבעים, גם אותו כיוון. */}
       <Defs>
         <LinearGradient id="nearMeDiscGradient" x1="0" y1="0" x2="0" y2="1">
-          <Stop offset="0" stopColor={color} />
-          <Stop offset="1" stopColor={RADAR_GRADIENT_LIGHT} />
+          <Stop offset="0" stopColor={LOGO_BLUE_TOP} />
+          <Stop offset="1" stopColor={LOGO_BLUE_BOTTOM} />
         </LinearGradient>
         {showLabel ? <Path id="nearMeRadarTextPath" d={RADAR_TEXT_ARC_PATH} fill="none" /> : null}
       </Defs>

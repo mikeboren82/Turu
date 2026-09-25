@@ -27,11 +27,24 @@
     "קולנוע לילדים": "Kids' cinema",
     "ספרייה": "Library",
     "שעת סיפור": "Story time",
-    "פעילות קהילתית": "Community activity",
+    "פעילות קהילתית": "Festivals & events",
     "פעילות עירונית": "City event",
     "חדרי בריחה": "Escape rooms",
     "אחר": "Other",
     "חיות וגני חיות": "Animals & zoos"
+  },
+  "browseGroups": {
+    "playgrounds_parks": "Playgrounds & parks",
+    "shows": "Shows & performances",
+    "cinema": "Kids' cinema",
+    "indoor_play": "Play centers & indoor play",
+    "animals": "Animals, farms & zoos",
+    "nature": "Nature & hikes",
+    "museums_science": "Museums & science",
+    "workshops": "Workshops & crafts",
+    "story_hour": "Libraries & story time",
+    "water_attractions": "Water, attractions & thrills",
+    "festivals_events": "Festivals & events"
   },
   "regions": {
     "גוש דן והמרכז": "Tel Aviv & Center",
@@ -150,7 +163,9 @@
     "activityTypes_one": "1 activity type",
     "activityTypes_other": "{{count}} activity types",
     "ageRange": "ages {{min}}–{{max}}",
-    "ageFrom": "age {{min}}+"
+    "ageFrom": "age {{min}}+",
+    "groups_one": "1 group",
+    "groups_other": "{{count}} groups"
   },
   "location": {
     "nationwide": "All of Israel",

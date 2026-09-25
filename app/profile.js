@@ -15,6 +15,7 @@ import {
   BOOKING_OPTIONS, DURATION_OPTIONS, AMENITY_COMFORT_OPTIONS, BENEFIT_PROVIDER_OPTIONS,
 } from '../constants/filterSchema';
 import { categorySummary, listJoin } from '../lib/filterSummaries';
+import { BROWSE_GROUP_OPTIONS, withManualCategorySelection } from '../lib/browseGroups';
 import { supabase } from '../lib/supabase';
 import { clearPin } from '../lib/pin';
 import { normalizeFilters } from '../lib/filterActivities';
@@ -943,9 +944,9 @@ export default function ProfileScreen() {
                 <View style={styles.noteCardTop}>
                   {thumb ? (
                     <Image source={{ uri: thumb }} style={styles.noteThumb} />
-                  ) : placeholderImageFor(note.activity.placeholder_group, note.activity.id) ? (
+                  ) : placeholderImageFor(note.activity.placeholder_group, note.activity.id, note.activity.category) ? (
                     <Image
-                      source={placeholderImageFor(note.activity.placeholder_group, note.activity.id)}
+                      source={placeholderImageFor(note.activity.placeholder_group, note.activity.id, note.activity.category)}
                       resizeMode="contain"
                       style={[styles.noteThumb, { backgroundColor: placeholderBgColorFor(note.activity.placeholder_group) }]}
                     />
@@ -1364,10 +1365,11 @@ export default function ProfileScreen() {
             title={t('profile.pickers.categoryTitle')}
             subtitle={t('profile.pickers.categorySubtitle')}
             options={CATEGORY_OPTIONS}
-            value={homeDefaultsDraft.category}
+            groups={BROWSE_GROUP_OPTIONS}
+            value={homeDefaultsDraft.category || []}
             multiple
             showAll
-            onChange={(v) => setPref('category', v)}
+            onChange={(v) => setHomeDefaultsDraft((prev) => withManualCategorySelection(prev, v))}
             onClose={() => setPrefCategoryOpen(false)}
           />
           <QuickPicker

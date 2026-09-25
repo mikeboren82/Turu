@@ -75,7 +75,7 @@ export default function HomeHero({
           רקע/מסגרת/radius משלהם. */}
       <View style={styles.discoveryArea}>
       <View style={styles.heroRow}>
-        <View style={styles.heroSideCol}>
+        <View style={[styles.heroSideCol, styles.heroSideColLeft]}>
           <Pressable
             style={({ pressed }) => [styles.heroSideAction, pressed && styles.heroSideActionPressed]}
             onPress={() => onSwitchMode('free')}
@@ -165,7 +165,7 @@ export default function HomeHero({
           ) : null}
         </View>
 
-        <View style={styles.heroSideCol}>
+        <View style={[styles.heroSideCol, styles.heroSideColRight]}>
           <Pressable
             style={({ pressed }) => [styles.heroSideAction, pressed && styles.heroSideActionPressed]}
             onPress={() => onSwitchMode('guided')}
@@ -174,16 +174,32 @@ export default function HomeHero({
             accessibilityState={{ checked: searchMode === 'guided' }}
             accessibilityLabel={t('home.search.modeGuided')}
           >
-            <View style={[
-              styles.heroSideActionIconWrap, heroCompact && styles.heroSideActionIconWrapCompact,
-              searchMode === 'guided' && styles.heroSideActionIconWrapActive,
-            ]}
-            >
-              <Image
-                source={require('../assets/home-quick-choice-orange.png')}
-                style={[styles.heroSideActionIconImage, heroCompact && styles.heroSideActionIconImageCompact]}
-                resizeMode="contain"
-              />
+            <View style={[styles.heroSideActionIconStack, heroCompact && styles.heroSideActionIconStackCompact]}>
+              <View style={[
+                styles.heroSideActionIconWrap, heroCompact && styles.heroSideActionIconWrapCompact,
+                searchMode === 'guided' && styles.heroSideActionIconWrapActive,
+              ]}
+              >
+                <Image
+                  source={require('../assets/home-quick-choice-orange.png')}
+                  style={[styles.heroSideActionIconImage, heroCompact && styles.heroSideActionIconImageCompact]}
+                  resizeMode="contain"
+                />
+              </View>
+              {/* hop-trail accent (2026-09-23, בקשת המשתמש: "לדאוג שהנקודות לא יזוזו עם המסך") -
+                  the visible 3-dot trail lives here now (anchored to the actual button, inside
+                  the same scrolling layout as it), not in HomeHeroScenery's fixed background - see
+                  the note there for why that background version drifted away from this button on
+                  scroll. Positions/proportions below replicate the trail's last-approved shape
+                  (tightened spacing, same ratio between the two gaps), just re-expressed as pixel
+                  offsets from this icon circle's own top-left corner instead of SVG coordinates.
+                  The 4th (biggest) dot stays in the fixed background, intentionally hidden behind
+                  this circle - not duplicated here. */}
+              <View style={styles.hopTrail} pointerEvents="none">
+                <View style={[styles.hopDot, styles.hopDot1, heroCompact && styles.hopDot1Compact]} />
+                <View style={[styles.hopDot, styles.hopDot2, heroCompact && styles.hopDot2Compact]} />
+                <View style={[styles.hopDot, styles.hopDot3, heroCompact && styles.hopDot3Compact]} />
+              </View>
             </View>
             <Text
               style={[
@@ -263,7 +279,18 @@ const styles = createStyles((d) => ({
   // paddingTop:14 (היה 22, "small visual polish" round 2, 2026-09-20, בקשת המשתמש: "שני הכפתורים
   // בצדדיו צריכים להיות קצת יותר גבוה, גם הכיתוב וגם האייקונים") - מרים את כל התוכן של שתי
   // העמודות-הצדדיות (אייקון+טקסט יחד, ראו heroSideAction למטה) קצת יותר קרוב לראש השורה.
-  heroSideCol: { flex: 1, alignItems: 'center', paddingTop: 14 },
+  heroSideCol: { flex: 1, alignItems: 'center', paddingTop: 10 },
+  // heroSideColLeft/Right (2026-09-22, "Home Screen Visual Redesign", round 2 - בקשת המשתמש
+  // מפורשת: "too spread apart... move them closer... hug the center button") - שתי העמודות
+  // עדיין flex:1 שוות (שומר על המירכוז הגיאומטרי המדויק של הרדאר), ה-alignItems הפנימי זז
+  // מ-'center' אל הקצה הפנימי (הקרוב לעמודת-המרכז). paddingRight/Left צומצם ל-2 (היה 10) - יחד
+  // עם heroCenterCol.width המצומצם למטה (המנוף האמיתי לקירוב, ראו שם), התוצאה היא פער הרבה יותר
+  // קטן בין כל כפתור-צד לרדאר המרכזי, בלי לגעת בגודל-הרדאר עצמו.
+  // paddingRight/Left הוגדל ל-16 (היה 2, בקשת המשתמש: "תרחיק את 2 הכפתורים מהכפתור הגדול מעט") -
+  // עדיין פחות מהריפוד המקורי-ההיסטורי (שלא היה מוגדר ישירות כאן), אבל מוסיף מרחק ניכר מהמצב
+  // הצפוף מדי של הסבב הקודם.
+  heroSideColLeft: { alignItems: 'flex-end', paddingRight: 16 },
+  heroSideColRight: { alignItems: 'flex-start', paddingLeft: 16 },
   // לא pill/card ("NOT large pills, NOT cards, NOT competing with the radar visually") - רק
   // אייקון+טקסט, minHeight נדיב ל-touch target נוח.
   // gap:0 (היה 2, "small visual polish" round 4, 2026-09-20, בקשת המשתמש: "לקרב עוד יותר את
@@ -279,11 +306,37 @@ const styles = createStyles((d) => ({
   // הניגוד-הפשוט מול הרקע הצבעוני מסביב. heroSideActionIconWrapActive למטה הוא ה-state הפעיל
   // היחיד - לא עוד heroSideActionIconWrapFaded מבוסס-opacity (הוסר: "prefer the circular control
   // + label color as the primary active state").
+  // 70px (היה 46 במקור, 52 בסבב-עידון ראשון - "Home Screen Visual Redesign" round 2, בקשת
+  // המשתמש המפורשת: "the current result is too timid... noticeably larger... increase the actual
+  // white circular button SURFACE, not only the icon") - קרוב לקוטר-ההילה הנראה של הרדאר המרכזי
+  // (~83px בפועל) כדי ששני הכפתורים-הצדדיים יקראו כ"substantial supporting circles", לא כפתורי-
+  // עזר קטנים. shadow מעט חזק יותר מהסבב הקודם (עדיין "soft", לא "puffy" - בלי border כהה).
+  // 62px (היה 70, בקשת המשתמש: "תקטין מעט את העיגולים הלבנים") - עדיין ניכר-גדול לעומת ה-46px
+  // המקורי, רק לא בשיא-הגודל של הסבב הקודם.
   heroSideActionIconWrap: {
-    width: 46, height: 46, borderRadius: 23, alignItems: 'center', justifyContent: 'center',
-    backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border,
+    width: 62, height: 62, borderRadius: 31, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: colors.card, borderWidth: 1, borderColor: colors.borderLight,
+    shadowColor: '#0d2b36', shadowOpacity: 0.12, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 4,
   },
-  heroSideActionIconWrapCompact: { width: 40, height: 40, borderRadius: 20 },
+  heroSideActionIconWrapCompact: { width: 54, height: 54, borderRadius: 27 },
+  // heroSideActionIconStack - plain sizing wrapper matching heroSideActionIconWrap's own
+  // footprint exactly, so hopTrail below (top:0/left:0/right:0/bottom:0) can position its dots
+  // relative to the icon circle's own top-left corner.
+  heroSideActionIconStack: { width: 62, height: 62 },
+  heroSideActionIconStackCompact: { width: 54, height: 54 },
+  // hopTrail/hopDot1-3 (2026-09-23) - the visible hop-trail dots, positioned relative to the
+  // icon circle's top-left corner (0,0). Spacing between them is 0.7x the original SVG-background
+  // version's gaps (בקשת המשתמש: "לקרב את הנקודות אחת לשנייה... ולשמור על אותה הפרופורציה") -
+  // both gaps (dot1->dot2, dot2->dot3) scaled by the same factor, so the trail's shape is
+  // preserved, just tighter. Compact variants scale positions by 54/62 for the <360px icon size.
+  hopTrail: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
+  hopDot: { position: 'absolute', backgroundColor: colors.logoOrange, opacity: 0.5 },
+  hopDot1: { width: 10, height: 10, borderRadius: 5, left: 65, top: 6 },
+  hopDot2: { width: 8, height: 8, borderRadius: 4, left: 79, top: -2 },
+  hopDot3: { width: 6, height: 6, borderRadius: 3, left: 92, top: -7 },
+  hopDot1Compact: { left: 56, top: 3 },
+  hopDot2Compact: { left: 68, top: -4 },
+  hopDot3Compact: { left: 80, top: -7 },
   // heroSideActionIconWrapActive - "when Free Search is active: its mini-circle receives a pale
   // TURU-blue treatment" - accentTintLight (מילוי) + accent (border), אותם טוקנים בדיוק שכבר
   // מייצגים "פעיל" בכל שאר האפליקציה (למשל modeBtnActive, components/LocationQuickPicker.js) -
@@ -298,8 +351,11 @@ const styles = createStyles((d) => ({
   // control/icon area") - 34/27 (היה 28/22) בתוך אותו עיגול 46/40px בדיוק (heroSideActionIconWrap
   // למעלה, לא נגוע) - שוליים של כ-6px מכל צד, מספיק כדי שהעיגול עדיין ניכר כ"מסגרת" סביב
   // האייקון, אבל האייקון עצמו תופס משמעותית יותר מהעיגול מאשר קודם (74% מהקוטר, היה 61%).
+  // 34/30 (היה 46/40, בקשת המשתמש: "תקטין את האייקון שבתוך העיגולים הלבנים... העיגולים הלבנים
+  // צריכים להיות יותר גדולים מהאייקונים") - יחס נמוך יותר מהקוטר (~55%/56%) כך שנשאר שוליים-לבנים
+  // נדיבים וברורים סביב כל אייקון, לא רק "מעט יותר קטן מהעיגול".
   heroSideActionIconImage: { width: 34, height: 34 },
-  heroSideActionIconImageCompact: { width: 27, height: 27 },
+  heroSideActionIconImageCompact: { width: 30, height: 30 },
   // heroSideActionText - 15/11.5 (ללא שינוי) - "הכיתוב 'בחירה מהירה' ו'חיפוש חופשי' צריכים
   // להיות מעט יותר קטנים" (בקשת-עבר).
   heroSideActionText: { fontFamily: fonts.bold, fontSize: 15, textAlign: 'center' },
@@ -313,7 +369,17 @@ const styles = createStyles((d) => ({
   // disabled") - textSecondary (#59656d, כהה יותר מ-textMuted #7a8185 הקודם) - עדיין ברור-משני
   // ביחס ל"קרוב אלי"/לצבע-הפעיל, אבל לא נראה מנוטרל.
   heroSideActionTextInactive: { color: colors.textSecondary },
-  heroCenterCol: { alignItems: 'center' },
+  // width:118 + overflow:'visible' (2026-09-22, "Home Screen Visual Redesign" round 2) - הרדאר
+  // עצמו (nearMeRadarWrapCompact, 158px) לא הוקטן בכלל (עדיין "clearly primary/large"), אבל
+  // ה-layout-footprint שהוא תופס בשורה כן צומצם ל-118px, עם overflow:'visible' כדי שה-SVG
+  // הרחב-יותר עדיין מצטייר במלואו, פשוט "בולט" מעט מעבר לעמודה המוצהרת שלו. בזכות flex:1 השווה
+  // של שתי עמודות-הצד, כיווץ עמודת-המרכז דוחף את הגבול הפנימי של כל עמודת-צד (המקום שבו כפתור-
+  // הצד יושב, ראו heroSideColLeft/Right) קרוב יותר למרכז ב-(158-118)/2=20px בכל צד - בלי לגעת
+  // בגודל החזותי של הרדאר או בטכניקת-המירכוז הגיאומטרי הקיימת.
+  // width הוגדל ל-134 (היה 118, בקשת המשתמש: "תרחיק את 2 הכפתורים מהכפתור הגדול מעט") - יחד עם
+  // paddingRight/Left שגדל למעלה (heroSideColLeft/Right), התוצאה המצטברת היא ריווח גדול יותר
+  // בין כל כפתור-צד לרדאר, בלי לגעת בגודל החזותי של הרדאר עצמו (overflow:'visible' עדיין פעיל).
+  heroCenterCol: { alignItems: 'center', width: 134, overflow: 'visible' },
   nearMeStandalone: { alignItems: 'center', gap: 1 },
   nearMeStandalonePressed: { opacity: 0.85 },
   // גובה קומפקטי (RADAR_COMPACT_H ב-NearMeRadar, showLabel=false) - 158x112 (היה 134x95, "small
@@ -321,7 +387,9 @@ const styles = createStyles((d) => ({
   // לגודל הקודם/מוכר) תואם את RADAR_SVG_W שם: svgHeight בפועל = RADAR_SVG_W * (RADAR_COMPACT_H/180)
   // ≈ 112.4. שינוי-פרמטר יחיד ב-NearMeRadar.js (RADAR_SVG_W בלבד, ראו שם) מגדיל את כל הגיאומטריה
   // הפנימית פרופורציונלית - הרדאר עדיין מעוגל ומרוכז בדיוק כמו קודם, רק גדול יותר.
-  nearMeRadarWrapCompact: { width: 158, height: 112, alignItems: 'center', justifyContent: 'center' },
+  // 174x124 (היה 158x112) - תואם ל-RADAR_SVG_W=174 החדש ב-NearMeRadar.js (svgHeight בפועל =
+  // 174*(128/180) ≈ 123.7).
+  nearMeRadarWrapCompact: { width: 174, height: 124, alignItems: 'center', justifyContent: 'center' },
   // nearMeLabelText/Compact - אותו גודל בדיוק כמו heroSideActionText/Compact (15/11.5, "small
   // visual polish" round 2, בקשת המשתמש: "הטקסט 'מה קרוב' צריך להיות באותו גודל של 'בחירה מהירה
   // וחיפוש חופשי'" - במפורש לא עוד גדול-יותר, כמו שהיה קודם).

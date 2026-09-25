@@ -13,16 +13,21 @@ import ExcludeAreasPicker from '../components/ExcludeAreasPicker';
 import LocationQuickPicker, { locationSummary } from '../components/LocationQuickPicker';
 import { ChevronDownIcon } from '../components/icons';
 import { colors, fonts, radii, spacing } from '../constants/theme';
-import { fetchApprovedActivities, formatSearchDistance, fetchSettlementCoords } from '../lib/activities';
+import { formatSearchDistance, fetchSettlementCoords } from '../lib/activities';
+import { useActivitiesCatalogue } from '../lib/useActivitiesCatalogue';
+import { resolveResultsView, RESULTS_VIEW } from '../lib/catalogueCache';
 import { fetchUserActivityFlags, toggleFavorite, toggleVisited, savePersonalNote, fetchAllPersonalNotes, toggleWithFeedback, hideActivityWithFeedback } from '../lib/interactions';
 import { fetchUserPreferences, saveExcludedCategories, saveExcludedCities, saveExcludedRegions } from '../lib/preferences';
 import { supabase } from '../lib/supabase';
 import { DEFAULT_FILTERS, CATEGORY_FILTER_OPTIONS } from '../constants/filterSchema';
 import { categorySummary, buildResultsSummary, buildActiveChips, shouldReopenLocationChooser } from '../lib/filterSummaries';
+import { BROWSE_GROUP_OPTIONS, withManualCategorySelection } from '../lib/browseGroups';
 import { rankActivitiesWithSmartRadius, countActiveFilters, normalizeFilters, getOpenNowInfo, haversineKm, locationWithDrivingTime } from '../lib/filterActivities';
 import { formatBenefitCardTag } from '../lib/benefits';
 import { buildMatchReasons } from '../lib/matchReasons';
 import { parseSmartSearchQuery, intentToFilters } from '../lib/smartSearch';
+import { paramsChanged } from '../lib/homeSession';
+import { isBroadDiscovery, diversifyResults } from '../lib/resultDiversity';
 import { t, useI18n, createStyles } from '../lib/i18n';
 import { formatKm } from '../lib/i18n/format';
 
@@ -79,7 +84,7 @@ export default function ActivitiesScreen() {
   // בפרופיל) - מגיע כפרמטר-route קטן בדיוק כמו homeFilters/homeCoords, אך ורק לצורך שורת-
   // ההסבר "✓ מתאים לגילים..." (lib/matchReasons.js) - לא נוגע בשום פילטר/דירוג. הגעה ישירה
   // לעמוד (בלי homeChildAges, למשל מהתפריט) -> [] -> ageMatchFact פשוט לא מציע הסבר-גיל.
-  const [childAges] = useState(() => parseJson(homeChildAges, []));
+  const [childAges, setChildAges] = useState(() => parseJson(homeChildAges, []));
   // כשמגיעים דרך "סינון מתקדם" מהעמוד הראשי - פותחים ישר את הפאנל, אבל עדיין מציגים תוצאות
   // (בניגוד למודל הישן, הפאנל עכשיו inline מעל תוצאות חיות, לא חוסם אותן).
   const [sheetOpen, setSheetOpen] = useState(openFilters === 'true');
@@ -90,16 +95,68 @@ export default function ActivitiesScreen() {
   // 'distance' (מיון-לקוח בלבד מעל אותו result set, ראו sortedActivities למטה - לא חיפוש חדש,
   // לא נוגע ב-Smart Radius/filters/matching). state מקומי גרידא (לא AsyncStorage/DB) - נעלם
   // בחזרה ל-'recommended' עם עזיבת המסך, בדיוק כמו viewMode/sheetOpen למעלה - האפליקציה לא
-  // שומרת העדפת-מיון בשום מקום אחר היום, אז לא ממציאים persistence חדש כאן.
-  const [sortMode, setSortMode] = useState('recommended');
+  // שומרת העדפת-מיון בשום מקום אחר היום, אז לא ממציאים persistence חדש כאן. "מה קרוב?" (nearMe)
+  // מתחיל כבר ב-'distance' - ראו ההערה המלאה למטה ליד lastSeenNavParams, אותו מקור בדיוק.
+  const [sortMode, setSortMode] = useState(() => (nearMe === 'true' ? 'distance' : 'recommended'));
+  // Bug fix (2026-09-25, "Home CTA returns zero results while Quick Search works"; extended the
+  // same day by the "Search / Location State Consistency Sweep" audit to every piece of state below
+  // that is seeded from a route param, not just the original three): expo-router's Stack navigator
+  // reuses an already-mounted screen instance instead of remounting it when the same route is
+  // pushed again ("removes duplicate screens when pushing a route that is already in the stack",
+  // docs.expo.dev/router/advanced/stack) - confirmed to apply here specifically because
+  // components/BottomNav.js navigates via router.dismissTo, which explicitly keeps a target
+  // screen's own instance alive in the stack rather than unmounting it. So every one-shot
+  // useState(paramValue) above (filters/deviceCoords/childAges/sheetOpen/viewMode/sortMode) only
+  // ever ran for the FIRST /activities push this screen instance ever saw - going back to Home
+  // (e.g. via the bottom nav), picking a different location/opening filters again/switching to map
+  // view and pressing the main search CTA again reused that same instance and silently kept every
+  // one of those stale values from the first visit. Quick Search/FiltersSheet never hit this
+  // because they write straight into this state in-place (no navigation, no route param involved) -
+  // only the Home->push path goes through this parse-once seam.
+  //
+  // Fixed with React's documented "adjust state during render" pattern (not a useEffect): comparing
+  // the just-rendered params against the last ones we actually seeded state from, and calling the
+  // setters right here in the render body when they differ. This is deliberately NOT a useEffect
+  // (paramsChanged, lib/homeSession.js) fixed the original 3-field version of this bug that way,
+  // but the "Search / Location State Consistency Sweep" audit found that an effect leaves one full
+  // render painted with the STALE state before the effect corrects it a tick later - on a reused
+  // instance that can flash the wrong result list or a false "nothing found" empty state for a
+  // frame. Adjusting state directly during render instead means React discards that stale render
+  // before it ever paints, so the very first frame the user sees already reflects the new params.
+  // Calling multiple setters here is safe and terminates: on the very next render `lastSeenNavParams`
+  // already equals the current params, so this block simply does not run again until Home pushes
+  // something new. `spontaneous` participates in the comparison (so a repeat push toward the same
+  // instance is still detected) but is deliberately NOT reset here - it drives a live GPS/permission
+  // side effect (activateSpontaneous), which cannot run inside a pure render; see the guarded
+  // useEffect next to toggleSpontaneous below, keyed on this same lastSeenNavParams value.
+  const [lastSeenNavParams, setLastSeenNavParams] = useState({
+    homeFilters, homeCoords, homeChildAges, openFilters, view, nearMe, spontaneous,
+  });
+  if (paramsChanged(lastSeenNavParams, { homeFilters, homeCoords, homeChildAges, openFilters, view, nearMe, spontaneous })) {
+    setLastSeenNavParams({ homeFilters, homeCoords, homeChildAges, openFilters, view, nearMe, spontaneous });
+    setFilters(normalizeFilters(parseJson(homeFilters, {})));
+    setDeviceCoords(parseJson(homeCoords, null));
+    setChildAges(parseJson(homeChildAges, []));
+    setSheetOpen(openFilters === 'true');
+    setViewMode(view === 'map' ? 'map' : 'list');
+    setSortMode(nearMe === 'true' ? 'distance' : 'recommended');
+  }
   // תצוגה/מיון - Modal קטן נפרד מ-sheetOpen (הפילטרים), אותו recipe בדיוק (Modal transparent
   // animationType="slide" + backdrop) רק בגודל קטן משמעותית - שני radio-groups בלבד (תצוגה/מיון),
   // לא accordion שלם. סוגר את sheetOpen כשנפתח (ולהפך, ראו onPress למטה) כדי שלעולם לא יהיו
   // שני Modal-ים פתוחים יחד.
   const [displaySheetOpen, setDisplaySheetOpen] = useState(false);
-  const [activities, setActivities] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState(null);
+  // The public catalogue comes from the app-wide cache (lib/useActivitiesCatalogue.js) - a repeat
+  // visit renders from memory instead of re-downloading ~5,500 rows. It is DATA only: every filter
+  // input above/below stays per-screen state, re-seeded from route params exactly as before.
+  const catalogue = useActivitiesCatalogue();
+  const activities = catalogue.activities;
+  // Per-user filtering inputs (hidden ids, excluded categories/areas, benefit clubs, saved default
+  // filters) are never cached across screens. Results stay LOADING until they have arrived too, so
+  // a cached catalogue never paints an unfiltered list that then jumps (resolveResultsView below).
+  const [userStateReady, setUserStateReady] = useState(false);
+  const [userLoadError, setUserLoadError] = useState(null);
+  const [userLoadAttempt, setUserLoadAttempt] = useState(0);
   const [userId, setUserId] = useState(null);
   const [favoriteIds, setFavoriteIds] = useState(new Set());
   const [visitedIds, setVisitedIds] = useState(new Set());
@@ -204,13 +261,14 @@ export default function ActivitiesScreen() {
     return null;
   }, [filters.location?.mode, filters.location?.coords, deviceCoords, settlementCoords]);
 
+  // Per-user state only (the catalogue itself is the shared cache above). Runs once per screen
+  // instance, plus again only after an explicit retry of a failed attempt (userLoadAttempt).
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const [data, { data: { session } }] = await Promise.all([fetchApprovedActivities(), supabase.auth.getSession()]);
+        const { data: { session } } = await supabase.auth.getSession();
         if (cancelled) return;
-        setActivities(data);
         if (session?.user?.id) {
           setUserId(session.user.id);
           const [flags, prefs, userNotes] = await Promise.all([
@@ -238,13 +296,22 @@ export default function ActivitiesScreen() {
           }
         }
       } catch (err) {
-        if (!cancelled) setLoadError(err?.message || 'error');
+        if (!cancelled) setUserLoadError(err?.message || 'error');
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) setUserStateReady(true);
       }
     })();
     return () => { cancelled = true; };
-  }, []);
+  }, [userLoadAttempt]);
+
+  const retryLoad = useCallback(() => {
+    if (catalogue.status === 'error') catalogue.retry();
+    if (userLoadError) {
+      setUserLoadError(null);
+      setUserStateReady(false);
+      setUserLoadAttempt((n) => n + 1);
+    }
+  }, [catalogue.status, catalogue.retry, userLoadError]);
 
   const requireLogin = () => {
     setShowLoginPrompt(true);
@@ -364,24 +431,20 @@ export default function ActivitiesScreen() {
     await activateSpontaneous();
   };
 
-  // "⚡ עכשיו" עבר להיות טריגר מעמוד הבית בלבד (למשתמשים מחוברים) - לא עוד chip בתוך
-  // FiltersSheet. אותו zרימת-הרשאה בדיוק כמו לחיצה ידנית על הכפתור הישן (toggleSpontaneous
-  // עצמו, בלי עותק מקביל) - רק מופעל פעם אחת אוטומטית ב-mount כש-spontaneous=true הגיע
-  // ב-route param, בדיוק כמו openFilters/view למעלה.
+  // "⚡ עכשיו" עבר להיות טריגר מעמוד הבית בלבד (למשתמשים מחוברים) - לא עוד chip בתוך FiltersSheet.
+  // אותו זרימת-הרשאה בדיוק כמו לחיצה ידנית על הכפתור הישן (toggleSpontaneous עצמו, בלי עותק
+  // מקביל). לא useEffect(..., []) עוד (2026-09-25, "Search / Location State Consistency Sweep" -
+  // ראו ההערה המלאה ליד lastSeenNavParams למעלה): מפתח-תלות ריק היה מריץ את זה פעם אחת בלבד
+  // לכל חיי מופע-המסך - לחיצה חוזרת על "⚡ עכשיו" מעמוד הבית על אותו מופע-מסך ממוחזר (BottomNav
+  // dismissTo) פשוט לא הייתה עושה כלום, כי spontaneous:'true' הוא אותו מחרוזת בדיוק בשתי
+  // הפעמים. תלוי ב-lastSeenNavParams (אותו אובייקט-מעקב שה-render-time block למעלה מעדכן) כדי
+  // שדחיפה חדשה תזוהה גם כשהערך הגולמי של spontaneous עצמו לא השתנה. !spontaneousActive - שומר
+  // ששחזור על דחיפה שבה הספונטני כבר פעיל מהפעם הקודמת יישאר no-op, לא יכבה אותו בטעות
+  // (toggleSpontaneous מהפך את מה שכבר קיים).
   useEffect(() => {
-    if (spontaneous === 'true') toggleSpontaneous();
+    if (spontaneous === 'true' && !spontaneousActive) toggleSpontaneous();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // "מה קרוב?" (app/index.js handleNearMePress/goNearMe) - GPS/הרשאה כבר טופלו בעמוד הבית לפני
-  // הניווט (homeFilters כבר מגיע עם location.mode:'current'+radiusKm:null - בלי חיתוך-רדיוס,
-  // ראו ההערה המלאה ב-goNearMe; homeCoords עם הקואורדינטות שהתקבלו); כל מה שנשאר לעשות כאן זה
-  // sortMode:'distance' פעם אחת ב-mount, בדיוק כמו טיפול spontaneous/view למעלה - לא זרימת-
-  // הרשאה מקבילה. חיתוך-ל-50 (NEARME_RESULT_LIMIT) קורה בנפרד ב-sortedActivities למטה.
-  useEffect(() => {
-    if (nearMe === 'true') setSortMode('distance');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [lastSeenNavParams]);
 
   // 🔎 חיפוש חופשי קומפקטי - אותו זרימת-הבהרה בדיוק כמו app/index.js (handleSmartSearch/
   // handleClarifyCity), רק שבמקום לנווט ל-/activities עם homeFilters (אנחנו כבר כאן), כותבים
@@ -616,6 +679,17 @@ export default function ActivitiesScreen() {
     [enrichedActivities, favoriteIds, visitedIds, notesByActivity]
   );
 
+  // LOADING / LOADED_WITH_RESULTS / LOADED_EMPTY / LOAD_FAILED (lib/catalogueCache.js). The count,
+  // the empty state and the result divider only ever render in the two LOADED_* states.
+  const resultsView = resolveResultsView({
+    catalogueStatus: catalogue.status,
+    userStateReady,
+    loadError: userLoadError,
+    resultCount: filteredActivities.length,
+  });
+  const loading = resultsView === RESULTS_VIEW.LOADING;
+  const loadError = resultsView === RESULTS_VIEW.LOAD_FAILED;
+
   // סעיף N בבקשה: "יש הבדל בין 'לא מצאנו מספיק תוצאות באזור' לבין 'הפילטרים מגבילים מאוד'" -
   // כשאין שום תוצאה (גם אחרי Smart Radius Expansion), מציגים לצד כל צ'יפ-הרחבה קיים כמה תוצאות
   // היו מתקבלות אילו הוסר *רק* הפילטר הזה - כדי שהמשתמש ידע מראש אם שווה ללחוץ, בלי לשנות שום
@@ -713,13 +787,18 @@ export default function ActivitiesScreen() {
     ? filteredActivities.slice(0, SPONTANEOUS_TOP_COUNT)
     : filteredActivities;
 
-  // ↕️ מיון - 'recommended' משאיר את הסדר בדיוק כפי שהוא (זהה ל-filteredActivities, אותו
-  // reference אפילו - "ברירת המחדל חייבת להישאר בדיוק כמו היום"). 'distance' ממיין *עותק* לפי
-  // distanceKm ASC בלבד - לא search חדש, לא נוגע ב-rankedResult/filters/Smart Radius. Array.sort
-  // של JS יציב (מובטח מ-ES2019, גם ב-Hermes) - אז תוצאות-בלי-distanceKm (Infinity) נופלות תמיד
-  // לסוף בסדר-היציבות המקורי שלהן, ותוצאות עם מרחק-שווה נשארות באותו סדר-מומלץ יחסי ביניהן
-  // (secondary sort key) - בדיוק "distance ASC, then existingRank ASC" מהבקשה, בלי צורך
-  // בקומפרטור-משני מפורש.
+  // ↕️ מיון - 'recommended' (2026-09-25, "Result Diversity / Playground Saturation" - עדכון לכלל
+  // הישן "חייב להישאר בדיוק כמו היום", ראו lib/resultDiversity.js לנימוק המלא: הכלל ההוא נועד
+  // למנוע רה-סידור *בטעות*, לא לאסור רה-סידור מכוון-ומתועד. broad discovery בלבד (isBroadDiscovery -
+  // אין קטגוריה נבחרת/חיפוש-חופשי/כוונת-קטגוריה מ-alias, ראו שם) עובר דרך diversifyResults, שמונע
+  // רצף ארוך מדי של אותה קטגוריה (בעיקר גני-שעשועים - נמדד: עד 87% מהקטלוג המאושר כולו) בלי לזרוק/
+  // לשכפל/לערבב כלום - כל שאר המקרים (כוונה מפורשת) ממשיכים לקבל בדיוק את filteredActivities, אותו
+  // reference אפילו, ללא שינוי. 'distance' ממיין *עותק* לפי distanceKm ASC בלבד - לא search חדש,
+  // לא נוגע ב-rankedResult/filters/Smart Radius/diversity (בחירת-מיון מפורשת של המשתמש תמיד מנצחת -
+  // ראו lib/resultDiversity.js). Array.sort של JS יציב (מובטח מ-ES2019, גם ב-Hermes) - אז תוצאות-
+  // בלי-distanceKm (Infinity) נופלות תמיד לסוף בסדר-היציבות המקורי שלהן, ותוצאות עם מרחק-שווה
+  // נשארות באותו סדר-מומלץ יחסי ביניהן (secondary sort key) - בדיוק "distance ASC, then
+  // existingRank ASC" מהבקשה, בלי צורך בקומפרטור-משני מפורש.
   // NEARME_RESULT_LIMIT = 50 (2026-09-20, "CENTRAL RADAR update" - בקשת המשתמש: "50 is a RESULT
   // LIMIT, not a distance rule... return up to 50 activities ordered by proximity"). חל רק
   // כשהגענו דרך "מה קרוב?" (nearMe==='true', route param קבוע לכל חיי המסך הזה) - לא על מיון-
@@ -732,11 +811,11 @@ export default function ActivitiesScreen() {
   const NEARME_RESULT_LIMIT = 50;
   const sortedActivities = useMemo(() => {
     const base = sortMode !== 'distance'
-      ? filteredActivities
+      ? (isBroadDiscovery(filters) ? diversifyResults(filteredActivities) : filteredActivities)
       : [...filteredActivities].sort((a, b) => (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity));
     if (nearMe !== 'true') return base;
     return base.filter((a) => a.distanceKm != null).slice(0, NEARME_RESULT_LIMIT);
-  }, [filteredActivities, sortMode, nearMe]);
+  }, [filteredActivities, sortMode, nearMe, filters]);
 
   const setField = (key, value) => setFilters((prev) => ({ ...prev, [key]: value }));
   const clearAll = () => setFilters(DEFAULT_FILTERS);
@@ -781,9 +860,12 @@ export default function ActivitiesScreen() {
       <View style={styles.titleBlock}>
         <View style={styles.titleRow}>
           <Text style={styles.pageTitle} numberOfLines={1}>{t('activities.header.title')}</Text>
-          <Text style={styles.titleCount} numberOfLines={1}>
-            {t('activities.header.count', { count: filteredActivities.length })}
-          </Text>
+          {/* Only once the result set is known - while loading this used to read "0". */}
+          {!loading && !loadError ? (
+            <Text style={styles.titleCount} numberOfLines={1}>
+              {t('activities.header.count', { count: filteredActivities.length })}
+            </Text>
+          ) : null}
         </View>
         {/* תקציר-חיפוש בשפה טבעית ("מציג כעת...", ראו buildResultsSummary/lib/filterSummaries.js) -
             משני-חזותית ל"כל הפעילויות" (fontSize/color עדינים יותר, ראו הסטייל למטה), לא כרטיס/
@@ -956,6 +1038,14 @@ export default function ActivitiesScreen() {
 
       {spontaneousError ? <Text style={styles.freeSearchErrorText}>{t(spontaneousError)}</Text> : null}
 
+      {/* A background refresh of a still-valid cached catalogue failed: the results below stay
+          exactly as they were (never replaced with 0) - this only says they may be slightly old. */}
+      {!loading && !loadError && catalogue.refreshError ? (
+        <Pressable onPress={catalogue.retry} hitSlop={6}>
+          <Text style={styles.refreshFailedText}>{t('activities.results.refreshFailed')}</Text>
+        </Pressable>
+      ) : null}
+
       {/* 🚗 Smart Radius Expansion - חיווי משני, לא modal ולא warning (סעיף M בבקשה): מוצג רק
           כשבאמת הורחב הרדיוס (searchMetadata.radiusExpanded), נעלם לגמרי אם לא היה צורך. */}
       {!loading && !loadError && searchMetadata.radiusExpanded ? (
@@ -986,6 +1076,9 @@ export default function ActivitiesScreen() {
   ) : loadError ? (
     <View style={styles.emptyState}>
       <Text style={styles.emptyTitle}>{t('activities.results.loadError')}</Text>
+      <Pressable style={styles.emptyBtn} onPress={retryLoad}>
+        <Text style={styles.emptyBtnText}>{t('activities.results.retry')}</Text>
+      </Pressable>
     </View>
   ) : filteredActivities.length === 0 ? (
     <View style={styles.emptyState}>
@@ -1162,6 +1255,8 @@ export default function ActivitiesScreen() {
         </Pressable>
       </Modal>
 
+      {/* Hiding stays FLAT and CANONICAL on purpose (no browse groups): "hide this activity type"
+          is a precise choice, and excludeCategory is matched value-by-value. */}
       <QuickPicker
         visible={hideCategoriesModalOpen}
         title={t('activities.hide.categoriesTitle')}
@@ -1283,10 +1378,11 @@ export default function ActivitiesScreen() {
         title={t('activities.gate.categoryLabel')}
         subtitle={t('activities.gate.categorySubtitle')}
         options={CATEGORY_FILTER_OPTIONS}
+        groups={BROWSE_GROUP_OPTIONS}
         value={filters.category}
         multiple
         showAll
-        onChange={(v) => setField('category', v)}
+        onChange={(v) => setFilters((prev) => withManualCategorySelection(prev, v))}
         onClose={() => setGateCategoryOpen(false)}
       />
       <LocationQuickPicker
@@ -1439,6 +1535,7 @@ const styles = createStyles((d) => ({
   freeSearchBtnText: { fontFamily: fonts.bold, fontSize: 13, color: '#ffffff' },
   freeSearchClarifyText: { fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary, textAlign: d.textAlign, marginBottom: 8 },
   freeSearchErrorText: { fontFamily: fonts.semiBold, fontSize: 11.5, color: colors.danger, textAlign: 'center', marginTop: 8 },
+  refreshFailedText: { fontFamily: fonts.semiBold, fontSize: 11.5, color: colors.textMuted, textAlign: 'center', marginTop: 8 },
 
   // TOOLBAR - שלושה controls בלבד (סינון/תצוגה+מיון/חיפוש), בלי שורת-chips נפרדת מתחת יותר
   // (בקשת המשתמש 2026-09-16 השנייה: "the first real Activity card should appear as early as

@@ -2,10 +2,12 @@ import { useEffect, useState } from 'react';
 import { Modal, View, Text, TextInput, ScrollView, Pressable } from 'react-native';
 import { colors, fonts, radii, spacing } from '../constants/theme';
 import { useI18n, createStyles } from '../lib/i18n';
+import { membersOf, toggleGroupSelection, toggleCategorySelection } from '../lib/browseGroups';
+import BrowseGroupGrid from './BrowseGroupGrid';
 
 export default function QuickPicker({
   visible, title, subtitle, options, value, multiple = true, showAll = false, allLabel, onChange, onClose,
-  footer = null, doneLabel, onReset, searchable = false,
+  footer = null, doneLabel, onReset, searchable = false, groups = null,
 }) {
   const { t } = useI18n();
   const [search, setSearch] = useState('');
@@ -25,6 +27,30 @@ export default function QuickPicker({
     }
   };
 
+  // Browse-group mode (`groups` = BROWSE_GROUP_OPTIONS, lib/browseGroups.js): level 1 = group tiles,
+  // level 2 = canonical member chips (options supply their emoji). value/onChange stay a canonical
+  // array. multiple: a tile toggles its whole group (partial -> complete). Single-select (Home
+  // "לכל הקטגוריות"): a tile selects the group's members and closes; a member chip selects that one
+  // value and closes - the same "choose and go" as the flat single-select picker.
+  const pickGroup = (groupId) => {
+    if (multiple) {
+      onChange(toggleGroupSelection(groupId, value));
+    } else {
+      onChange(membersOf(groupId));
+      onClose();
+    }
+  };
+  const pickMember = (id) => {
+    if (multiple) {
+      onChange(toggleCategorySelection(id, value));
+    } else {
+      onChange([id]);
+      onClose();
+    }
+  };
+
+  // "הכל" = [] = no category restriction. A selection covering every group is NOT "all" (internal
+  // categories exist, and the summary/navigation meaning differs) and is never collapsed into [].
   const isAllSelected = value.length === 0;
   const visibleOptions = searchable && search.trim()
     ? options.filter((o) => o.label.toLowerCase().includes(search.trim().toLowerCase()))
@@ -34,7 +60,7 @@ export default function QuickPicker({
   // רשת דו-טורית מסודרת עם אייקון+טקסט בכל שורה, במקום ה-pills-ברוחב-משתנה שהיו נדחסות אחת
   // ליד השנייה (בקשת המשתמש: "מסודרות עם אייקונים קטנים... בצורה נעימה וברורה לעין"). אופציות
   // בלי emoji (מחיר/עיר/הזמנה/משך וכו') ממשיכות בדיוק כמו קודם - אין שינוי חזותי אצלן.
-  const hasIcons = options.some((o) => o.emoji);
+  const hasIcons = !!groups || options.some((o) => o.emoji);
 
   const gridContent = (
     <View>
@@ -46,6 +72,9 @@ export default function QuickPicker({
           <Text style={[styles.chipText, isAllSelected && styles.chipTextSelected]}>{allLabel ?? t('common.actions.all')}</Text>
         </Pressable>
       )}
+      {groups ? (
+        <BrowseGroupGrid groups={groups} options={options} value={value} onGroupPress={pickGroup} onMemberPress={pickMember} />
+      ) : (
       <View style={hasIcons ? styles.iconGrid : styles.grid}>
         {visibleOptions.map((opt) => {
           const selected = value.includes(opt.id);
@@ -66,6 +95,7 @@ export default function QuickPicker({
           );
         })}
       </View>
+      )}
     </View>
   );
 
