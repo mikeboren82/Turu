@@ -1,7 +1,8 @@
-// בדיקות ל-lib/activities.js#fetchAllApprovedRows (2026-09-20, "Performance Phase 1" audit
-// סעיף 1/2/9) - עימוד-מקבילי במקום לולאה סריאלית. supabase מדומה (לא הרשת האמיתית) מדמה בדיוק
-// את שרשרת ה-query שבה fetchApprovedActivitiesPage משתמשת (select/eq/order/range), כולל
-// {count:'exact'} על הדף הראשון. אותו require-hook (babel commonjs + סטאבים) כמו שאר הבדיקות.
+// בדיקות ל-lib/activities.js#fetchAllApprovedRows - במקור (2026-09-20, "Performance Phase 1")
+// עימוד-מקבילי לפי OFFSET; מאז 2026-09-25 ("Activities Loading + Client Cache Performance")
+// עימוד-keyset בשני "נתיבי-id" מקבילים (ראו ההערה ב-lib/activities.js). supabase מדומה (לא הרשת
+// האמיתית) מדמה בדיוק את שרשרת ה-query שבה fetchApprovedLane משתמשת (select/eq/gte|gt/lt/order/
+// limit). אותו require-hook (babel commonjs + סטאבים) כמו שאר הבדיקות.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('path');
@@ -11,39 +12,40 @@ const { addHook } = require('pirates');
 
 const ROOT = path.resolve(__dirname, '..');
 
-// makeFakeSupabase - thenable query-builder מינימלי: תומך רק במה ש-fetchApprovedActivitiesPage
-// בפועל קורא לו (from/select/eq/order/range), לא API מלא של supabase-js. simulateGrowth (אופציונלי)
-// מוסיף שורות ל-"מאגר" אחרי הקריאה הראשונה (עם count) - מדמה כתיבות-מתחרות בין ספירת-הדף-הראשון
-// לשליפת-הדפים-האחרונים, כדי לבדוק את רשת-הביטחון (הלולאה הסריאלית האחרונה ב-fetchAllApprovedRows).
+// makeFakeSupabase - thenable query-builder מינימלי: תומך רק במה ש-fetchApprovedLane בפועל קורא
+// לו, לא API מלא של supabase-js. simulateGrowthRows (אופציונלי) מוסיף שורות ל-"מאגר" מיד אחרי
+// הבקשה הראשונה - מדמה פרסום-מקביל תוך כדי שליפה, כדי לוודא ששורות חדשות שנופלות אחרי הסמן לא
+// נחסרות ושום שורה לא מגיעה פעמיים. requests (מוחזר) - רישום של כל בקשה, לבדיקת צורת-הבקשות.
 function makeFakeSupabase(initialRows, { simulateGrowthRows = null } = {}) {
   let rows = initialRows;
-  let countCallCount = 0;
-  return {
+  let requestCount = 0;
+  const requests = [];
+  const fake = {
+    requests,
     from() {
       return {
         select(_query, opts) {
-          const withCount = !!(opts && opts.count === 'exact');
-          const state = {};
+          const state = { filters: [], count: !!(opts && opts.count) };
           const builder = {
-            eq(col, val) { state.eqCol = col; state.eqVal = val; return builder; },
+            eq(col, val) { state.filters.push((r) => r[col] === val); state.eq = [col, val]; return builder; },
+            gte(col, val) { state.filters.push((r) => r[col] >= val); state.gte = val; return builder; },
+            gt(col, val) { state.filters.push((r) => r[col] > val); state.gt = val; return builder; },
+            lt(col, val) { state.filters.push((r) => r[col] < val); state.lt = val; return builder; },
             order(col, o) { state.orderCol = col; state.orderAsc = !!o?.ascending; return builder; },
-            range(from, to) {
+            range() { throw new Error('offset paging is no longer used'); },
+            limit(n) {
               return {
                 then(resolve) {
-                  if (withCount) {
-                    countCallCount += 1;
-                    if (countCallCount === 1 && simulateGrowthRows) rows = rows.concat(simulateGrowthRows);
-                  }
-                  let filtered = state.eqCol ? rows.filter((r) => r[state.eqCol] === state.eqVal) : rows.slice();
+                  requestCount += 1;
+                  requests.push({ ...state, limit: n });
+                  const filtered = rows.filter((r) => state.filters.every((f) => f(r)));
                   filtered.sort((a, b) => {
                     if (a[state.orderCol] === b[state.orderCol]) return 0;
                     const cmp = a[state.orderCol] < b[state.orderCol] ? -1 : 1;
                     return state.orderAsc ? cmp : -cmp;
                   });
-                  const page = filtered.slice(from, to + 1);
-                  const result = { data: page, error: null };
-                  if (withCount) result.count = filtered.length;
-                  resolve(result);
+                  if (requestCount === 1 && simulateGrowthRows) rows = rows.concat(simulateGrowthRows);
+                  resolve({ data: filtered.slice(0, n), error: null });
                 },
               };
             },
@@ -53,6 +55,7 @@ function makeFakeSupabase(initialRows, { simulateGrowthRows = null } = {}) {
       };
     },
   };
+  return fake;
 }
 
 function makeRows(n, { status = 'approved', idPrefix = 'a' } = {}) {
@@ -82,7 +85,7 @@ function loadWithFakeSupabase(fakeSupabase) {
     { exts: ['.js'], matcher: (f) => f.startsWith(path.join(ROOT, 'lib')) || f.startsWith(path.join(ROOT, 'constants')) },
   );
   // הסרת מהמטמון כדי שכל בדיקה תקבל instance טרי עם ה-fakeSupabase הנכון שלה (module-level state
-  // כמו MAX_CONCURRENT_PAGES/PAGE_SIZE נשאר קבוע, רק ה-supabase המדומה משתנה).
+  // כמו FETCH_LANES/PAGE_SIZE נשאר קבוע, רק ה-supabase המדומה משתנה).
   delete require.cache[require.resolve(path.join(ROOT, 'lib/activities.js'))];
   return require(path.join(ROOT, 'lib/activities.js'));
 }
@@ -128,7 +131,7 @@ test('paging: order is deterministic (ascending by id) across repeated fetches',
   assert.deepEqual(run1.map((r) => r.id), sorted, 'ascending by id, matching the .order(\'id\',{ascending:true}) call');
 });
 
-test('paging: batches beyond MAX_CONCURRENT_PAGES(8) still return every row exactly once (12 pages)', async () => {
+test('paging: a large catalogue (12 pages) returns every row exactly once', async () => {
   const rows = makeRows(12000);
   const { fetchAllApprovedRows } = loadWithFakeSupabase(makeFakeSupabase(rows));
   const result = await fetchAllApprovedRows();
@@ -136,18 +139,86 @@ test('paging: batches beyond MAX_CONCURRENT_PAGES(8) still return every row exac
   assert.equal(new Set(result.map((r) => r.id)).size, 12000);
 });
 
-test('paging: safety-net catches rows inserted between the first count and the last known page', async () => {
-  // 1000 rows exist when the first (count-carrying) request runs; 500 more rows are added
-  // "concurrently" (simulateGrowthRows) right after that count is read - reproducing a live
-  // catalogue growing mid-fetch. pageCount is computed from the STALE count (1), so the normal
-  // batch loop fetches nothing extra; the trailing while-loop (pages[last].length===PAGE_SIZE)
-  // must notice page 0 came back full and keep paging until it finds the new rows.
+test('paging: rows published mid-fetch after the cursor are picked up, none duplicated', async () => {
+  // 1000 rows exist when the first request runs; 500 more (ids sorting after all of them) are
+  // published right after it - a live catalogue growing mid-fetch. The first page comes back full,
+  // so the lane keeps paging from its cursor and finds the new rows.
   const initial = makeRows(1000, { idPrefix: 'a' });
   const grown = makeRows(500, { idPrefix: 'b' });
   const { fetchAllApprovedRows } = loadWithFakeSupabase(makeFakeSupabase(initial, { simulateGrowthRows: grown }));
   const result = await fetchAllApprovedRows();
-  assert.equal(result.length, 1500, 'the 500 rows added after the count snapshot must not be silently dropped');
+  assert.equal(result.length, 1500, 'rows published after the cursor must not be silently dropped');
   assert.equal(new Set(result.map((r) => r.id)).size, 1500);
+});
+
+// UUID-shaped ids spread over the whole id space, like the real table.
+function makeUuidRows(n) {
+  return Array.from({ length: n }, (_, i) => {
+    const head = Math.floor((i * 0xffffffff) / n).toString(16).padStart(8, '0');
+    return { id: `${head}-0000-4000-8000-${String(i).padStart(12, '0')}`, status: 'approved' };
+  });
+}
+
+test('paging: UUID ids are split into two disjoint lanes at 0x80..., together covering every row once', async () => {
+  const rows = makeUuidRows(5537);
+  const fake = makeFakeSupabase(rows);
+  const { fetchAllApprovedRows } = loadWithFakeSupabase(fake);
+  const result = await fetchAllApprovedRows();
+  assert.equal(result.length, 5537);
+  assert.equal(new Set(result.map((r) => r.id)).size, 5537);
+  assert.deepEqual(result.map((r) => r.id), rows.map((r) => r.id).sort(), 'lane order + keyset order = ascending id');
+  const firstPages = fake.requests.filter((r) => r.gt === undefined);
+  assert.deepEqual(firstPages.map((r) => [r.gte, r.lt ?? null]).sort(), [
+    ['00000000-0000-0000-0000-000000000000', '80000000-0000-0000-0000-000000000000'],
+    ['80000000-0000-0000-0000-000000000000', null],
+  ]);
+});
+
+test('paging: request shape - no count(*) query, no OFFSET, PK-ordered pages of at most 1000, status filter on every request', async () => {
+  const fake = makeFakeSupabase(makeUuidRows(5537));
+  const { fetchAllApprovedRows } = loadWithFakeSupabase(fake);
+  await fetchAllApprovedRows();
+  assert.ok(fake.requests.length >= 6 && fake.requests.length <= 8, `~6 pages for 5,537 rows, got ${fake.requests.length}`);
+  for (const r of fake.requests) {
+    assert.equal(r.count, false, 'no count=exact');
+    assert.equal(r.limit, 1000);
+    assert.equal(r.orderCol, 'id');
+    assert.equal(r.orderAsc, true);
+    assert.deepEqual(r.eq, ['status', 'approved']);
+  }
+});
+
+test('paging: at most 2 requests are ever in flight, however many pages there are', async () => {
+  const fake = makeFakeSupabase(makeUuidRows(12000));
+  // Wrap the fake so each request resolves on a later tick and in-flight requests are counted.
+  let inFlight = 0;
+  let peak = 0;
+  const origFrom = fake.from;
+  fake.from = (...a) => {
+    const t = origFrom(...a);
+    const origSelect = t.select;
+    t.select = (...s) => {
+      const b = origSelect(...s);
+      const origLimit = b.limit;
+      b.limit = (n) => ({
+        then(resolve) {
+          inFlight += 1;
+          peak = Math.max(peak, inFlight);
+          setTimeout(() => { inFlight -= 1; origLimit(n).then(resolve); }, 1);
+        },
+      });
+      for (const k of ['eq', 'gte', 'gt', 'lt', 'order']) {
+        const orig = b[k];
+        b[k] = (...x) => { orig(...x); return b; };
+      }
+      return b;
+    };
+    return t;
+  };
+  const { fetchAllApprovedRows } = loadWithFakeSupabase(fake);
+  const result = await fetchAllApprovedRows();
+  assert.equal(result.length, 12000);
+  assert.equal(peak, 2);
 });
 
 test('paging: only approved rows are requested (status filter still applied)', async () => {

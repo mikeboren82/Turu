@@ -69,6 +69,8 @@
   },
   "results": {
     "loadError": "We couldn't load activities",
+    "retry": "Try again",
+    "refreshFailed": "We couldn't refresh the list - some details may be out of date. Tap to try again",
     "emptyWalking": "We didn't find activities within walking distance 🚶",
     "empty": "😕 We didn't find an activity that exactly matches your search.",
     "clearAllFilters": "Clear all filters",

@@ -32,7 +32,8 @@ import { parseSmartSearchQuery, intentToFilters, needsAreaClarification } from '
 import {
   requestCurrentPosition, CURRENT_POSITION_ERROR_KEYS, checkNearMePermission, requestNearMePermission,
 } from '../lib/currentPosition';
-import { fetchApprovedActivities, fetchSettlementCoords } from '../lib/activities';
+import { fetchSettlementCoords } from '../lib/activities';
+import { useActivitiesCatalogue } from '../lib/useActivitiesCatalogue';
 import { fetchUserActivityFlags, toggleFavorite, toggleVisited, fetchAllPersonalNotes, toggleWithFeedback, hideActivityWithFeedback } from '../lib/interactions';
 import { selectedChildAges } from '../lib/matchReasons';
 import { buildHomeDiscoveryCandidates } from '../lib/homeDiscovery';
@@ -461,9 +462,6 @@ export default function HomeScreen() {
   // ✨ המלצות מותאמות - excludedCategories/excludedCities/benefitClubs זהים בדיוק למה
   // ש-app/activities.js טוען, כדי שהקרוסלה כאן תתאים לאותם חוקי-דירוג/הסתרה בדיוק כמו עמוד
   // התוצאות.
-  const [recActivities, setRecActivities] = useState([]);
-  const [recLoading, setRecLoading] = useState(true);
-  const [recError, setRecError] = useState(null);
   const [recFavoriteIds, setRecFavoriteIds] = useState(new Set());
   const [recVisitedIds, setRecVisitedIds] = useState(new Set());
   const [recHiddenIds, setRecHiddenIds] = useState(new Set());
@@ -481,25 +479,15 @@ export default function HomeScreen() {
     recentSearches, recordRecentSearch, clearRecentSearches, removeRecentSearch,
   } = useRecentSearches();
 
-  // כל הפעילויות המאושרות - נטען פעם אחת בלבד ב-mount (לא ב-useFocusEffect כמו user/children
-  // למטה): payload כבד (אלפי פעילויות, ראו lib/activities.js) - טעינה חוזרת בכל חזרה למסך הבית
-  // תהיה מיותרת ויקרה. הדירוג עצמו (recommendations, useMemo למטה) עדיין מתעדכן חי ככל
-  // שהפילטרים/מיקום/מועדפים משתנים, בלי לדרוש fetch חדש.
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setRecLoading(true);
-      try {
-        const data = await fetchApprovedActivities();
-        if (!cancelled) setRecActivities(data);
-      } catch (err) {
-        if (!cancelled) setRecError(err || true);
-      } finally {
-        if (!cancelled) setRecLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, []);
+  // כל הפעילויות המאושרות - מהמטמון המשותף לכל האפליקציה (lib/useActivitiesCatalogue.js, מדיניות-
+  // הרעננות ב-lib/catalogueCache.js), אותו payload בדיוק ש-/activities קורא: מי שנטען ראשון משלם
+  // על הטעינה, והשני (וכל חזרה בתוך חלון-הרעננות, כולל remount של Home דרך הסרגל התחתון) מרנדר
+  // מהזיכרון. הדירוג עצמו (recommendations, useMemo למטה) עדיין מתעדכן חי ככל שהפילטרים/מיקום/
+  // מועדפים משתנים, בלי לדרוש fetch חדש. כשל-רענון של מטמון תקף משאיר את הקרוסלה כמו שהיא.
+  const catalogue = useActivitiesCatalogue();
+  const recActivities = catalogue.activities;
+  const recLoading = catalogue.status === 'loading';
+  const recError = catalogue.status === 'error' ? catalogue.error : null;
 
   // locationKnown bootstrap (ראו הערה מלאה ליד isPersonalized/locationKnown למטה) - רץ פעם אחת
   // ב-mount, לפני שיודעים בכלל אם יש session מחובר. אם מתברר מאוחר יותר (ה-useFocusEffect למטה)

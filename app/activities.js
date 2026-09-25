@@ -13,7 +13,9 @@ import ExcludeAreasPicker from '../components/ExcludeAreasPicker';
 import LocationQuickPicker, { locationSummary } from '../components/LocationQuickPicker';
 import { ChevronDownIcon } from '../components/icons';
 import { colors, fonts, radii, spacing } from '../constants/theme';
-import { fetchApprovedActivities, formatSearchDistance, fetchSettlementCoords } from '../lib/activities';
+import { formatSearchDistance, fetchSettlementCoords } from '../lib/activities';
+import { useActivitiesCatalogue } from '../lib/useActivitiesCatalogue';
+import { resolveResultsView, RESULTS_VIEW } from '../lib/catalogueCache';
 import { fetchUserActivityFlags, toggleFavorite, toggleVisited, savePersonalNote, fetchAllPersonalNotes, toggleWithFeedback, hideActivityWithFeedback } from '../lib/interactions';
 import { fetchUserPreferences, saveExcludedCategories, saveExcludedCities, saveExcludedRegions } from '../lib/preferences';
 import { supabase } from '../lib/supabase';
@@ -144,9 +146,17 @@ export default function ActivitiesScreen() {
   // לא accordion שלם. סוגר את sheetOpen כשנפתח (ולהפך, ראו onPress למטה) כדי שלעולם לא יהיו
   // שני Modal-ים פתוחים יחד.
   const [displaySheetOpen, setDisplaySheetOpen] = useState(false);
-  const [activities, setActivities] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState(null);
+  // The public catalogue comes from the app-wide cache (lib/useActivitiesCatalogue.js) - a repeat
+  // visit renders from memory instead of re-downloading ~5,500 rows. It is DATA only: every filter
+  // input above/below stays per-screen state, re-seeded from route params exactly as before.
+  const catalogue = useActivitiesCatalogue();
+  const activities = catalogue.activities;
+  // Per-user filtering inputs (hidden ids, excluded categories/areas, benefit clubs, saved default
+  // filters) are never cached across screens. Results stay LOADING until they have arrived too, so
+  // a cached catalogue never paints an unfiltered list that then jumps (resolveResultsView below).
+  const [userStateReady, setUserStateReady] = useState(false);
+  const [userLoadError, setUserLoadError] = useState(null);
+  const [userLoadAttempt, setUserLoadAttempt] = useState(0);
   const [userId, setUserId] = useState(null);
   const [favoriteIds, setFavoriteIds] = useState(new Set());
   const [visitedIds, setVisitedIds] = useState(new Set());
@@ -251,13 +261,14 @@ export default function ActivitiesScreen() {
     return null;
   }, [filters.location?.mode, filters.location?.coords, deviceCoords, settlementCoords]);
 
+  // Per-user state only (the catalogue itself is the shared cache above). Runs once per screen
+  // instance, plus again only after an explicit retry of a failed attempt (userLoadAttempt).
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const [data, { data: { session } }] = await Promise.all([fetchApprovedActivities(), supabase.auth.getSession()]);
+        const { data: { session } } = await supabase.auth.getSession();
         if (cancelled) return;
-        setActivities(data);
         if (session?.user?.id) {
           setUserId(session.user.id);
           const [flags, prefs, userNotes] = await Promise.all([
@@ -285,13 +296,22 @@ export default function ActivitiesScreen() {
           }
         }
       } catch (err) {
-        if (!cancelled) setLoadError(err?.message || 'error');
+        if (!cancelled) setUserLoadError(err?.message || 'error');
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) setUserStateReady(true);
       }
     })();
     return () => { cancelled = true; };
-  }, []);
+  }, [userLoadAttempt]);
+
+  const retryLoad = useCallback(() => {
+    if (catalogue.status === 'error') catalogue.retry();
+    if (userLoadError) {
+      setUserLoadError(null);
+      setUserStateReady(false);
+      setUserLoadAttempt((n) => n + 1);
+    }
+  }, [catalogue.status, catalogue.retry, userLoadError]);
 
   const requireLogin = () => {
     setShowLoginPrompt(true);
@@ -659,6 +679,17 @@ export default function ActivitiesScreen() {
     [enrichedActivities, favoriteIds, visitedIds, notesByActivity]
   );
 
+  // LOADING / LOADED_WITH_RESULTS / LOADED_EMPTY / LOAD_FAILED (lib/catalogueCache.js). The count,
+  // the empty state and the result divider only ever render in the two LOADED_* states.
+  const resultsView = resolveResultsView({
+    catalogueStatus: catalogue.status,
+    userStateReady,
+    loadError: userLoadError,
+    resultCount: filteredActivities.length,
+  });
+  const loading = resultsView === RESULTS_VIEW.LOADING;
+  const loadError = resultsView === RESULTS_VIEW.LOAD_FAILED;
+
   // סעיף N בבקשה: "יש הבדל בין 'לא מצאנו מספיק תוצאות באזור' לבין 'הפילטרים מגבילים מאוד'" -
   // כשאין שום תוצאה (גם אחרי Smart Radius Expansion), מציגים לצד כל צ'יפ-הרחבה קיים כמה תוצאות
   // היו מתקבלות אילו הוסר *רק* הפילטר הזה - כדי שהמשתמש ידע מראש אם שווה ללחוץ, בלי לשנות שום
@@ -829,9 +860,12 @@ export default function ActivitiesScreen() {
       <View style={styles.titleBlock}>
         <View style={styles.titleRow}>
           <Text style={styles.pageTitle} numberOfLines={1}>{t('activities.header.title')}</Text>
-          <Text style={styles.titleCount} numberOfLines={1}>
-            {t('activities.header.count', { count: filteredActivities.length })}
-          </Text>
+          {/* Only once the result set is known - while loading this used to read "0". */}
+          {!loading && !loadError ? (
+            <Text style={styles.titleCount} numberOfLines={1}>
+              {t('activities.header.count', { count: filteredActivities.length })}
+            </Text>
+          ) : null}
         </View>
         {/* תקציר-חיפוש בשפה טבעית ("מציג כעת...", ראו buildResultsSummary/lib/filterSummaries.js) -
             משני-חזותית ל"כל הפעילויות" (fontSize/color עדינים יותר, ראו הסטייל למטה), לא כרטיס/
@@ -1004,6 +1038,14 @@ export default function ActivitiesScreen() {
 
       {spontaneousError ? <Text style={styles.freeSearchErrorText}>{t(spontaneousError)}</Text> : null}
 
+      {/* A background refresh of a still-valid cached catalogue failed: the results below stay
+          exactly as they were (never replaced with 0) - this only says they may be slightly old. */}
+      {!loading && !loadError && catalogue.refreshError ? (
+        <Pressable onPress={catalogue.retry} hitSlop={6}>
+          <Text style={styles.refreshFailedText}>{t('activities.results.refreshFailed')}</Text>
+        </Pressable>
+      ) : null}
+
       {/* 🚗 Smart Radius Expansion - חיווי משני, לא modal ולא warning (סעיף M בבקשה): מוצג רק
           כשבאמת הורחב הרדיוס (searchMetadata.radiusExpanded), נעלם לגמרי אם לא היה צורך. */}
       {!loading && !loadError && searchMetadata.radiusExpanded ? (
@@ -1034,6 +1076,9 @@ export default function ActivitiesScreen() {
   ) : loadError ? (
     <View style={styles.emptyState}>
       <Text style={styles.emptyTitle}>{t('activities.results.loadError')}</Text>
+      <Pressable style={styles.emptyBtn} onPress={retryLoad}>
+        <Text style={styles.emptyBtnText}>{t('activities.results.retry')}</Text>
+      </Pressable>
     </View>
   ) : filteredActivities.length === 0 ? (
     <View style={styles.emptyState}>
@@ -1490,6 +1535,7 @@ const styles = createStyles((d) => ({
   freeSearchBtnText: { fontFamily: fonts.bold, fontSize: 13, color: '#ffffff' },
   freeSearchClarifyText: { fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary, textAlign: d.textAlign, marginBottom: 8 },
   freeSearchErrorText: { fontFamily: fonts.semiBold, fontSize: 11.5, color: colors.danger, textAlign: 'center', marginTop: 8 },
+  refreshFailedText: { fontFamily: fonts.semiBold, fontSize: 11.5, color: colors.textMuted, textAlign: 'center', marginTop: 8 },
 
   // TOOLBAR - שלושה controls בלבד (סינון/תצוגה+מיון/חיפוש), בלי שורת-chips נפרדת מתחת יותר
   // (בקשת המשתמש 2026-09-16 השנייה: "the first real Activity card should appear as early as
