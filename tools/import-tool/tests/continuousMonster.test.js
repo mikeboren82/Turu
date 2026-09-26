@@ -2,6 +2,7 @@
 // policy, review-budget classification, and dry-run never mutating (orchestrator run with a recording client).
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const path = require('path');
 const { JOBS, isDue, selectJobs, lockIsStale, schedulerCommand } = require('../lib/monsterJobs');
 const { proposeCadenceHours, cadencePlan, expectedScansPerDay, classOf } = require('../lib/sourceCadence');
 const { classifyIncoming, reviewBudget } = require('../lib/reviewBudget');
@@ -105,4 +106,58 @@ test('code line: a checkout that is not at the main commit refuses to run jobs; 
   assert.equal(codeLineStatus({ available: true, head: 'aaa', mainHead: 'aaa', branch: 'HEAD', dirty: 0 }).ok, true, 'a detached checkout AT the main commit runs');
   assert.equal(codeLineStatus({ available: false }).code, 'unknown');
   assert.equal(codeLineStatus({ available: true, head: 'aaa', mainHead: null, branch: 'x', dirty: 0 }).code, 'unknown');
+});
+
+// Places image automation (2026-09-26): one Python job, gated OFF until rollout, before the Cleaner
+test('places_photos: python runtime, bounded, before cleaner, gated off unless places_photos_enabled is exactly true', () => {
+  const { jobSpawnSpec, isGatedOff } = require('../lib/monsterJobs');
+  const j = JOBS.find((x) => x.id === 'places_photos');
+  assert.ok(j, 'job exists');
+  assert.equal(j.runtime, 'python'); assert.equal(j.where, 'local'); assert.equal(j.everyHours, 1); assert.equal(j.maxWork, 50);
+  assert.equal(j.enabledSetting, 'places_photos_enabled');
+  assert.match(j.command, /^python enrich_images\.py /);
+  for (const flag of ['--apply', '--limit=50', '--max-concurrency=2', '--requests-per-second=2', '--daily-max-calls=300']) assert.ok(j.command.split(' ').includes(flag), flag);
+  assert.ok(!/--list-only|--dry-run/.test(j.command));
+  // ordering: before the Cleaner (the Cleaner's stale sweep then closes the satisfied missing_image case)
+  const ids = JOBS.map((x) => x.id); assert.ok(ids.indexOf('places_photos') < ids.indexOf('cleaner'), 'places_photos before cleaner');
+  const now = new Date('2026-09-26T20:00:00Z');
+  const on = selectJobs({ state: {}, now, gates: { places_photos_enabled: true } }).map((x) => x.id);
+  assert.ok(on.indexOf('places_photos') >= 0 && on.indexOf('places_photos') < on.indexOf('cleaner'));
+  // gate: absent / false / truthy-but-not-true = OFF, also for --job=places_photos
+  for (const gates of [{}, { places_photos_enabled: false }, { places_photos_enabled: 'true' }, { places_photos_enabled: 1 }]) {
+    assert.ok(!selectJobs({ state: {}, now, gates }).some((x) => x.id === 'places_photos'), JSON.stringify(gates));
+    assert.deepEqual(selectJobs({ state: {}, now, only: 'places_photos', gates }), []);
+    assert.equal(isGatedOff(j, gates), true);
+  }
+  assert.deepEqual(selectJobs({ state: {}, now, only: 'places_photos', gates: { places_photos_enabled: true } }).map((x) => x.id), ['places_photos']);
+  assert.ok(!selectJobs({ state: { places_photos: { lastRunAt: '2026-09-26T19:30:00Z' } }, now, gates: { places_photos_enabled: true } }).some((x) => x.id === 'places_photos'), 'hourly');
+  // spawn: py -3 on Windows in tools/playground-discovery, UTF-8 stdio, own 15-min timeout
+  const root = path.join('C:', 'turu', 'tools', 'import-tool');
+  const w = jobSpawnSpec(j, { root, platform: 'win32', env: { PATH: 'x' } });
+  assert.equal(w.runtime, 'python'); assert.equal(w.exe, 'py'); assert.deepEqual(w.args.slice(0, 2), ['-3', 'enrich_images.py']);
+  assert.ok(w.args.includes('--limit=50'));
+  assert.equal(w.cwd, path.resolve(root, '..', 'playground-discovery'));
+  assert.equal(w.env.PYTHONIOENCODING, 'utf-8'); assert.equal(w.env.PYTHONUTF8, '1'); assert.equal(w.env.PATH, 'x');
+  assert.equal(w.timeoutMs, 15 * 60 * 1000);
+  assert.equal(jobSpawnSpec(j, { root, platform: 'linux', env: {} }).exe, 'python3');
+  const o = jobSpawnSpec(j, { root, platform: 'win32', env: { TURU_PYTHON: 'C:\py\python.exe' } });
+  assert.equal(o.exe, 'C:\py\python.exe'); assert.equal(o.args[0], 'enrich_images.py');
+  assert.throws(() => jobSpawnSpec({ ...j, runtime: 'ruby' }, { root }), /unknown runtime/);
+});
+
+test('existing Node jobs keep the Node runtime unchanged: this node binary, command minus "node", import-tool root, 45-min timeout, env untouched', () => {
+  const { jobSpawnSpec } = require('../lib/monsterJobs');
+  const root = path.join('C:', 'turu', 'tools', 'import-tool');
+  const env = { PATH: 'p' };
+  for (const j of JOBS.filter((x) => x.where === 'local' && x.id !== 'places_photos')) {
+    assert.equal(j.runtime, undefined, j.id + ' has no runtime field (defaults to node)');
+    assert.ok(!j.enabledSetting, j.id + ' is not gated');
+    assert.match(j.command, /^node /, j.id);
+    const s = jobSpawnSpec(j, { root, platform: 'win32', env, nodePath: 'C:\node\node.exe' });
+    assert.equal(s.runtime, 'node'); assert.equal(s.exe, 'C:\node\node.exe'); assert.deepEqual(s.args, j.command.split(' ').slice(1));
+    assert.equal(s.cwd, root); assert.equal(s.env, env, 'same env object, no UTF-8 overrides'); assert.equal(s.timeoutMs, 45 * 60 * 1000);
+  }
+  // the pre-existing selection is unchanged when no gate is passed
+  const ids = selectJobs({ state: {}, now: new Date('2026-09-20T10:00:00Z') }).map((j) => j.id);
+  assert.deepEqual(ids, ['relay', 'cleaner', 'pending_lifecycle', 'coverage', 'discovery', 'cadence', 'reprobe']);
 });

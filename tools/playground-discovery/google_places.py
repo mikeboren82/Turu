@@ -39,12 +39,72 @@ DISCOVERY_FIELD_MASK = ",".join([
 # usable as an activity record).
 IDS_ONLY_FIELD_MASK = "places.id"
 
-RETRYABLE_STATUS = {429, 500, 502, 503, 504}
+RETRYABLE_STATUS = {429, 500, 502, 503, 504}  # kept for callers; any 5xx is retried (see _request)
+RETRY_AFTER_CAP_SECONDS = 30.0
+
+
+# Classified failures (2026-09-26, Places image automation). All subclass RuntimeError so every existing
+# `except RuntimeError` / `except Exception` caller behaves exactly as before; `error_class` is a stable,
+# key-free label a caller can store (enrich_images.py's ledger) - never the response body.
+class PlacesApiError(RuntimeError):
+    error_class = "error"
+
+    def __init__(self, message: str, *, status_code: int | None = None, error_class: str | None = None):
+        super().__init__(message)
+        self.status_code = status_code
+        if error_class:
+            self.error_class = error_class
+
+
+class PlacesTransientError(PlacesApiError):
+    """Timeout / transport / protocol error / 5xx that outlived the in-run retries."""
+    error_class = "transient"
+
+
+class PlacesMalformedResponse(PlacesApiError):
+    """HTTP 200 whose body is not a JSON object - retried once, then this."""
+    error_class = "malformed"
+
+
+class PlacesInvalidPlace(PlacesApiError):
+    """400 INVALID_ARGUMENT / 404 NOT_FOUND - this place id is not answerable; never retried in-run."""
+    error_class = "invalid"
+
+
+class PlacesRateLimited(PlacesApiError):
+    """429 that outlived the bounded retries (Retry-After honoured) - the caller should stop the run."""
+    error_class = "rate_limited"
+
+
+class PlacesAuthError(PlacesApiError):
+    """401 / 403 - key, API enablement or billing problem: a configuration failure, not a per-place fact."""
+    error_class = "auth"
+
+
+class PlacesCallBudgetExhausted(PlacesApiError):
+    """The caller's call budget (e.g. a daily cap) has no calls left - no request was sent."""
+    error_class = "budget"
+
+
+class CallBudget:
+    """Counts every HTTP attempt (retries included) against a hard cap."""
+
+    def __init__(self, remaining: int):
+        self.remaining = max(0, int(remaining))
+        self.used = 0
+
+    def take(self) -> bool:
+        if self.remaining <= 0:
+            return False
+        self.remaining -= 1
+        self.used += 1
+        return True
 
 
 @dataclass
 class ApiCallStats:
     total_requests: int = 0
+    attempts: int = 0  # every request sent, including ones that died in transport (total_requests = responses)
     requests_by_endpoint: dict = None
     requests_by_query: dict = None
 
@@ -91,6 +151,9 @@ class GooglePlacesClient:
         requests_per_second: float = 5.0,
         max_retries: int = 4,
         timeout_seconds: float = 15.0,
+        call_budget: CallBudget | None = None,
+        transport: httpx.AsyncBaseTransport | None = None,
+        sleep=asyncio.sleep,
     ):
         if not api_key:
             raise ValueError("GOOGLE_MAPS_API_KEY is required (see .env.example)")
@@ -99,6 +162,9 @@ class GooglePlacesClient:
         self._rate_limiter = RateLimiter(requests_per_second)
         self._max_retries = max_retries
         self._timeout = timeout_seconds
+        self._call_budget = call_budget
+        self._transport = transport  # tests only (httpx.MockTransport)
+        self._sleep = sleep
         self.stats = ApiCallStats()
 
     async def _request(self, method: str, path: str, body: dict | None, field_mask: str, *, query_label: str | None) -> dict:
@@ -108,33 +174,86 @@ class GooglePlacesClient:
             "X-Goog-Api-Key": self._api_key,
             "X-Goog-FieldMask": field_mask,
         }
-        last_error = None
+        # Retry policy (2026-09-26): transport-level failures of ANY kind (timeouts, connect/read errors,
+        # protocol errors, the empty-message "Server disconnected") and 5xx are transient and retried with
+        # exponential backoff + jitter; 429 honours Retry-After (capped); a 200 that is not a JSON object is
+        # retried once. 400/404 (bad or dead place id) and 401/403 (key/billing) are never retried.
+        last_error: PlacesApiError | None = None
+        malformed_seen = 0
         async with self._semaphore:
-            async with httpx.AsyncClient(timeout=self._timeout) as client:
+            async with httpx.AsyncClient(timeout=self._timeout, transport=self._transport) as client:
                 for attempt in range(self._max_retries + 1):
+                    can_retry = attempt < self._max_retries
+                    if self._call_budget is not None and not self._call_budget.take():
+                        raise PlacesCallBudgetExhausted(f"Places API {path}: call budget exhausted")
                     await self._rate_limiter.wait()
+                    self.stats.attempts += 1
                     try:
                         resp = await client.request(method, url, json=body, headers=headers)
-                    except httpx.TimeoutException as exc:
-                        last_error = exc
-                        logger.warning("[ERROR] endpoint=%s query=%s status=timeout retry=%d", path, query_label, attempt)
-                        await asyncio.sleep(self._backoff_seconds(attempt))
-                        continue
+                    except httpx.TransportError as exc:
+                        kind = "timeout" if isinstance(exc, httpx.TimeoutException) else "transport"
+                        last_error = PlacesTransientError(
+                            f"Places API {path} failed: {type(exc).__name__}: {exc}", error_class=kind)
+                        logger.warning("[ERROR] endpoint=%s query=%s status=%s (%s) retry=%d",
+                                       path, query_label, kind, type(exc).__name__, attempt)
+                        if can_retry:
+                            await self._sleep(self._backoff_seconds(attempt))
+                            continue
+                        raise last_error from exc
                     self.stats.record(path, query_label)
-                    if resp.status_code == 200:
-                        return resp.json()
-                    if resp.status_code in RETRYABLE_STATUS and attempt < self._max_retries:
-                        logger.warning(
-                            "[ERROR] endpoint=%s query=%s status_code=%d retry=%d",
-                            path, query_label, resp.status_code, attempt,
-                        )
-                        await asyncio.sleep(self._backoff_seconds(attempt))
-                        continue
-                    # Non-retryable (or retries exhausted) - surface the body for
-                    # diagnosis, but never log the API key (it's only in headers,
-                    # which we don't print here - section 29).
-                    raise RuntimeError(f"Places API {path} failed: HTTP {resp.status_code} - {resp.text[:300]}")
-        raise RuntimeError(f"Places API {path} failed after retries: {last_error}")
+                    code = resp.status_code
+                    if code == 200:
+                        try:
+                            data = resp.json()
+                            if not isinstance(data, dict):
+                                raise ValueError("not a JSON object")
+                            return data
+                        except ValueError:
+                            malformed_seen += 1
+                            last_error = PlacesMalformedResponse(f"Places API {path} returned a malformed 200 body",
+                                                                 status_code=200)
+                            logger.warning("[ERROR] endpoint=%s query=%s status=malformed_200 retry=%d",
+                                           path, query_label, attempt)
+                            if malformed_seen < 2 and can_retry:
+                                await self._sleep(self._backoff_seconds(attempt))
+                                continue
+                            raise last_error
+                    # Non-retryable (or retries exhausted) - surface the body for diagnosis, but never log the
+                    # API key (it's only in headers, which we don't print here - section 29).
+                    detail = f"Places API {path} failed: HTTP {code} - {resp.text[:300]}"
+                    if code in (401, 403):
+                        raise PlacesAuthError(detail, status_code=code)
+                    if code in (400, 404):
+                        raise PlacesInvalidPlace(detail, status_code=code)
+                    if code == 429:
+                        last_error = PlacesRateLimited(detail, status_code=code)
+                        if can_retry:
+                            wait = self._retry_after_seconds(resp.headers.get("Retry-After"))
+                            logger.warning("[ERROR] endpoint=%s query=%s status_code=429 retry=%d retry_after=%s",
+                                           path, query_label, attempt, wait)
+                            await self._sleep(wait if wait is not None else self._backoff_seconds(attempt))
+                            continue
+                        raise last_error
+                    if code >= 500:
+                        last_error = PlacesTransientError(detail, status_code=code, error_class="http_5xx")
+                        if can_retry:
+                            logger.warning("[ERROR] endpoint=%s query=%s status_code=%d retry=%d",
+                                           path, query_label, code, attempt)
+                            await self._sleep(self._backoff_seconds(attempt))
+                            continue
+                        raise last_error
+                    raise PlacesApiError(detail, status_code=code, error_class=f"http_{code}")
+        raise last_error or PlacesApiError(f"Places API {path} failed after retries")
+
+    @staticmethod
+    def _retry_after_seconds(value: str | None) -> float | None:
+        """Retry-After in delta-seconds form, capped; an HTTP-date or garbage -> None (use backoff)."""
+        if not value:
+            return None
+        try:
+            return max(0.0, min(RETRY_AFTER_CAP_SECONDS, float(value.strip())))
+        except ValueError:
+            return None
 
     async def _post(self, path: str, body: dict, field_mask: str, *, query_label: str | None) -> dict:
         return await self._request("POST", path, body, field_mask, query_label=query_label)

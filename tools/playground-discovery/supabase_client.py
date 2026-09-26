@@ -98,7 +98,7 @@ def load_import_tool_env() -> None:
 
 
 class SupabaseBotClient:
-    def __init__(self):
+    def __init__(self, *, transport: httpx.AsyncBaseTransport | None = None):
         self.url = os.environ.get("SUPABASE_URL")
         self.anon_key = os.environ.get("SUPABASE_PUBLISHABLE_KEY")
         self.bot_email = os.environ.get("SUPABASE_BOT_EMAIL")
@@ -116,6 +116,14 @@ class SupabaseBotClient:
             )
         self._access_token = None
         self._bot_user_id = None
+        self._transport = transport  # tests only (httpx.MockTransport); None = the real network
+
+    def _http(self) -> httpx.AsyncClient:
+        return httpx.AsyncClient(timeout=30.0, transport=self._transport)
+
+    async def _headers(self, client: httpx.AsyncClient, **extra) -> dict:
+        token = await self._ensure_session(client)
+        return {"apikey": self.anon_key, "Authorization": f"Bearer {token}", **extra}
 
     async def _ensure_session(self, client: httpx.AsyncClient) -> str:
         if self._access_token:
@@ -246,6 +254,93 @@ class SupabaseBotClient:
                 offset += page_size
             return rows
 
+    # ---- Places image automation (2026-09-26, enrich_images.py / Monster job places_photos) ----------------
+    # The scheduled cohort is selected SERVER-SIDE: approved only (never archived / pending / rejected), a
+    # google_place_id, no activity_images row of ANY status (PostgREST anti-join on the embedded resource - the bot
+    # is a trusted uploader, so images_read shows it pending/rejected images of approved rows too), created before
+    # the grace instant, oldest first (created_at, id) with keyset paging and a server-side limit.
+    CANDIDATE_SELECT = "id,name,google_place_id,source_url,status,created_at,activity_images(id)"
+
+    @staticmethod
+    def places_photo_candidate_params(*, created_before: str, created_after: str | None = None,
+                                      activity_ids: list[str] | None = None, after: tuple[str, str] | None = None,
+                                      limit: int = 100) -> list[tuple[str, str]]:
+        params = [
+            ("select", SupabaseBotClient.CANDIDATE_SELECT),
+            ("status", "eq.approved"),
+            ("google_place_id", "not.is.null"),
+            ("activity_images", "is.null"),
+            ("created_at", f"lt.{created_before}"),
+        ]
+        if created_after:
+            params.append(("created_at", f"gt.{created_after}"))
+        if activity_ids:
+            params.append(("id", f"in.({','.join(activity_ids)})"))
+        if after:
+            ts, last_id = after
+            params.append(("or", f'(created_at.gt."{ts}",and(created_at.eq."{ts}",id.gt.{last_id}))'))
+        params.append(("order", "created_at.asc,id.asc"))
+        params.append(("limit", str(int(limit))))
+        return params
+
+    async def fetch_places_photo_candidates_page(self, **kwargs) -> list[dict]:
+        async with self._http() as client:
+            headers = await self._headers(client)
+            resp = await client.get(f"{self.url}/rest/v1/activities", headers=headers,
+                                    params=self.places_photo_candidate_params(**kwargs))
+            resp.raise_for_status()
+            # belt and braces: the server already filtered; never trust a row that says otherwise
+            return [r for r in resp.json()
+                    if r.get("status") == "approved" and r.get("google_place_id") and not r.get("activity_images")]
+
+    async def fetch_activity_image_state(self, activity_id: str) -> dict | None:
+        """Fresh per-activity state right before an insert (race guard): status, google_place_id and whether ANY
+        activity_images row exists now. None = the row is no longer visible to the bot."""
+        async with self._http() as client:
+            headers = await self._headers(client)
+            resp = await client.get(f"{self.url}/rest/v1/activities", headers=headers, params={
+                "select": "id,status,google_place_id,activity_images(id)", "id": f"eq.{activity_id}"})
+            resp.raise_for_status()
+            rows = resp.json()
+            if not rows:
+                return None
+            row = rows[0]
+            return {"id": row["id"], "status": row.get("status"), "google_place_id": row.get("google_place_id"),
+                    "has_image": bool(row.get("activity_images"))}
+
+    async def fetch_activity_image_states(self, activity_ids: list[str]) -> dict[str, dict]:
+        """Same as fetch_activity_image_state for many ids (ledger pruning), 100 ids per request."""
+        out: dict[str, dict] = {}
+        async with self._http() as client:
+            headers = await self._headers(client)
+            for i in range(0, len(activity_ids), 100):
+                chunk = activity_ids[i:i + 100]
+                resp = await client.get(f"{self.url}/rest/v1/activities", headers=headers, params={
+                    "select": "id,status,google_place_id,activity_images(id)", "id": f"in.({','.join(chunk)})"})
+                resp.raise_for_status()
+                for row in resp.json():
+                    out[row["id"]] = {"id": row["id"], "status": row.get("status"),
+                                      "google_place_id": row.get("google_place_id"),
+                                      "has_image": bool(row.get("activity_images"))}
+        return out
+
+    async def read_setting(self, key: str, default=None):
+        async with self._http() as client:
+            headers = await self._headers(client)
+            resp = await client.get(f"{self.url}/rest/v1/automation_settings", headers=headers,
+                                    params={"select": "value", "key": f"eq.{key}"})
+            resp.raise_for_status()
+            rows = resp.json()
+            return rows[0]["value"] if rows else default
+
+    async def write_setting(self, key: str, value) -> None:
+        async with self._http() as client:
+            headers = await self._headers(client, **{"Content-Type": "application/json",
+                                                     "Prefer": "resolution=merge-duplicates,return=minimal"})
+            resp = await client.post(f"{self.url}/rest/v1/automation_settings", headers=headers,
+                                     params={"on_conflict": "key"}, json={"key": key, "value": value})
+            resp.raise_for_status()
+
     async def set_activity_google_place_id(self, *, activity_id: str, place_id: str) -> None:
         """UPDATEs a single existing activity's google_place_id - the backfill
         counterpart to insert_new_playground (which only ever INSERTs brand-new
@@ -276,7 +371,7 @@ class SupabaseBotClient:
         'PROVIDER' + image_source_url (supabase/0047) records where this came
         from without implying rights review is needed - Google's own listing
         photos, not scraped from a third-party site."""
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        async with self._http() as client:
             token = await self._ensure_session(client)
             headers = {
                 "apikey": self.anon_key, "Authorization": f"Bearer {token}",

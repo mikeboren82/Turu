@@ -13,7 +13,7 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 const { getClient } = require('./supabase');
 const { all } = require('./cleaner/discover');
-const { JOBS, selectJobs, lockIsStale, schedulerCommand, pauseCommand } = require('./lib/monsterJobs');
+const { JOBS, selectJobs, jobSpawnSpec, lockIsStale, schedulerCommand, pauseCommand } = require('./lib/monsterJobs');
 const { reviewBudget } = require('./lib/reviewBudget');
 const { israelToday } = require('./lib/intakePolicy');
 const PUBLISH_FAILURE_OUTCOMES = ['TEMPORARY_INFRA_FAILURE', 'WRITE_DENIED', 'LOCATION_INVALID', 'ERROR'];
@@ -37,11 +37,13 @@ function acquireLock() {
 }
 function releaseLock() { try { fs.unlinkSync(LOCK); } catch { /* gone */ } }
 
-// a job = one child process (the existing script) with its own timeout; stdout tail kept for the state
+// a job = one child process (the existing script) with its own timeout; stdout tail kept for the state.
+// runtime node (default) or python (lib/monsterJobs.js jobSpawnSpec); a runtime that cannot launch fails the job loudly
 function runJob(job, extra = []) {
-  const parts = job.command.split(' ').slice(1); // drop leading "node"
+  const spec = jobSpawnSpec(job, { root: ROOT });
   const t0 = Date.now();
-  const r = spawnSync(process.execPath, [...parts, ...extra], { cwd: ROOT, encoding: 'utf8', timeout: 45 * 60 * 1000, maxBuffer: 32 * 1024 * 1024 });
+  const r = spawnSync(spec.exe, [...spec.args, ...extra], { cwd: spec.cwd, env: spec.env, encoding: 'utf8', timeout: spec.timeoutMs, maxBuffer: 32 * 1024 * 1024 });
+  if (r.error && r.error.code !== 'ETIMEDOUT') return { status: 'error', code: null, ms: Date.now() - t0, tail: `${spec.runtime} runtime could not launch (${spec.exe} in ${spec.cwd}): ${r.error.code || r.error.message}` };
   const out = (r.stdout || '') + (r.stderr || '');
   const tail = out.split('\n').filter(Boolean).slice(-6).join(' | ').slice(0, 900);
   return { status: r.status === 0 ? 'ok' : (r.error && r.error.code === 'ETIMEDOUT' ? 'timeout' : 'error'), code: r.status, ms: Date.now() - t0, tail };
@@ -105,8 +107,11 @@ async function cycle(client) {
     return { refused: cl.code };
   }
   state._code_line = { head: codeLine.head, branch: codeLine.branch, dirty: codeLine.dirty, code: cl.code, at: new Date().toISOString() };
-  const jobs = selectJobs({ state, only: args.job ? String(args.job) : null, enabled: enabled || DRY });
-  console.log(`${DRY ? 'DRY RUN - ' : ''}monster cycle: enabled=${enabled} due jobs: ${jobs.map((j) => j.id + '(max ' + (j.maxWork ?? '-') + ')').join(', ') || 'none'}`);
+  // per-job gates (absent = OFF): a gated job is neither selected nor spawned
+  const gates = {}; for (const k of [...new Set(JOBS.map((j) => j.enabledSetting).filter(Boolean))]) gates[k] = (await readSetting(client, k, false)) === true;
+  const jobs = selectJobs({ state, only: args.job ? String(args.job) : null, enabled: enabled || DRY, gates });
+  const gatedOff = JOBS.filter((j) => j.enabledSetting && !gates[j.enabledSetting]).map((j) => j.id + ' (' + j.enabledSetting + ' not true)');
+  console.log(`${DRY ? 'DRY RUN - ' : ''}monster cycle: enabled=${enabled} due jobs: ${jobs.map((j) => j.id + '(max ' + (j.maxWork ?? '-') + ')').join(', ') || 'none'}${gatedOff.length ? ' | gated off: ' + gatedOff.join(', ') : ''}`);
   if (DRY) { for (const j of jobs) console.log(`  would run: ${j.command}  | every ${j.everyHours} h | last ${state[j.id]?.lastRunAt || 'never'} | ${j.reason}`); return { dryRun: true, jobs: jobs.map((j) => j.id) }; }
   if (!enabled) return { paused: true };
   const lock = acquireLock(); if (!lock.ok) { console.log('another Monster cycle holds the lock (pid ' + lock.lock.pid + ' since ' + lock.lock.at + ') - refusing to overlap'); return { overlapped: true }; }
