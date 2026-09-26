@@ -76,8 +76,8 @@ test('0103 still admits the legacy and transitional values that production rows 
   }
 });
 
-test('0103 is still only PREPARED - the file must keep saying it is not applied', () => {
-  assert.match(read(MIGRATION), /NOT APPLIED/, 'enabling the constraint is a separate explicit decision');
+test('0103 is APPLIED in production - the file header must say so', () => {
+  assert.match(read(MIGRATION), /STATUS: APPLIED in production 2026-09-21/, 'the constraint went live 2026-09-21 (taxonomy write pilot)');
 });
 
 // --- קייטנה: valid to store, never assigned, never shown ---------------------------------------

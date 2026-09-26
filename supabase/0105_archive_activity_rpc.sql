@@ -1,6 +1,9 @@
 -- 0105 - Controlled archive transition for trusted system tooling (2026-09-21).
 --
--- *** NOT APPLIED. Created for review first (see FINAL REPORT section F/K). ***
+-- *** STATUS: APPLIED in production (public.archive_activity exists; confirmed live by the
+-- 2026-09-25 repo-hygiene forensic). Originally created for review first (see FINAL REPORT
+-- section F/K). The allowlist was later extended by 0111 and 0113; this file is the original
+-- definition and is kept as written. ***
 --
 -- THE PROBLEM THIS SOLVES. public.activities has exactly one UPDATE policy:
 --     activities_update  USING ((created_by = auth.uid()) OR is_admin())

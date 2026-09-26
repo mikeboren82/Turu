@@ -1,7 +1,8 @@
 -- 0107 - THE CLEANER: first-class NOT_INDEPENDENTLY_ACTIONABLE case (Entity Granularity Phase 1,
 -- 2026-09-22). Additive only: one more allowed value in cleaner_cases.issue.
 --
--- *** PREPARED BUT NOT APPLIED, same status as 0101-0103 (see those files). *** Safe to apply at
+-- *** STATUS: APPLIED in production ('not_independently_actionable' is in the live cleaner_cases.issue
+-- CHECK; confirmed by the 2026-09-25 repo-hygiene forensic). *** Originally prepared as safe to apply at
 -- any time - it widens an allowed-value list, it does not touch a single row. Applying it is what
 -- turns on DISCOVERY of this issue on the existing catalogue; until then, the ingestion-time gate
 -- (supabase/functions/_shared/granularity.ts, scan-source) already prevents NEW wrapper/sub-area

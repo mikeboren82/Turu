@@ -1,8 +1,9 @@
 -- 0103 - Valid-storage constraint on activities.category (Phase E, revised Phase G 2026-09-21).
 --
--- *** PREPARED BUT NOT APPLIED. *** The catalogue is now clean against this list (0 violations as
--- of 2026-09-21), but enabling the constraint is a separate, explicit decision and is deliberately
--- not part of the data-cleanup phase.
+-- *** STATUS: APPLIED in production 2026-09-21 (taxonomy write pilot); constraint
+-- activities_category_canonical_check is live with the 32 values below (re-verified 2026-09-25). ***
+-- Historical note: this file was first prepared while the catalogue was being cleaned (0 violations
+-- as of 2026-09-21); enabling the constraint was a separate, explicit decision, taken that day.
 --
 -- WHAT THIS LIST IS. It is the VALID-STORAGE set, which is NOT the same thing as the set a
 -- classifier may choose from. constants/categoryValues.json defines three sets that answer three

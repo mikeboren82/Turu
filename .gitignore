@@ -54,6 +54,25 @@ tools/import-tool/logs/
 tools/import-tool/_playground-name-migration-audit-*.json
 tools/import-tool/_final_examples*.txt
 tools/import-tool/_audit_sample.txt
+# generated operational / forensic reports (row ids, dry-runs, applied mutations, rollbacks) - kept
+# privately, never published. Scoped to tools/import-tool so *.cases.json, reference/*.json,
+# supabase/functions/_shared/*.json, i18n locales and test fixtures stay tracked.
+tools/import-tool/**/*-applied.json
+tools/import-tool/**/*-dryrun.json
+tools/import-tool/**/*-dryrun-*.json
+tools/import-tool/**/*-dry-run-*.json
+tools/import-tool/**/*-rollback.json
+tools/import-tool/**/*-deps.json
+tools/import-tool/**/*-measure.json
+tools/import-tool/**/coverage-report-*.json
+tools/import-tool/**/cleaner-report-*.json
+tools/import-tool/**/service-area-audit-*.json
+tools/import-tool/**/service-area-cohort-*.json
+tools/import-tool/**/discovery-candidates-*.json
+tools/import-tool/**/reprobe-sources-*.json
+tools/import-tool/**/monster-cohort-*.json
+tools/import-tool/**/monster-cycle-*.json
+tools/import-tool/reports/*.json
 tools/playground-discovery/*.log
 tools/playground-discovery/*.csv
 tools/playground-discovery/*.jsonl
