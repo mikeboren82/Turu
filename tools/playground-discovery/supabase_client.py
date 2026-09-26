@@ -28,6 +28,38 @@ import httpx
 
 IMPORT_TOOL_ENV_PATH = Path(__file__).resolve().parent.parent / "import-tool" / ".env"
 
+
+# ---- Places image automation: what counts as a TRUSTWORTHY image (2026-09-26) --------------------------------
+# Only these block the places_photos job (candidate selection, pre-insert race re-check, ledger pruning):
+#   A. a sanctioned place-photo proxy row - detected by URL path, host-agnostic, whatever its status or legacy
+#      metadata (a rejected proxy is an admin decision the job must not undo; a second proxy is a duplicate)
+#   B. an approved ORIGINAL_SOURCE image whose rights are not under review
+# Everything else - pending, rejected, EXTERNAL_SOURCE, UNKNOWN, null provenance, needs_rights_review=true,
+# a non-proxy PROVIDER url - never blocks one proxy insert (and is never changed by the job).
+# The PostgREST predicate below and is_trusted_image() are the same rule; the job evaluates both.
+PLACE_PHOTO_PROXY_RE = re.compile(r"/functions/v1/place-photo/.")
+TRUSTED_IMAGE_OR = ('(url.like."*/functions/v1/place-photo/_*",'
+                    'and(status.eq.approved,image_source_type.eq.ORIGINAL_SOURCE,needs_rights_review.not.is.true))')
+IMAGE_META = "id,url,status,image_source_type,needs_rights_review"
+
+
+def is_place_photo_proxy(url) -> bool:
+    return isinstance(url, str) and bool(PLACE_PHOTO_PROXY_RE.search(url))
+
+
+def is_trusted_image(img: dict) -> bool:
+    if is_place_photo_proxy(img.get("url")):
+        return True
+    return (img.get("status") == "approved" and img.get("image_source_type") == "ORIGINAL_SOURCE"
+            and img.get("needs_rights_review") is not True)
+
+
+def image_state(row: dict) -> dict:
+    """Race-guard / prune view of one activity row selected with activity_images(IMAGE_META)."""
+    images = row.get("activity_images") or []
+    return {"id": row["id"], "status": row.get("status"), "google_place_id": row.get("google_place_id"),
+            "has_trusted_image": any(is_trusted_image(i) for i in images), "image_count": len(images)}
+
 # Python port of tools/import-tool/playgroundNaming.js's GENERIC_NAME_PATTERNS/
 # TECHNICAL_VALUE_PATTERNS (also ported separately to supabase/functions/_shared/
 # playgroundNaming.ts for Deno) - three runtimes, one file each can't share, kept
@@ -256,10 +288,12 @@ class SupabaseBotClient:
 
     # ---- Places image automation (2026-09-26, enrich_images.py / Monster job places_photos) ----------------
     # The scheduled cohort is selected SERVER-SIDE: approved only (never archived / pending / rejected), a
-    # google_place_id, no activity_images row of ANY status (PostgREST anti-join on the embedded resource - the bot
-    # is a trusted uploader, so images_read shows it pending/rejected images of approved rows too), created before
-    # the grace instant, oldest first (created_at, id) with keyset paging and a server-side limit.
-    CANDIDATE_SELECT = "id,name,google_place_id,source_url,status,created_at,activity_images(id)"
+    # google_place_id, no TRUSTWORTHY image (anti-join on the `trusted` embed filtered by TRUSTED_IMAGE_OR - the
+    # bot is a trusted uploader, so images_read shows it pending/rejected images of approved rows too), created
+    # before the grace instant, oldest first (created_at, id) with keyset paging and a server-side limit. The
+    # unfiltered `images` embed carries the minimal metadata for the job's own re-evaluation and the list report.
+    CANDIDATE_SELECT = (f"id,name,google_place_id,source_url,status,created_at,"
+                        f"trusted:activity_images(id),images:activity_images({IMAGE_META})")
 
     @staticmethod
     def places_photo_candidate_params(*, created_before: str, created_after: str | None = None,
@@ -269,7 +303,8 @@ class SupabaseBotClient:
             ("select", SupabaseBotClient.CANDIDATE_SELECT),
             ("status", "eq.approved"),
             ("google_place_id", "not.is.null"),
-            ("activity_images", "is.null"),
+            ("trusted.or", TRUSTED_IMAGE_OR),
+            ("trusted", "is.null"),
             ("created_at", f"lt.{created_before}"),
         ]
         if created_after:
@@ -284,29 +319,36 @@ class SupabaseBotClient:
         return params
 
     async def fetch_places_photo_candidates_page(self, **kwargs) -> list[dict]:
+        """One raw keyset page, exactly as the server ordered and limited it - the caller pages on its length and
+        re-checks every row with candidate_rejection() (belt and braces), so a dropped row never ends paging."""
         async with self._http() as client:
             headers = await self._headers(client)
             resp = await client.get(f"{self.url}/rest/v1/activities", headers=headers,
                                     params=self.places_photo_candidate_params(**kwargs))
             resp.raise_for_status()
-            # belt and braces: the server already filtered; never trust a row that says otherwise
-            return [r for r in resp.json()
-                    if r.get("status") == "approved" and r.get("google_place_id") and not r.get("activity_images")]
+            return resp.json()
+
+    @staticmethod
+    def candidate_rejection(row: dict) -> str | None:
+        """None = a valid candidate; otherwise why a row the server returned must not be used."""
+        if row.get("status") != "approved":
+            return "not_approved"
+        if not row.get("google_place_id"):
+            return "no_place_id"
+        if row.get("trusted") or any(is_trusted_image(i) for i in row.get("images") or []):
+            return "trusted_image"
+        return None
 
     async def fetch_activity_image_state(self, activity_id: str) -> dict | None:
-        """Fresh per-activity state right before an insert (race guard): status, google_place_id and whether ANY
-        activity_images row exists now. None = the row is no longer visible to the bot."""
+        """Fresh per-activity state right before an insert (race guard): status, google_place_id and whether a
+        TRUSTWORTHY image exists now. None = the row is no longer visible to the bot."""
         async with self._http() as client:
             headers = await self._headers(client)
             resp = await client.get(f"{self.url}/rest/v1/activities", headers=headers, params={
-                "select": "id,status,google_place_id,activity_images(id)", "id": f"eq.{activity_id}"})
+                "select": f"id,status,google_place_id,activity_images({IMAGE_META})", "id": f"eq.{activity_id}"})
             resp.raise_for_status()
             rows = resp.json()
-            if not rows:
-                return None
-            row = rows[0]
-            return {"id": row["id"], "status": row.get("status"), "google_place_id": row.get("google_place_id"),
-                    "has_image": bool(row.get("activity_images"))}
+            return image_state(rows[0]) if rows else None
 
     async def fetch_activity_image_states(self, activity_ids: list[str]) -> dict[str, dict]:
         """Same as fetch_activity_image_state for many ids (ledger pruning), 100 ids per request."""
@@ -316,12 +358,11 @@ class SupabaseBotClient:
             for i in range(0, len(activity_ids), 100):
                 chunk = activity_ids[i:i + 100]
                 resp = await client.get(f"{self.url}/rest/v1/activities", headers=headers, params={
-                    "select": "id,status,google_place_id,activity_images(id)", "id": f"in.({','.join(chunk)})"})
+                    "select": f"id,status,google_place_id,activity_images({IMAGE_META})",
+                    "id": f"in.({','.join(chunk)})"})
                 resp.raise_for_status()
                 for row in resp.json():
-                    out[row["id"]] = {"id": row["id"], "status": row.get("status"),
-                                      "google_place_id": row.get("google_place_id"),
-                                      "has_image": bool(row.get("activity_images"))}
+                    out[row["id"]] = image_state(row)
         return out
 
     async def read_setting(self, key: str, default=None):

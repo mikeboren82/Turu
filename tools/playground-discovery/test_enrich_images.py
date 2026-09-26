@@ -5,6 +5,8 @@ filters the client sends (an unknown filter fails the test), Google Places is an
 
 Run with:  py -m unittest test_enrich_images -v
 """
+import contextlib
+import io
 import json
 import re
 import unittest
@@ -15,7 +17,23 @@ import httpx
 
 import enrich_images as ei
 from google_places import CallBudget, GooglePlacesClient
-from supabase_client import SupabaseBotClient
+from supabase_client import SupabaseBotClient, is_trusted_image
+
+# the exact PostgREST trust predicate the client must send (restated here, not imported: the fake is an oracle)
+TRUST_OR = ('(url.like."*/functions/v1/place-photo/_*",'
+            'and(status.eq.approved,image_source_type.eq.ORIGINAL_SOURCE,needs_rights_review.not.is.true))')
+PROXY_MARK = "/functions/v1/place-photo/"
+
+
+def fake_trusted(img: dict) -> bool:
+    """SQL semantics of TRUST_OR: url LIKE '%/functions/v1/place-photo/_%' OR (approved AND ORIGINAL_SOURCE AND
+    needs_rights_review IS NOT TRUE)."""
+    url = img.get("url") or ""
+    k = url.find(PROXY_MARK)
+    if k >= 0 and len(url) > k + len(PROXY_MARK):
+        return True
+    return (img.get("status") == "approved" and img.get("image_source_type") == "ORIGINAL_SOURCE"
+            and img.get("needs_rights_review") is not True)
 
 BOT = "b0000000-0000-4000-8000-000000000000"
 OTHER = "c0000000-0000-4000-8000-000000000000"
@@ -48,6 +66,7 @@ class FakeSupabase:
         self.requests: list[str] = []
         self.on_state_check = None  # callback(activity_id) run before answering a race re-check
         self.insert_status = None   # force an HTTP status on activity_images insert
+        self.ignore_trust_filter = False  # simulate a server that does not honour the trust anti-join
 
     def add(self, n: int, *, created: datetime | None = None, status="approved", place=None, created_by=OTHER,
             category="גן שעשועים", images=0, image_status="approved"):
@@ -59,9 +78,18 @@ class FakeSupabase:
             a["google_place_id"] = None
         self.activities[a["id"]] = a
         for i in range(images):
-            self.images.append({"id": f"img-{n}-{i}", "activity_id": a["id"], "url": "https://x/y.jpg",
-                                "status": image_status})
+            self.add_image(a, id=f"img-{n}-{i}", status=image_status)
         return a
+
+    def add_image(self, a, *, url="https://x/y.jpg", status="approved", source_type=None, rights=False, **extra):
+        """Column defaults as in the DB: status approved, image_source_type null, needs_rights_review false."""
+        img = {"id": extra.pop("id", f"img-{len(self.images)}"), "activity_id": a["id"], "url": url, "status": status,
+               "image_source_type": source_type, "needs_rights_review": rights, **extra}
+        self.images.append(img)
+        return img
+
+    def trusted_of(self, activity_id):
+        return [i for i in self.images_of(activity_id) if fake_trusted(i)]
 
     def images_of(self, activity_id):
         return [i for i in self.images if i["activity_id"] == activity_id]
@@ -92,14 +120,14 @@ class FakeSupabase:
             body = json.loads(request.content)
             if self.insert_status:
                 return httpx.Response(self.insert_status, json={"message": "forced"})
-            self.images.append({**body, "id": f"new-{len(self.images)}", "status": "approved"})
+            self.images.append({"status": "approved", **body, "id": f"new-{len(self.images)}"})
             self.writes.append(("insert", "activity_images", body["activity_id"]))
             return httpx.Response(201)
         raise AssertionError(f"unmodelled request {request.method} {path} {params}")
 
     def _select_activities(self, params):
         rows = [a for a in self.activities.values() if self.visible(a)]
-        order, limit, select = None, None, None
+        order, limit, select, trust_or = None, None, None, False
         for key, val in params:
             if key == "select":
                 select = val
@@ -109,9 +137,13 @@ class FakeSupabase:
             elif key == "google_place_id":
                 assert val == "not.is.null", val
                 rows = [a for a in rows if a["google_place_id"]]
-            elif key == "activity_images":
-                assert val == "is.null", val
-                rows = [a for a in rows if not self.images_of(a["id"])]
+            elif key == "trusted.or":
+                assert val == TRUST_OR, val
+                trust_or = True
+            elif key == "trusted":
+                assert val == "is.null" and trust_or, (val, "anti-join needs the embedded trust filter")
+                if not self.ignore_trust_filter:
+                    rows = [a for a in rows if not self.trusted_of(a["id"])]
             elif key == "created_at":
                 op, t = val.split(".", 1)
                 assert op in ("lt", "gt"), val
@@ -145,8 +177,14 @@ class FakeSupabase:
         out = []
         for a in rows:
             r = {k: a[k] for k in ("id", "name", "google_place_id", "source_url", "status", "created_at")}
-            if select and "activity_images(id)" in select:
-                r["activity_images"] = [{"id": i["id"]} for i in self.images_of(a["id"])]
+            for alias, cols in re.findall(r"(?:(\w+):)?activity_images\(([^)]*)\)", select or ""):
+                alias, cols = alias or "activity_images", cols.split(",")
+                assert set(cols) <= {"id", "url", "status", "image_source_type", "needs_rights_review"}, cols
+                imgs = self.images_of(a["id"])
+                if alias == "trusted":
+                    assert trust_or, "the trusted embed is only ever selected with its filter"
+                    imgs = [] if self.ignore_trust_filter else [i for i in imgs if fake_trusted(i)]
+                r[alias] = [{c: i.get(c) for c in cols} for i in imgs]
             out.append(r)
         return out
 
@@ -260,15 +298,17 @@ class CandidateScopingTests(unittest.IsolatedAsyncioTestCase):
         code, s = await run(db, gp, "--apply")
         self.assertEqual((s["candidates"], gp.calls, db.writes), (0, [], []))
 
-    async def test_E_existing_image_of_any_status_excluded(self):
+    async def test_E_only_a_trustworthy_image_excludes(self):
         db, gp = FakeSupabase(), FakePlaces()
-        db.add(1, images=1, image_status="approved")
-        db.add(2, images=1, image_status="pending")
-        db.add(3, images=1, image_status="rejected")
-        db.add(4)
+        db.add_image(db.add(1), url=f"{PROXY}/PLACE1", source_type="PROVIDER")
+        db.add_image(db.add(2), source_type="ORIGINAL_SOURCE")
+        db.add(3, images=1, image_status="approved")
+        db.add(4, images=1, image_status="pending")
+        db.add(5, images=1, image_status="rejected")
+        db.add(6)
         code, s = await run(db, gp, "--apply")
-        self.assertEqual(gp.calls, ["PLACE4"])
-        self.assertEqual(s["added"], 1)
+        self.assertEqual(sorted(gp.calls), ["PLACE3", "PLACE4", "PLACE5", "PLACE6"])
+        self.assertEqual(s["added"], 4)
 
     async def test_M_playground_without_cleaner_case_processed(self):
         db, gp = FakeSupabase(), FakePlaces()
@@ -395,7 +435,7 @@ class LedgerTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_prune_drops_entries_that_are_no_longer_candidates(self):
         db, gp = FakeSupabase(), FakePlaces()
-        a = db.add(1, images=1)             # an image appeared elsewhere
+        a = db.add(1); db.add_image(a, url=f"{PROXY}/PLACE1")  # a proxy appeared elsewhere
         b = db.add(2, status="archived")    # left the catalogue (invisible to the bot)
         c = db.add(3); gp.no_photo.add("PLACE3")
         future = ts(NOW + timedelta(days=10))
@@ -516,10 +556,10 @@ class RetryAndFailureTests(unittest.IsolatedAsyncioTestCase):
         code, s = await run(db, gp, "--apply", now=NOW + timedelta(hours=1))
         self.assertEqual((s["candidates"], s["added"], len(db.images) - before, gp.calls), (0, 0, 0, []))
 
-    async def test_L_image_appearing_between_select_and_insert_is_raced(self):
+    async def test_L_proxy_appearing_between_select_and_insert_is_raced(self):
         db, gp = FakeSupabase(), FakePlaces()
         a = db.add(1)
-        gp.on_call = lambda place: db.images.append({"id": "inline", "activity_id": a["id"], "url": "u", "status": "approved"})
+        gp.on_call = lambda place: db.add_image(a, id="inline", url=f"{PROXY}/PLACE1", source_type="PROVIDER")
         code, s = await run(db, gp, "--apply")
         self.assertEqual((s["raced"], s["added"]), (1, 0))
         self.assertEqual(len(db.images_of(a["id"])), 1, "only the image that raced in")
@@ -546,6 +586,165 @@ class RetryAndFailureTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(db.writes, [])
 
 
+def proxies(db, activity_id):
+    return [i for i in db.images_of(activity_id) if PROXY_MARK in (i.get("url") or "")]
+
+
+class TrustworthyImageTests(unittest.IsolatedAsyncioTestCase):
+    """2026-09-26 safety follow-up: only a sanctioned proxy or an approved, rights-clear ORIGINAL_SOURCE image blocks
+    the job; every other image leaves the activity a candidate (and is never modified)."""
+
+    async def cohort_of(self, db):
+        code, s = await run(db, FakePlaces(), "--list-only")
+        self.assertEqual((code, s["api_attempts"], db.writes), (0, 0, []))
+        return s
+
+    async def assertCandidate(self, expected: bool, **image):
+        db = FakeSupabase()
+        a = db.add(1)
+        db.add_image(a, **image)
+        s = await self.cohort_of(db)
+        self.assertEqual(s["candidates"], 1 if expected else 0, image)
+        img = {"url": image.get("url", "https://x/y.jpg"), "status": image.get("status", "approved"),
+               "image_source_type": image.get("source_type"), "needs_rights_review": image.get("rights", False)}
+        self.assertEqual(is_trusted_image(img), not expected, "client predicate == server predicate")
+
+    async def test_A_pending_external_image_only_is_a_candidate(self):
+        await self.assertCandidate(True, status="pending", source_type="EXTERNAL_SOURCE", rights=True)
+        await self.assertCandidate(True, status="pending", url="https://serp.example/a.jpg")  # the 09-13 shape
+
+    async def test_B_approved_null_provenance_image_is_a_candidate(self):
+        await self.assertCandidate(True, status="approved", source_type=None, rights=False)
+
+    async def test_C_approved_external_source_is_a_candidate(self):
+        await self.assertCandidate(True, source_type="EXTERNAL_SOURCE", rights=True)
+
+    async def test_D_approved_external_source_without_rights_review_is_still_a_candidate(self):
+        await self.assertCandidate(True, source_type="EXTERNAL_SOURCE", rights=False)
+
+    async def test_E_approved_original_source_not_under_review_is_not_a_candidate(self):
+        await self.assertCandidate(False, source_type="ORIGINAL_SOURCE", rights=False)
+        # ...but only approved and rights-clear
+        await self.assertCandidate(True, source_type="ORIGINAL_SOURCE", rights=True)
+        await self.assertCandidate(True, source_type="ORIGINAL_SOURCE", status="pending")
+        await self.assertCandidate(True, source_type="ORIGINAL_SOURCE", status="rejected")
+
+    async def test_F_provider_proxy_is_not_a_candidate_whatever_its_metadata_or_host(self):
+        await self.assertCandidate(False, url=f"{PROXY}/PLACE1", source_type="PROVIDER")
+        await self.assertCandidate(False, url=f"{PROXY}/PLACE1", source_type=None)         # legacy metadata
+        await self.assertCandidate(False, url="https://other-host.test/functions/v1/place-photo/PLACE1")
+        await self.assertCandidate(False, url=f"{PROXY}/PLACE1", status="rejected")      # admin said no
+        await self.assertCandidate(False, url=f"{PROXY}/PLACE1", status="pending")       # never a 2nd proxy
+        # a PROVIDER label without the proxy url (raw Google url) or an empty proxy path is not a proxy
+        await self.assertCandidate(True, url="https://lh3.googleusercontent.com/p/x", source_type="PROVIDER")
+        await self.assertCandidate(True, url=f"{PROXY}/", source_type="PROVIDER")
+        await self.assertCandidate(True, source_type="UNKNOWN")
+
+    async def test_G_rejected_image_only_is_a_candidate(self):
+        await self.assertCandidate(True, status="rejected")
+        await self.assertCandidate(True, status="rejected", source_type="EXTERNAL_SOURCE", rights=True)
+
+    async def test_untrusted_images_get_one_proxy_and_are_never_modified(self):
+        db, gp = FakeSupabase(), FakePlaces()
+        a = db.add(1)
+        pend = db.add_image(a, status="pending", url="https://serp.example/a.jpg")
+        legacy = db.add_image(a, status="approved", url="https://cdn.example/b.jpg")
+        before = json.loads(json.dumps([pend, legacy]))
+        code, s = await run(db, gp, "--apply")
+        self.assertEqual(s["added"], 1)
+        self.assertEqual(len(proxies(db, a["id"])), 1)
+        self.assertEqual(db.images_of(a["id"])[:2], before, "existing rows untouched")
+        self.assertEqual({(w[0], w[1]) for w in db.writes},
+                         {("insert", "activity_images"), ("upsert", "automation_settings")},
+                         "images: only the proxy insert; the rest is the ledger's call counter")
+
+    async def test_H1_untrusted_image_appearing_before_insert_still_gets_the_proxy(self):
+        for image in ({"status": "pending", "source_type": "EXTERNAL_SOURCE", "rights": True},
+                      {"status": "approved"}, {"status": "rejected"},
+                      {"status": "approved", "source_type": "ORIGINAL_SOURCE", "rights": True}):
+            db, gp = FakeSupabase(), FakePlaces()
+            a = db.add(1)
+            gp.on_call = lambda place, a=a, image=image: db.add_image(a, id="raced-in", **image)
+            code, s = await run(db, gp, "--apply")
+            self.assertEqual((s["raced"], s["added"]), (0, 1), image)
+            self.assertEqual(len(proxies(db, a["id"])), 1, image)
+            self.assertEqual(len(db.images_of(a["id"])), 2, image)
+
+    async def test_H2_trusted_image_appearing_before_insert_is_raced(self):
+        for image in ({"url": f"{PROXY}/PLACE1", "source_type": "PROVIDER"},
+                      {"url": f"{PROXY}/PLACE1", "status": "pending"},
+                      {"source_type": "ORIGINAL_SOURCE", "rights": False}):
+            db, gp = FakeSupabase(), FakePlaces()
+            a = db.add(1)
+            db.add_image(a, status="pending", url="https://serp.example/a.jpg")  # untrusted, from the start
+            gp.on_call = lambda place, a=a, image=image: db.add_image(a, id="raced-in", **image)
+            code, s = await run(db, gp, "--apply")
+            self.assertEqual((s["raced"], s["added"]), (1, 0), image)
+            self.assertEqual([w for w in db.writes if w[1] == "activity_images"], [], image)
+            self.assertLessEqual(len(proxies(db, a["id"])), 1, image)
+
+    async def test_I_second_run_after_proxy_insert_adds_nothing(self):
+        db, gp = FakeSupabase(), FakePlaces()
+        a = db.add(1); db.add_image(a, status="pending", url="https://serp.example/a.jpg")
+        b = db.add(2); db.add_image(b, status="approved")
+        c = db.add(3)
+        code, s = await run(db, gp, "--apply")
+        self.assertEqual(s["added"], 3)
+        gp.calls.clear(); before = len(db.images)
+        for later in (timedelta(hours=1), timedelta(days=40)):
+            code, s = await run(db, gp, "--apply", now=NOW + later)
+            self.assertEqual((s["candidates"], s["added"], len(db.images) - before, gp.calls), (0, 0, 0, []))
+        for x in (a, b, c):
+            self.assertEqual(len(proxies(db, x["id"])), 1)
+
+    async def test_prune_keeps_an_entry_whose_activity_only_has_untrusted_images(self):
+        db, gp = FakeSupabase(), FakePlaces()
+        a = db.add(1); db.add_image(a, status="pending", url="https://serp.example/a.jpg")
+        db.settings[ei.LEDGER_KEY] = {"version": 1, "entries": {a["id"]: {
+            "place_id": "PLACE1", "status": "no_photo", "attempt_count": 1, "last_checked_at": ts(NOW),
+            "next_check_at": ts(NOW + timedelta(days=10))}}}
+        db.add(2)  # something to process, so the run writes the ledger
+        await run(db, gp, "--apply")
+        self.assertIn(a["id"], ledger(db), "still a candidate - the no_photo backoff must survive")
+        self.assertEqual(proxies(db, a["id"]), [], "and not due, so untouched")
+
+    async def test_limit_50_over_a_mixed_cohort_takes_the_oldest_50_eligible(self):
+        db, gp = FakeSupabase(), FakePlaces()
+        for n in range(1, 121):
+            a = db.add(n, created=NOW - timedelta(days=200) + timedelta(hours=n))
+            if n % 3 == 0:
+                db.add_image(a, url=f"{PROXY}/PLACE{n}", source_type="PROVIDER")   # 40 excluded
+            elif n % 3 == 1:
+                db.add_image(a, status="pending", url="https://serp.example/x.jpg")  # 40 untrusted
+        eligible = [n for n in range(1, 121) if n % 3 != 0]
+        code, s = await run(db, gp, "--apply", "--limit=50")
+        self.assertEqual(sorted(gp.calls), sorted(f"PLACE{n}" for n in eligible[:50]))
+        self.assertEqual(len([w for w in db.writes if w[1] == "activity_images"]), 50)
+
+    async def test_server_ignoring_the_trust_filter_is_caught_and_paging_continues(self):
+        db, gp = FakeSupabase(), FakePlaces()
+        db.ignore_trust_filter = True
+        for n in range(1, 131):
+            a = db.add(n, created=NOW - timedelta(days=200) + timedelta(hours=n))
+            if n <= 105:
+                db.add_image(a, url=f"{PROXY}/PLACE{n}", source_type="PROVIDER")
+        code, s = await run(db, gp, "--apply", "--limit=50")
+        self.assertEqual(sorted(gp.calls), sorted(f"PLACE{n}" for n in range(106, 131)),
+                         "no proxy-bearing row processed; a full first page of rejects did not end the walk")
+        self.assertEqual(s["server_mismatch"], 105)
+
+    async def test_list_only_reports_each_candidates_existing_images(self):
+        db = FakeSupabase()
+        a = db.add(1); db.add_image(a, status="pending", source_type="EXTERNAL_SOURCE", rights=True)
+        db.add(2)
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            await self.cohort_of(db)
+        out = buf.getvalue()
+        self.assertIn("images=[pending/EXTERNAL_SOURCE/rr=true]", out)
+        self.assertIn("images=none", out)
+
+
 class CliTests(unittest.TestCase):
     def test_modes_and_defaults(self):
         a = ei.parse_args([])
@@ -566,7 +765,9 @@ class CliTests(unittest.TestCase):
                                                             activity_ids=[uid(1)], after=("T2", uid(2)), limit=7)
         self.assertIn(("status", "eq.approved"), p)
         self.assertIn(("google_place_id", "not.is.null"), p)
-        self.assertIn(("activity_images", "is.null"), p)
+        self.assertIn(("trusted.or", TRUST_OR), p)
+        self.assertIn(("trusted", "is.null"), p)
+        self.assertNotIn(("activity_images", "is.null"), p, "no longer 'any image row of any status'")
         self.assertIn(("created_at", "lt.T0"), p)
         self.assertIn(("created_at", "gt.T1"), p)
         self.assertIn(("order", "created_at.asc,id.asc"), p)

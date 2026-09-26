@@ -2,7 +2,7 @@
 TuRu - playground/park image enrichment.
 
 For every activity with a google_place_id (supabase/0055) but no
-activity_images row yet, checks whether Google Places has a photo for that
+trustworthy image (supabase_client.is_trusted_image), checks whether Google Places has a photo for that
 place, and if so inserts an activity_images row pointing at the
 place-photo Edge Function (supabase/functions/place-photo) - never a raw
 Google-hosted photo URL. See that function's header comment and
@@ -14,14 +14,15 @@ Only ever INSERTs new activity_images rows - never touches an existing one.
 Places image automation (2026-09-26): this is also the Monster job `places_photos`
 (tools/import-tool/lib/monsterJobs.js - hourly, before the Cleaner, gated by
 automation_settings.places_photos_enabled). Every run, scheduled or by hand:
-  - selects SERVER-SIDE: status approved, google_place_id set, no activity_images row of any status,
-    created more than 10 minutes ago (the scan-settlement-gaps inline insert wins), oldest first
+  - selects SERVER-SIDE: status approved, google_place_id set, no TRUSTWORTHY image (a place-photo proxy row of
+    any status, or an approved ORIGINAL_SOURCE image not under rights review - pending / rejected / external /
+    unknown / null-provenance images never block one proxy and are never touched), created more than 10 minutes ago (the scan-settlement-gaps inline insert wins), oldest first
     (created_at, id); --limit is applied to that ordered cohort, never to an unordered list
   - skips a place the ledger says is not due: automation_settings.places_photo_checks holds only
     non-success outcomes per activity (no_photo -> 30 days, invalid 400/404 -> 90 days, error ->
     6h * 2^(n-1) capped at 7 days, parked 30 days after 6 failures); an entry recorded for a different
     google_place_id is ignored; a success removes the entry (activity_images is the source of truth)
-  - re-checks the activity right before inserting (raced: an image appeared, or it is no longer approved)
+  - re-checks the activity right before inserting (raced: a trustworthy image appeared, or it is no longer approved)
   - stops on 401/403 (exit 2, configuration - nothing recorded per row) and on persistent 429 (exit 3,
     circuit breaker - the remaining rows stay untouched); counts every Places attempt against
     --daily-max-calls (UTC day, stored in the same ledger)
@@ -49,7 +50,7 @@ from google_places import (
     CallBudget, GooglePlacesClient, PlacesApiError, PlacesAuthError, PlacesCallBudgetExhausted,
     PlacesInvalidPlace, PlacesRateLimited,
 )
-from supabase_client import SupabaseBotClient, load_import_tool_env
+from supabase_client import SupabaseBotClient, is_place_photo_proxy, load_import_tool_env
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger("enrich_images")
@@ -189,13 +190,20 @@ async def select_cohort(store, ledger: dict, *, now: datetime, limit: int, activ
     """Walk the server-ordered cohort (keyset pages) and take the first `limit` rows the ledger lets through.
     want_total keeps walking to count the whole eligible cohort (list-only report)."""
     created_before = iso(now - GRACE)
-    due, not_due, total = [], [], 0
+    due, not_due, rejected, total = [], [], [], 0
     after = None
     for _ in range(MAX_PAGES):
         page = await store.fetch_places_photo_candidates_page(
             created_before=created_before, created_after=created_after, activity_ids=activity_ids,
             after=after, limit=PAGE_SIZE)
         for row in page:
+            # belt and braces: the server already filtered; never use a row that says otherwise (paging stays on
+            # the raw page, so a dropped row never ends the walk early)
+            why = SupabaseBotClient.candidate_rejection(row)
+            if why:
+                rejected.append((row, why))
+                logger.warning("server returned a non-candidate %s (%s) - skipped", row.get("id"), why)
+                continue
             total += 1
             if ledger_blocks(ledger["entries"].get(row["id"]), row["google_place_id"], now):
                 not_due.append(row)
@@ -204,7 +212,17 @@ async def select_cohort(store, ledger: dict, *, now: datetime, limit: int, activ
         if len(page) < PAGE_SIZE or (len(due) >= limit and not want_total):
             break
         after = (page[-1]["created_at"], page[-1]["id"])
-    return {"due": due, "not_due": not_due, "total_scanned": total, "created_before": created_before}
+    return {"due": due, "not_due": not_due, "rejected": rejected, "total_scanned": total,
+            "created_before": created_before}
+
+
+def image_summary(row: dict) -> str:
+    """List-report view of the (untrusted) images a candidate already carries: status/source_type/rights[/proxy]."""
+    tags = []
+    for img in row.get("images") or []:
+        tag = f"{img.get('status')}/{img.get('image_source_type') or 'null'}/rr={str(img.get('needs_rights_review')).lower()}"
+        tags.append(tag + ("/proxy" if is_place_photo_proxy(img.get("url")) else ""))
+    return "images=[" + ",".join(sorted(tags)) + "]" if tags else "images=none"
 
 
 def describe(row: dict, ledger: dict) -> str:
@@ -215,7 +233,8 @@ def describe(row: dict, ledger: dict) -> str:
         state = f"ledger_{entry.get('status')}_for_other_place"
     else:
         state = f"ledger_{entry.get('status')}_due(x{entry.get('attempt_count')})"
-    return f"{row['id']} created={row['created_at']} place={row['google_place_id']} status={row['status']} {state}"
+    return (f"{row['id']} created={row['created_at']} place={row['google_place_id']} status={row['status']} {state} "
+            f"{image_summary(row)}")
 
 
 # ---- the job ------------------------------------------------------------------------------------------------
@@ -229,9 +248,9 @@ async def run_job(args: argparse.Namespace, *, store, places_factory=None, now: 
                                  created_after=args.created_after, want_total=(mode == "list"))
     candidates = cohort["due"]
     summary = {"mode": mode, "candidates": len(candidates), "scanned": cohort["total_scanned"],
-               "skipped_not_due": len(cohort["not_due"]), "added": 0, "no_photo": 0, "invalid": 0, "errors": 0,
+               "skipped_not_due": len(cohort["not_due"]), "server_mismatch": len(cohort["rejected"]), "added": 0, "no_photo": 0, "invalid": 0, "errors": 0,
                "raced": 0, "untouched": 0, "api_attempts": 0, "outcome": "ok"}
-    logger.info("cohort: approved + google_place_id + no image + created < %s%s%s | scanned %d, ledger-not-due %d, "
+    logger.info("cohort: approved + google_place_id + no trustworthy image + created < %s%s%s | scanned %d, ledger-not-due %d, "
                 "due taken %d (limit %d)", cohort["created_before"],
                 f" + created > {args.created_after}" if args.created_after else "",
                 f" + ids {args.activity_ids}" if args.activity_ids else "",
@@ -315,7 +334,9 @@ async def run_job(args: argparse.Namespace, *, store, places_factory=None, now: 
             logger.info("[DRY RUN] would add image for %s -> %s", name, photo_url)
             return
 
-        # race guard: the row may have gained an image (inline insert, admin upload) or left `approved` since the SELECT
+        # race guard: the row may have gained a TRUSTWORTHY image (inline proxy insert, another run, an approved
+        # original-source image) or left `approved` since the SELECT. A new untrusted image (pending / external /
+        # null provenance) does not block the one sanctioned proxy.
         try:
             fresh = await store.fetch_activity_image_state(row["id"])
         except Exception as exc:
@@ -323,11 +344,11 @@ async def run_job(args: argparse.Namespace, *, store, places_factory=None, now: 
             record(row, "error", "recheck_failed")
             logger.error("[ERROR] re-check failed for %s: %s", row["id"], type(exc).__name__)
             return
-        if fresh is None or fresh["has_image"] or fresh["status"] != "approved" or fresh["google_place_id"] != place_id:
+        if fresh is None or fresh["has_trusted_image"] or fresh["status"] != "approved" or fresh["google_place_id"] != place_id:
             summary["raced"] += 1
             forget(row["id"])
             logger.info("[RACED] %s - state changed since selection (%s); not inserting", row["id"],
-                        "gone" if fresh is None else "image present" if fresh["has_image"] else
+                        "gone" if fresh is None else "trustworthy image present" if fresh["has_trusted_image"] else
                         f"status {fresh['status']}" if fresh["status"] != "approved" else "place id changed")
             return
         try:
@@ -395,7 +416,7 @@ async def run_job(args: argparse.Namespace, *, store, places_factory=None, now: 
 
 
 async def prune_ledger(store, ledger: dict, processed: list[dict]) -> bool:
-    """Keep the ledger compact: drop entries whose activity is no longer a candidate (image present, not approved /
+    """Keep the ledger compact: drop entries whose activity is no longer a candidate (trustworthy image, not approved /
     not visible, or the place id changed). Rows handled this run are already current. Failure never blocks."""
     seen = {r["id"] for r in processed}
     ids = [k for k in ledger["entries"] if k not in seen]
@@ -410,7 +431,7 @@ async def prune_ledger(store, ledger: dict, processed: list[dict]) -> bool:
     for activity_id in ids:
         st = states.get(activity_id)
         entry = ledger["entries"][activity_id]
-        if st is None or st["has_image"] or st["status"] != "approved" or st["google_place_id"] != entry.get("place_id"):
+        if st is None or st["has_trusted_image"] or st["status"] != "approved" or st["google_place_id"] != entry.get("place_id"):
             del ledger["entries"][activity_id]
             dropped += 1
     if dropped:

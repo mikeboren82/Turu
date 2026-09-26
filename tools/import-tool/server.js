@@ -346,24 +346,9 @@ app.get('/import', (req, res) => {
 // מקור) - מנסים לחפש תמונה של המקום בעצמנו בגוגל, דרך SERPAPI (serpapi.com). אם אין מפתח
 // מוגדר, או שהחיפוש נכשל/לא מצא כלום - פשוט מוותרים בשקט; הפעילות תמשיך להופיע ב"פעילויות
 // ללא תמונה" בכלי הניהול כדי שאפשר יהיה לטפל בה ידנית.
-async function searchGoogleImage(query) {
-  if (!process.env.SERPAPI_KEY || !query) return null;
-  try {
-    const url = new URL('https://serpapi.com/search.json');
-    url.searchParams.set('engine', 'google_images');
-    url.searchParams.set('q', query);
-    url.searchParams.set('api_key', process.env.SERPAPI_KEY);
-    const res = await fetch(url.toString());
-    if (!res.ok) return null;
-    const data = await res.json();
-    const results = Array.isArray(data.images_results) ? data.images_results : [];
-    const first = results.find((r) => typeof r.original === 'string' && r.original.trim());
-    return first ? first.original : null;
-  } catch (err) {
-    console.error('חיפוש תמונה אוטומטי בגוגל נכשל:', err);
-    return null;
-  }
-}
+// 2026-09-26: never for a Places activity (google_place_id - its image is the place-photo proxy), and every
+// search-result row is EXTERNAL_SOURCE + needs_rights_review - see lib/serpImage.js.
+const { searchGoogleImage, serpImageRow, autoImageFallback } = require('./lib/serpImage');
 
 // אתר רשמי (activities.official_url) - כשפעילות נכנסת לאפליקציה, מחפשים אם יש לה אתר משלה
 // שונה מ"אתר המקור" (source_url יכול להיות לוח אירועים/אתר ריכוז חיצוני, לא האתר של הפעילות
@@ -1223,22 +1208,9 @@ async function saveNewActivity(client, userId, sourceUrl, activity, meta = {}) {
     }
 
     // לא נמצאה תמונה בעמוד המקור - מנסים לחפש תמונה של המקום בעצמנו (רק לפעילויות שבאמת
-    // יוצגו באפליקציה, אין טעם לבזבז חיפוש בתשלום על משהו שממילא יעבור לארכיון).
-    if (!imageAdded && !archived) {
-      const query = [activity.name, activity.city].filter(Boolean).join(' ');
-      const foundUrl = await searchGoogleImage(query);
-      if (foundUrl) {
-        const { error: autoImgErr } = await client
-          .from('activity_images')
-          .insert({ activity_id: savedActivity.id, url: foundUrl, uploaded_by: userId });
-        if (autoImgErr) {
-          console.error('שמירת תמונה שנמצאה אוטומטית נכשלה:', autoImgErr);
-        } else if (placeholderGroup) {
-          // תמונה אמיתית בכל זאת נמצאה - אין עוד צורך ב-placeholder שנקבע מראש.
-          await client.from('activities').update({ placeholder_group: null }).eq('id', savedActivity.id);
-        }
-      }
-    }
+    // יוצגו באפליקציה, אין טעם לבזבז חיפוש בתשלום על משהו שממילא יעבור לארכיון). פעילות Places
+    // (google_place_id) לעולם לא: התמונה שלה היא ה-proxy של place-photo (job places_photos) או placeholder.
+    await autoImageFallback(client, { activity, activityId: savedActivity.id, userId, archived, imageAdded, placeholderGroup });
 
     // חיפוש אתר רשמי - כנ"ל, רק לפעילויות שבאמת יוצגו באפליקציה - ורק כשאין כבר קישור הרשמה/רכישה
     // מפורש מהמקור (registration_url -> official_url למעלה): אין טעם לשלם על חיפוש למה שכבר ידוע.
@@ -2045,14 +2017,15 @@ app.post('/api/manage/search-photo', async (req, res) => {
     if (!activity) return res.status(404).json({ error: 'הפעילות לא נמצאה' });
 
     const query = [activity.name, activity.location?.city].filter(Boolean).join(' ');
-    const foundUrl = await searchGoogleImage(query);
-    if (!foundUrl) return res.json({ ok: true, found: false });
+    const found = await searchGoogleImage(query);
+    if (!found) return res.json({ ok: true, found: false });
 
     // status: 'pending' בכוונה - התמונה נמצאה אוטומטית וטרם נצפתה ע"י אדם, אז היא ממתינה
     // לאישור ידני (בדיוק כמו תמונה שמשתמש קצה מעלה) ולא מוצגת באפליקציה עד שמאשרים אותה.
+    // EXTERNAL_SOURCE + needs_rights_review (lib/serpImage.js) - אישור התמונה אינו אישור זכויות.
     const { data: image, error: imgErr } = await client
       .from('activity_images')
-      .insert({ activity_id: id, url: foundUrl, uploaded_by: userId, status: 'pending' })
+      .insert(serpImageRow({ activityId: id, userId, found, status: 'pending' }))
       .select('id, url, status')
       .single();
     if (imgErr) throw imgErr;
