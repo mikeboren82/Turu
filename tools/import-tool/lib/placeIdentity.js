@@ -17,12 +17,15 @@ const LOCALITY_FILLER = new Set(['עיריית', 'עירוני', 'העירוני
 
 function placeNameWords(name, city) {
   const fold = (w) => w.replace(/[׳״]/g, '').replace(/יי/g, 'י').replace(/וו/g, 'ו');
-  // city tokens get the SAME fold as name tokens (2026-09-26): unfolded, "גבעתיים"/"קריית" never equalled the
-  // folded name words "גבעתים"/"קרית", so the city was never stripped and agreement collapsed to e.g. 2/3
-  const cityWords = new Set(normalizeForMatch(city).split(' ').map(fold).filter(Boolean));
-  return new Set(normalizeForMatch(name).split(' ').map(fold).filter((w) => w.length > 1 && !cityWords.has(w) && !LOCALITY_FILLER.has(w)
-    // "בכפר סבא" - the city with a prefix letter
-    && !(w.length > 2 && /^[בלמה]/.test(w) && cityWords.has(w.slice(1)))));
+  // leading definite article per token, same rule as cleaner/matching.placeWords: "הבית אריאלה" = "בית אריאלה"
+  const article = (w) => w.replace(/^ה(?=[א-ת]{2})/, '');
+  const token = (w) => article(fold(w));
+  // city tokens get EXACTLY the same normalization as name tokens (fold 2026-09-26, article 2026-09-27) - otherwise
+  // "גבעתיים"/"קריית"/"הרצליה" never equal the normalized name word and the city is never stripped
+  const cityWords = new Set(normalizeForMatch(city).split(' ').map(token).filter(Boolean));
+  return new Set(normalizeForMatch(name).split(' ').map(token).filter((w) => w.length > 1 && !cityWords.has(w) && !LOCALITY_FILLER.has(w)
+    // "בכפר סבא" / "בהרצליה" - the city with a prefix letter (the remainder normalized like any city token)
+    && !(w.length > 2 && /^[בלמה]/.test(w) && cityWords.has(article(w.slice(1))))));
 }
 function placeNameAgreement(a, b, city) {
   const A = placeNameWords(a, city), B = placeNameWords(b, city);

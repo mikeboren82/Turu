@@ -330,7 +330,7 @@ test('city fold: a core that now reduces to a generic name (קניון / הספ�
   assert.equal(variant.identity.verdict, 'NO_MATCH', 'generic core -> no identity evidence'); assert.ok(!variant.hold, 'no new HOLD rule');
 });
 
-test('ARTICLE GAP (FOLLOW-UP_ARTICLE_NORMALIZATION, deliberately NOT fixed): "ספרייה העירונית קרית אתא" still does not reach the library', async () => {
+test('article normalized (2026-09-27) but "ספרייה העירונית קרית אתא" without the attested alias still does not reach the library: its core is generic', async () => {
   const lib = { id: 'f5357010', name_he: 'הספרייה העירונית קריית אתא', venue_type: 'library', city: 'קריית אתא', lat: 32.8090, lng: 35.1060 };
   const db = fakeDb({ venues: [lib], aliases: [[lib.name_he, lib.id], ['ספרייה עירונית קרית אתא', lib.id]] });
   const r = await matchExistingVenue(db.client, { label: 'ספרייה העירונית קרית אתא', city: 'קריית אתא', lat: lib.lat, lng: lib.lng });
@@ -345,4 +345,52 @@ test('COUNCIL / SETTLEMENT (deliberately NOT changed): חוות ארץ האיי�
   const council = await learn(db, { label: 'חוות ארץ האיילים', city: 'גוש עציון', lat: 31.65, lng: 35.12 });
   assert.ok(council.hold); assert.match(council.error, /city mismatch/);
   assert.equal(db.inserts.length + db.aliasWrites.length, 0);
+});
+
+// ---------------------------------------------------------------- article normalization (2026-09-27)
+// lib/placeIdentity strips a leading ה from every name AND city token (>= 2 letters remain). Real production fixtures.
+test('article: "הבית אריאלה" at Beit Ariela is MATCH@3 by identity; in the full ladder the stored alias answers first (level 2); nothing written', async () => {
+  const BA = { id: 'af47029d', name_he: 'בית אריאלה', venue_type: 'library', city: 'תל אביב יפו', lat: 32.0766841, lng: 34.7862804 };
+  const v = decideVenueMatch({ label: 'הבית אריאלה', city: 'תל אביב יפו', lat: BA.lat, lng: BA.lng }, [{ ...BA, aliases: ['ספריית בית אריאלה'], is_active: true }]);
+  assert.equal(v.verdict, 'MATCH'); assert.equal(v.level, 3);
+  // production: normalizeVenueAlias already drops a leading ה of the WHOLE string, so the alias "בית אריאלה" resolves it
+  const db = fakeDb({ venues: [BA], aliases: [['בית אריאלה', BA.id], ['ספריית בית אריאלה', BA.id], ['בית אריאלה תל אביב', BA.id]] });
+  for (const label of ['הבית אריאלה', 'בית אריאלה']) {
+    const r = await learn(db, { label, city: 'תל אביב יפו', lat: BA.lat, lng: BA.lng });
+    assert.equal(r.venue.id, BA.id, label); assert.equal(r.identity.level, 2, label);
+  }
+  assert.equal(db.inserts.length + db.aliasWrites.length, 0);
+});
+
+test('article: generic names stay generic (never identity evidence); a bare generic label is still refused by the learner', () => {
+  for (const [name, city] of [['הספרייה העירונית קריית אתא', 'קריית אתא'], ['הספרייה העירונית רמת השרון', 'רמת השרון'], ['הפארק רעננה', 'רעננה'], ['הקניון', 'חולון']]) {
+    assert.equal(isGenericVenueName(name, city), true, name);
+  }
+  const { isLearnableLabel } = require('../venueLearning');
+  for (const l of ['המרכז', 'הקניון', 'הספרייה העירונית']) assert.equal(isLearnableLabel(l), false, l);
+});
+
+test('article: "הפארק רעננה" - the only agreeing record is now generic-cored, so level 3/4 gives NO_MATCH (creation policy), never a guess', () => {
+  const park = { id: 'd11d2af4', name_he: 'פארק רעננה', aliases: ['הפארק העירוני רעננה'], city: 'רעננה', lat: null, lng: null, is_active: true };
+  assert.equal(decideVenueMatch({ label: 'הפארק רעננה', city: 'רעננה', lat: 32.19, lng: 34.87 }, [park]).verdict, 'NO_MATCH');
+});
+
+test('article: cross-city "אשכול פיס" (Yavne) never binds to אשכול הפיס בית חשמונאי, even though the words now agree fully', async () => {
+  const ek = { id: 'f0b18e40', name_he: 'אשכול הפיס בית חשמונאי', venue_type: 'community_center', city: 'בית חשמונאי' };
+  const db = fakeDb({ venues: [ek], aliases: [['אשכול הפיס בית חשמונאי', ek.id], ['אשכול הפיס', ek.id], ['אשכול פיס בית חשמונאי', ek.id]] });
+  const r = await learn(db, { label: 'אשכול פיס', city: 'יבנה', lat: 31.87, lng: 34.74 });
+  assert.notEqual(r.venue?.id, ek.id);
+  assert.equal(r.identity.verdict, 'NO_MATCH');
+});
+
+test('article: Kiryat Ata control - the attested alias keeps level 2; without it the generic core is NO_MATCH; the bare generic label resolves nowhere', async () => {
+  const lib = { id: 'f5357010', name_he: 'הספרייה העירונית קריית אתא', venue_type: 'library', city: 'קריית אתא' };
+  const base = [[lib.name_he, lib.id], ['ספרייה עירונית קרית אתא', lib.id], ['הספרייה קריית אתא', lib.id]];
+  const withPin = fakeDb({ venues: [lib], aliases: [...base, ['הספרייה העירונית קרית אתא', lib.id]] });
+  const r = await learn(withPin, { label: 'הספרייה העירונית קרית אתא', city: 'קריית אתא', lat: 32.81, lng: 35.11 });
+  assert.equal(r.venue.id, lib.id); assert.equal(r.identity.level, 2);
+  assert.equal(withPin.aliasWrites.length, 0);
+  const noPin = fakeDb({ venues: [lib], aliases: base });
+  assert.equal((await matchExistingVenue(noPin.client, { label: 'הספרייה העירונית קרית אתא', city: 'קריית אתא', lat: 32.81, lng: 35.11 })).verdict, 'NO_MATCH');
+  assert.equal(await resolveVenue(withPin.client, { locationName: 'הספרייה העירונית', city: null }), null);
 });

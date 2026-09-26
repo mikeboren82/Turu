@@ -47,15 +47,18 @@ const { placeNameWords } = require('../lib/placeIdentity');
 const words = (n, c) => [...placeNameWords(n, c)].sort();
 
 test('city fold: Givatayim is stripped from a Givatayim venue name, plain and with a prefix letter', () => {
-  assert.deepEqual(words('מצפה הכוכבים גבעתיים', 'גבעתיים'), ['הכוכבים', 'מצפה']);
-  assert.deepEqual(words('מצפה הכוכבים בגבעתיים', 'גבעתיים'), ['הכוכבים', 'מצפה']);
+  // 'כוכבים' (not 'הכוכבים'): article normalization 2026-09-27 also strips the per-token article
+  assert.deepEqual(words('מצפה הכוכבים גבעתיים', 'גבעתיים'), ['כוכבים', 'מצפה']);
+  assert.deepEqual(words('מצפה הכוכבים בגבעתיים', 'גבעתיים'), ['כוכבים', 'מצפה']);
   assert.equal(placeNameAgreement('מצפה הכוכבים', 'מצפה הכוכבים גבעתיים', 'גבעתיים'), 1);
 });
 
 test('city fold: קרית / קריית spellings reduce to the same semantic word set', () => {
-  assert.deepEqual(words('היכל התרבות קרית גת', 'קריית גת'), ['היכל', 'התרבות']);
-  assert.deepEqual(words('היכל התרבות קריית גת', 'קריית גת'), ['היכל', 'התרבות']);
-  assert.deepEqual(words('היכל התרבות קריית גת', 'קרית גת'), ['היכל', 'התרבות']);
+  // article normalization 2026-09-27: 'התרבות' -> 'תרבות', and the approved rule ^ה(?=[א-ת]{2}) (same as
+  // cleaner/matching.placeWords) cannot tell a root ה from an article, so 'היכל' -> 'יכל' - symmetric on both sides
+  assert.deepEqual(words('היכל התרבות קרית גת', 'קריית גת'), ['יכל', 'תרבות']);
+  assert.deepEqual(words('היכל התרבות קריית גת', 'קריית גת'), ['יכל', 'תרבות']);
+  assert.deepEqual(words('היכל התרבות קריית גת', 'קרית גת'), ['יכל', 'תרבות']);
 });
 
 test('city fold: a city without יי/וו behaves exactly as before, and only the city (never a name word) is stripped', () => {
@@ -77,6 +80,42 @@ test('PRE-INSERT GUARD: the fold only adds the intended positive - the same name
   assert.equal(samePlace({ lat: 32.0704, lng: 34.8062, city: 'גבעתיים', name: 'מקלט רמב״ם' }, { lat: 32.0702, lng: 34.8036, city: 'גבעתיים', name: 'בית אלון' }).same, false);
 });
 
-test('ARTICLE GAP (FOLLOW-UP_ARTICLE_NORMALIZATION, deliberately NOT fixed): the definite article still separates the library labels', () => {
-  assert.ok(placeNameAgreement('ספרייה העירונית קרית אתא', 'הספרייה העירונית קריית אתא', 'קריית אתא') < 0.8);
+test('article gap CLOSED (2026-09-27): the library labels agree - and both reduce to the generic core, so they are still not level-3/4 evidence', () => {
+  assert.equal(placeNameAgreement('ספרייה העירונית קרית אתא', 'הספרייה העירונית קריית אתא', 'קריית אתא'), 1);
+  assert.deepEqual(words('ספרייה העירונית קרית אתא', 'קריית אתא'), ['ספריה']);
+});
+
+// ---------------------------------------------------------------- article normalization (2026-09-27)
+// A leading definite article ה is stripped from EACH token when >= 2 Hebrew letters remain (cleaner/matching.placeWords
+// rule), symmetrically on name AND city tokens. Fixtures: real production rows (read-only snapshot 2026-09-26).
+test('article: "הבית אריאלה" and "בית אריאלה" reduce to the same core', () => {
+  assert.deepEqual(words('הבית אריאלה', 'תל אביב יפו'), ['אריאלה', 'בית']);
+  assert.deepEqual(words('בית אריאלה', 'תל אביב יפו'), ['אריאלה', 'בית']);
+});
+
+test('article: city tokens are normalized symmetrically - "הרצליה" is stripped, with and without a prefix letter', () => {
+  assert.deepEqual(words('קניון שבעת הכוכבים הרצליה', 'הרצליה'), ['כוכבים', 'קניון', 'שבעת']);
+  assert.deepEqual(words('קניון שבעת הכוכבים בהרצליה', 'הרצליה'), ['כוכבים', 'קניון', 'שבעת'], 'prefix-letter behaviour kept for an article-initial city');
+});
+
+test('article: two-letter remainder and a double article', () => {
+  assert.equal(placeNameAgreement('הגן הבוטני', 'גן בוטני', 'עכו'), 1);
+  assert.deepEqual(words('ההיכל', 'עכו'), ['היכל'], 'one article stripped, never two');
+});
+
+test('article: same-building tenants stay at agreement 0', () => {
+  assert.equal(placeNameAgreement('ספריית הילדים והנוער', 'בית ספיר', 'כפר סבא'), 0);
+  assert.equal(placeNameAgreement('מרכז קהילתי שז״ר', 'ספריית יד לבנים', 'גבעתיים'), 0);
+});
+
+test('PRE-INSERT GUARD: the near-threshold fair pair stays below 0.8; the Acre botanical pair ~147 m apart is still not one place', () => {
+  assert.ok(placeNameAgreement('יריד חזרה לבית הספר - אופיס דיפו', 'יריד חזרה לבית ספר - קרביץ', 'תל אביב יפו') < 0.8);
+  const a = { name: 'הגן הבוטני', category: 'טבע', city: 'עכו', lat: 32.9422765, lng: 35.0842244 };
+  const b = { name: 'גן בוטני', category: 'טבע', city: 'עכו', lat: 32.9427008, lng: 35.0827256 };
+  const v = samePlace(a, b);
+  assert.equal(v.same, false); assert.match(v.why, /too far/);
+});
+
+test('FOLLOW_UP_LOCALITY_FILLER_FOLD (deliberately NOT fixed): "עיריית" folds to "עירית", which the filler list does not contain', () => {
+  assert.ok(words('עיריית חולון', 'באר שבע').includes('עירית'));
 });
