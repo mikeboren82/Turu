@@ -62,8 +62,15 @@ test('MANIFEST RE-SEED: the Ramat HaSharon manifest entry can no longer re-creat
     const { rows } = withoutGenericAliases([v.name_he, ...(v.aliases || [])].map((a) => ({ alias: a, alias_normalized: normalizeVenueAlias(a) })));
     assert.equal(rows.some((r) => genericVenueType(r.alias_normalized)), false, v.name_he);
   }
+  // E-1b (Repair Batch F1, 2026-09-26): the RH attestation was revoked in production, so the manifest declares no
+  // generic alias anywhere - repository intent matches production even without the seeder guard
+  for (const v of manifest.venues) assert.equal([v.name_he, ...(v.aliases || [])].some((a) => genericVenueType(a)), false, v.name_he);
   const rh = manifest.venues.find((v) => v.key === 'ramat_hasharon_library');
-  assert.ok(rh && rh.aliases.some((a) => genericVenueType(a)), 'fixture: the manifest still lists the generic RH aliases (data decision, not repaired here)');
+  assert.deepEqual(rh.aliases, ['ספריית רמת השרון']);
+  // E-21b: the municipal-library phrase is not an alias of the Kfar Saba CHILDREN'S library (specific alias - the
+  // generic guard would not catch a re-seed of it)
+  const ks = manifest.venues.find((v) => v.key === 'ks_children_library');
+  assert.deepEqual(ks.aliases, ['ספריית הילדים כפר סבא']);
 });
 
 // MONOTONICITY D through the actual merge row derivation (server.js /api/venues/merge): two unattested
