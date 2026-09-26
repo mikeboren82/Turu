@@ -75,9 +75,9 @@ test('Home: the carousel active-card index is tracked and fed to CarouselDots fo
   assert.match(src, /<CarouselDots count=\{recommendations\.length\} activeIndex=\{recActiveIndex\} \/>/);
 });
 
-test('Home: the active index resets when the recommendation list itself changes (no dot pointing at a card that no longer exists)', () => {
+test('Home: the active index resets when the carousel\'s own card count changes (no dot pointing at a card that no longer exists) - see carouselTrueSymmetryFollowup2026_09_26.test.js for the interior-start-index behavior itself', () => {
   const src = read('app/index.js');
-  assert.match(src, /useEffect\(\(\) => \{ setRecActiveIndex\(0\); \}, \[recommendations\]\)/);
+  assert.match(src, /useEffect\(\(\) => \{ setRecActiveIndex\(carouselInitialIndex\(recDotsCount\)\); \}, \[recDotsCount\]\)/);
 });
 
 test('CarouselDots: renders nothing for 0 or 1 item, and clamps an out-of-range active index', () => {
@@ -86,26 +86,13 @@ test('CarouselDots: renders nothing for 0 or 1 item, and clamps an out-of-range 
   assert.match(src, /Math\.min\(Math\.max\(activeIndex \|\| 0, 0\), count - 1\)/);
 });
 
-// --- 4. Registration: heart repetition reduced, matches the existing Saved-tab icon language ---
-
-test('login: the red heart next to "saved" benefit is now the same outline HeartIcon the Saved tab / My Things menu already use, not an emoji', () => {
-  const src = read('app/login.js');
-  assert.match(src, /import \{[^}]*HeartIcon[^}]*\} from '..\/components\/icons'/s);
-  const benefitsDecl = src.slice(src.indexOf('const BENEFITS'), src.indexOf('];', src.indexOf('const BENEFITS')) + 2);
-  assert.match(benefitsDecl, /icon:\s*HeartIcon,\s*key:\s*'saved'/, 'the saved row uses the icon component');
-  assert.doesNotMatch(benefitsDecl, /❤/, 'no more red-heart emoji in the benefits list');
-  assert.match(src, /registerTitle.*💛|💛.*registerTitle|registerTitle\)/, 'sanity: the headline title key is still referenced (not accidentally removed)');
-});
+// --- 4. Registration: heart repetition reduced. Superseded by the "no heart icon" follow-up
+// (2026-09-26) - see tests/carouselTrueSymmetryFollowup2026_09_26.test.js for the current
+// assertions (the 'saved' benefit is now the ⭐ emoji, no heart icon or emoji anywhere in the row).
 
 test('login: the headline yellow heart emoji itself is untouched (still 💛 in the he locale)', () => {
   const auth = read('lib/i18n/locales/he/auth.json');
   assert.match(auth, /registerTitle.*💛/);
-});
-
-test('login: HeartIcon in the benefits row renders in TuRu accent color, not the same weight as the headline emoji', () => {
-  const src = read('app/login.js');
-  const renderSite = src.slice(src.indexOf('b.icon size='), src.indexOf('b.icon size=') + 60);
-  assert.match(renderSite, /color=\{colors\.accent\}/);
 });
 
 // --- 5. Activity card placeholder: the swing-kangaroo illustration gets breathing room, still fully "contain" ---

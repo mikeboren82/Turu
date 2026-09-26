@@ -3,7 +3,9 @@
 // שאר קבצי lib/ הטהורים-לגמרי (בלי import כלשהו).
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { carouselSidePadding, carouselActiveIndex, carouselOffsetForIndex } = require('../lib/homeCarousel');
+const {
+  carouselSidePadding, carouselActiveIndex, carouselOffsetForIndex, carouselInitialIndex,
+} = require('../lib/homeCarousel');
 
 // --- 1. carouselSidePadding ---
 
@@ -80,4 +82,36 @@ test('carouselOffsetForIndex is the inverse of carouselActiveIndex at every exac
 
 test('carouselOffsetForIndex: a negative index (defensive) never returns a negative offset', () => {
   assert.equal(carouselOffsetForIndex(-3, 260, 12), 0);
+});
+
+// --- 4. carouselInitialIndex - "carousel true symmetry" follow-up (2026-09-26) ---
+// >=3 cards must start on an interior index (a real previous AND a real next card both visible on
+// first render); fewer than 3 cards fall back to the existing edge behavior (0) rather than
+// inventing a fake duplicate card to flank it.
+
+test('carouselInitialIndex: 0 or 1 card starts at index 0 (nothing to flank it with)', () => {
+  assert.equal(carouselInitialIndex(0), 0);
+  assert.equal(carouselInitialIndex(1), 0);
+});
+
+test('carouselInitialIndex: 2 cards - graceful fallback to index 0, no invented duplicate card', () => {
+  assert.equal(carouselInitialIndex(2), 0);
+});
+
+test('carouselInitialIndex: >=3 cards starts at interior index 1 - a real previous (0) and a real next (2) card both exist', () => {
+  assert.equal(carouselInitialIndex(3), 1);
+  assert.equal(carouselInitialIndex(4), 1);
+  assert.equal(carouselInitialIndex(50), 1);
+});
+
+test('carouselInitialIndex: non-finite input never throws - falls back to 0', () => {
+  assert.equal(carouselInitialIndex(undefined), 0);
+  assert.equal(carouselInitialIndex(NaN), 0);
+});
+
+test('carouselInitialIndex feeds carouselOffsetForIndex to produce a real interior contentOffset (the actual wiring used by the component)', () => {
+  const cardWidth = 260, gap = 12;
+  const pitch = cardWidth + gap;
+  assert.equal(carouselOffsetForIndex(carouselInitialIndex(4), cardWidth, gap), pitch, 'one full pitch in - card 1 centered, card 0 and card 2 both flank it');
+  assert.equal(carouselOffsetForIndex(carouselInitialIndex(2), cardWidth, gap), 0, '2-card fallback stays at the edge');
 });

@@ -1,4 +1,6 @@
-import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import {
+  useState, useCallback, useEffect, useLayoutEffect, useMemo, useRef,
+} from 'react';
 import { View, Text, ScrollView, Pressable, TextInput, ActivityIndicator, Image, Platform, Linking, Modal, useWindowDimensions, Animated } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -42,7 +44,9 @@ import {
   shouldApplyHomeDefaults, buildCarouselFilters, resolveCommittedHomeLocation,
   buildResultsParams, resolveSmartSearchCoords,
 } from '../lib/homeSession';
-import { carouselSidePadding, carouselActiveIndex } from '../lib/homeCarousel';
+import {
+  carouselSidePadding, carouselActiveIndex, carouselOffsetForIndex, carouselInitialIndex,
+} from '../lib/homeCarousel';
 import { useRecentSearches } from '../lib/useRecentSearches';
 import { colors, fonts, radii, spacing } from '../constants/theme';
 import { useI18n, createStyles, t } from '../lib/i18n';
@@ -1265,14 +1269,46 @@ export default function HomeScreen() {
   // undefined (recActivities עדיין בטעינה) מטופל בתוך BlurredActivityCard עצמו (fallback מדומה).
   const previewActivities = useMemo(() => recommendations.slice(0, 4), [recommendations]);
 
+  // "Carousel true symmetry" follow-up (2026-09-26) - recDotsCount mirrors whichever branch below
+  // actually renders (fixed 4 for the locked-preview state, the live recommendations count once a
+  // location is known - same carouselLocationKnown check the branches themselves use). Both the
+  // dot state and each ScrollView's own initial scroll position are derived from the SAME
+  // carouselInitialIndex(recDotsCount), so the dot that starts lit is always the card that starts
+  // physically centered - card 1 (a real previous AND a real next neighbor visible) once there are
+  // >=3 cards, card 0 otherwise (see lib/homeCarousel#carouselInitialIndex). recBranchKey names
+  // exactly which of the branches below is mounted right now (locked-preview / loading / error /
+  // empty / real) - it is the useLayoutEffect dependency below, so the imperative scroll re-fires
+  // whenever a DIFFERENT ScrollView instance actually mounts, not on every unrelated re-render.
+  const recDotsCount = carouselLocationKnown ? recommendations.length : 4;
+  const recCarouselInitialIndex = carouselInitialIndex(recDotsCount);
+  const recCarouselInitialOffset = carouselOffsetForIndex(recCarouselInitialIndex, CAROUSEL_CARD_WIDTH, CAROUSEL_GAP);
+  const recBranchKey = !carouselLocationKnown ? 'locked' : recLoading ? 'loading' : recError ? 'error' : recommendations.length === 0 ? 'empty' : 'real';
+
   // Mobile UI Polish (2026-09-26) - האינדקס-הממורכז בפועל של קרוסלת-הגילוי, לנקודות-הדפדוף
-  // (CarouselDots). מתאפס ל-0 כל פעם שרשימת-ה-recommendations עצמה משתנה (מיקום/פילטרים/תוצאות
-  // חדשים) - אחרת נקודה שכבר לא תואמת שום כרטיס-קיים הייתה יכולה להישאר "פעילה" זמנית.
-  const [recActiveIndex, setRecActiveIndex] = useState(0);
-  useEffect(() => { setRecActiveIndex(0); }, [recommendations]);
+  // (CarouselDots). מתאפס ל-recCarouselInitialIndex (לא תמיד 0 - ראו למעלה) כל פעם שהמונה עצמו
+  // משתנה (מיקום/פילטרים/תוצאות חדשים, או מעבר locked-preview<->קרוסלה אמיתית) - אחרת נקודה
+  // שכבר לא תואמת שום כרטיס-קיים הייתה יכולה להישאר "פעילה" זמנית.
+  const [recActiveIndex, setRecActiveIndex] = useState(recCarouselInitialIndex);
+  useEffect(() => { setRecActiveIndex(carouselInitialIndex(recDotsCount)); }, [recDotsCount]);
   const handleRecScrollEnd = useCallback((count) => (e) => {
     setRecActiveIndex(carouselActiveIndex(e.nativeEvent.contentOffset.x, CAROUSEL_CARD_WIDTH, CAROUSEL_GAP, count));
   }, []);
+
+  // "Carousel true symmetry" follow-up (2026-09-26) - the `contentOffset` prop on each ScrollView
+  // below (native's own initial-position prop, read once at mount) already gets this right on
+  // native iOS/Android, but react-native-web's ScrollView silently ignores that prop (checked
+  // directly in node_modules/react-native-web - not present anywhere in its implementation), so on
+  // web the carousel would otherwise still start at the physical edge. recCarouselRef + this
+  // useLayoutEffect (fires synchronously before the browser paints, matching the "no visible jump"
+  // requirement on web too) is the cross-platform fix: harmless/redundant on native (contentOffset
+  // already put it there; scrolling to the same position again is a no-op), load-bearing on web.
+  const recCarouselRef = useRef(null);
+  useLayoutEffect(() => {
+    if (recCarouselInitialOffset > 0 && recCarouselRef.current) {
+      recCarouselRef.current.scrollTo({ x: recCarouselInitialOffset, y: 0, animated: false });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recBranchKey]);
 
   // אותה לוגיקה משותפת בדיוק כמו app/activities.js (lib/interactions.js) - התנהגות עקבית
   // בשני המקומות שבהם הפעולות האלה מופיעות, לא שני מימושים מקבילים.
@@ -1567,15 +1603,21 @@ export default function HomeScreen() {
           {!carouselLocationKnown ? (
             <>
               {/* Mobile UI Polish (2026-09-26): carouselSidePad (both sides, via contentContainerStyle)
-                  centers the FIRST card in the viewport instead of hugging the physical edge - the
-                  same padding-based technique as the two branches below. snapToInterval/decelerationRate
-                  give real center-snapping (native momentum, not a simulated animation); the padding
-                  alone already gets the initial position right, so there is no scrollTo/initialScrollIndex
-                  jump-after-mount to work around. */}
+                  centers a card in the viewport instead of hugging the physical edge - the same
+                  padding-based technique as the two branches below. snapToInterval/decelerationRate
+                  give real center-snapping (native momentum, not a simulated animation). "carousel
+                  true symmetry" follow-up (2026-09-26): contentOffset (native's own initial-position
+                  prop) plus the recCarouselRef/useLayoutEffect pair above (the cross-platform fix -
+                  react-native-web ignores contentOffset) start the carousel already centered on
+                  recCarouselInitialIndex (card 1 when there are >=3 cards), so a REAL neighboring
+                  card is visible on both physical sides from the very first frame, not just blank
+                  side-padding on one of them. */}
               <ScrollView
+                ref={recCarouselRef}
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={[styles.recRow, { paddingHorizontal: carouselSidePad }]}
+                contentOffset={{ x: recCarouselInitialOffset, y: 0 }}
                 decelerationRate="fast"
                 snapToInterval={CAROUSEL_CARD_WIDTH + CAROUSEL_GAP}
                 snapToAlignment="start"
@@ -1613,9 +1655,11 @@ export default function HomeScreen() {
           ) : (
             <>
               <ScrollView
+                ref={recCarouselRef}
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={[styles.recRow, { paddingHorizontal: carouselSidePad }]}
+                contentOffset={{ x: recCarouselInitialOffset, y: 0 }}
                 decelerationRate="fast"
                 snapToInterval={CAROUSEL_CARD_WIDTH + CAROUSEL_GAP}
                 snapToAlignment="start"
