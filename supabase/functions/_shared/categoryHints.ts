@@ -4,13 +4,17 @@
 // resolver (tools/import-tool/cleaner/fieldEnricher.js NAME_CATEGORY / FAMILY_SUPPORTS - keep in lockstep).
 // MEDIUM only: a name keyword counts when the source family supports that category or the description repeats
 // it; otherwise null (the review queue / Cleaner decide). Never "אחר", never a guess from an empty name.
+// 2026-09-26 (Phase 1 ledger Z-H / R15): the farm keyword is a whole Hebrew word (lib/markerMatch rule) with a farm-only
+// prefix set - "מהחווה" is from-the-farm, "מחווה" (a tribute concert) is not; "חוות דעת" is an opinion. The broad
+// transitional 'בעלי חיים' rule (readiness report: "stop hinting בעלי חיים") is gone - an animal place gets no hint.
+// Shared cases: _shared/categoryHints.cases.json (Deno here, both parsed twins in tests/categoryHintDrift.test.js).
 export const NAME_CATEGORY: [RegExp, string][] = [
   [/שעת סיפור|סיפור בספרי|הקראת ספר/, 'שעת סיפור'], [/ג['׳]ימבורי|jimbor/i, "ג'ימבורי"], [/משחקייה|משחקיה/, 'משחקייה'],
   [/הצגה|הצגת|תיאטרון|מחזמר|בובות|מופע ילדים/, 'הצגה'], [/קונצרט|מופע מוזיקלי|שירה בציבור|שרים|מוזיקה|מוסיקה/, 'מוזיקה'],
   [/סדנת בישול|סדנת אפייה|בישול|אפייה|שוקולד/, 'בישול'], [/סדנת מדע|מדע|רובוטיקה|תכנות|טכנולוגי/, 'מדע'], [/סדנת יצירה|יצירה|ציור|קרמיקה|פיסול|אמנות/, 'יצירה'],
   [/סדנה|סדנת/, 'סדנה'], [/טיול|סיור|בטבע|נחל|שמורת|צפרות|ציפורים/, 'טבע'], [/מוזיאון|תערוכה/, 'מוזיאון לילדים'], [/ריקוד|מחול|זומבה/, 'ריקוד'],
   [/סרט|הקרנה|קולנוע/, 'קולנוע לילדים'], [/בריכה|שחייה|פעילות מים|מים/, 'פעילות מים'], [/ספורט|כדורגל|כדורסל|ריצה|אתלטיקה/, 'ספורט'],
-  [/פינת חי|בעלי חיים|חיות|גן חיות/, 'בעלי חיים'], [/חווה|חוות/, 'חווה'], [/טרמפולינ/, 'טרמפולינות'], [/גן שעשועים|מגרש משחקים/, 'גן שעשועים'],
+  [/(?<![א-תA-Za-z0-9])(?<![א-תA-Za-z0-9]['"׳״])(?:ו?ש?(?:[בל]ה?|מה|ה)?)(?:חווה|חוות)(?![א-תA-Za-z0-9])(?!['"׳״][א-תA-Za-z0-9])(?![\s\-–—]+ה?דעת(?![א-תA-Za-z0-9]))/, 'חווה'], [/טרמפולינ/, 'טרמפולינות'], [/גן שעשועים|מגרש משחקים/, 'גן שעשועים'],
   [/הפנינג|יריד|פסטיבל|חגיגה|אירוע קהילתי|קהילתי/, 'פעילות קהילתית'],
 ];
 export const FAMILY_SUPPORTS: Record<string, string[]> = {

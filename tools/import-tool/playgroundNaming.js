@@ -45,6 +45,20 @@ function isGenericPlaygroundName(name) {
   return GENERIC_NAME_PATTERNS.some((re) => re.test(trimmed));
 }
 
+// R13 (2026-09-26, Phase 1 ledger Z-C): a GENERATED title is "<entity label> – <street>, <city>"; only the entity label
+// says WHAT the place is, the tail says WHERE. "גן שעשועים – דרך גן החיות, ירושלים | القدس" -> "גן שעשועים" (the street
+// "דרך גן החיות" once reclassified a playground as a zoo). Official / admin names are returned whole - a real
+// "גן החיות התנ״כי" keeps every word. Generated = name_source 'generated_from_address', or (name_source unknown) the
+// generator's own "גן שעשועים[ ציבורי] – …" shape. Node-only: scan-source never classifies a generated title.
+const GENERATED_TITLE = /^גן שעשועים(?: ציבורי)?\s+[–—-]\s+/;
+const ADDRESS_TAIL = /(?:^|\s)[בו]?(?:דרך|רחוב|רח['׳]|שדרות|שד['׳])\s.*$/;
+function semanticNamePart(name, nameSource) {
+  const s = String(name || '').trim();
+  const generated = nameSource === 'generated_from_address' || (nameSource == null && GENERATED_TITLE.test(s));
+  if (!generated) return s;
+  return s.split(/\s[–—-]\s|,|\s\|\s/)[0].replace(ADDRESS_TAIL, '').trim();
+}
+
 // "רחוב 12, עיר" -> { street: "רחוב", houseNumber: "12" } - address תמיד "רחוב[ מספר], עיר"
 // בקוד הקיים (ראו enrich-playground-addresses.js/server.js queryNominatim - אותו פורמט תמיד).
 // מספר-בית יכול לכלול אות עברית נספחת (למשל "12א") - נשמר כמו שהוא, לא מפוצל הלאה.
@@ -75,5 +89,5 @@ function generatePlaygroundDisplayName({ officialName, address, city }) {
   return { name: null, tier: 'no_data', nameSource: null };
 }
 
-module.exports = { isGenericPlaygroundName, parseStreetAddress, generatePlaygroundDisplayName };
+module.exports = { isGenericPlaygroundName, parseStreetAddress, generatePlaygroundDisplayName, semanticNamePart };
 

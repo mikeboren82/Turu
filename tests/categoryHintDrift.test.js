@@ -109,6 +109,17 @@ test('RUNTIME: the Node NAME_CATEGORY twin now proposes טבע from birdwatching
   }
 });
 
+// Phase 1 ledger Z-H / R15 (2026-09-26): shared behaviour table, run against BOTH parsed twins
+test('SHARED CASES: both NAME_CATEGORY twins give the same first hit (whole-word farm, no broad בעלי חיים hint)', () => {
+  const { firstHit } = JSON.parse(read('supabase/functions/_shared/categoryHints.cases.json'));
+  const first = (table, name) => { const hit = table.find(([re]) => re.test(name)); return hit ? hit[1] : null; };
+  for (const [name, expected] of firstHit) {
+    assert.equal(first(denoNameCategory, name), expected, `Deno twin: ${name}`);
+    assert.equal(first(nodeNameCategory, name), expected, `Node twin: ${name}`);
+  }
+  assert.ok(!denoNameCategory.some(([, c]) => c === 'בעלי חיים') && !nodeNameCategory.some(([, c]) => c === 'בעלי חיים'), 'no twin may hint the transitional בעלי חיים');
+});
+
 test('DRIFT GUARD: FAMILY_SUPPORTS is identical between the Deno and Node twins', () => {
   assert.deepEqual(nodeFamilySupports, denoFamilySupports);
 });

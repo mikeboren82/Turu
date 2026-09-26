@@ -42,3 +42,33 @@ test('a bare road number is never a street - not in an address, not in a generat
   assert.equal(generatePlaygroundDisplayName({ officialName: null, address: '3565, נוקדים', city: 'נוקדים' }).name, 'גן שעשועים – נוקדים');
   assert.equal(generatePlaygroundDisplayName({ officialName: null, address: 'הרצל 12, רעננה', city: 'רעננה' }).name, 'גן שעשועים – הרצל 12, רעננה');
 });
+
+// R13 (Phase 1 ledger Z-C, 2026-09-26): 965388d6 "גן שעשועים – דרך גן החיות, ירושלים | القدس" (generated_from_address, OSM)
+// was reclassified as a zoo because its STREET is "דרך גן החיות". The generated tail is WHERE, never WHAT.
+test('R13: a generated playground title is classified on its entity label only - the street never reclassifies it', () => {
+  const generated = ['גן שעשועים – דרך גן החיות, ירושלים | القدس', 'גן שעשועים – דרך גן החיות, ירושלים', 'גן שעשועים – רחוב הספארי, חיפה', 'גן שעשועים – שדרות האקווריום, עיר', 'גן שעשועים – לונה פארק 3, תל אביב-יפו', 'גן שעשועים ציבורי - פינת חי, ירושלים והסביבה'];
+  for (const n of generated) {
+    assert.equal(classifyPlayVenue(n, { nameSource: 'generated_from_address' }), null, n);
+    assert.equal(classifyPlayVenue(n), null, `${n} (name_source unknown: the generator shape itself is the signal)`);
+  }
+});
+
+test('R13: official names keep every word - a real zoo / aquarium is still an animal venue', () => {
+  assert.equal(classifyPlayVenue('גן החיות התנ״כי', { nameSource: 'official' }).kind, 'animals_zoo');
+  assert.equal(classifyPlayVenue('גן החיות התנ״כי').kind, 'animals_zoo');
+  assert.equal(classifyPlayVenue('אקווריום ישראל', { nameSource: 'official' }).category, 'חיות וגני חיות');
+  assert.equal(classifyPlayVenue('ספארי רמת גן', { nameSource: 'admin_confirmed' }).kind, 'animals_zoo');
+  // an official name that merely contains a street word is not cut
+  assert.equal(classifyPlayVenue('גן החיות דרך הים', { nameSource: 'official' }).kind, 'animals_zoo');
+});
+
+test('R13: the address parser - entity label kept, address tail dropped, official names untouched', () => {
+  const { semanticNamePart } = require('../playgroundNaming');
+  assert.equal(semanticNamePart('גן שעשועים – דרך גן החיות, ירושלים | القدس', 'generated_from_address'), 'גן שעשועים');
+  assert.equal(semanticNamePart('גן שעשועים – ירושלים', 'generated_from_address'), 'גן שעשועים');
+  assert.equal(semanticNamePart('גן שעשועים דרך גן החיות ירושלים', 'generated_from_address'), 'גן שעשועים', 'separator lost: the street word still starts the tail');
+  assert.equal(semanticNamePart('משחקייה – רחוב הרצל 3, רעננה', 'generated_from_address'), 'משחקייה', 'a non-playground entity label stays the semantic part');
+  assert.equal(classifyPlayVenue('משחקייה – דרך גן החיות, ירושלים', { nameSource: 'generated_from_address' }).kind, 'indoor_play', 'semantic matching runs on the generated entity prefix');
+  assert.equal(semanticNamePart('גן החיות התנ״כי - ירושלים', 'official'), 'גן החיות התנ״כי - ירושלים');
+  assert.equal(semanticNamePart('מוזיאון דרך הבשמים', null), 'מוזיאון דרך הבשמים', 'unknown source and not the generator shape: never cut');
+});

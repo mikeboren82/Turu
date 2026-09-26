@@ -11,7 +11,8 @@
 require('dotenv').config();
 const { getClient } = require('./supabase');
 const { normalizeCityName } = require('./cityNaming');
-const { resolveVenue, normalizeVenueAlias, genericVenueType } = require('./venueNaming');
+const { normalizeVenueAlias, genericVenueType } = require('./venueNaming');
+const { matchExistingVenue } = require('./lib/venueMatch');
 const { haversineKm } = require('./cleaner/matching');
 const { verifiedConditionalUpdate, isNoopOk, describe } = require('./lib/verifiedWrite');
 
@@ -42,29 +43,32 @@ const median = (xs) => { const s = [...xs].sort((a, b) => a - b); return s[Math.
     const lat = median(lats), lng = median(lngs);
     const spread = Math.max(...g.acts.map((a) => haversineKm(lat, lng, Number(a.locations.lat), Number(a.locations.lng))));
     if (spread > 0.15) { skipped.push({ label: g.label, city: g.city, n: g.acts.length, why: `coords disagree (${Math.round(spread * 1000)} m)` }); continue; }
-    const existing = await resolveVenue(client, { locationName: g.label, city: g.city });
-    if (existing) { skipped.push({ label: g.label, city: g.city, n: g.acts.length, why: 'already resolves to ' + existing.name_he }); continue; }
-    // same alias known under another city (e.g. 'עזריאלי אילון' vs a mis-extracted city) - never create a twin
-    const anywhere = await resolveVenue(client, { locationName: g.label, city: null });
-    if (anywhere) { skipped.push({ label: g.label, city: g.city, n: g.acts.length, why: 'alias exists as ' + anywhere.name_he + ' [' + anywhere.city + '] - city mismatch, human check' }); continue; }
+    // R12: the same identity ladder createVenueWithAlias runs before insert - an exact alias is someone else's job
+    // (skipped as before), a same-spot / same-name variant REUSES that venue, anything ambiguous is held
+    const identity = await matchExistingVenue(client, { label: g.label, city: g.city, lat, lng });
+    if (identity.verdict === 'MATCH' && identity.level <= 2) { skipped.push({ label: g.label, city: g.city, n: g.acts.length, why: 'already resolves to ' + identity.venue.name_he }); continue; }
+    if (identity.verdict === 'HOLD') { skipped.push({ label: g.label, city: g.city, n: g.acts.length, why: 'identity hold: ' + identity.reason }); continue; }
+    const reuse = identity.verdict === 'MATCH' ? { id: identity.venue.id, name_he: identity.venue.name_he, level: identity.level } : null;
     const type = (TYPE_RULES.find(([re]) => re.test(g.label)) || [null, 'other'])[1];
     const region = g.acts.map((a) => a.locations.region).find((r) => REGIONS.has(r)) || null;
     const address = g.acts.map((a) => a.locations.address).find(Boolean) || null;
-    proposals.push({ label: g.label, city: g.city, region, type, lat, lng, address, n: g.acts.length, sources: sources.size, acts: g.acts });
+    proposals.push({ label: g.label, city: g.city, region, type, lat, lng, address, n: g.acts.length, sources: sources.size, acts: g.acts, reuse });
   }
   proposals.sort((a, b) => b.n - a.n);
   console.log(`${APPLY ? 'APPLY' : 'REPORT'}: ${acts.length} venue-less activities, ${Object.keys(groups).length} labels, ${proposals.length} proposals, ${skipped.length} skipped`);
-  proposals.forEach((p) => console.log(`  + ${p.label} [${p.city}] ${p.type} n=${p.n} src=${p.sources} ${p.address ? '@' + p.address : ''}`));
+  proposals.forEach((p) => console.log(p.reuse
+    ? `  = ${p.label} [${p.city}] n=${p.n} -> reuse ${p.reuse.name_he} (${p.reuse.id}, identity level ${p.reuse.level})`
+    : `  + ${p.label} [${p.city}] ${p.type} n=${p.n} src=${p.sources} ${p.address ? '@' + p.address : ''}`));
   skipped.slice(0, 15).forEach((s) => console.log(`  - ${s.label} [${s.city}] n=${s.n}: ${s.why}`));
   if (!APPLY) return;
-  let created = 0, linked = 0;
+  let created = 0, reused = 0, linked = 0;
   const { createVenueWithAlias } = require('./venueLearning');
   for (const p of proposals) {
-    // one shared writer with the Cleaner's cluster step: re-resolves the alias right before insert
+    // one shared writer with the Cleaner's cluster step: re-runs venue identity right before insert (reuse / hold / create)
     const res = await createVenueWithAlias(client, { label: p.label, city: p.city, region: p.region, type: p.type, lat: p.lat, lng: p.lng, address: p.address, notes: `learned from ${p.n} published activities (${p.sources} sources) - propose-venues.js`, userId });
     if (!res.venue) { console.log('  venue insert failed', p.label, res.error); continue; }
     const v = res.venue;
-    if (res.created) created++;
+    if (res.created) created++; else reused++;
     const ids = p.acts.map((a) => a.id), locIds = p.acts.map((a) => a.location_id).filter(Boolean);
     // אימות-כתיבה (2026-09-21): update().in(...) בלי .select() לא יכול להבחין "כל ה-ids נכתבו" מ
     // "חלקם/אף אחד לא, error=null" - linked ספר בעבר את כל ids בעיוורון. עדכון-לפי-id בודד (לא
@@ -80,5 +84,5 @@ const median = (xs) => { const s = [...xs].sort((a, b) => a - b); return s[Math.
     }
     linked += groupLinked;
   }
-  console.log(`created ${created} venues, linked ${linked} activities`);
+  console.log(`created ${created} venues, reused ${reused}, linked ${linked} activities`);
 })().catch((e) => { console.error(e); process.exit(1); });

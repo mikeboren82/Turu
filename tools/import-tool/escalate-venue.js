@@ -14,6 +14,7 @@ const { resolveLocation, geocodeText, ADMIN_TYPES, cityAgrees } = require('./cle
 const { haversineKm } = require('./cleaner/matching');
 const { createVenueWithAlias, inferVenueType } = require('./venueLearning');
 const { resolveVenue, normalizeVenueAlias } = require('./venueNaming');
+const { matchExistingVenue } = require('./lib/venueMatch');
 const { inIsrael } = require('./lib/pageExtract');
 
 const args = Object.fromEntries(process.argv.slice(2).filter((a) => a.startsWith('--')).map((a) => { const [k, ...v] = a.slice(2).split('='); return [k, v.length ? v.join('=') : true]; }));
@@ -44,7 +45,11 @@ const APPLY = !!args.apply;
   const basis = high ? `HIGH (${high.src})` : agree ? 'MEDIUM x2 independent agreeing' : null;
   if (!basis) { console.log('RESULT: insufficient independent evidence - stays genuinely human'); return; }
   const e = high || found[0];
-  console.log(`RESULT: create venue on ${basis}: ${label} [${city}] ${e.lat},${e.lng} ${e.address || ''}`);
+  // R12: the identity ladder createVenueWithAlias will run - reuse / hold are decided before anything is created
+  const identity = await matchExistingVenue(client, { label, city, lat: e.lat, lng: e.lng });
+  if (identity.verdict === 'HOLD') { console.log(`RESULT: identity hold - ${identity.reason}; stays genuinely human`); return; }
+  if (identity.verdict === 'MATCH') console.log(`RESULT: reuse ${identity.venue.name_he} [${identity.venue.id}] (identity level ${identity.level}: ${identity.reason})`);
+  else console.log(`RESULT: create venue on ${basis}: ${label} [${city}] ${e.lat},${e.lng} ${e.address || ''}`);
   if (!APPLY) return;
   const res = await createVenueWithAlias(client, { label, city, type: inferVenueType(label), lat: e.lat, lng: e.lng, address: e.address || null, notes: `THE CLEANER escalate-venue: ${basis}; ${JSON.stringify(found.map((f) => ({ src: f.src, evidence: f.evidence }))).slice(0, 400)}`, userId });
   if (!res.venue) { console.log('create failed:', res.error); return; }

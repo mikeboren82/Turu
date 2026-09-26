@@ -6,6 +6,7 @@
 // are HIGH. "גן משחקים" / "מגרש משחקים" / "playground" are playgrounds. Ropes / extreme parks are ambiguous
 // (a free rope structure in a public garden vs a ticketed park) -> MEDIUM, reported, never auto-changed.
 //   -> { kind, category, indoor_outdoor, confidence, token } | null
+const { semanticNamePart } = require('../playgroundNaming');
 const norm = (s) => String(s || '').toLowerCase().replace(/[׳’`']/g, "'").replace(/[״”]/g, '"').replace(/\s+/g, ' ').trim();
 
 const VENDOR = /(בע"מ|בעמ(\s|$)|\bltd\b|\binc\b|ציוד פנים|יבוא ושיווק|שיווק והפצה)/;
@@ -39,8 +40,10 @@ const BOTANICAL = /(גן\s?ה?בוטני|botanic)/;
 const SPORTS = /(פאמפ\s?טרק|pump\s?track|סקייט\s?פארק|skate\s?park|מגרש\s?(כדורגל|כדורסל|טניס)|פארק\s?אופניים|bike\s?park)/;
 const AMBIGUOUS = /(פארק\s?ה?חבלים|מתחם חבלים|פארק אקסטרים|extreme park|פארק מים|water\s?park|טרמפולינ|trampolin|שלולית\s?חורף|חורשת|חורשה|שמורת)/;
 
-function classifyPlayVenue(name) {
-  const n = norm(name);
+// opts.nameSource = activities.name_source: a generated title is classified on its entity label only (R13) - its street
+// tail ("דרך גן החיות", "רחוב הספארי") is never evidence. null = nothing to change (a playground stays a playground).
+function classifyPlayVenue(name, { nameSource } = {}) {
+  const n = norm(semanticNamePart(name, nameSource));
   if (!n) return null;
   if (VENDOR.test(n)) return { kind: 'not_a_place', category: null, indoor_outdoor: null, confidence: 'HIGH', token: VENDOR.exec(n)[0].trim(), why: 'a company name (equipment vendor / Ltd.), not a place to visit' };
   let m;

@@ -7,7 +7,8 @@
 //   HIGH evidence (JSON-LD event/place geo, official site, map link with coordinates) creates;
 //   MEDIUM evidence (place lookup) needs >= 3 INDEPENDENT confirmations that agree (<= 150 m, same
 //   city). Independent = different sources AND different pages; rows from one source/page/parser count
-//   once. Cluster size is not evidence. createVenueWithAlias re-resolves the alias right before insert.
+//   once. Cluster size is not evidence. createVenueWithAlias runs venue identity (R12, lib/venueMatch)
+//   right before insert: an existing venue under another label is reused, an ambiguous one holds the cluster.
 const { normalizeCityName } = require('../cityNaming');
 const { resolveVenue, normalizeVenueAlias } = require('../venueNaming');
 const { isLearnableLabel, createVenueWithAlias, inferVenueType } = require('../venueLearning');
@@ -121,6 +122,7 @@ async function resolveVenueClusters(client, ctx, { minSize = 3, maxClusters = 25
         const res = await createVenueWithAlias(client, { label: g.label, city: city || e.city, region: null, type: inferVenueType(g.label), lat: e.lat, lng: e.lng, address: e.address || null, notes: `THE CLEANER cluster: ${g.members.length} cases, basis ${decision.basis}, method ${e.method}${e.evidence?.page ? ', page ' + e.evidence.page : ''}`, userId });
         if (res.venue) { cl.outcome = res.created ? 'venue_created' : 'existing_venue'; cl.venue = { id: res.venue.id, name: res.venue.name_he, basis: decision.basis, method: e.method, evidence: e.evidence }; if (res.created) { stats.created++; const g2 = counters.gain || counters; g2.venuesCreated = (g2.venuesCreated || 0) + 1; } }
         else { cl.outcome = 'unresolved'; cl.why = res.error; stats.unresolved++; }
+        if (res.identity) cl.identity = { verdict: res.identity.verdict, level: res.identity.level, reason: res.identity.reason, candidates: res.identity.candidates };
       } else {
         cl.outcome = 'unresolved'; stats.unresolved++;
         cl.why = !evidences.length ? 'no evidence from representative members' : high ? 'HIGH evidence city disagrees with cluster city' : `only ${agreeing.length} independent MEDIUM confirmation(s) (need ${MEDIUM_INDEPENDENT_MIN}); evidence: ${evidences.map((e) => e.method + '/' + e.confidence).join(', ')}`;

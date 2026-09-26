@@ -52,7 +52,7 @@ async function loadIncoming(client, id) {
   return data;
 }
 async function loadActivity(client, id) {
-  const { data } = await client.from('activities').select('id, name, category, venue_id, source_id, source_url, location_id, placeholder_group, organizer_name, created_at, locations(id, name, address, city, lat, lng, region, venue_id, address_source, address_confidence), activity_images(url), activity_schedules(schedule_type, one_time_date, day_of_week, start_time, end_time), activity_sources(page_url, incoming_activity_id, relation)').eq('id', id).maybeSingle();
+  const { data } = await client.from('activities').select('id, name, name_source, category, venue_id, source_id, source_url, location_id, placeholder_group, organizer_name, created_at, locations(id, name, address, city, lat, lng, region, venue_id, address_source, address_confidence), activity_images(url), activity_schedules(schedule_type, one_time_date, day_of_week, start_time, end_time), activity_sources(page_url, incoming_activity_id, relation)').eq('id', id).maybeSingle();
   return data;
 }
 
@@ -172,7 +172,7 @@ async function processCase(client, c, ctx) {
       // every write guarded by the category still being "גן שעשועים". MEDIUM: explained, left for a person.
       const mk = counters.misclassified = counters.misclassified || { processed: 0, reclassified: 0, archivedNotAPlace: 0, alreadyFixed: 0, needsHuman: 0, byKind: {} };
       mk.processed++;
-      const k = a.category === 'גן שעשועים' ? classifyPlayVenue(a.name) : null;
+      const k = a.category === 'גן שעשועים' ? classifyPlayVenue(a.name, { nameSource: a.name_source }) : null;
       if (!k) { mk.alreadyFixed++; counters.resolvedNoGain++; return resolveOrDry(client, c, { outcome: 'already_fixed', category: a.category }); }
       mk.byKind[k.kind] = (mk.byKind[k.kind] || 0) + 1;
       if (DRY) return { outcome: 'dry:' + k.kind, method: 'name_rule', confidence: k.confidence, error: `${a.name} -> ${k.category || (k.kind === 'not_a_place' ? 'ARCHIVE' : 'human')} ["${k.token}"]` };

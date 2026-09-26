@@ -77,7 +77,7 @@ async function discoverCases(client, { today, verifyLocation = { enabled: false,
   // canonical settlement knowledge for CITY_NOT_CANONICAL; without it (empty table / stub) no claim is made
   let index = null;
   try { index = await loadSettlementIndex(client); } catch { index = null; }
-  const acts = await all(client, 'activities', 'id, name, category, venue_id, source_id, placeholder_group, photo_skipped, locations(id, address, city, lat, lng, region, address_source, address_confidence), activity_schedules(schedule_type, one_time_date), activity_images(id)', (q) => q.eq('status', 'approved'));
+  const acts = await all(client, 'activities', 'id, name, name_source, category, venue_id, source_id, placeholder_group, photo_skipped, locations(id, address, city, lat, lng, region, address_source, address_confidence), activity_schedules(schedule_type, one_time_date), activity_images(id)', (q) => q.eq('status', 'approved'));
   for (const a of acts) {
     const pg = a.category === 'גן שעשועים';
     const loc = a.locations; const sched = a.activity_schedules || [];
@@ -108,7 +108,7 @@ async function discoverCases(client, { today, verifyLocation = { enabled: false,
     // MISCLASSIFIED (0096): filed as a public playground, but its own name proves another kind of venue
     // (indoor play centre / amusement park) or no venue at all (an equipment company). HIGH and MEDIUM both
     // open a case; only HIGH is ever written.
-    if (pg) { const k = classifyPlayVenue(a.name); if (k) add({ subject_kind: 'activity', subject_id: a.id, issue: 'misclassified', priority: priorityFor('misclassified', ctx), event_date: null, source_id: a.source_id, opened_reason: `playground by category, ${k.kind} by name ("${k.token}")` }); }
+    if (pg) { const k = classifyPlayVenue(a.name, { nameSource: a.name_source }); if (k) add({ subject_kind: 'activity', subject_id: a.id, issue: 'misclassified', priority: priorityFor('misclassified', ctx), event_date: null, source_id: a.source_id, opened_reason: `playground by category, ${k.kind} by name ("${k.token}")` }); }
     // Phase E: a stored category that is not in constants/categoryValues.json at all. Deterministic
     // and evidence-complete - sanitizeCategory reports whether a canonical destination exists
     // (a declared alias, e.g. 'גן חיות' -> 'חיות וגני חיות') or whether a human must decide.

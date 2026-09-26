@@ -1,0 +1,23 @@
+{
+  "_doc": "Shared table for the NAME_CATEGORY keyword hint (Deno _shared/categoryHints.ts, Node tools/import-tool/cleaner/fieldEnricher.js - identical literals). firstHit: [name, category of the FIRST NAME_CATEGORY rule that matches, or null]. Phase 1 ledger Z-H / R15 (2026-09-26): farm words are whole Hebrew words with a farm-only prefix set (ו, ש, then ב/ל (+ה), מה or ה - never a bare מ: 'מחווה' is a tribute); 'חוות דעת' is an opinion; the broad transitional 'בעלי חיים' hint no longer exists.",
+  "firstHit": [
+    ["להקת קרניבנד וסימפונט רעננה 26/27 - מחווה לאלטון ג׳ון", null],
+    ["מחווה לאלטון ג'ון", null],
+    ["מחווה לאריק איינשטיין", null],
+    ["חוות דעת מומחה", null],
+    ["חוות הדעת של הוועדה", null],
+    ["בחווה של שלמה", "חווה"],
+    ["יום כיף בחוות הסוסים", "חווה"],
+    ["מהחווה אל הצלחת", "חווה"],
+    ["והחווה נפתחת בשבת", "חווה"],
+    ["לחוות האיילים", "חווה"],
+    ["חווה", "חווה"],
+    ["״חוות״ דגניה", "חווה"],
+    ["ביקור בגן החיות", null],
+    ["מפגשים מקרוב עם בעלי חיים ידידותיים", null],
+    ["פינת חי", null],
+    ["גן שעשועים – דרך גן החיות, ירושלים", "גן שעשועים"],
+    ["צפרות בעמק החולה", "טבע"],
+    ["שעת סיפור לקטנטנים", "שעת סיפור"]
+  ]
+}
