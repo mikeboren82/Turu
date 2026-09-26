@@ -15,6 +15,7 @@ import ActivityCard from '../components/ActivityCard';
 import { ChevronLeftIcon } from '../components/icons';
 import HomeHero from '../components/HomeHero';
 import { LocationPromptCard, LockedPreviewCard } from '../components/LockedPreviewCard';
+import CarouselDots from '../components/CarouselDots';
 import GrassFooter from '../components/GrassFooter';
 import {
   CATEGORY_FILTER_OPTIONS, DEFAULT_FILTERS, FILTER_SCHEMA,
@@ -41,6 +42,7 @@ import {
   shouldApplyHomeDefaults, buildCarouselFilters, resolveCommittedHomeLocation,
   buildResultsParams, resolveSmartSearchCoords,
 } from '../lib/homeSession';
+import { carouselSidePadding, carouselActiveIndex } from '../lib/homeCarousel';
 import { useRecentSearches } from '../lib/useRecentSearches';
 import { colors, fonts, radii, spacing } from '../constants/theme';
 import { useI18n, createStyles, t } from '../lib/i18n';
@@ -67,6 +69,12 @@ const CTA_GRADIENT_LIGHT = '#0695c0';
 // לרוחב-מסך מלא ב-1280px+. ~480 נשאר קרוב-מספיק לרוחב מסך-נייד ריאלי (375-414) כדי שאותה פריסה
 // שאומתה בפועל ב-mobile תרגיש "אותו דבר, רק ממורכז" בדסקטופ - לא רדיזיין-רספונסיבי נפרד.
 const CONTENT_MAX_WIDTH = 480;
+
+// קרוסלת-הגילוי (recCarouselWrap/recRow) - קבועים תואמים ל-styles.recCardWrap/recRow למטה
+// (width:260, gap:12) - מרכזים מחדש כאן (2026-09-26, Mobile UI Polish) כדי שחשבון-המירכוז
+// (lib/homeCarousel) יוכל להסתמך על אותם מספרים בדיוק בלי לשכפל-קסם 260/12 שוב.
+const CAROUSEL_CARD_WIDTH = 260;
+const CAROUSEL_GAP = 12;
 
 // ניסוי חזותי (2026-09-16): פקד-כוונת-חיפוש מאוחד (GuidedSearchIntentControl) אחד עם שני
 // סגמנטים לחיצים במקום שני Selection Pills נפרדים - ראו ההשוואה בדוח. true = מציג את הגרסה
@@ -309,14 +317,25 @@ export default function HomeScreen() {
   // (CONTENT_MAX_WIDTH, styles.content) עבור GrassFooter, כדי שהאיור ימשיך לכסות בדיוק את רוחב
   // התוכן שמעליו, לא את המסך המלא שמעבר לו בדסקטופ.
   const contentWidth = Math.min(windowWidth, CONTENT_MAX_WIDTH);
-  // 2026-09-20 (סבב-עידון חזותי שלישי, בקשת המשתמש: "On smaller screens: slightly reduce
-  // side-action typography/icon size if necessary, preserve touch targets... prevent Hebrew
-  // labels from wrapping") - שני הפעולות הצדדיות (heroRow) גדלו משמעותית בסבב הזה, ומתחת ל-360px
-  // (למשל 320×568, בדיקת-רוחב מפורשת בבקשה - סעיף 11) "בחירה מהירה" בגודל המלא כמעט נוגעת בקצה
-  // המסך. heroCompact מקטין מעט טיפוגרפיה/אייקון של הפעולות הצדדיות בלבד באותם מסכים צרים - לא
-  // נוגע ברדאר/בכרטיס/בכותרת, ולא בהתנהגות כלשהי (numberOfLines={1} כבר מנע גלישה-לשתי-שורות
-  // מלכתחילה, זה רק שוליים בטוחים יותר בפועל).
-  const heroCompact = windowWidth < 360;
+  // רוחב-הצפייה בפועל של קרוסלת-הגילוי (recCarouselWrap) - contentWidth בניכוי הריפוד הכפול
+  // של styles.content (spacing.xl משני הצדדים, ראו למטה) שהקרוסלה יושבת בתוכו, בלי margin שלילי
+  // משלה (בשונה מ-discoveryArea ב-HomeHero). זה הרוחב שממנו נגזר ריפוד-המירכוז (carouselSidePad).
+  const carouselViewportWidth = Math.max(0, contentWidth - spacing.xl * 2);
+  const carouselSidePad = carouselSidePadding(carouselViewportWidth, CAROUSEL_CARD_WIDTH);
+  // 2026-09-20 (סבב-עידון חזותי שלישי) - שני הפעולות הצדדיות (heroRow) גדלו משמעותית בסבב הזה.
+  // 2026-09-26 (Mobile UI Polish - תיקון-אמת, לא רק "מתחת ל-360"): מדידה בפועל על צילומי-מסך
+  // Android אמיתיים (360-412px) גילתה של-Pressable הצדדי (heroSideAction) לא היה width מוגבל
+  // לחלקו ה-flex בשורה - כש-heroSideCol הוא container בכיוון-column (ברירת-מחדל) עם
+  // alignItems:'flex-end'/'flex-start' (לא stretch), התוכן (אייקון+טקסט) מקבל את הרוחב הטבעי שלו
+  // ועוגן בקצה הפנימי (הקרוב למרכז) - וכשהטקסט "בחירה מהירה"/"חיפוש חופשי" רחב מהחלק שהוקצה לו
+  // בפועל (במיוחד ברוחבים 360-412, לא רק מתחת ל-360), הוא "גדל" מהקצה הפנימי *לכיוון קצה המסך
+  // הפיזי* ונחתך שם ע"י גבול ה-ScrollView - בדיוק התסמין בצילומי-המסך ("clipped at the outer
+  // sides"). heroSideAction קיבל עכשיו width:'100%' (ב-HomeHero.js) כדי שלא יחצה את גבול העמודה
+  // שלו בכלל; הסף כאן הורחב מ-360 ל-420 (מכיל את כל 360/375/390/412 מהבקשה) כדי לפנות עוד קצת
+  // מקום (אייקון/גופן/heroCenterCol/ריפוד מוקטנים יחד ב-HomeHero.js) לפני שמגיעים ל-adjustsFontSizeToFit
+  // (הרשת-הביטחון האחרונה שם, שמקטינה את גודל-הגופן בפועל כדי שהתווית תישאר שלמה בשורה אחת,
+  // בלי חיתוך/שלוש-נקודות) - 430 (הרוחב הרחב ביותר בבקשה) יוצא מהסף הזה ומשתמש בגודל המלא.
+  const heroCompact = windowWidth < 420;
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
   const [deviceCoords, setDeviceCoords] = useState(null);
   // 🏠 homeLocation - "מיקום מחויב" (2026-09-19, תיקון-באג שאותר בביקורת הארכיטקטונית: "the
@@ -1246,6 +1265,15 @@ export default function HomeScreen() {
   // undefined (recActivities עדיין בטעינה) מטופל בתוך BlurredActivityCard עצמו (fallback מדומה).
   const previewActivities = useMemo(() => recommendations.slice(0, 4), [recommendations]);
 
+  // Mobile UI Polish (2026-09-26) - האינדקס-הממורכז בפועל של קרוסלת-הגילוי, לנקודות-הדפדוף
+  // (CarouselDots). מתאפס ל-0 כל פעם שרשימת-ה-recommendations עצמה משתנה (מיקום/פילטרים/תוצאות
+  // חדשים) - אחרת נקודה שכבר לא תואמת שום כרטיס-קיים הייתה יכולה להישאר "פעילה" זמנית.
+  const [recActiveIndex, setRecActiveIndex] = useState(0);
+  useEffect(() => { setRecActiveIndex(0); }, [recommendations]);
+  const handleRecScrollEnd = useCallback((count) => (e) => {
+    setRecActiveIndex(carouselActiveIndex(e.nativeEvent.contentOffset.x, CAROUSEL_CARD_WIDTH, CAROUSEL_GAP, count));
+  }, []);
+
   // אותה לוגיקה משותפת בדיוק כמו app/activities.js (lib/interactions.js) - התנהגות עקבית
   // בשני המקומות שבהם הפעולות האלה מופיעות, לא שני מימושים מקבילים.
   const handleToggleRecFavorite = (activityId) => {
@@ -1537,14 +1565,38 @@ export default function HomeScreen() {
             שהיו כאן קודם. */}
         <View style={styles.recCarouselWrap}>
           {!carouselLocationKnown ? (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.recRow}>
-              <LocationPromptCard onPress={openLocationPicker} activity={previewActivities[0]} />
-              {[1, 2, 3].map((i) => (
-                <LockedPreviewCard key={i} index={i} onPress={openLocationPicker} activity={previewActivities[i]} />
-              ))}
-            </ScrollView>
+            <>
+              {/* Mobile UI Polish (2026-09-26): carouselSidePad (both sides, via contentContainerStyle)
+                  centers the FIRST card in the viewport instead of hugging the physical edge - the
+                  same padding-based technique as the two branches below. snapToInterval/decelerationRate
+                  give real center-snapping (native momentum, not a simulated animation); the padding
+                  alone already gets the initial position right, so there is no scrollTo/initialScrollIndex
+                  jump-after-mount to work around. */}
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={[styles.recRow, { paddingHorizontal: carouselSidePad }]}
+                decelerationRate="fast"
+                snapToInterval={CAROUSEL_CARD_WIDTH + CAROUSEL_GAP}
+                snapToAlignment="start"
+                onMomentumScrollEnd={handleRecScrollEnd(4)}
+              >
+                <LocationPromptCard onPress={openLocationPicker} activity={previewActivities[0]} />
+                {[1, 2, 3].map((i) => (
+                  <LockedPreviewCard key={i} index={i} onPress={openLocationPicker} activity={previewActivities[i]} />
+                ))}
+              </ScrollView>
+              <CarouselDots count={4} activeIndex={recActiveIndex} />
+            </>
           ) : recLoading ? (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.recRow}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={[styles.recRow, { paddingHorizontal: carouselSidePad }]}
+              decelerationRate="fast"
+              snapToInterval={CAROUSEL_CARD_WIDTH + CAROUSEL_GAP}
+              snapToAlignment="start"
+            >
               <SkeletonCard /><SkeletonCard /><SkeletonCard />
             </ScrollView>
           ) : recError ? (
@@ -1559,19 +1611,30 @@ export default function HomeScreen() {
               </Pressable>
             </View>
           ) : (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.recRow}>
-              {recommendations.map((a) => (
-                <View key={a.id} style={styles.recCardWrap}>
-                  <ActivityCard
-                    {...a}
-                    onToggleFavorite={() => handleToggleRecFavorite(a.id)}
-                    onToggleVisited={() => handleToggleRecVisited(a.id)}
-                    onOpenNote={() => router.push(`/activity/${a.id}`)}
-                    onHide={() => handleHideRec(a.id)}
-                  />
-                </View>
-              ))}
-            </ScrollView>
+            <>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={[styles.recRow, { paddingHorizontal: carouselSidePad }]}
+                decelerationRate="fast"
+                snapToInterval={CAROUSEL_CARD_WIDTH + CAROUSEL_GAP}
+                snapToAlignment="start"
+                onMomentumScrollEnd={handleRecScrollEnd(recommendations.length)}
+              >
+                {recommendations.map((a) => (
+                  <View key={a.id} style={styles.recCardWrap}>
+                    <ActivityCard
+                      {...a}
+                      onToggleFavorite={() => handleToggleRecFavorite(a.id)}
+                      onToggleVisited={() => handleToggleRecVisited(a.id)}
+                      onOpenNote={() => router.push(`/activity/${a.id}`)}
+                      onHide={() => handleHideRec(a.id)}
+                    />
+                  </View>
+                ))}
+              </ScrollView>
+              <CarouselDots count={recommendations.length} activeIndex={recActiveIndex} />
+            </>
           )}
         </View>
 

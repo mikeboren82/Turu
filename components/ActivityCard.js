@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { View, Text, Pressable, ImageBackground } from 'react-native';
+import { View, Text, Pressable, Image, ImageBackground } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { colors, fonts, radii } from '../constants/theme';
@@ -105,13 +105,23 @@ function ActivityCard({
           {imageOverlay}
         </ImageBackground>
       ) : placeholderImageFor(placeholderGroup, id, category) ? (
-        <ImageBackground
-          source={placeholderImageFor(placeholderGroup, id, category)}
-          resizeMode="contain"
-          style={[styles.image, { backgroundColor: placeholderBgColorFor(placeholderGroup) }]}
-        >
+        // Mobile UI Polish (2026-09-26): the swing-kangaroo artwork (and its siblings) is drawn with
+        // its ears/feet right at its OWN canvas edges (verified by looking at the actual file - no
+        // margin baked into the illustration). resizeMode="contain" alone still renders 100% of the
+        // pixels (it never crops), but with zero breathing room the character's top/bottom ends up
+        // flush against the card's own edges - on a real device this reads as "cropped"/"too zoomed",
+        // even though no pixel is actually lost. Switching from ImageBackground (whose <Image> always
+        // absolute-fills the frame) to a plain Image sized to 84% of the frame - still centered, still
+        // "contain", still the full character - gives equal margin on every side instead. The frame
+        // itself (styles.image, same height as every other card) and the overlay buttons are untouched.
+        <View style={[styles.image, styles.placeholderImageFrame, { backgroundColor: placeholderBgColorFor(placeholderGroup) }]}>
+          <Image
+            source={placeholderImageFor(placeholderGroup, id, category)}
+            resizeMode="contain"
+            style={styles.placeholderImageArt}
+          />
           {imageOverlay}
-        </ImageBackground>
+        </View>
       ) : (
         <LinearGradient colors={gradient} style={styles.image}>
           {imageOverlay}
@@ -182,6 +192,11 @@ const styles = createStyles((d) => ({
     marginBottom: 16,
   },
   image: { width: '100%', height: 158, position: 'relative' },
+  // placeholderImageFrame/Art (2026-09-26, Mobile UI Polish) - see the JSX comment above. 84%
+  // width+height, centered on both axes: still full "contain" (nothing cropped), just scaled into
+  // a slightly smaller box so the illustration never touches the frame's top/bottom/left/right.
+  placeholderImageFrame: { alignItems: 'center', justifyContent: 'center' },
+  placeholderImageArt: { width: '84%', height: '84%' },
   topLeft: { position: 'absolute', top: 10, [d.end]: 10 },
   rightStack: { position: 'absolute', top: 10, [d.start]: 10, gap: 8 },
   actionBtn: {

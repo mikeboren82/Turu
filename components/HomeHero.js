@@ -75,7 +75,7 @@ export default function HomeHero({
           רקע/מסגרת/radius משלהם. */}
       <View style={styles.discoveryArea}>
       <View style={styles.heroRow}>
-        <View style={[styles.heroSideCol, styles.heroSideColLeft]}>
+        <View style={[styles.heroSideCol, styles.heroSideColLeft, heroCompact && styles.heroSideColLeftCompact]}>
           <Pressable
             style={({ pressed }) => [styles.heroSideAction, pressed && styles.heroSideActionPressed]}
             onPress={() => onSwitchMode('free')}
@@ -101,13 +101,15 @@ export default function HomeHero({
                 searchMode === 'free' ? styles.heroSideActionTextActive : styles.heroSideActionTextInactive,
               ]}
               numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.75}
             >
               {t('home.search.modeFree')}
             </Text>
           </Pressable>
         </View>
 
-        <View style={styles.heroCenterCol}>
+        <View style={[styles.heroCenterCol, heroCompact && styles.heroCenterColCompact]}>
           <Pressable
             style={({ pressed }) => [styles.nearMeStandalone, pressed && styles.nearMeStandalonePressed]}
             onPress={onNearMePress}
@@ -165,7 +167,7 @@ export default function HomeHero({
           ) : null}
         </View>
 
-        <View style={[styles.heroSideCol, styles.heroSideColRight]}>
+        <View style={[styles.heroSideCol, styles.heroSideColRight, heroCompact && styles.heroSideColRightCompact]}>
           <Pressable
             style={({ pressed }) => [styles.heroSideAction, pressed && styles.heroSideActionPressed]}
             onPress={() => onSwitchMode('guided')}
@@ -186,20 +188,11 @@ export default function HomeHero({
                   resizeMode="contain"
                 />
               </View>
-              {/* hop-trail accent (2026-09-23, בקשת המשתמש: "לדאוג שהנקודות לא יזוזו עם המסך") -
-                  the visible 3-dot trail lives here now (anchored to the actual button, inside
-                  the same scrolling layout as it), not in HomeHeroScenery's fixed background - see
-                  the note there for why that background version drifted away from this button on
-                  scroll. Positions/proportions below replicate the trail's last-approved shape
-                  (tightened spacing, same ratio between the two gaps), just re-expressed as pixel
-                  offsets from this icon circle's own top-left corner instead of SVG coordinates.
-                  The 4th (biggest) dot stays in the fixed background, intentionally hidden behind
-                  this circle - not duplicated here. */}
-              <View style={styles.hopTrail} pointerEvents="none">
-                <View style={[styles.hopDot, styles.hopDot1, heroCompact && styles.hopDot1Compact]} />
-                <View style={[styles.hopDot, styles.hopDot2, heroCompact && styles.hopDot2Compact]} />
-                <View style={[styles.hopDot, styles.hopDot3, heroCompact && styles.hopDot3Compact]} />
-              </View>
+              {/* hop-trail accent (2026-09-23) REMOVED (2026-09-26, Mobile UI Polish - בקשת
+                  המשתמש המפורשת: "Remove the three decorative orange dots beside 'בחירה מהירה'.
+                  Remove only that decoration. Do not disturb the button/icon positioning.") - שלוש
+                  הנקודות הכתומות הוסרו לגמרי; heroSideActionIconStack (שהיה קיים רק כמסגרת-מיקום
+                  להן) נשאר כעטיפה תמימה סביב האייקון כדי לא לגעת במיקום/גודל שלו. */}
             </View>
             <Text
               style={[
@@ -207,6 +200,8 @@ export default function HomeHero({
                 searchMode === 'guided' ? styles.heroSideActionTextActive : styles.heroSideActionTextInactive,
               ]}
               numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.75}
             >
               {t('home.search.modeGuided')}
             </Text>
@@ -291,11 +286,26 @@ const styles = createStyles((d) => ({
   // הצפוף מדי של הסבב הקודם.
   heroSideColLeft: { alignItems: 'flex-end', paddingRight: 16 },
   heroSideColRight: { alignItems: 'flex-start', paddingLeft: 16 },
+  // Compact (<420px, ראו heroCompact ב-app/index.js) - ריפוד פנימי מוקטן (8, היה 16) כדי לפנות
+  // עוד רוחב לכיתוב הצדדי בדיוק במסכי-האנדרואיד הרגילים (360-412) שבהם התגלה החיתוך (2026-09-26).
+  heroSideColLeftCompact: { paddingRight: 8 },
+  heroSideColRightCompact: { paddingLeft: 8 },
   // לא pill/card ("NOT large pills, NOT cards, NOT competing with the radar visually") - רק
   // אייקון+טקסט, minHeight נדיב ל-touch target נוח.
   // gap:0 (היה 2, "small visual polish" round 4, 2026-09-20, בקשת המשתמש: "לקרב עוד יותר את
   // הכיתוב... לאייקונים שלהם") - חל על שני הצדדים, אותה פרופורציה בדיוק.
-  heroSideAction: { alignItems: 'center', gap: 6, paddingVertical: 8, paddingHorizontal: 0, minHeight: 60, justifyContent: 'center' },
+  // width:'100%' (2026-09-26, Mobile UI Polish - תיקון-האמת לחיתוך "חיפוש חופשי"/"בחירה מהירה"):
+  // heroSideCol הוא column-container עם alignItems:'flex-end'/'flex-start' (לא stretch), אז בלי
+  // width מפורש כאן ה-Pressable מקבל את הרוחב הטבעי של תוכנו (טקסט העברי, בד"כ רחב מהעיגול
+  // 62px) ו"גדל" מהקצה הפנימי (הקרוב למרכז) *לכיוון קצה המסך הפיזי* - כשזה לא נכנס, הוא חוצה את
+  // גבול העמודה שלו ונחתך ע"י גבול ה-ScrollView בקצה המסך (בדיוק תסמין הצילומים: "clipped at the
+  // outer sides"). width:'100%' מגביל אותו בדיוק לחלק ה-flex:1 שהוקצה לו בפועל בשורה - שום דבר
+  // לא יכול לחצות את גבול-העמודה יותר; alignItems:'center' (ללא שינוי) עדיין ממרכז אייקון+טקסט
+  // בתוך הרוחב המלא הזה. adjustsFontSizeToFit+minimumFontScale על ה-Text (בתוך ה-JSX) הם קו-
+  // ההגנה האחרון - אם בכל זאת הרוחב-שהוקצה צר מדי לתווית במידה המלאה, הגופן מצטמצם בפועל כדי
+  // שהתווית תישאר שלמה בשורה אחת, בלי חיתוך/שלוש-נקודות ("no overflow:hidden hack that simply
+  // hides text" - זה לא מסתיר, זה מתאים בעדינות).
+  heroSideAction: { alignItems: 'center', gap: 6, paddingVertical: 8, paddingHorizontal: 0, minHeight: 60, justifyContent: 'center', width: '100%' },
   heroSideActionPressed: { opacity: 0.7 },
   // heroSideActionIconWrap (2026-09-20, "discovery actions visual polish") - מיני-כפתור עגול
   // מוחזר בכוונה (בקשת המשתמש: "the two side actions currently feel more like floating decorative
@@ -320,23 +330,13 @@ const styles = createStyles((d) => ({
   },
   heroSideActionIconWrapCompact: { width: 54, height: 54, borderRadius: 27 },
   // heroSideActionIconStack - plain sizing wrapper matching heroSideActionIconWrap's own
-  // footprint exactly, so hopTrail below (top:0/left:0/right:0/bottom:0) can position its dots
-  // relative to the icon circle's own top-left corner.
+  // footprint exactly (originally hosted the now-removed hop-trail dots; kept as a harmless
+  // no-op wrapper so the icon's own size/position is untouched).
   heroSideActionIconStack: { width: 62, height: 62 },
   heroSideActionIconStackCompact: { width: 54, height: 54 },
-  // hopTrail/hopDot1-3 (2026-09-23) - the visible hop-trail dots, positioned relative to the
-  // icon circle's top-left corner (0,0). Spacing between them is 0.7x the original SVG-background
-  // version's gaps (בקשת המשתמש: "לקרב את הנקודות אחת לשנייה... ולשמור על אותה הפרופורציה") -
-  // both gaps (dot1->dot2, dot2->dot3) scaled by the same factor, so the trail's shape is
-  // preserved, just tighter. Compact variants scale positions by 54/62 for the <360px icon size.
-  hopTrail: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
-  hopDot: { position: 'absolute', backgroundColor: colors.logoOrange, opacity: 0.5 },
-  hopDot1: { width: 10, height: 10, borderRadius: 5, left: 65, top: 6 },
-  hopDot2: { width: 8, height: 8, borderRadius: 4, left: 79, top: -2 },
-  hopDot3: { width: 6, height: 6, borderRadius: 3, left: 92, top: -7 },
-  hopDot1Compact: { left: 56, top: 3 },
-  hopDot2Compact: { left: 68, top: -4 },
-  hopDot3Compact: { left: 80, top: -7 },
+  // hopTrail/hopDot1-3 (2026-09-23) REMOVED (2026-09-26, Mobile UI Polish) - the three decorative
+  // orange dots beside "בחירה מהירה" are gone; heroSideActionIconStack above stays only as the
+  // icon's plain sizing wrapper (harmless now that nothing else positions against it).
   // heroSideActionIconWrapActive - "when Free Search is active: its mini-circle receives a pale
   // TURU-blue treatment" - accentTintLight (מילוי) + accent (border), אותם טוקנים בדיוק שכבר
   // מייצגים "פעיל" בכל שאר האפליקציה (למשל modeBtnActive, components/LocationQuickPicker.js) -
@@ -380,6 +380,12 @@ const styles = createStyles((d) => ({
   // paddingRight/Left שגדל למעלה (heroSideColLeft/Right), התוצאה המצטברת היא ריווח גדול יותר
   // בין כל כפתור-צד לרדאר, בלי לגעת בגודל החזותי של הרדאר עצמו (overflow:'visible' עדיין פעיל).
   heroCenterCol: { alignItems: 'center', width: 134, overflow: 'visible' },
+  // heroCenterColCompact (2026-09-26, Mobile UI Polish) - width מוקטן ל-108 (היה 134) על
+  // מסכים <420px בלבד: overflow:'visible' עדיין מבטיח שהרדאר עצמו (174px, ללא שינוי) ממשיך
+  // להיראות במלואו - רק ה-layout footprint שהוא תופס בשורה מצטמצם, מה שמשאיר עוד (134-108)/2=13px
+  // לכל צד עבור heroSideCol - מצטבר עם heroSideColLeft/RightCompact (ריפוד מוקטן) לרוחב פנוי
+  // משמעותית גדול יותר עבור "חיפוש חופשי"/"בחירה מהירה" בדיוק ברוחבים שבהם התגלה החיתוך.
+  heroCenterColCompact: { width: 108 },
   nearMeStandalone: { alignItems: 'center', gap: 1 },
   nearMeStandalonePressed: { opacity: 0.85 },
   // גובה קומפקטי (RADAR_COMPACT_H ב-NearMeRadar, showLabel=false) - 158x112 (היה 134x95, "small

@@ -6,7 +6,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Header from '../components/Header';
 import SkyBackground from '../components/SkyBackground';
 import {
-  FingerprintIcon, PinIcon, GoogleIcon, AppleIcon, MailIcon,
+  FingerprintIcon, PinIcon, GoogleIcon, AppleIcon, MailIcon, HeartIcon,
 } from '../components/icons';
 import { colors, fonts, radii, spacing } from '../constants/theme';
 import { supabase } from '../lib/supabase';
@@ -18,10 +18,17 @@ import { useI18n, createStyles } from '../lib/i18n';
 
 // הטקסטים של המסך נמצאים ב-lib/i18n/locales/<locale>/auth.json (auth.login.*). רווחים לא-שבירים
 // (לפני האימוג'י בכותרת, ובתוך "תנאי השימוש"/"מדיניות הפרטיות") נשמרים בקבצי התרגום.
+// 'saved' עבר מ-emoji ❤️ לאייקון-קווי (2026-09-26, Mobile UI Polish - בקשת המשתמש המפורשת: "the
+// registration screen currently overuses heart imagery... replace the red heart... with a more
+// appropriate save/favorite visual"). הלב הצהוב בכותרת (auth.login.registerTitle, 💛) נשאר -
+// הוא זהות-הרגש של המסך, לא חלק מרשימת ההטבות. HeartIcon (components/icons.js) הוא בדיוק אותו
+// אייקון-קווי ששאר האפליקציה משתמשת בו לייצג "שמורים" (BottomNav.js הכרטיסייה "שמורים",
+// Header.js "היעדים שלי") - לא אימוג'י חדש/דמות חדשה, ולא צבע-אדום כבד כמו קודם (accent הכחול
+// הרגיל של TuRu, שונה בבירור מהצהוב שבכותרת).
 const BENEFITS = [
   { emoji: '👶', key: 'kids' },
   { emoji: '📍', key: 'remember' },
-  { emoji: '❤️', key: 'saved' },
+  { icon: HeartIcon, key: 'saved' },
 ];
 const EMAIL_PLACEHOLDER = 'your@email.com';
 const PHONE_PLACEHOLDER = '050-1234567';
@@ -274,7 +281,13 @@ export default function LoginScreen() {
               <View style={styles.benefitsList}>
                 {BENEFITS.map((b) => (
                   <View key={b.key} style={styles.benefitRow}>
-                    <Text style={styles.benefitEmoji} importantForAccessibility="no" accessibilityElementsHidden>{b.emoji}</Text>
+                    {b.icon ? (
+                      <View style={styles.benefitIconWrap} importantForAccessibility="no" accessibilityElementsHidden>
+                        <b.icon size={18} color={colors.accent} />
+                      </View>
+                    ) : (
+                      <Text style={styles.benefitEmoji} importantForAccessibility="no" accessibilityElementsHidden>{b.emoji}</Text>
+                    )}
                     <View style={styles.benefitTextWrap}>
                       <Text style={styles.benefitTitle}>{t(`auth.login.benefits.${b.key}.title`)}</Text>
                       <Text style={styles.benefitDesc}>{t(`auth.login.benefits.${b.key}.desc`)}</Text>
@@ -514,6 +527,9 @@ const styles = createStyles((d) => ({
   benefitsList: { width: '100%', marginBottom: 18, gap: 12 },
   benefitRow: { width: '100%', flexDirection: d.row, alignItems: 'flex-start', gap: 10 },
   benefitEmoji: { fontSize: 17, lineHeight: 22, width: 22, textAlign: 'center' },
+  // benefitIconWrap (2026-09-26, Mobile UI Polish) - same 22-wide slot as benefitEmoji above, so the
+  // icon-based row aligns identically to the emoji-based rows (no per-row layout special-casing).
+  benefitIconWrap: { width: 22, height: 22, alignItems: 'center', justifyContent: 'center' },
   benefitTextWrap: { flex: 1 },
   benefitTitle: { fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary, textAlign: d.textAlign, lineHeight: 20 },
   benefitDesc: { fontFamily: fonts.regular, fontSize: 12.5, color: colors.textSecondary, textAlign: d.textAlign, lineHeight: 17 },
