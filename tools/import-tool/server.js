@@ -31,6 +31,7 @@ const { assessGranularity, granularityDecision, GRANULARITY_LABEL_HE, GRANULARIT
 const { normalizeIncomingCandidate } = require('./incomingShape');
 const { repairModelJson, resolveVenue, normalizeVenueAlias } = require('./venueNaming');
 const { withoutGenericAliases } = require('./venueLearning');
+const { ensureVenueByPlaceId, mergeVenuePlaceId, normalizePlaceId, CODES: PLACE_ID_CODES } = require('./lib/venuePlaceId');
 const { computeEventFingerprint } = require('./eventFingerprint');
 // EVENT identity (stable across occurrences) + occurrence persistence planning (0091 model)
 const { computeEventKey } = require('./lib/eventIdentity');
@@ -3518,14 +3519,27 @@ app.post('/api/venues', async (req, res) => {
   for (const k of VENUE_FIELDS) if (k in body) fields[k] = body[k];
   if (!fields.name_he) return res.status(400).json({ error: 'חסר שם מקום' });
   if (fields.city) fields.city = normalizeCityName(fields.city);
+  const placeId = normalizePlaceId(fields.google_place_id);
+  delete fields.google_place_id;
   try {
     const { client, userId } = await getClient();
-    const { data: venue, error } = await client.from('venues').insert({ ...fields, created_by: userId }).select('*').single();
-    if (error) throw error;
-    const aliases = [...new Set([fields.name_he, ...(Array.isArray(body.aliases) ? body.aliases : [])].filter(Boolean))];
-    const rows = aliases.map((a) => ({ alias: a, alias_normalized: normalizeVenueAlias(a), venue_id: venue.id })).filter((r) => r.alias_normalized);
+    let venue, created = true, inactive = false;
+    if (placeId) {
+      // an external id IS the identity: an existing owner is returned untouched, never a second row
+      const r = await ensureVenueByPlaceId(client, { ...fields, google_place_id: placeId, created_by: userId });
+      if (r.error) return res.status(r.code === PLACE_ID_CODES.INDEX_MISSING ? 503 : 500).json({ error: r.error, code: r.code });
+      ({ venue, created } = r); inactive = !!r.inactive;
+    } else {
+      const { data, error } = await client.from('venues').insert({ ...fields, created_by: userId }).select('*').single();
+      if (error) throw error;
+      venue = data;
+    }
+    const submitted = [...new Set([fields.name_he, ...(Array.isArray(body.aliases) ? body.aliases : [])].filter(Boolean))];
+    const all = submitted.map((a) => ({ alias: a, alias_normalized: normalizeVenueAlias(a), venue_id: venue.id })).filter((r) => r.alias_normalized);
+    // re-discovering an existing place is not a fresh attestation: generic labels are carried only onto a venue this call created
+    const { rows, dropped } = created ? { rows: all, dropped: [] } : withoutGenericAliases(all);
     if (rows.length) await client.from('venue_aliases').upsert(rows, { onConflict: 'alias_normalized,venue_id' });
-    res.json({ ok: true, venue, aliases });
+    res.json({ ok: true, venue, created, inactive, aliases: rows.map((r) => r.alias), generic_aliases_not_carried: dropped.map((a) => a.alias) });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message || 'שגיאה ביצירת מקום' });
@@ -3553,9 +3567,13 @@ app.post('/api/venues/merge', async (req, res) => {
   if (!keeperId || !loserId || keeperId === loserId) return res.status(400).json({ error: 'נדרשים שני מקומות שונים' });
   try {
     const { client } = await getClient();
-    const { data: loser, error: lErr } = await client.from('venues').select('*').eq('id', loserId).maybeSingle();
+    const { data: pair, error: lErr } = await client.from('venues').select('*').in('id', [keeperId, loserId]);
     if (lErr) throw lErr;
-    if (!loser) return res.status(404).json({ error: 'המקום לא נמצא' });
+    const loser = (pair || []).find((v) => v.id === loserId), keeper = (pair || []).find((v) => v.id === keeperId);
+    if (!loser || !keeper) return res.status(404).json({ error: 'המקום לא נמצא' });
+    // external id first: one owner (the keeper) or no merge at all - nothing below runs after a refusal/failure
+    const placeIdMove = await mergeVenuePlaceId(client, { keeper, loser });
+    if (placeIdMove.error) return res.status(placeIdMove.code === PLACE_ID_CODES.EXTERNAL_ID_CONFLICT ? 409 : 500).json(placeIdMove);
     for (const table of ['activities', 'locations', 'sources']) {
       const { error } = await client.from(table).update({ venue_id: keeperId }).eq('venue_id', loserId);
       if (error) throw error;
@@ -3568,7 +3586,7 @@ app.post('/api/venues/merge', async (req, res) => {
     if (rows.length) await client.from('venue_aliases').upsert(rows, { onConflict: 'alias_normalized,venue_id' });
     const { error: updErr } = await client.from('venues').update({ is_active: false, merged_into: keeperId, updated_at: new Date().toISOString() }).eq('id', loserId);
     if (updErr) throw updErr;
-    res.json({ ok: true, generic_aliases_not_carried: genericNotCarried.map((a) => a.alias) });
+    res.json({ ok: true, generic_aliases_not_carried: genericNotCarried.map((a) => a.alias), place_id: placeIdMove });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message || 'שגיאה במיזוג מקומות' });
