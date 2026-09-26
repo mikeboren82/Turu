@@ -33,9 +33,9 @@ function withoutGenericAliases(rows) {
 function inferVenueType(label) { return (TYPE_RULES.find(([re]) => re.test(label || '')) || [null, 'other'])[1]; }
 
 // -> { venue, created, identity } | { error, hold?, identity? }. Conservative: refuses a generic label, a missing city
-// or coordinates; then R12 identity (lib/venueMatch) runs BEFORE any insert - a match reuses the existing venue (a
-// level-3/4 match also stores this label as its alias, so the next event resolves by alias), an ambiguous or
-// other-city identity is HELD (no venue), and only NO_MATCH creates.
+// or coordinates; then R12 identity (lib/venueMatch) runs BEFORE any insert - a match reuses the existing venue and
+// writes NOTHING (no alias at any level: R12 links, it does not learn aliases), an ambiguous or other-city identity is
+// HELD (no venue), and only NO_MATCH creates - with its initial alias, as before R12.
 async function createVenueWithAlias(client, { label, city, region, type, lat, lng, address, notes, userId }) {
   const cityNorm = normalizeCityName(city || null);
   if (!isLearnableLabel(label)) return { error: 'label not learnable (generic / non-place)' };
@@ -43,13 +43,7 @@ async function createVenueWithAlias(client, { label, city, region, type, lat, ln
   if (lat == null || lng == null) return { error: 'no coordinates' };
   const identity = await matchExistingVenue(client, { label: label.trim(), city: cityNorm, lat, lng });
   if (identity.verdict === 'HOLD') return { error: `identity hold: ${identity.reason}`, hold: true, identity };
-  if (identity.verdict === 'MATCH') {
-    if (identity.level >= 3) {
-      const { error: aErr } = await client.from('venue_aliases').upsert([{ alias: label.trim(), alias_normalized: normalizeVenueAlias(label), venue_id: identity.venue.id }], { onConflict: 'alias_normalized,venue_id' });
-      if (aErr) return { venue: identity.venue, created: false, identity, error: 'alias: ' + aErr.message };
-    }
-    return { venue: identity.venue, created: false, identity };
-  }
+  if (identity.verdict === 'MATCH') return { venue: identity.venue, created: false, identity };
   const { data: v, error } = await client.from('venues').insert({ name_he: label.trim(), venue_type: type || inferVenueType(label), city: cityNorm, region: REGIONS.has(region) ? region : null, address: address || null, lat, lng, is_active: true, notes: notes || null, created_by: userId || null }).select('id, name_he, city, venue_type, lat, lng, address, is_active').single();
   if (error) return { error: error.message };
   const { error: aErr } = await client.from('venue_aliases').upsert([{ alias: label.trim(), alias_normalized: normalizeVenueAlias(label), venue_id: v.id }], { onConflict: 'alias_normalized,venue_id' });

@@ -5,7 +5,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
-const { normalizeVenueAlias } = require('../venueNaming');
+const { normalizeVenueAlias, resolveVenue } = require('../venueNaming');
 const { normalizeCityName } = require('../cityNaming');
 const { createVenueWithAlias } = require('../venueLearning');
 const { matchExistingVenue, decideVenueMatch, isGenericVenueName } = require('../lib/venueMatch');
@@ -67,6 +67,7 @@ const ZOO_ALIASES = ['גן החיות התנ״כי', 'הגן הזואולוגי 
 const AQUARIUM = { id: '42b4758b', name_he: 'אקווריום ישראל', venue_type: 'attraction', city: 'ירושלים', lat: 31.744884, lng: 35.1658507 };
 const LEARNED = { label: 'גן החיות התנ״כי בירושלים', city: 'ירושלים', lat: 31.7461139, lng: 35.1766343 }; // 287600a2's label + coords
 const learn = (db, c, extra = {}) => createVenueWithAlias(db.client, { type: 'park', ...c, ...extra });
+const newResolve = (db, label, city) => resolveVenue(db.client, { locationName: label, city });
 
 // ---------------------------------------------------------------- Jerusalem Zoo
 test('Z-A as it happened: the learned label one letter off the seeded alias, 190 m away, now REUSES the keeper - no second venue', async () => {
@@ -76,9 +77,11 @@ test('Z-A as it happened: the learned label one letter off the seeded alias, 190
   assert.equal(r.venue.id, ZOO.id);
   assert.equal(r.identity.level, 4);
   assert.equal(db.inserts.length, 0);
-  assert.ok(db.aliases.some((a) => a.venue_id === ZOO.id && a.alias_normalized === normalizeVenueAlias(LEARNED.label)), 'the variant is taught as an alias');
+  assert.equal(db.aliasWrites.length, 0, 'an inferred reuse never writes an alias');
   const again = await learn(db, LEARNED);
-  assert.equal(again.identity.level, 2, 'tomorrow the same label resolves by exact alias');
+  assert.equal(again.venue.id, ZOO.id, 'the same variant tomorrow reuses the keeper again');
+  assert.equal(again.identity.level, 4, 'by identity again - it never depended on a persisted inferred alias');
+  assert.equal(db.inserts.length + db.aliasWrites.length, 0);
 });
 
 test('Z-A today (after Batch F part 2): losers merged into the keeper; a new label variant still lands on the keeper', async () => {
@@ -201,4 +204,76 @@ test('propose-venues, Cleaner venue clusters and escalate-venue create only thro
     assert.doesNotMatch(src, /from\('venues'\)\.insert\(/, `${f} must not insert venues directly`);
     assert.match(src, /createVenueWithAlias\(/, f);
   }
+});
+
+// ---------------------------------------------------------------- R12 correction (2026-09-26 production replay)
+// Batch F part 3 refused the city-less alias "ספריית הילדים והנוער" on 10f003b0 - a cross-city binding trap. R12 reuse
+// is identity/linking only: no reuse, at any level, writes an alias.
+const KS_LIB = { id: '10f003b0', name_he: 'ספריית הילדים והנוער כפר סבא', venue_type: 'library', city: 'כפר סבא', lat: 32.173774, lng: 34.892692 };
+const KS_LIB_ALIASES = [['ספריית הילדים והנוער כפר סבא', KS_LIB.id], ['ספריית הילדים כפר סבא', KS_LIB.id]];
+
+test('children\'s library: the city-less label at the library reuses 10f003b0 twice - zero venues, zero aliases', async () => {
+  const db = fakeDb({ venues: [KS_LIB], aliases: KS_LIB_ALIASES });
+  const cand = { label: 'ספריית הילדים והנוער', city: 'כפר סבא', lat: 32.173774, lng: 34.892692 };
+  for (const run of [1, 2]) {
+    const r = await learn(db, cand);
+    assert.equal(r.venue.id, KS_LIB.id, `run ${run}`);
+    assert.equal(r.created, false, `run ${run}`);
+    assert.ok(r.identity.level >= 3, `run ${run}: identity, not a stored inferred alias`);
+  }
+  assert.equal(db.inserts.length, 0);
+  assert.equal(db.aliasWrites.length, 0);
+  assert.ok(!db.aliases.some((a) => a.alias_normalized === normalizeVenueAlias('ספריית הילדים והנוער')), 'the refused city-less alias never appears');
+  // the same label in another city cannot bind through an inferred alias, because none exists
+  assert.equal(await newResolve(db, 'ספריית הילדים והנוער', null), null);
+  assert.equal(await newResolve(db, 'ספריית הילדים והנוער', 'רעננה'), null);
+  const other = await learn(db, { label: 'ספריית הילדים והנוער', city: 'רעננה', lat: 32.184, lng: 34.871 });
+  assert.notEqual(other.venue.id, KS_LIB.id, 'Raanana is never bound to the Kfar Saba library');
+  assert.equal(other.created, true, 'the pre-R12 creation policy decides the Raanana label (its own venue)');
+});
+
+test('broad inferred labels (היכל התרבות / תיאטרון / בית ספר שדה) may reuse on strong identity but never become aliases', async () => {
+  const venues = [
+    { id: 'hma', name_he: 'היכל התרבות מעלה אדומים', venue_type: 'theater', city: 'מעלה אדומים', lat: 31.7770, lng: 35.2980 },
+    { id: 'tj', name_he: 'תיאטרון ירושלים', venue_type: 'theater', city: 'ירושלים', lat: 31.7680, lng: 35.2150 },
+    { id: 'bsg', name_he: 'בית ספר שדה גולן', venue_type: 'visitor_center', city: 'גולן', lat: 32.9920, lng: 35.6900 },
+  ];
+  const db = fakeDb({ venues, aliases: venues.map((v) => [v.name_he, v.id]) });
+  for (const [label, v] of [['היכל התרבות', venues[0]], ['תיאטרון', venues[1]], ['בית ספר שדה', venues[2]]]) {
+    const r = await learn(db, { label, city: v.city, lat: v.lat + 0.0001, lng: v.lng });
+    assert.equal(r.venue.id, v.id, label); assert.equal(r.created, false, label);
+  }
+  assert.equal(db.inserts.length, 0);
+  assert.equal(db.aliasWrites.length, 0, 'no broad alias written');
+  // a later "היכל התרבות" in another city is not bound to Ma'ale Adumim - there is no alias to bind through
+  const ashkelon = await learn(db, { label: 'היכל התרבות', city: 'אשקלון', lat: 31.6690, lng: 34.5710 });
+  assert.equal(ashkelon.created, true);
+  assert.notEqual(ashkelon.venue.id, 'hma');
+});
+
+test('generic / weak / empty-core names are NO identity evidence and fall through to the pre-R12 creation policy (never an R12-only hold)', async () => {
+  for (const [label, city, lat, lng] of [['פארק עירוני הרצליה', 'הרצליה', 32.168, 34.822], ['מוזיאון תל אביב', 'תל אביב-יפו', 32.077, 34.786], ['פארק רעננה', 'רעננה', 32.189, 34.870], ['קניון ירושלים', 'ירושלים', 31.751, 35.187], ['ملعب خلة الحداد', 'אפרת', 31.655, 35.150], ['חיפה', 'חיפה', 32.794, 34.989]]) {
+    const db = fakeDb({ venues: [ZOO], aliases: ZOO_ALIASES });
+    const r = await learn(db, { label, city, lat, lng });
+    assert.ok(!r.hold, `${label}: no R12 hold`);
+    assert.equal(r.created, true, `${label}: the existing creation path runs`);
+    assert.equal(r.identity.verdict, 'NO_MATCH', label);
+  }
+  // a generic candidate next to a venue whose own name is generic-cored: neither side is evidence -> no reuse, no hold
+  const safed = fakeDb({ venues: [{ id: 'pc', name_he: 'פינת חי צפת', city: 'צפת', lat: 32.9650, lng: 35.4960 }], aliases: [['פינת חי צפת', 'pc']] });
+  const r = await learn(safed, { label: 'פינת חי', city: 'צפת', lat: 32.9651, lng: 35.4960 });
+  assert.equal(r.identity.verdict, 'NO_MATCH'); assert.ok(!r.hold); assert.equal(r.created, true);
+  // Arabic: an empty identity core can never produce an inferred reuse either
+  assert.equal(decideVenueMatch({ label: 'ملعب خلة الحداد', city: 'אפרת', lat: 31.655, lng: 35.150 }, [{ id: 'x', name_he: 'ملعب خلة الحداد', aliases: [], city: 'אפרת', lat: 31.655, lng: 35.150, is_active: true }]).verdict, 'NO_MATCH');
+});
+
+test('Tel Aviv: a venue still stored as "תל אביב" is found by the same-settlement lookup (evidence-based short form only)', async () => {
+  const { storedCityForms } = require('../lib/venueMatch');
+  assert.deepEqual(storedCityForms('תל אביב יפו'), ['תל אביב יפו', 'תל אביב']);
+  assert.deepEqual(storedCityForms('חיפה'), ['חיפה'], 'no widening for any other settlement');
+  const db = fakeDb({ venues: [{ id: 'tlv', name_he: 'תיאטרון הבובות', city: 'תל אביב', lat: 32.0800, lng: 34.7800 }] });
+  db.venues[0].city = 'תל אביב'; // stored short form (the fake normalizes on seed; production has one such row)
+  const r = await learn(db, { label: 'תיאטרון הבובות', city: 'תל אביב-יפו', lat: 32.1000, lng: 34.7800 }); // same name, 2.2 km: possible branch
+  assert.ok(r.hold, 'the short-form venue is seen, so the same-name-elsewhere rule holds instead of creating blind');
+  assert.equal(db.inserts.length, 0);
 });

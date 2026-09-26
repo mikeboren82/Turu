@@ -11,9 +11,13 @@
 //   3 same spot            lib/placeIdentity: <= 80 m and name agreement >= 0.8 once locality words are dropped
 //   4 same name            every non-locality word equal + same settlement + <= 300 m
 // Anything near-identical that no level settles (farther away, no coordinates, two venues) is HELD - never guessed,
-// never created. Generic names (placeSafety GENERIC_PLACE_NAMES / generic library labels) are never identity.
-// A match on a merged loser lands on its keeper; a deactivated (not merged) venue is a human decision -> HOLD.
-const { normalizeCityName } = require('../cityNaming');
+// never created. A match on a merged loser lands on its keeper; a deactivated (not merged) venue is a human decision
+// -> HOLD. Generic / weak names (placeSafety GENERIC_PLACE_NAMES, generic library labels, a core that locality
+// stripping empties - city-only, Arabic) are never level-3/4 evidence on EITHER side: such a candidate is NO_MATCH, and
+// the pre-R12 creation policy decides it (never an R12-only hold).
+// Identity only: a reuse at ANY level never writes an alias (an inferred label like "ספריית הילדים והנוער" or
+// "היכל התרבות" would become a cross-city binding trap) - learning aliases needs its own specificity policy.
+const { normalizeCityName, CANONICAL_CITY_ALIASES } = require('../cityNaming');
 const { resolveVenue, genericVenueType, sameCityStrict } = require('../venueNaming');
 const { placeNameAgreement, placeNameWords, SAME_PLACE_KM, NAME_AGREEMENT } = require('./placeIdentity');
 const { GENERIC_PLACE_NAMES } = require('./placeSafety');
@@ -55,7 +59,7 @@ function compareVenue(cand, rec) {
 // pure: levels 3-4 over injected records (merged losers AND their keepers must be included)
 // -> { verdict: MATCH | HOLD | NO_MATCH, level, reason, venue?, via?, candidates[] }
 function decideVenueMatch(cand, records) {
-  if (isGenericVenueName(cand.label, cand.city)) return hold(null, 'generic label - identity is never inferred from it', { candidates: [] });
+  if (isGenericVenueName(cand.label, cand.city)) return { verdict: 'NO_MATCH', level: null, reason: 'generic / weak label - no level-3/4 identity evidence; the creation policy decides', candidates: [] };
   const byId = new Map(records.map((r) => [r.id, r]));
   const keeperOf = (r) => { let v = r; for (let i = 0; i < MAX_HOPS && v && v.merged_into; i++) v = byId.get(v.merged_into); return v && !v.merged_into ? v : null; };
   const scored = records.map((rec) => ({ rec, ...compareVenue(cand, rec) })).filter((s) => s.decision !== 'NONE');
@@ -80,9 +84,15 @@ async function rows(q) {
 }
 
 // active + merged + deactivated venues in the settlement or within ~300 m, the keepers of any merged ones, and aliases
+// the canonical settlement plus only the stored short forms cityNaming's evidence-based table maps to it
+// ("תל אביב יפו" also reads venues still stored as "תל אביב") - no fuzzy widening
+function storedCityForms(cityNorm) {
+  return [cityNorm, ...Object.keys(CANONICAL_CITY_ALIASES).filter((k) => CANONICAL_CITY_ALIASES[k] === cityNorm)];
+}
+
 async function loadNearbyVenues(client, { city, lat, lng }) {
   const byId = new Map();
-  if (city) for (const r of await rows(client.from('venues').select(VENUE_COLS).eq('city', city))) byId.set(r.id, r);
+  if (city) for (const r of await rows(client.from('venues').select(VENUE_COLS).in('city', storedCityForms(city)))) byId.set(r.id, r);
   if (lat != null && lng != null) {
     const q = client.from('venues').select(VENUE_COLS).gte('lat', Number(lat) - BOX_LAT).lte('lat', Number(lat) + BOX_LAT).gte('lng', Number(lng) - BOX_LNG).lte('lng', Number(lng) + BOX_LNG);
     for (const r of await rows(q)) byId.set(r.id, r);
@@ -124,4 +134,4 @@ async function matchExistingVenue(client, { label, city, lat, lng, googlePlaceId
   }
 }
 
-module.exports = { matchExistingVenue, decideVenueMatch, compareVenue, loadNearbyVenues, isGenericVenueName, SAME_NAME_KM };
+module.exports = { matchExistingVenue, decideVenueMatch, compareVenue, loadNearbyVenues, isGenericVenueName, storedCityForms, SAME_NAME_KM };
