@@ -73,6 +73,7 @@ tools/import-tool/**/reprobe-sources-*.json
 tools/import-tool/**/monster-cohort-*.json
 tools/import-tool/**/monster-cycle-*.json
 tools/import-tool/reports/*.json
+tools/import-tool/reports/*-dry-run-*.md
 tools/playground-discovery/*.log
 tools/playground-discovery/*.csv
 tools/playground-discovery/*.jsonl
