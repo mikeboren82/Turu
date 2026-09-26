@@ -38,3 +38,45 @@ test('pre-insert guard: finds the published twin, ignores events / playgrounds /
   assert.equal(await findPlaceDuplicate(client, { name: 'חי פארק כפר סבא', city: 'כפר סבא', lat: null, lng: null }), null);
   assert.equal(await findPlaceDuplicate(client, { name: 'גן משחקים', category: 'גן שעשועים', city: 'כפר סבא', lat: 32.17736, lng: 34.90747 }), null);
 });
+
+// ---------------------------------------------------------------- city-word fold (Option A, 2026-09-26)
+// City tokens now get the SAME fold as name tokens (יי->י, וו->ו, geresh/gershayim dropped). Unfolded, "גבעתיים" and
+// "קריית" never equalled the folded name words "גבעתים"/"קרית", so the city was never stripped. Fixtures are the real
+// production venues (read-only snapshot 2026-09-26).
+const { placeNameWords } = require('../lib/placeIdentity');
+const words = (n, c) => [...placeNameWords(n, c)].sort();
+
+test('city fold: Givatayim is stripped from a Givatayim venue name, plain and with a prefix letter', () => {
+  assert.deepEqual(words('מצפה הכוכבים גבעתיים', 'גבעתיים'), ['הכוכבים', 'מצפה']);
+  assert.deepEqual(words('מצפה הכוכבים בגבעתיים', 'גבעתיים'), ['הכוכבים', 'מצפה']);
+  assert.equal(placeNameAgreement('מצפה הכוכבים', 'מצפה הכוכבים גבעתיים', 'גבעתיים'), 1);
+});
+
+test('city fold: קרית / קריית spellings reduce to the same semantic word set', () => {
+  assert.deepEqual(words('היכל התרבות קרית גת', 'קריית גת'), ['היכל', 'התרבות']);
+  assert.deepEqual(words('היכל התרבות קריית גת', 'קריית גת'), ['היכל', 'התרבות']);
+  assert.deepEqual(words('היכל התרבות קריית גת', 'קרית גת'), ['היכל', 'התרבות']);
+});
+
+test('city fold: a city without יי/וו behaves exactly as before, and only the city (never a name word) is stripped', () => {
+  assert.equal(placeNameAgreement('חי פארק בכפר סבא', 'חי פארק', 'כפר סבא'), 1);
+  assert.deepEqual(words('מרכז קהילתי שז״ר גבעתיים', 'גבעתיים'), ['מרכז', 'קהילתי', 'שזר']);
+});
+
+test('PRE-INSERT GUARD: two tenants of one Givatayim spot stay distinct (ספריית יד לבנים / מרכז קהילתי שז״ר share coordinates in production)', () => {
+  const at = { lat: 32.0622, lng: 34.817, city: 'גבעתיים', category: 'ספרייה' };
+  assert.equal(samePlace({ ...at, name: 'ספריית יד לבנים גבעתיים' }, { ...at, name: 'מרכז קהילתי שז״ר גבעתיים' }).same, false);
+  assert.equal(samePlace({ ...at, name: 'מקלט רמב״ם גבעתיים' }, { ...at, name: 'בית אלון גבעתיים' }).same, false, 'X גבעתיים vs Y גבעתיים: the shared city is no longer a shared word');
+});
+
+test('PRE-INSERT GUARD: the fold only adds the intended positive - the same name with and without the city', () => {
+  const at = { lat: 32.0698, lng: 34.8152, city: 'גבעתיים', category: 'מדע' };
+  assert.equal(samePlace({ ...at, name: 'מצפה הכוכבים' }, { ...at, name: 'מצפה הכוכבים גבעתיים' }).same, true);
+  assert.equal(samePlace({ ...spot, name: 'חי פארק' }, { ...spot, name: 'חי פארק כפר סבא' }).same, true, 'existing positive unchanged');
+  // nearby distinct branches: two Givatayim venues ~350 m apart with different names
+  assert.equal(samePlace({ lat: 32.0704, lng: 34.8062, city: 'גבעתיים', name: 'מקלט רמב״ם' }, { lat: 32.0702, lng: 34.8036, city: 'גבעתיים', name: 'בית אלון' }).same, false);
+});
+
+test('ARTICLE GAP (FOLLOW-UP_ARTICLE_NORMALIZATION, deliberately NOT fixed): the definite article still separates the library labels', () => {
+  assert.ok(placeNameAgreement('ספרייה העירונית קרית אתא', 'הספרייה העירונית קריית אתא', 'קריית אתא') < 0.8);
+});

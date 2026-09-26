@@ -16,8 +16,10 @@ const NAME_AGREEMENT = 0.8;
 const LOCALITY_FILLER = new Set(['עיריית', 'עירוני', 'העירוני', 'עירונית', 'מועצה', 'מקומית', 'אזורית', 'ב', 'של']);
 
 function placeNameWords(name, city) {
-  const cityWords = new Set(normalizeForMatch(city).split(' ').filter(Boolean));
   const fold = (w) => w.replace(/[׳״]/g, '').replace(/יי/g, 'י').replace(/וו/g, 'ו');
+  // city tokens get the SAME fold as name tokens (2026-09-26): unfolded, "גבעתיים"/"קריית" never equalled the
+  // folded name words "גבעתים"/"קרית", so the city was never stripped and agreement collapsed to e.g. 2/3
+  const cityWords = new Set(normalizeForMatch(city).split(' ').map(fold).filter(Boolean));
   return new Set(normalizeForMatch(name).split(' ').map(fold).filter((w) => w.length > 1 && !cityWords.has(w) && !LOCALITY_FILLER.has(w)
     // "בכפר סבא" - the city with a prefix letter
     && !(w.length > 2 && /^[בלמה]/.test(w) && cityWords.has(w.slice(1)))));

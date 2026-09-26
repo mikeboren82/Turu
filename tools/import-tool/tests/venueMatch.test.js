@@ -277,3 +277,72 @@ test('Tel Aviv: a venue still stored as "תל אביב" is found by the same-set
   assert.ok(r.hold, 'the short-form venue is seen, so the same-name-elsewhere rule holds instead of creating blind');
   assert.equal(db.inserts.length, 0);
 });
+
+// ---------------------------------------------------------------- city-word fold (Option A, 2026-09-26)
+// lib/placeIdentity now folds city tokens like name tokens, so a city spelled with יי/וו (גבעתיים, קריית ...) is
+// stripped from a candidate label. Fixtures: real production venues (read-only snapshot 2026-09-26).
+const GIV = [
+  { id: '00cc72ed', name_he: 'מצפה הכוכבים גבעתיים', venue_type: 'museum', city: 'גבעתיים', lat: 32.0698, lng: 34.8152 },
+  { id: 'b9ee6298', name_he: 'מקלט רמב״ם', venue_type: 'other', city: 'גבעתיים', lat: 32.0704, lng: 34.8062 },
+  { id: 'ae27ff62', name_he: 'ספריית יד לבנים', venue_type: 'library', city: 'גבעתיים', lat: 32.0622, lng: 34.817 },
+  { id: '6c995061', name_he: 'מרכז קהילתי שז״ר גבעתיים', venue_type: 'community_center', city: 'גבעתיים', lat: 32.0622, lng: 34.817 },
+  { id: '25401375', name_he: 'בית אלון', venue_type: 'other', city: 'גבעתיים', lat: 32.0702, lng: 34.8036 },
+];
+const givDb = () => fakeDb({ venues: GIV, aliases: GIV.map((v) => [v.name_he, v.id]) });
+
+test('city fold: "מצפה הכוכבים" / "מצפה הכוכבים בגבעתיים" at the observatory reuse 00cc72ed at level 3 - no twin, no alias', async () => {
+  for (const label of ['מצפה הכוכבים', 'מצפה הכוכבים בגבעתיים']) {
+    const db = givDb();
+    const r = await learn(db, { label, city: 'גבעתיים', lat: 32.0698, lng: 34.8152 });
+    assert.equal(r.venue.id, '00cc72ed', label); assert.equal(r.identity.level, 3, label);
+    assert.equal(db.inserts.length + db.aliasWrites.length, 0, label);
+  }
+});
+
+test('city fold: city-bearing Givatayim labels reuse the right venue - even where two tenants share one point', async () => {
+  for (const [label, id] of [['מקלט רמב״ם גבעתיים', 'b9ee6298'], ['ספריית יד לבנים גבעתיים', 'ae27ff62'], ['בית אלון בגבעתיים', '25401375']]) {
+    const v = GIV.find((x) => x.id === id);
+    const db = givDb();
+    const r = await learn(db, { label, city: 'גבעתיים', lat: v.lat, lng: v.lng });
+    assert.equal(r.venue?.id, id, label); assert.equal(r.created, false, label);
+    assert.equal(db.inserts.length + db.aliasWrites.length, 0, label);
+  }
+});
+
+test('city fold: better agreement never guesses without spatial evidence - ג׳ימבורי בית רחל קרית גת (venue has no coordinates) is HELD', async () => {
+  const db = fakeDb({ venues: [{ id: '6c76ca2b', name_he: 'ג׳ימבורי בית רחל', venue_type: 'other', city: 'קריית גת' }], aliases: [['ג׳ימבורי בית רחל', '6c76ca2b']] });
+  const r = await learn(db, { label: 'ג׳ימבורי בית רחל קרית גת', city: 'קריית גת', lat: 31.6100, lng: 34.7640 });
+  assert.ok(r.hold, 'agreeing name, no coordinates to compare -> the existing ambiguity HOLD');
+  assert.equal(db.inserts.length + db.aliasWrites.length, 0);
+});
+
+test('city fold: a core that now reduces to a generic name (קניון / הספרייה העירונית) is not level-3/4 evidence - level 2 or the creation policy decides', async () => {
+  const mall = { id: '4ee18985', name_he: 'קניון קריית אונו', venue_type: 'mall', city: 'קריית אונו', lat: 32.0580, lng: 34.8560 };
+  const lib = { id: 'f5357010', name_he: 'הספרייה העירונית קריית אתא', venue_type: 'library', city: 'קריית אתא', lat: 32.8090, lng: 35.1060 };
+  assert.equal(isGenericVenueName(mall.name_he, mall.city), true);
+  assert.equal(isGenericVenueName(lib.name_he, lib.city), true);
+  const db = fakeDb({ venues: [mall, lib], aliases: [[mall.name_he, mall.id], ['קניון קרית אונו', mall.id], [lib.name_he, lib.id], ['ספרייה עירונית קרית אתא', lib.id]] });
+  for (const [label, city, id] of [['קניון קרית אונו', 'קריית אונו', mall.id], ['הספרייה העירונית קריית אתא', 'קריית אתא', lib.id]]) {
+    const r = await learn(db, { label, city, lat: 32.0, lng: 34.9 });
+    assert.equal(r.venue.id, id, label); assert.equal(r.identity.level, 2, `${label}: exact alias still resolves normally`);
+  }
+  const variant = await learn(db, { label: 'קניון בקריית אונו', city: 'קריית אונו', lat: mall.lat, lng: mall.lng });
+  assert.equal(variant.identity.verdict, 'NO_MATCH', 'generic core -> no identity evidence'); assert.ok(!variant.hold, 'no new HOLD rule');
+});
+
+test('ARTICLE GAP (FOLLOW-UP_ARTICLE_NORMALIZATION, deliberately NOT fixed): "ספרייה העירונית קרית אתא" still does not reach the library', async () => {
+  const lib = { id: 'f5357010', name_he: 'הספרייה העירונית קריית אתא', venue_type: 'library', city: 'קריית אתא', lat: 32.8090, lng: 35.1060 };
+  const db = fakeDb({ venues: [lib], aliases: [[lib.name_he, lib.id], ['ספרייה עירונית קרית אתא', lib.id]] });
+  const r = await matchExistingVenue(db.client, { label: 'ספרייה העירונית קרית אתא', city: 'קריית אתא', lat: lib.lat, lng: lib.lng });
+  assert.notEqual(r.verdict, 'MATCH');
+});
+
+test('COUNCIL / SETTLEMENT (deliberately NOT changed): חוות ארץ האיילים reuses in כפר עציון, and גוש עציון is still held', async () => {
+  const farm = { id: '321d0c38', name_he: 'חוות ארץ האיילים', venue_type: 'farm', city: 'כפר עציון' };
+  const db = fakeDb({ venues: [farm], aliases: [['חוות ארץ האיילים', farm.id], ['ארץ האיילים', farm.id]] });
+  const ok = await learn(db, { label: 'חוות ארץ האיילים', city: 'כפר עציון', lat: 31.65, lng: 35.12 });
+  assert.equal(ok.venue.id, farm.id); assert.equal(ok.identity.level, 2);
+  const council = await learn(db, { label: 'חוות ארץ האיילים', city: 'גוש עציון', lat: 31.65, lng: 35.12 });
+  assert.ok(council.hold); assert.match(council.error, /city mismatch/);
+  assert.equal(db.inserts.length + db.aliasWrites.length, 0);
+});
