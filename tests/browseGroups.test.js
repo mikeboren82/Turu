@@ -247,7 +247,7 @@ test('single-member / duplicate-label groups get no second level (cinema, nature
 
 test('summary A: all members of one group -> the group label', () => {
   assert.equal(browseSummary(membersOf('playgrounds_parks')), 'גני שעשועים ופארקים');
-  assert.equal(browseSummary(sorted(membersOf('water_attractions'))), 'מים, אטרקציות ואקסטרים', 'order-insensitive');
+  assert.equal(browseSummary(sorted(membersOf('water_attractions'))), 'אטרקציות, אתגר ומים', 'order-insensitive');
   withLocale('en', () => assert.equal(browseSummary(membersOf('animals')), 'Animals, farms & zoos'));
 });
 
@@ -442,6 +442,6 @@ test('i18n: browse labels, summary.groups plural and picker a11y strings exist i
     for (const k of ['expand', 'collapse', 'partial']) assert.ok(res.filters.browse[k], `filters.browse.${k}`);
   }
   assert.equal(RESOURCES.he.domain.browseGroups.playgrounds_parks, 'גני שעשועים ופארקים');
-  assert.equal(RESOURCES.he.domain.browseGroups.water_attractions, 'מים, אטרקציות ואקסטרים');
+  assert.equal(RESOURCES.he.domain.browseGroups.water_attractions, 'אטרקציות, אתגר ומים');
   assert.ok(CATEGORY_OPTIONS.length > 0);
 });

@@ -33,7 +33,7 @@ addHook(
   { exts: ['.js'], matcher: (f) => f.startsWith(path.join(ROOT, 'lib')) || f.startsWith(path.join(ROOT, 'constants')) },
 );
 
-const { buildResultsSummary } = require('../lib/filterSummaries');
+const { buildResultsSummary, buildResultsSummarySegments } = require('../lib/filterSummaries');
 const { intentToFilters } = require('../lib/smartSearch');
 const { locationWithDrivingTime, locationWithNoTravelPreference } = require('../lib/filterActivities');
 const { DEFAULT_FILTERS } = require('../constants/filterSchema');
@@ -284,4 +284,92 @@ test('a long combination of every fragment still produces one well-formed senten
   // באפליקציה - לא פסיק) - "גן שעשועים וחווה", לא "גן שעשועים, חווה". (Two values that do NOT complete
   // a browse group - גן שעשועים+פארק would now read as the group label, see the test above.)
   assert.equal(summary, 'מציג כעת גן שעשועים וחווה בסוף השבוע בבוקר באזור השרון, גוש דן והמרכז, לגילאי 2–6, ובסביבה');
+});
+
+// --- 16. many regions collapse to a count (responsive text, Activities Search Summary 2026-09-27,
+// task section 4: "many locations" - regions is the one location dimension that can hold more than
+// one value; city/current/address are all single-value) --------------------------------------------
+
+test('4+ regions -> "N אזורים" instead of a growing comma list; <=3 keeps the original plain comma join', () => {
+  const three = { ...base(), category: ['גן שעשועים'], location: { ...base().location, mode: 'region', region: ['השרון', 'גוש דן והמרכז', 'השפלה'] } };
+  assert.equal(buildResultsSummary(three), 'מציג כעת גן שעשועים באזור השרון, גוש דן והמרכז, השפלה');
+
+  const four = { ...base(), category: ['גן שעשועים'], location: { ...base().location, mode: 'region', region: ['השרון', 'גוש דן והמרכז', 'השפלה', 'הצפון והגליל'] } };
+  assert.equal(buildResultsSummary(four), 'מציג כעת גן שעשועים באזור 4 אזורים');
+});
+
+// --- 17. buildResultsSummarySegments - Activities Search Summary interactivity (2026-09-27) --------
+// Each interactive segment ('category' | 'location') is the SAME tap target app/activities.js wires
+// to the existing gateCategoryOpen/gateLocationOpen pickers - these tests only cover the pure data
+// (kind tagging, omission, text equivalence with buildResultsSummary), not the React rendering.
+
+test('segments join back to exactly buildResultsSummary\'s own string, for every fixture already covered above', () => {
+  const fixtures = [
+    { ...base(), category: ['גן שעשועים'] },
+    { ...base(), location: { ...base().location, mode: 'city', city: 'נתניה' } },
+    (() => { let loc = { ...base().location, mode: 'city', city: 'נתניה' }; loc = locationWithDrivingTime(loc, 15); return { ...base(), category: ['גן שעשועים'], location: loc, age: ['0-1', '2-3'] }; })(),
+    { ...base(), location: { ...base().location, mode: 'current', travelMode: 'walking', radiusKm: 0.75 } },
+  ];
+  for (const f of fixtures) {
+    const segments = buildResultsSummarySegments(f);
+    assert.equal(segments.map((s) => s.text).join(''), buildResultsSummary(f));
+  }
+});
+
+test('default filters (no context) -> [], matching buildResultsSummary\'s null', () => {
+  assert.deepEqual(buildResultsSummarySegments(DEFAULT_FILTERS), []);
+  assert.deepEqual(buildResultsSummarySegments(null), []);
+});
+
+test('category segment is tagged even on its generic "פעילויות" fallback (no category chosen at all) - tapping it must still open the category picker', () => {
+  const f = { ...base(), age: ['4-6'] };
+  const segments = buildResultsSummarySegments(f);
+  const categorySeg = segments.find((s) => s.kind === 'category');
+  assert.ok(categorySeg, 'a category-kind segment must exist even with no category filter set');
+  assert.equal(categorySeg.text, 'פעילויות');
+});
+
+test('WHAT/WHERE/DISTANCE are tagged correctly; WHEN/AGE stay plain text (no picker opens for them from the sentence)', () => {
+  let loc = { ...base().location, mode: 'city', city: 'נתניה' };
+  loc = locationWithDrivingTime(loc, 15);
+  const f = { ...base(), category: ['גן שעשועים'], location: loc, age: ['0-1', '2-3'], when: { options: ['tomorrow'], date: null } };
+  const segments = buildResultsSummarySegments(f);
+  const byText = (text) => segments.find((s) => s.text === text);
+  assert.equal(byText('גן שעשועים').kind, 'category');
+  assert.equal(byText('מחר').kind, 'text');
+  assert.equal(byText('באזור נתניה').kind, 'location');
+  assert.equal(byText('לגילאי 0–3').kind, 'text');
+  assert.equal(byText('ובסביבה').kind, 'location', 'the trailing travel/distance phrase shares the location picker - it has no separate control to open');
+});
+
+test('no travel restriction -> no location-kind segment for the trailing distance phrase (only WHERE stays location-kind)', () => {
+  const f = { ...base(), category: ['גן שעשועים'], location: { ...base().location, mode: 'city', city: 'נתניה' } };
+  const segments = buildResultsSummarySegments(f);
+  const locationSegs = segments.filter((s) => s.kind === 'location');
+  assert.equal(locationSegs.length, 1);
+  assert.equal(locationSegs[0].text, 'באזור נתניה');
+});
+
+test('no location at all -> zero location-kind segments (nothing to tap for WHERE/travel)', () => {
+  const f = { ...base(), category: ['גן שעשועים'] };
+  const segments = buildResultsSummarySegments(f);
+  assert.equal(segments.filter((s) => s.kind === 'location').length, 0);
+});
+
+test('a complete browse group (multi-selection) still yields exactly one category segment carrying the group label - "same source of truth" as categorySummary everywhere else', () => {
+  const f = { ...base(), category: ['גן שעשועים', 'פארק'] };
+  const segments = buildResultsSummarySegments(f);
+  const categorySegs = segments.filter((s) => s.kind === 'category');
+  assert.equal(categorySegs.length, 1);
+  assert.equal(categorySegs[0].text, 'גני שעשועים ופארקים');
+});
+
+// --- 18. category display label rename (task section 6, presentation-only) -------------------------
+// "מים, אטרקציות ואקסטרים" -> "אטרקציות, אתגר ומים" - domain.json display string only; the browse
+// group id ('water_attractions') and its canonical members (constants/browseGroups.json) are
+// untouched (see tests/browseGroups.test.js for the id/members pin).
+
+test('the water_attractions group now summarizes with its renamed label', () => {
+  const f = { ...base(), category: ['פעילות מים', 'בריכה', 'פארק שעשועים', 'אטרקציה', 'חדרי בריחה', 'ספורט'] };
+  assert.equal(buildResultsSummary(f), 'מציג כעת אטרקציות, אתגר ומים');
 });

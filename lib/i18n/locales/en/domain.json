@@ -43,7 +43,7 @@
     "museums_science": "Museums & science",
     "workshops": "Workshops & crafts",
     "story_hour": "Libraries & story time",
-    "water_attractions": "Water, attractions & thrills",
+    "water_attractions": "Attractions, challenges & water",
     "festivals_events": "Festivals & events"
   },
   "regions": {
@@ -165,7 +165,9 @@
     "ageRange": "ages {{min}}–{{max}}",
     "ageFrom": "age {{min}}+",
     "groups_one": "1 group",
-    "groups_other": "{{count}} groups"
+    "groups_other": "{{count}} groups",
+    "regions_one": "1 region",
+    "regions_other": "{{count}} regions"
   },
   "location": {
     "nationwide": "All of Israel",

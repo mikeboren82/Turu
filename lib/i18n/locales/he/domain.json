@@ -43,7 +43,7 @@
     "museums_science": "מוזיאונים ומדע",
     "workshops": "סדנאות ויצירה",
     "story_hour": "ספריות ושעת סיפור",
-    "water_attractions": "מים, אטרקציות ואקסטרים",
+    "water_attractions": "אטרקציות, אתגר ומים",
     "festivals_events": "פסטיבלים ואירועים"
   },
   "regions": {
@@ -165,7 +165,9 @@
     "ageRange": "לגילאי {{min}}–{{max}}",
     "ageFrom": "מגיל {{min}}",
     "groups_one": "קבוצה אחת",
-    "groups_other": "{{count}} קבוצות"
+    "groups_other": "{{count}} קבוצות",
+    "regions_one": "אזור אחד",
+    "regions_other": "{{count}} אזורים"
   },
   "location": {
     "nationwide": "כל הארץ",

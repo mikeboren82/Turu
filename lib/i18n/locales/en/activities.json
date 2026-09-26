@@ -39,6 +39,8 @@
   },
   "resultsSummary": {
     "prefix": "Showing",
+    "editCategoryA11y": "{{value}}, tap to change category",
+    "editLocationA11y": "{{value}}, tap to change location or travel range",
     "genericWhat": "activities",
     "freeTextWhat": "activities matching \"{{query}}\"",
     "near": "near you",

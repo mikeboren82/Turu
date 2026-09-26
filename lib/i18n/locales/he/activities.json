@@ -38,6 +38,8 @@
   },
   "resultsSummary": {
     "prefix": "מציג כעת",
+    "editCategoryA11y": "{{value}}, לחצו לשינוי קטגוריה",
+    "editLocationA11y": "{{value}}, לחצו לשינוי מיקום או טווח נסיעה",
     "genericWhat": "פעילויות",
     "freeTextWhat": "פעילויות לפי \"{{query}}\"",
     "near": "קרוב אליי",

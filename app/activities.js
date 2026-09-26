@@ -20,7 +20,7 @@ import { fetchUserActivityFlags, toggleFavorite, toggleVisited, savePersonalNote
 import { fetchUserPreferences, saveExcludedCategories, saveExcludedCities, saveExcludedRegions } from '../lib/preferences';
 import { supabase } from '../lib/supabase';
 import { DEFAULT_FILTERS, CATEGORY_FILTER_OPTIONS } from '../constants/filterSchema';
-import { categorySummary, buildResultsSummary, buildActiveChips, shouldReopenLocationChooser } from '../lib/filterSummaries';
+import { categorySummary, buildResultsSummarySegments, buildActiveChips, shouldReopenLocationChooser } from '../lib/filterSummaries';
 import { BROWSE_GROUP_OPTIONS, withManualCategorySelection } from '../lib/browseGroups';
 import { rankActivitiesWithSmartRadius, countActiveFilters, normalizeFilters, getOpenNowInfo, haversineKm, locationWithDrivingTime } from '../lib/filterActivities';
 import { formatBenefitCardTag } from '../lib/benefits';
@@ -724,13 +724,23 @@ export default function ActivitiesScreen() {
   // (עבר להיות trigger מעמוד הבית, ראו handleSpontaneous/useEffect(spontaneous) - סעיף 6
   // בתוכנית), אז אין לו ייצוג בתקציר-הסינון.
   const filterSummary = useMemo(() => activitiesFilterSummary(filters), [filters, locale]);
-  // "מציג כעת..." - תקציר-חיפוש בשפה טבעית (TURU — ACTIVITY RESULTS SEARCH SUMMARY, 2026-09-20).
-  // buildResultsSummary (lib/filterSummaries.js) הוא הפונקציה הטהורה היחידה שמפרשת filters לתקציר
-  // הזה - ראו ההערה המלאה שם. אותו filters קנוני בדיוק כמו activitiesFilterSummary למעלה (לא
-  // עוד מערכת-פרשנות מקבילה) - חיפוש חופשי/בחירה מהירה/"מה קרוב?" כולם כבר מתכנסים אליו לפני
-  // שהמסך הזה בכלל נטען, אז אין כאן טיפול-מיוחד לפי route param. null כשאין הקשר משמעותי
-  // (מסך בלי שום פילטר) - ה-JSX למטה פשוט לא מרנדר כלום במקרה הזה.
-  const resultsSummaryText = useMemo(() => buildResultsSummary(filters), [filters, locale]);
+  // "מציג כעת..." - תקציר-חיפוש בשפה טבעית, INTERACTIVE (ACTIVITIES SEARCH SUMMARY, 2026-09-27;
+  // originally TURU — ACTIVITY RESULTS SEARCH SUMMARY, 2026-09-20). buildResultsSummarySegments
+  // (lib/filterSummaries.js) is the one pure function that interprets filters into this sentence -
+  // see the full note there. Same canonical filters as activitiesFilterSummary above (no parallel
+  // interpretation system) - Free Search/Quick Choice/"מה קרוב?" all already converge to it before
+  // this screen even loads, so there is no route-param-specific handling here. [] when there is no
+  // meaningful context (a screen with no filter at all) - the JSX below simply renders nothing then.
+  const resultsSummarySegments = useMemo(() => buildResultsSummarySegments(filters), [filters, locale]);
+  // tapping the WHAT/category piece of the sentence opens the SAME category picker as the entry
+  // gate's "🌟" row (gateCategoryOpen/QuickPicker below) - no second filter or picker state. Tapping
+  // WHERE or the trailing travel/distance piece opens the SAME location picker as the entry gate's
+  // "🏡" row (gateLocationOpen/LocationQuickPicker below), which is also where travel mode/time
+  // itself lives (walking/driving + minutes are controls inside that picker, not a separate one).
+  const openResultsSummarySegment = (kind) => {
+    if (kind === 'category') setGateCategoryOpen(true);
+    else if (kind === 'location') setGateLocationOpen(true);
+  };
   // 🔍 Search-intent chip - filters.q is the ONE dimension with no editing surface anywhere else:
   // FILTER_SCHEMA (constants/filterSchema.js) has no 'q' section, so FiltersSheet cannot show or
   // clear it, and resultsWhatPhrase (lib/filterSummaries.js) hides it entirely once a category is
@@ -867,13 +877,33 @@ export default function ActivitiesScreen() {
             </Text>
           ) : null}
         </View>
-        {/* תקציר-חיפוש בשפה טבעית ("מציג כעת...", ראו buildResultsSummary/lib/filterSummaries.js) -
-            משני-חזותית ל"כל הפעילויות" (fontSize/color עדינים יותר, ראו הסטייל למטה), לא כרטיס/
-            רקע כבד ולא עוד שורת-chips - טקסט בלבד, עד 2 שורות. מוצג רק כשיש הקשר משמעותי לתאר
-            (resultsSummaryText הוא null במסך-ברירת-מחדל בלי שום פילטר - ה"כל הפעילויות" הקבוע
-            כבר אומר את זה, לא צריך עוד "מציג כעת פעילויות" ריק). */}
-        {resultsSummaryText ? (
-          <Text style={styles.resultsSummaryText} numberOfLines={2}>{resultsSummaryText}</Text>
+        {/* תקציר-חיפוש בשפה טבעית ואינטראקטיבי ("מציג כעת...", ראו buildResultsSummarySegments/
+            lib/filterSummaries.js) - משני-חזותית ל"כל הפעילויות" (fontSize/color עדינים יותר, ראו
+            הסטייל למטה), לא כרטיס/רקע כבד ולא עוד שורת-chips - טקסט זורם, עד 2 שורות, שבתוכו שני
+            קטעים (WHAT/קטגוריה, WHERE+DISTANCE/מיקום-וטווח-נסיעה) הם עצמם הכפתור-לפתיחת-הבוררן
+            המתאים (accent+underline עדין, לא "שורת צ'יפים" - סעיף 3 בבקשה). מוצג רק כשיש הקשר
+            משמעותי לתאר (resultsSummarySegments הוא [] במסך-ברירת-מחדל בלי שום פילטר - ה"כל
+            הפעילויות" הקבוע כבר אומר את זה, לא צריך עוד "מציג כעת פעילויות" ריק). */}
+        {resultsSummarySegments.length ? (
+          <Text style={styles.resultsSummaryText} numberOfLines={2}>
+            {resultsSummarySegments.map((seg, i) => (
+              seg.kind === 'text' ? (
+                <Text key={i}>{seg.text}</Text>
+              ) : (
+                <Text
+                  key={i}
+                  onPress={() => openResultsSummarySegment(seg.kind)}
+                  style={styles.resultsSummarySegmentInteractive}
+                  accessibilityRole="button"
+                  accessibilityLabel={seg.kind === 'category'
+                    ? t('activities.resultsSummary.editCategoryA11y', { value: seg.text.trim() })
+                    : t('activities.resultsSummary.editLocationA11y', { value: seg.text.trim() })}
+                >
+                  {seg.text}
+                </Text>
+              )
+            ))}
+          </Text>
         ) : null}
       </View>
 
@@ -1515,6 +1545,13 @@ const styles = createStyles((d) => ({
   resultsSummaryText: {
     fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, textAlign: d.textAlign,
     lineHeight: 18, marginTop: 4,
+  },
+  // הקטעים האינטראקטיביים בתוך משפט-התקציר (2026-09-27, "Activities Search Summary") - accent
+  // (אותו כחול-אקטיבי כמו activeChipText/spontaneousOffLinkText למעלה) + underline עדין (אותו
+  // מוסכמה כמו gateSkipText - "טקסט מודגש-שנלחצים עליו", לא כפתור/רקע) כדי שהמשפט יישאר "משפט
+  // עברי טבעי שקורה להיות ניתן-לערוך" (סעיף 3 בבקשה) ולא שורת-צ'יפים.
+  resultsSummarySegmentInteractive: {
+    fontFamily: fonts.semiBold, color: colors.accent, textDecorationLine: 'underline',
   },
 
   freeSearchBox: {
