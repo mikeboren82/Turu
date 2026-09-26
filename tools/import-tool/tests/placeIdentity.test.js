@@ -119,3 +119,42 @@ test('PRE-INSERT GUARD: the near-threshold fair pair stays below 0.8; the Acre b
 test('FOLLOW_UP_LOCALITY_FILLER_FOLD (deliberately NOT fixed): "עיריית" folds to "עירית", which the filler list does not contain', () => {
   assert.ok(words('עיריית חולון', 'באר שבע').includes('עירית'));
 });
+
+// ---------------------------------------------------------------- lexical-ה regression pins (forensic 2026-09-26, MERGE_87D793C_AS_IS)
+// The article rule ^ה(?=[א-ת]{2}) cannot tell a root ה (היכל, הדר, הוד, הנדיב) from an article. These pins fix the
+// accepted behaviour so any future change to it is deliberate. Fixtures: real production venues / cities.
+test('lexical ה: "היכל" is stripped symmetrically (-> "יכל"), so same-spelling hall names still agree fully', () => {
+  assert.equal(placeNameAgreement('היכל התרבות אשקלון', 'היכל התרבות באשקלון', 'אשקלון'), 1);
+  assert.deepEqual(words('היכל התרבות אשקלון', 'אשקלון'), ['יכל', 'תרבות']);
+});
+
+test('ACCEPTED LIMITATION (one strip only): "ההיכל התרבות לוד" keeps {היכל, תרבות} while the venue core is {יכל, תרבות} -> 0.5', () => {
+  // unchanged from MAIN e2bbb9e (0.5 there too); "ההיכל" never occurs in production (construct phrases put the article on the 2nd noun)
+  assert.deepEqual(words('ההיכל התרבות לוד', 'לוד'), ['היכל', 'תרבות']);
+  assert.deepEqual(words('היכל התרבות לוד', 'לוד'), ['יכל', 'תרבות']);
+  assert.equal(placeNameAgreement('ההיכל התרבות לוד', 'היכל התרבות לוד', 'לוד'), 0.5);
+});
+
+test('KNOWN_ACCEPTED_LEXICAL_HE_COLLISION: co-located "בית אלון" / "בית האלון" in one city are the same place (agreement 1)', () => {
+  // KNOWN_ACCEPTED_LEXICAL_HE_COLLISION - this pins an ACCEPTED limitation of the per-token article rule; it does NOT
+  // endorse broader lexical equivalence. Bounded by the 80 m gate; 0 such co-located pairs in production (2026-09-26).
+  // If a real distinct pair appears, the planned fix is a narrow exception set (forensic option B), not a revert.
+  const v = samePlace({ name: 'בית אלון', city: 'גבעתיים', lat: 32.0702, lng: 34.8036 }, { name: 'בית האלון', city: 'גבעתיים', lat: 32.0702, lng: 34.8036 });
+  assert.equal(v.same, true); assert.equal(v.agreement, 1); assert.equal(v.km, 0);
+});
+
+test('lexical ה in CITY tokens: הוד השרון / הדר המושבות / הרצליה are stripped from the name, name words are not', () => {
+  assert.deepEqual(words('היכל התרבות הוד השרון', 'הוד השרון'), ['יכל', 'תרבות']);
+  assert.deepEqual(words('מתנס הדר המושבות', 'הדר המושבות'), ['מתנס'], 'generic core');
+  assert.deepEqual(words('בקניון שבעת הכוכבים בהרצליה', 'הרצליה'), ['בקניון', 'כוכבים', 'שבעת'], 'בהרצליה removed, בקניון kept');
+});
+
+test('PRE-INSERT GUARD near-threshold: the back-to-school fair pair (0.67) stays below 0.8 - not one place even at 0 m; tenants stay distinct', () => {
+  const at = { city: 'תל אביב יפו', lat: 32.0853, lng: 34.7818 };
+  const a = 'יריד חזרה לבית הספר - אופיס דיפו', b = 'יריד חזרה לבית ספר - קרביץ';
+  assert.ok(placeNameAgreement(a, b, at.city) < 0.8);
+  assert.equal(samePlace({ ...at, name: a }, { ...at, name: b }).same, false);
+  const ks = { city: 'כפר סבא', lat: 32.1776, lng: 34.9075 }, gv = { city: 'גבעתיים', lat: 32.0704, lng: 34.8062 };
+  assert.equal(samePlace({ ...ks, name: 'ספריית הילדים והנוער' }, { ...ks, name: 'בית ספיר' }).same, false);
+  assert.equal(samePlace({ ...gv, name: 'מרכז קהילתי שז״ר' }, { ...gv, name: 'ספריית יד לבנים' }).same, false);
+});

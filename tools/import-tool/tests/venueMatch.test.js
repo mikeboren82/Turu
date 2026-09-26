@@ -394,3 +394,50 @@ test('article: Kiryat Ata control - the attested alias keeps level 2; without it
   assert.equal((await matchExistingVenue(noPin.client, { label: 'הספרייה העירונית קרית אתא', city: 'קריית אתא', lat: 32.81, lng: 35.11 })).verdict, 'NO_MATCH');
   assert.equal(await resolveVenue(withPin.client, { locationName: 'הספרייה העירונית', city: null }), null);
 });
+
+// ---------------------------------------------------------------- lexical-ה regression pins (forensic 2026-09-26, MERGE_87D793C_AS_IS)
+// Production venues (read-only snapshot 2026-09-26). "היכל" -> "יכל" is symmetric on label, name and alias.
+const ACRE_HALL = { id: 'e8f92bbc', name_he: 'היכל התרבות עכו', venue_type: 'theater', city: 'עכו', lat: 32.9290689, lng: 35.0756375 };
+const HANADIV = { id: '0f0b5b05', name_he: 'חוות הנדיב', venue_type: 'farm', city: 'זכרון יעקב', lat: 32.5575374, lng: 34.9561909 };
+const HALLS = [ // the three venues that each carry the semi-generic alias "היכל התרבות"
+  { id: 'd322406c', name_he: 'היכל התרבות לוד', venue_type: 'theater', city: 'לוד' },
+  { id: '49650283', name_he: 'היכל התרבות קריית גת', venue_type: 'theater', city: 'קריית גת' },
+  { id: '6ee7e26c', name_he: 'היכל התרבות יבנה', venue_type: 'theater', city: 'יבנה' },
+];
+
+test('lexical ה: "היכל התרבות בעכו" at the Acre hall is MATCH@3 by identity alone (the exact alias withheld)', () => {
+  const v = decideVenueMatch({ label: 'היכל התרבות בעכו', city: 'עכו', lat: ACRE_HALL.lat, lng: ACRE_HALL.lng }, [{ ...ACRE_HALL, aliases: ['אודיטוריום עכו'], is_active: true }]);
+  assert.equal(v.verdict, 'MATCH'); assert.equal(v.level, 3); assert.equal(v.venue.id, ACRE_HALL.id);
+});
+
+test('ACCEPTED LIMITATION (one strip only): "ההיכל התרבות לוד" does not reach the Lod hall - agreement 0.5, NO_MATCH', () => {
+  const lod = { ...HALLS[0], aliases: ['היכל התרבות', 'היכל התרבות העירוני לוד'], is_active: true, lat: 31.9510, lng: 34.8880 };
+  const v = decideVenueMatch({ label: 'ההיכל התרבות לוד', city: 'לוד', lat: lod.lat, lng: lod.lng }, [lod]);
+  assert.equal(v.verdict, 'NO_MATCH');
+});
+
+test('lexical ה: "חוות נדיב" / "החוות הנדיב" at חוות הנדיב are MATCH@3; "חוות ההנדיב" (one strip only) is NO_MATCH', () => {
+  const rec = { ...HANADIV, aliases: ['חוות הנדיב - פינת חי'], is_active: true };
+  const at = (label) => decideVenueMatch({ label, city: HANADIV.city, lat: HANADIV.lat, lng: HANADIV.lng }, [rec]);
+  for (const label of ['חוות נדיב', 'החוות הנדיב']) {
+    const v = at(label);
+    assert.equal(v.verdict, 'MATCH', label); assert.equal(v.level, 3, label); assert.equal(v.venue.id, HANADIV.id, label);
+  }
+  assert.equal(at('חוות ההנדיב').verdict, 'NO_MATCH');
+});
+
+test('genericity unchanged: the five generic production venues stay generic; "פארק הרצליה" / "הרצליה" are not identity evidence', () => {
+  for (const [name, city] of [['קניון קריית אונו', 'קריית אונו'], ['הספרייה העירונית רמת השרון', 'רמת השרון'], ['פארק רעננה', 'רעננה'],
+    ['הספרייה העירונית קריית אתא', 'קריית אתא'], ['ספריית רעות', 'מודיעין מכבים רעות'], ['פארק הרצליה', 'הרצליה'], ['הרצליה', 'הרצליה'], ['מתנס הדר המושבות', 'הדר המושבות']]) {
+    assert.equal(isGenericVenueName(name, city), true, name);
+  }
+  assert.equal(isGenericVenueName('היכל התרבות לוד', 'לוד'), false, 'a hall name keeps its identity core {יכל, תרבות}');
+  assert.equal(decideVenueMatch({ label: 'פארק הרצליה', city: 'הרצליה', lat: 32.16, lng: 34.84 }, [{ id: 'x', name_he: 'פארק הרצליה', city: 'הרצליה', lat: 32.16, lng: 34.84, is_active: true }]).verdict, 'NO_MATCH');
+});
+
+test('level 2 unchanged: "היכל התרבות" + לוד resolves via the Lod alias; with no city it picks none of Lod / Kiryat Gat / Yavne', async () => {
+  const db = fakeDb({ venues: HALLS, aliases: [...HALLS.map((h) => [h.name_he, h.id]), ...HALLS.map((h) => ['היכל התרבות', h.id])] });
+  assert.equal((await resolveVenue(db.client, { locationName: 'היכל התרבות', city: 'לוד' }))?.id, HALLS[0].id);
+  assert.equal(await resolveVenue(db.client, { locationName: 'היכל התרבות', city: null }), null);
+  assert.equal(db.inserts.length + db.aliasWrites.length, 0);
+});
