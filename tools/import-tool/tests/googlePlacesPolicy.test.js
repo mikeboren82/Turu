@@ -167,6 +167,59 @@ test('classifier: Places-origin only by Maps page_url, google_maps_uri or format
   assert.deepEqual([...policy.PLACES_ORIGIN_KEYS].sort(), ['formatted_address', 'google_maps_uri', 'place_kind']);
 });
 
+// ---- incomingShape ADDRESS-WIPE regression, through the real publish path ----
+// incomingShape.isPlacesShape (pre-fix) sent any row with `lon` or `google_place_id` through the Places normalization:
+// address re-derived from a missing formatted_address (-> null), playground defaults invented. Now only Places
+// provenance (googlePlacesPolicy) does; `lon` / a place id / geometry / latitude-longitude change nothing.
+test('address-wipe regression: independent rows with coordinates / lon / google_place_id publish with their own facts', async () => {
+  const MUNI = 'https://www.holon.muni.il/events/1';
+  const base = pageCandidate({ address: 'הנרקיס 3, חולון' }); // lat 32.01 / lng 34.77, no price, no indoor_outdoor
+  const variants = {
+    A_municipal_lat_lon: [{ ...base, lon: 34.77 }, MUNI],
+    B_osm_lat_lon_only: [{ ...base, lng: undefined, lon: 34.77, osm_type: 'node', osm_id: 7 }, 'https://www.openstreetmap.org/node/7'],
+    C_place_id: [{ ...base, google_place_id: 'ChIJindependent' }, MUNI],
+    D_place_id_lat_lon: [{ ...base, lng: undefined, lon: 34.77, google_place_id: 'ChIJindependent' }, MUNI],
+    E_arcgis_geometry: [{ ...base, geometry: { x: 34.77, y: 32.01, spatialReference: { wkid: 4326 } }, lon: 34.77 }, 'https://services.arcgis.com/abc/arcgis/rest/services/P/FeatureServer/0'],
+    F_official_all_coord_keys: [{ ...base, lon: 34.77, latitude: 32.01, longitude: 34.77 }, MUNI],
+  };
+  const publish = async (ed, pageUrl) => {
+    const db = fakeDb(world({ extracted_data: JSON.parse(JSON.stringify(ed)), page_url: pageUrl }));
+    const r = await publishIncoming(db.client, 'reviewer', 'inc-1', { mode: 'human' });
+    return { r, db };
+  };
+  const strip = (row) => Object.fromEntries(Object.entries(row).filter(([k]) => !/^id$|_id$|_at$/.test(k)));
+  const baseline = await publish(base, MUNI);
+  assert.equal(baseline.r.outcome, PUBLISH_OUTCOME.PUBLISHED, JSON.stringify(baseline.r.body));
+  const [bAct, bLoc] = [baseline.db.t.activities[0], baseline.db.t.locations[0]];
+  assert.deepEqual([bLoc.address, bLoc.city, bLoc.lat, bLoc.lng], ['הנרקיס 3, חולון', 'חולון', 32.01, 34.77]);
+  for (const [label, [ed, pageUrl]] of Object.entries(variants)) {
+    assert.equal(policy.isPlacesOriginCandidate(ed, pageUrl), false, label);
+    const { r, db } = await publish(ed, pageUrl);
+    assert.equal(r.outcome, PUBLISH_OUTCOME.PUBLISHED, `${label}: ${JSON.stringify(r.body).slice(0, 300)}`);
+    const [a, l] = [db.t.activities[0], db.t.locations[0]];
+    assert.equal(l.address, 'הנרקיס 3, חולון', `${label}: address survives`);
+    assert.deepEqual([l.city, l.lat, l.lng, l.name], ['חולון', 32.01, 34.77, base.location_name], `${label}: city / coords / label survive`);
+    assert.deepEqual([a.name, a.category, a.source_url], [base.name, base.category, pageUrl], `${label}: name / category / source`);
+    assert.equal(a.google_place_id, ed.google_place_id || null, `${label}: a place id rides along, nothing else`);
+    assert.equal(db.t.activity_sources[0].page_url, pageUrl, `${label}: provenance is the independent source`);
+    // nothing changed merely because coordinates / lon / a place id exist: same rows as the plain page candidate
+    assert.deepEqual({ ...strip(a), source_url: null }, { ...strip(bAct), source_url: null }, `${label}: activity identical to the plain row`);
+    assert.deepEqual(strip(l), strip(bLoc), `${label}: location identical to the plain row`);
+  }
+  // automation too: a row that already has lng publishes automatically with a place id and lon attached
+  const auto = fakeDb(world({ extracted_data: { ...base, lon: 34.77, google_place_id: 'ChIJindependent' }, page_url: MUNI }));
+  const ar = await publishIncoming(auto.client, 'bot', 'inc-1', { mode: 'auto' });
+  assert.equal(ar.outcome, PUBLISH_OUTCOME.PUBLISHED, JSON.stringify(ar.body).slice(0, 300));
+  assert.equal(auto.t.locations[0].address, 'הנרקיס 3, חולון');
+  // the real Places shapes and a Maps page_url are still held on the same path (section A above covers all three writers)
+  for (const [ed, pageUrl] of [[PLACES_SHAPES.scan_settlement_gaps.extracted_data, MAPS], [{ ...base, google_place_id: 'ChIJx' }, 'https://www.google.com/maps/place/x']]) {
+    const db = fakeDb(world({ extracted_data: ed, page_url: pageUrl, source_id: null }));
+    const r = await publishIncoming(db.client, 'reviewer', 'inc-1', { mode: 'human' });
+    assert.ok(r.body.blockers.includes(REASON), JSON.stringify(r.body).slice(0, 300));
+    assert.deepEqual(catalogueWrites(db), []);
+  }
+});
+
 // ---- C + D: independent activity + Google reconciliation -> place id only ----
 test('C/D: reconciliation stores the place id on the independent row and nothing else (name / address / coords / source kept)', async () => {
   const osm = { id: 'act-osm', name: 'גן שעשועים – הדקל, רעננה', status: 'approved', category: 'גן שעשועים', google_place_id: null, location_id: 'loc-osm', source_url: 'https://www.openstreetmap.org/node/7' };

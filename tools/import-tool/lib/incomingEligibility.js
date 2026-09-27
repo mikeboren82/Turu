@@ -77,7 +77,7 @@ async function evaluateIncomingRow(client, idOrRow, { trustOverride = null, toda
   }
   let duplicate = null;
   if (row.match_type === 'new') {
-    const p = normalizeIncomingCandidate(c);
+    const p = normalizeIncomingCandidate(c, { pageUrl: row.page_url });
     if (p.google_place_id) {
       const { data } = await client.from('activities').select('id').eq('google_place_id', p.google_place_id).limit(1).maybeSingle();
       if (data) duplicate = { activityId: data.id, by: 'google_place_id' };

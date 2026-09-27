@@ -2921,7 +2921,7 @@ async function publishIncoming(client, userId, id, { mode = 'auto', acknowledged
   const preBlockers = approvalBlockers(pre, mode);
   if (preBlockers.length) return policyRefusal(pre, preBlockers, mode);
   if (dryRun) {
-    const payload = item.match_type === 'new' ? normalizeIncomingCandidate(item.extracted_data) : null;
+    const payload = item.match_type === 'new' ? normalizeIncomingCandidate(item.extracted_data, { pageUrl: item.page_url }) : null;
     return out(PUBLISH_OUTCOME.DRY_RUN, 200, { wouldPublish: true, mode, decision: pre.decision, reasons: pre.reasons, plannedLocation: payload ? plannedLocationWrite(payload) : null });
   }
 
@@ -2948,8 +2948,9 @@ async function publishIncoming(client, userId, id, { mode = 'auto', acknowledged
     if (blockers.length) { await release(); return policyRefusal(evaluation, blockers, mode); }
 
     if (item.match_type === 'new') {
-      // Both extracted_data shapes (page extraction / Google Places) are accepted - see incomingShape.js.
-      const payload = normalizeIncomingCandidate(item.extracted_data);
+      // Both extracted_data shapes (page extraction / Google Places) are accepted - see incomingShape.js (the shape is
+      // decided by Places provenance incl. page_url, never by lon / google_place_id alone).
+      const payload = normalizeIncomingCandidate(item.extracted_data, { pageUrl: item.page_url });
 
       // WHO MAY ATTEND (Phase 1, 2026-09-21). A generic Approve click is never read as an access
       // verdict. When the row looks like a private-hire / booking wrapper the reviewer must choose

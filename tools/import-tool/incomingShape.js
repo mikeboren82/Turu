@@ -4,8 +4,17 @@
 // google_place_id, place_kind). saveNewActivity/requireVerifiedLocation only understand the first,
 // so "אשר והוסף" on a Places-shaped row used to fail with "לא נמצאה כתובת" (found 2026-09-13 when
 // approving 131 such rows). This normalizes either shape into the saveNewActivity contract.
+//
+// WHICH shape is decided by provenance, not by a generic key (2026-09-27): only a Places-origin candidate
+// (lib/googlePlacesPolicy.js isPlacesOriginCandidate - Maps page_url, google_maps_uri, or formatted_address + place_kind)
+// takes the Places branch. `lon` or `google_place_id` used to be enough, which sent independent OSM / ArcGIS / municipal
+// GIS rows (they emit `lon` natively) and rows that merely carry a reconciled place id through the Places branch: their
+// own address was replaced by one derived from a missing formatted_address (-> null), string coordinates were nulled and
+// playground defaults (free, outdoor, גן שעשועים) were invented. Every other row keeps its own fields; `lon` is only a
+// coordinate-key alias there.
 
 const { normalizeCityName } = require('./cityNaming');
+const { isPlacesOriginCandidate } = require('./lib/googlePlacesPolicy');
 
 const COUNTRY_TOKENS = new Set(['ישראל', 'israel']);
 
@@ -20,17 +29,17 @@ function splitFormattedAddress(formatted) {
   return { street, city };
 }
 
-function isPlacesShape(ed) {
-  return !!ed && (ed.formatted_address !== undefined || ed.google_place_id !== undefined || ed.lon !== undefined);
-}
-
-function normalizeIncomingCandidate(ed) {
+// opts.pageUrl: the incoming row's page_url - a Google Maps page_url is Places provenance even without the key pair
+function normalizeIncomingCandidate(ed, { pageUrl = null } = {}) {
   if (!ed || typeof ed !== 'object') return ed;
-  if (!isPlacesShape(ed)) {
-    // page-extraction shape: only make sure city is canonical - and that a dated candidate is never
-    // defaulted to a never-expiring fixed_hours place
+  if (!isPlacesOriginCandidate(ed, pageUrl)) {
+    // page-extraction / independent shape: only make sure city is canonical - and that a dated candidate is never
+    // defaulted to a never-expiring fixed_hours place. Nothing is nulled or replaced; a google_place_id rides along.
     const schedule_type = ed.schedule_type || (ed.one_time_date || (Array.isArray(ed.occurrences) && ed.occurrences.length) ? 'one_time' : ed.schedule_type);
-    return { ...ed, schedule_type, city: ed.city ? normalizeCityName(ed.city) : ed.city };
+    const out = { ...ed, schedule_type, city: ed.city ? normalizeCityName(ed.city) : ed.city };
+    // coordinate-key alias only (OSM / ArcGIS / GIS name longitude `lon`): fills a missing lng, never overrides one
+    if (out.lng == null && typeof ed.lon === 'number' && Number.isFinite(ed.lon)) out.lng = ed.lon;
+    return out;
   }
   const { street, city } = splitFormattedAddress(ed.formatted_address);
   const name = ed.name || null;
@@ -55,4 +64,4 @@ function normalizeIncomingCandidate(ed) {
   };
 }
 
-module.exports = { normalizeIncomingCandidate, splitFormattedAddress, isPlacesShape };
+module.exports = { normalizeIncomingCandidate, splitFormattedAddress };
