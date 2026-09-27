@@ -41,8 +41,10 @@ const FILTERS = normalizeFilters({});
 // שני מקומות פיזית-קרובים (בתוך NEAR_DUPLICATE_KM=0.75) עם אותו שם בדיוק (case/whitespace לא
 // משנה, ראו dedupeNearIdentical) - completeness זהה בכוונה (imageUrl+description+openHours.start
 // זהים) כדי לבדוק את ענף-השוויון הספציפי ב-pickDedupeLoser, לא את ענף ה"completeness גבוה יותר".
+// Since 2026-09-27 a collapse also needs a shared identity signal (title+distance alone is not
+// identity - tests/dedupeIdentity.test.js), so these pairs share one location row.
 const dup = (id, { createdAt, lat = 32.08, lng = 34.78 } = {}) => ({
-  id, title: 'גן שעשועים – רחוב הדוגמה, עיר-בדיקה', category: 'גן שעשועים', city: 'עיר-בדיקה',
+  id, locationId: 'loc-shared', title: 'גן שעשועים – רחוב הדוגמה, עיר-בדיקה', category: 'גן שעשועים', city: 'עיר-בדיקה',
   lat, lng, imageUrl: 'https://example.com/img.jpg', description: 'תיאור', openHours: { start: '08:00' },
   created_at: createdAt,
 });
