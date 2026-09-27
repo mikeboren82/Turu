@@ -227,6 +227,33 @@ class SupabaseBotClient:
                 offset += page_size
             return rows
 
+    async def fetch_place_id_backfill_candidates(self) -> list[dict]:
+        """backfill_place_ids.py's cohort, pre-filtered server-side (approved, no google_place_id, no content_origin
+        marker) and carrying the provenance fields its eligibility rule re-checks (source, source_url,
+        content_origin). Paginated past PostgREST's 1000-row cap."""
+        async with self._http() as client:
+            headers = await self._headers(client)
+            rows: list[dict] = []
+            page_size = 1000
+            offset = 0
+            while True:
+                resp = await client.get(
+                    f"{self.url}/rest/v1/activities",
+                    headers={**headers, "Range": f"{offset}-{offset + page_size - 1}"},
+                    params=[("select", "id,name,status,source,source_url,content_origin,google_place_id,location:locations(lat,lng)"),
+                            ("status", "eq.approved"), ("google_place_id", "is.null"), ("content_origin", "is.null"),
+                            ("order", "id.asc")],
+                )
+                resp.raise_for_status()
+                page = resp.json()
+                for row in page:
+                    loc = row.pop("location", None) or {}
+                    rows.append({**row, "lat": loc.get("lat"), "lon": loc.get("lng")})
+                if len(page) < page_size:
+                    break
+                offset += page_size
+            return rows
+
     async def fetch_settlement_centroids(self) -> list[dict]:
         """One row per distinct city name, with an approximate center (average
         lat/lng across ALL of TuRu's activities in that city - not just
@@ -412,7 +439,7 @@ class SupabaseBotClient:
                                      params={"on_conflict": "key"}, json={"key": key, "value": value})
             resp.raise_for_status()
 
-    async def set_activity_google_place_id(self, *, activity_id: str, place_id: str) -> None:
+    async def set_activity_google_place_id(self, *, activity_id: str, place_id: str) -> bool:
         """UPDATEs a single existing activity's google_place_id - the backfill
         counterpart to insert_new_playground (which only ever INSERTs brand-new
         rows for NEW_CANDIDATE matches). Only ever called from
@@ -421,19 +448,25 @@ class SupabaseBotClient:
         guess. supabase/0055's unique index on google_place_id (where not null)
         means a second activity matching the same real-world place raises a
         23505 conflict here - the caller is expected to catch and skip it
-        rather than silently overwrite the first activity's link."""
+        rather than silently overwrite the first activity's link.
+
+        Google Places release policy (2026-09-27): the body is exactly {google_place_id}, and the filters repeat the
+        eligibility guards server-side - never over an existing id, never on a Google-origin (content_origin) or a
+        non-approved (held / archived) row. Returns False when no row matched (it changed since selection)."""
         async with httpx.AsyncClient(timeout=30.0) as client:
             token = await self._ensure_session(client)
             headers = {
                 "apikey": self.anon_key, "Authorization": f"Bearer {token}",
-                "Content-Type": "application/json", "Prefer": "return=minimal",
+                "Content-Type": "application/json", "Prefer": "return=representation",
             }
             resp = await client.patch(
                 f"{self.url}/rest/v1/activities", headers=headers,
-                params={"id": f"eq.{activity_id}"},
+                params={"id": f"eq.{activity_id}", "google_place_id": "is.null", "content_origin": "is.null",
+                        "status": "eq.approved", "select": "id"},
                 json={"google_place_id": place_id},
             )
             resp.raise_for_status()
+            return bool(resp.json())
 
     async def insert_place_photo_reference(self, *, activity_id: str, photo_url: str) -> None:
         """Adds an activity_images row pointing at the ToS-compliant proxy URL

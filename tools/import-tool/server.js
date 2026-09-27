@@ -29,7 +29,7 @@ const { ineligibleForPublicCatalogue } = require('./lib/catalogueEligibility');
 const { assessAccessType, approvalDecision, sanitizeAccessType, ACCESS_LABEL_HE, ACCESS_ISSUE_LABEL } = require('./lib/accessType');
 const { assessGranularity, granularityDecision, GRANULARITY_LABEL_HE, GRANULARITY_ISSUE_LABEL } = require('./lib/granularity');
 const { normalizeIncomingCandidate } = require('./incomingShape');
-const { assertNotGoogleMapsUrl, isGoogleMapsUrl } = require('./lib/googlePlacesPolicy');
+const { assertNotGoogleMapsUrl, isGoogleMapsUrl, pickReusableLocation, LOCATION_ORIGIN_SELECT } = require('./lib/googlePlacesPolicy');
 const { repairModelJson, resolveVenue, normalizeVenueAlias } = require('./venueNaming');
 const { withoutGenericAliases } = require('./venueLearning');
 const { ensureVenueByPlaceId, mergeVenuePlaceId, normalizePlaceId, CODES: PLACE_ID_CODES } = require('./lib/venuePlaceId');
@@ -939,10 +939,13 @@ async function requireVerifiedLocation(client, rawActivity) {
   const addressProv = activity.address ? { address_source: activity.address_source || 'monster:extracted', address_confidence: activity.address_confidence || 'MEDIUM', address_resolved_at: new Date().toISOString() } : venueAddress ? { address_source: 'monster:venue', address_confidence: 'HIGH', address_resolved_at: new Date().toISOString() } : {};
   // an existing row is matched by name WITHIN THE SAME CITY when the candidate has one (a global name
   // match bound "ספריית העיר" to another city's row - Cleaner audit 2026-09-14)
-  let findQ = client.from('locations').select('id, city, region, lat, lng, address').ilike('name', activity.location_name);
+  // Google Places release policy: a Google-origin location (content_origin marker, or used by a Google-origin activity)
+  // is never adopted on a name match - its coordinates / address are Places content (lib/googlePlacesPolicy.js)
+  let findQ = client.from('locations').select(`id, city, region, lat, lng, address, ${LOCATION_ORIGIN_SELECT}`).ilike('name', activity.location_name);
   if (activity.city) findQ = findQ.or(`city.eq.${activity.city.replace(/[,.()]/g, ' ')},city.is.null`);
-  const { data: existing, error: findErr } = await findQ.limit(1).maybeSingle();
+  const { data: nameMatches, error: findErr } = await findQ.limit(10);
   if (findErr) throw findErr;
+  const existing = pickReusableLocation(nameMatches);
 
   if (existing) {
     const fillIn = {};

@@ -16,6 +16,7 @@ require('dotenv').config();
 const { getClient } = require('./supabase');
 const { generatePlaygroundDisplayName, isGenericPlaygroundName } = require('./playgroundNaming');
 const { verifiedConditionalUpdate, isSuccess, describe } = require('./lib/verifiedWrite');
+const { isGoogleOriginActivity } = require('./lib/googlePlacesPolicy');
 
 const APPLY = process.argv.includes('--apply');
 const PREVIEW_COUNT = 20;
@@ -49,11 +50,13 @@ async function main() {
   while (true) {
     const { data, error } = await client
       .from('activities')
-      .select('id, name, category, name_source, original_source_name, location:locations(address, city, region)')
+      .select('id, name, category, name_source, original_source_name, source_url, content_origin, location:locations(address, city, region)')
       .eq('category', 'גן שעשועים')
       .range(from, from + 999);
     if (error) throw error;
-    all = all.concat(data);
+    // Google Places release policy (lib/googlePlacesPolicy.js): a Google-origin playground's address / name are Places
+    // content - a name generated from them would be a new Google-derived value, so those rows are never renamed here
+    all = all.concat(data.filter((a) => !isGoogleOriginActivity(a)));
     if (data.length < 1000) break;
     from += 1000;
   }

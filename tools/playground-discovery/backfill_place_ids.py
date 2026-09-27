@@ -12,9 +12,18 @@ matching.py already uses for discovery), UPDATEs that one activity's
 google_place_id. Anything less confident is left alone and written to a CSV
 for manual review - never guessed.
 
+GOOGLE PLACES RELEASE POLICY (2026-09-27, google_policy.py): storing a google_place_id on an INDEPENDENTLY sourced row
+is allowed; nothing else from the Places answer is stored (not the name, address, coordinates, Maps URI - the review
+CSV keeps the place id and the scores only). Because the tool calls Places, it runs only in the explicit safe mode
+--place-id-only (refused before the Places key otherwise), and only on rows that prove independent provenance:
+  approved, no google_place_id yet, NOT Google-origin (content_origin marker or Maps source_url - a scrubbed or held
+  Google-origin row is never re-linked), and a positive independent source (a non-Maps http(s) source_url, or a
+  manual / user_submitted row). The PATCH repeats the guards server-side (google_place_id is null, content_origin is
+  null, status approved), so a row that changed after selection is not touched.
+
 Usage:
-    py backfill_place_ids.py --dry-run --limit 20
-    py backfill_place_ids.py
+    py backfill_place_ids.py --place-id-only --dry-run --limit 20
+    py backfill_place_ids.py --place-id-only
 """
 import argparse
 import asyncio
@@ -27,6 +36,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 import matching
+from google_policy import is_google_maps_url, is_google_origin_activity, is_google_place_urn
 from google_places import GooglePlacesClient
 from israel_geo import haversine_km
 from supabase_client import SupabaseBotClient, load_import_tool_env
@@ -52,7 +62,30 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--max-concurrency", type=int, default=5)
     p.add_argument("--requests-per-second", type=float, default=5.0)
     p.add_argument("--dry-run", action="store_true", help="report what would be updated, but never write to Supabase")
+    p.add_argument("--place-id-only", action="store_true",
+                   help="REQUIRED safe mode: store only a google_place_id on independently sourced rows (see module doc)")
     return p.parse_args()
+
+
+INDEPENDENT_SOURCES = ("manual", "user_submitted")
+
+
+def backfill_rejection(activity: dict) -> str | None:
+    """None = an eligible independent row; otherwise why it must not receive a place id from this tool."""
+    if activity.get("status") != "approved":
+        return "not_approved"  # archived = held / collapsed Google rows and everything else not live
+    if activity.get("google_place_id"):
+        return "has_place_id"
+    if is_google_origin_activity(activity):
+        return "google_origin"  # marker or Maps source_url: never re-linked, before or after the scrub
+    src = activity.get("source_url")
+    independent_url = (isinstance(src, str) and src.strip().lower().startswith(("http://", "https://"))
+                       and not is_google_maps_url(src) and not is_google_place_urn(src))
+    if not independent_url and activity.get("source") not in INDEPENDENT_SOURCES:
+        return "no_independent_provenance"
+    if activity.get("lat") is None or not activity.get("name"):
+        return "no_name_or_coordinates"
+    return None
 
 
 async def find_best_match(places: GooglePlacesClient, activity: dict) -> tuple[dict | None, float, float]:
@@ -84,17 +117,28 @@ async def find_best_match(places: GooglePlacesClient, activity: dict) -> tuple[d
 
 
 async def run(args: argparse.Namespace) -> None:
+    if not args.place_id_only:  # before the Places key, any client or request
+        logger.error("REFUSED - backfill_place_ids calls Google Places; run it only in the explicit safe mode "
+                     "--place-id-only (stores a google_place_id on independent rows, nothing else). Nothing was requested.")
+        raise SystemExit(2)
     api_key = load_api_key()
     load_import_tool_env()
 
     places = GooglePlacesClient(api_key, max_concurrency=args.max_concurrency, requests_per_second=args.requests_per_second)
     supabase = SupabaseBotClient()
 
-    all_activities = await supabase.fetch_activities_for_matching()
-    candidates = [a for a in all_activities if not a.get("google_place_id") and a.get("lat") is not None and a.get("name")]
+    all_activities = await supabase.fetch_place_id_backfill_candidates()
+    skipped: dict[str, int] = {}
+    candidates = []
+    for a in all_activities:
+        why = backfill_rejection(a)
+        if why:
+            skipped[why] = skipped.get(why, 0) + 1
+        else:
+            candidates.append(a)
     if args.limit is not None:
         candidates = candidates[: args.limit]
-    logger.info("Found %d activities with coordinates and no google_place_id yet", len(candidates))
+    logger.info("Found %d independent activities with coordinates and no google_place_id yet (skipped: %s)", len(candidates), skipped)
 
     matched = 0
     conflict = 0
@@ -116,13 +160,13 @@ async def run(args: argparse.Namespace) -> None:
             dist_m <= matching.STRONG_MATCH_DISTANCE_METERS and name_score >= matching.STRONG_MATCH_NAME_SIMILARITY
         )
         place_id = best["id"]
-        place_name = (best.get("displayName") or {}).get("text")
 
         if not is_strong_match:
             async with lock:
+                # the place id and TURU's own name only - never the Places displayName / address (policy)
                 review_rows.append({
                     "activity_id": activity["id"], "activity_name": activity["name"],
-                    "candidate_place_id": place_id, "candidate_name": place_name,
+                    "candidate_place_id": place_id,
                     "distance_m": round(dist_m, 1), "name_score": round(name_score, 2),
                 })
             return
@@ -133,7 +177,9 @@ async def run(args: argparse.Namespace) -> None:
             return
 
         try:
-            await supabase.set_activity_google_place_id(activity_id=activity["id"], place_id=place_id)
+            if not await supabase.set_activity_google_place_id(activity_id=activity["id"], place_id=place_id):
+                logger.info("[SKIPPED] %s changed since selection (no longer an eligible independent row)", activity["name"])
+                return
             matched += 1
             logger.info("[LINKED] %s -> %s (dist=%.0fm name_score=%.2f)", activity["name"], place_id, dist_m, name_score)
         except Exception as exc:

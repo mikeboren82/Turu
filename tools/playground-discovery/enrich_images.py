@@ -32,8 +32,14 @@ automation_settings.places_photos_enabled). Every run, scheduled or by hand:
     --daily-max-calls (UTC day, stored in the same ledger)
   - requests only the `photos` field (existence) - never websiteUri / phone / hours / ratings
 
+GOOGLE PLACES RELEASE POLICY (2026-09-27, google_policy.py): FROZEN. A place-photo proxy row is a Google Places
+photo reference, i.e. Google Places-derived image content. While GOOGLE_PLACES_CONTENT_PERSISTENCE is False, --apply
+and --dry-run (which calls Places) refuse with exit 4 BEFORE the Places key is read, a Places client is built, or any
+Supabase request is made. Only --list-only (0 Places calls, 0 writes) runs, and it is the default when no mode is
+given. There is no flag or environment override; re-opening needs a code change to the policy constant.
+
 Usage:
-    py enrich_images.py --list-only --limit 50           # the exact cohort; 0 Places calls, 0 writes
+    py enrich_images.py --list-only --limit 50           # the exact cohort; 0 Places calls, 0 writes (default mode)
     py enrich_images.py --dry-run --limit 20             # Places calls, 0 writes
     py enrich_images.py --apply --activity-id <uuid> --limit 1
     py enrich_images.py --apply --limit=50 --max-concurrency=2 --requests-per-second=2 --daily-max-calls=300
@@ -54,6 +60,7 @@ from google_places import (
     CallBudget, GooglePlacesClient, PlacesApiError, PlacesAuthError, PlacesCallBudgetExhausted,
     PlacesInvalidPlace, PlacesRateLimited,
 )
+from google_policy import GOOGLE_PLACES_CONTENT_PERSISTENCE, POLICY_REASON
 from supabase_client import SupabaseBotClient, load_import_tool_env, proxy_place_id
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -72,7 +79,7 @@ ERROR_PARK = timedelta(days=30)
 PAGE_SIZE = 100
 MAX_PAGES = 50  # 5,000 rows scanned at most per run - far above today's cohort, a guard against a runaway loop
 
-EXIT_OK, EXIT_AUTH, EXIT_RATE_LIMITED = 0, 2, 3
+EXIT_OK, EXIT_AUTH, EXIT_RATE_LIMITED, EXIT_POLICY = 0, 2, 3, 4
 UUID_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.IGNORECASE)
 
 
@@ -116,9 +123,9 @@ def parse_ts(value: str | None) -> datetime | None:
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p = argparse.ArgumentParser(description="TuRu Places photo enrichment (Monster job places_photos)")
     mode = p.add_mutually_exclusive_group()
-    mode.add_argument("--apply", action="store_true", help="write images + ledger (also the default when no mode is given)")
-    mode.add_argument("--dry-run", action="store_true", help="call Places, report what would be added, never write to Supabase")
-    mode.add_argument("--list-only", action="store_true", help="print the exact scheduled cohort; 0 Places calls, 0 writes")
+    mode.add_argument("--apply", action="store_true", help="write images + ledger (REFUSED while the Places policy is off)")
+    mode.add_argument("--dry-run", action="store_true", help="call Places, report what would be added (REFUSED while the Places policy is off)")
+    mode.add_argument("--list-only", action="store_true", help="print the exact scheduled cohort; 0 Places calls, 0 writes (default)")
     p.add_argument("--limit", type=int, default=50, help="due candidates to process, oldest first (default 50)")
     p.add_argument("--activity-id", dest="activity_ids", action="append", type=_uuid, default=None,
                    help="restrict to this activity (repeatable); every other rule still applies")
@@ -129,8 +136,16 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     args = p.parse_args(argv)
     if args.limit < 1:
         p.error("--limit must be >= 1")
-    args.mode = "list" if args.list_only else "dry" if args.dry_run else "apply"
+    args.mode = "apply" if args.apply else "dry" if args.dry_run else "list"
     return args
+
+
+def policy_refusal(mode: str) -> dict | None:
+    """None = this mode may run. Every mode that calls Places or writes a Places photo reference is refused while the
+    Google Places release policy is off (google_policy.py) - checked before any key, client, request or write."""
+    if mode == "list" or GOOGLE_PLACES_CONTENT_PERSISTENCE:
+        return None
+    return {"mode": mode, "outcome": POLICY_REASON, "candidates": 0, "added": 0, "api_attempts": 0}
 
 
 # ---- ledger (automation_settings.places_photo_checks) -------------------------------------------------------
@@ -253,6 +268,11 @@ async def run_job(args: argparse.Namespace, *, store, places_factory=None, now: 
                   photo_proxy_base: str | None = None) -> tuple[int, dict]:
     now = now or datetime.now(timezone.utc)
     mode = args.mode
+    refused = policy_refusal(mode)
+    if refused:  # before the ledger read, the Places client and any write
+        logger.error("REFUSED - %s: enrich_images --%s would persist Google Places photo references. Nothing was "
+                     "requested or written. --list-only still works.", POLICY_REASON, "apply" if mode == "apply" else "dry-run")
+        return EXIT_POLICY, refused
     ledger = normalize_ledger(await store.read_setting(LEDGER_KEY, None))
     cohort = await select_cohort(store, ledger, now=now, limit=args.limit, activity_ids=args.activity_ids,
                                  created_after=args.created_after, want_total=(mode == "list"))
@@ -456,6 +476,9 @@ def _fmt(summary: dict) -> str:
 
 async def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
+    if policy_refusal(args.mode):  # before the env, the Supabase client and the Places key
+        code, _ = await run_job(args, store=None)
+        return code
     load_import_tool_env()
     supabase_url = os.environ.get("SUPABASE_URL")
     if not supabase_url:

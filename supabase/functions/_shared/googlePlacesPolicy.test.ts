@@ -4,7 +4,7 @@
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import {
   GOOGLE_PLACES_CONTENT_PERSISTENCE, POLICY_REASON, isGoogleMapsUrl, isPlacesOriginCandidate, settlementScanGate,
-  GOOGLE_CONTENT_ORIGIN, isGooglePlaceUrn, isGoogleOriginActivity, isGoogleOriginLocation,
+  GOOGLE_CONTENT_ORIGIN, isGooglePlaceUrn, isGoogleOriginActivity, isGoogleOriginLocation, pickReusableLocation,
 } from "./googlePlacesPolicy.ts";
 import { fetchHtml } from "./extraction.ts";
 
@@ -51,4 +51,13 @@ Deno.test("edge fetchHtml never requests a Google Maps page; ordinary pages stil
   } finally {
     globalThis.fetch = realFetch;
   }
+});
+
+Deno.test("scan-source location reuse: a Google-origin location is never adopted on a name / venue match", () => {
+  const orphan = { id: "l1", content_origin: "google_places_legacy", activities: [] };
+  const usedByGoogle = { id: "l2", content_origin: null, activities: [{ source_url: "https://maps.google.com/?cid=1", content_origin: null }] };
+  const independent = { id: "l3", content_origin: null, activities: [{ source_url: "https://www.openstreetmap.org/way/1", content_origin: null }] };
+  assertEquals(pickReusableLocation([orphan, usedByGoogle, independent])?.id, "l3");
+  assertEquals(pickReusableLocation([orphan, usedByGoogle]), null);
+  assertEquals(pickReusableLocation(null), null);
 });

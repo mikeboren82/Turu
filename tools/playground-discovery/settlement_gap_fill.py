@@ -37,7 +37,7 @@ into a CSV - see run_import_supabase/push_review_rows_to_incoming in
 playground_discovery.py.
 
 Usage:
-    py settlement_gap_fill.py --dry-run   # report only, no Supabase writes
+    py settlement_gap_fill.py --dry-run   # REFUSED too: calls Places and writes Places CSVs to disk
     py settlement_gap_fill.py             # REFUSED (Google Places release policy 2026-09-27, google_policy.py)
 """
 import argparse
@@ -101,8 +101,9 @@ def parse_args() -> argparse.Namespace:
 
 async def main() -> None:
     args = parse_args()
-    if not args.dry_run:
-        pd.refuse_google_apply("settlement_gap_fill.py")  # Google Places release policy - before any Places call
+    # Google Places release policy - before any Places call. --dry-run too: it calls Places and writes the master /
+    # review / rejected CSVs (Places names, addresses, coordinates) to disk
+    pd.refuse_google_apply("settlement_gap_fill.py" + (" --dry-run (local Places CSVs)" if args.dry_run else ""))
     api_key = load_api_key()
     load_import_tool_env()
 

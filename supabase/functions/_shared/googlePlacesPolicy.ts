@@ -63,6 +63,11 @@ export function isGoogleOriginLocation(loc: OriginRow): boolean {
   return Array.isArray(loc.activities) && (loc.activities as OriginRow[]).some(isGoogleOriginActivity);
 }
 export const LOCATION_ORIGIN_SELECT = 'content_origin, activities(source_url, content_origin)';
+// name/venue-based location reuse: the first non-Google-origin candidate, else null (Node twin has the rationale)
+export function pickReusableLocation<T extends OriginRow>(rows: T[] | T | null | undefined): T | null {
+  const list = Array.isArray(rows) ? rows : rows ? [rows] : [];
+  return list.find((l) => !!l && !isGoogleOriginLocation(l)) ?? null;
+}
 
 // Places-origin incoming by explicit provenance: a Maps page_url (or its place URN), a google_maps_uri, or the
 // Places-writer PAIR formatted_address + place_kind. A generic key alone (lat/lon/lng, a lone formatted_address or

@@ -2,9 +2,11 @@
 Google Places persistence policy (2026-09-27, google_policy.py) - the Python writers. No network: Supabase is an
 httpx.MockTransport that records every request, Google Places is a fake object.
 
-  A  discovery / dry-run / list still work (the gate never blocks them)
-  B  an apply that would create a Google-origin activity / location / incoming row is refused - before any request
-  C  place-id-only reconciliation of an independent row (backfill_place_ids.py) still works and writes only the id
+  A  read-only work that makes no Places call and writes nothing still runs (import_discovered --dry-run, classify)
+  B  every mode that calls Places and persists its answers (Supabase rows, or the local JSONL / checkpoint / CSVs of
+     discovery and --dry-run) is refused - before the Places key or any request (frozen 2026-09-27)
+  C  place-id-only reconciliation of an independent row (backfill_place_ids.py --place-id-only) still works and
+     writes only the id; Google-origin (marker or Maps URL), held and provenance-less rows are never linked
   D  no Maps URI is persisted by any writer
   E  the enrich_images PROVIDER insert does not write googleMapsUri into image_source_url
   F  the places_photos Monster gate stays OFF by default
@@ -114,17 +116,20 @@ class PolicyTwinTests(unittest.TestCase):
 
 
 class A_DiscoveryStillRuns(unittest.TestCase):
-    def test_playground_discovery_dry_run_and_plain_discovery_pass_the_gate(self):
-        for argv in (["--dry-run"], ["--dry-run", "--import-supabase"], []):
+    def test_playground_discovery_every_mode_is_frozen_before_the_places_key(self):
+        """plain discovery and --dry-run persist Places answers on disk (raw JSONL, checkpoint.json, CSVs)"""
+        for argv in (["--dry-run"], ["--dry-run", "--import-supabase"], [], ["--resume"]):
             with mock.patch.object(sys, "argv", ["playground_discovery.py", *argv]), \
-                    mock.patch.object(pd, "load_api_key", side_effect=Sentinel):
-                with self.assertRaises(Sentinel, msg=argv):  # got past the gate to the discovery itself
+                    mock.patch.object(pd, "load_api_key", side_effect=AssertionError("no Places key before the gate")), \
+                    mock.patch.object(pd, "GooglePlacesClient", side_effect=AssertionError("no Places client")), \
+                    mock.patch.object(pd, "save_checkpoint", side_effect=AssertionError("no local Places file")):
+                with self.assertRaises(GooglePlacesPersistenceDisabled, msg=argv):
                     run(pd.main_async())
 
-    def test_settlement_gap_fill_dry_run_passes_the_gate(self):
+    def test_settlement_gap_fill_dry_run_is_frozen_too(self):
         with mock.patch.object(sys, "argv", ["settlement_gap_fill.py", "--dry-run"]), \
-                mock.patch.object(settlement_gap_fill, "load_api_key", side_effect=Sentinel):
-            with self.assertRaises(Sentinel):
+                mock.patch.object(settlement_gap_fill, "load_api_key", side_effect=AssertionError("no Places key")):
+            with self.assertRaises(GooglePlacesPersistenceDisabled):
                 run(settlement_gap_fill.main())
 
     def test_import_discovered_dry_run_classifies_and_writes_nothing(self):
@@ -204,37 +209,108 @@ class FakePlacesSearch:
                  "primaryType": "playground", "types": ["playground", "park"], "websiteUri": "https://example.org"}]
 
 
+def backfill_row(**kw):
+    row = {"id": "act-osm", "name": "Google Name For The Park", "status": "approved", "source": "scraped",
+           "source_url": "https://www.openstreetmap.org/way/1", "content_origin": None, "google_place_id": None,
+           "lat": 32.18, "lon": 34.87}
+    row.update(kw)
+    return row
+
+
+def run_backfill(rows, argv=("--place-id-only",), linked=True):
+    calls, places_built = [], []
+
+    class FakeStore:
+        def __init__(self, *_a, **_kw):
+            pass
+
+        async def fetch_place_id_backfill_candidates(self):
+            return [dict(r) for r in rows]
+
+        async def fetch_activities_for_matching(self):
+            raise AssertionError("the backfill must use its provenance-carrying cohort")
+
+        async def set_activity_google_place_id(self, *, activity_id, place_id):
+            calls.append((activity_id, place_id))
+            return linked
+
+    def places(*a, **kw):
+        places_built.append(1)
+        return FakePlacesSearch(*a, **kw)
+
+    with mock.patch.object(sys, "argv", ["backfill_place_ids.py", *argv]):
+        args = backfill_place_ids.parse_args()
+    with mock.patch.object(backfill_place_ids, "load_api_key", return_value="k"), \
+            mock.patch.object(backfill_place_ids, "load_import_tool_env"), \
+            mock.patch.object(backfill_place_ids, "GooglePlacesClient", places), \
+            mock.patch.object(backfill_place_ids, "SupabaseBotClient", FakeStore):
+        run(backfill_place_ids.run(args))
+    return calls, places_built
+
+
 class C_PlaceIdReconciliationSurvives(unittest.TestCase):
     def test_backfill_place_ids_stores_only_the_place_id_on_the_independent_row(self):
-        independent = {"id": "act-osm", "name": "Google Name For The Park", "google_place_id": None, "lat": 32.18, "lon": 34.87,
-                       "address": None}
-        calls = []
-
-        class FakeStore:
-            def __init__(self, *_a, **_kw):
-                pass
-
-            async def fetch_activities_for_matching(self):
-                return [dict(independent)]
-
-            async def set_activity_google_place_id(self, *, activity_id, place_id):
-                calls.append((activity_id, place_id))
-
-        with mock.patch.object(sys, "argv", ["backfill_place_ids.py"]):
-            args = backfill_place_ids.parse_args()
-        with mock.patch.object(backfill_place_ids, "load_api_key", return_value="k"), \
-                mock.patch.object(backfill_place_ids, "load_import_tool_env"), \
-                mock.patch.object(backfill_place_ids, "GooglePlacesClient", FakePlacesSearch), \
-                mock.patch.object(backfill_place_ids, "SupabaseBotClient", FakeStore):
-            run(backfill_place_ids.run(args))
+        calls, _ = run_backfill([backfill_row()])
         self.assertEqual(calls, [("act-osm", "ChIJgoogle")])
 
-    def test_set_activity_google_place_id_patches_exactly_one_column(self):
+    def test_manual_and_user_submitted_rows_count_as_independent(self):
+        calls, _ = run_backfill([backfill_row(id="m", source="manual", source_url=None),
+                                 backfill_row(id="u", source="user_submitted", source_url=None)])
+        self.assertEqual([c[0] for c in calls], ["m", "u"])
+
+    def test_google_origin_held_and_provenance_less_rows_are_never_linked(self):
+        rows = [
+            backfill_row(id="marked-scrubbed", content_origin="google_places_legacy", source_url=None),
+            backfill_row(id="marked-resourced", content_origin="google_places_legacy"),
+            backfill_row(id="maps-unmarked", source_url=MAPS),
+            backfill_row(id="urn", source_url="urn:google-place:ChIJ1"),
+            backfill_row(id="held", status="archived"),
+            backfill_row(id="scraped-no-source", source_url=None),
+            backfill_row(id="has-id", google_place_id="ChIJexisting"),
+            backfill_row(id="no-coords", lat=None),
+        ]
+        calls, _ = run_backfill(rows)
+        self.assertEqual(calls, [])
+        why = {r["id"]: backfill_place_ids.backfill_rejection(r) for r in rows}
+        self.assertEqual(why, {"marked-scrubbed": "google_origin", "marked-resourced": "google_origin",
+                               "maps-unmarked": "google_origin", "urn": "google_origin", "held": "not_approved",
+                               "scraped-no-source": "no_independent_provenance", "has-id": "has_place_id",
+                               "no-coords": "no_name_or_coordinates"})
+
+    def test_without_the_explicit_safe_mode_nothing_runs(self):
+        for argv in ((), ("--dry-run",)):
+            with self.assertLogs("backfill_place_ids", "ERROR"), self.assertRaises(SystemExit) as ex:
+                with mock.patch.object(backfill_place_ids, "load_api_key", side_effect=AssertionError("no key")):
+                    run_backfill([backfill_row()], argv=argv)
+            self.assertEqual(ex.exception.code, 2)
+
+    def test_review_csv_keeps_no_places_name(self):
+        src = (THIS_DIR / "backfill_place_ids.py").read_text(encoding="utf-8")
+        self.assertNotIn("candidate_name", src)
+        self.assertEqual(src.count('"displayName"'), 1, "displayName is read once, transiently, for the name score")
+
+    def test_set_activity_google_place_id_patches_exactly_one_column_with_server_side_guards(self):
         rec = Recorder()
         c = bot_client(rec)
         with patched_httpx(rec):
-            run(c.set_activity_google_place_id(activity_id="act-osm", place_id="ChIJgoogle"))
+            self.assertTrue(run(c.set_activity_google_place_id(activity_id="act-osm", place_id="ChIJgoogle")))
         self.assertEqual(rec.writes(), [("PATCH", "/rest/v1/activities", {"google_place_id": "ChIJgoogle"})])
+
+    def test_patch_filters_repeat_the_eligibility_guards(self):
+        seen = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            if request.url.path == "/auth/v1/token":
+                return httpx.Response(200, json={"access_token": "tok", "user": {"id": BOT}})
+            seen.append(dict(request.url.params))
+            return httpx.Response(200, json=[])  # 0 rows matched: the row changed since selection
+        real = httpx.AsyncClient
+        c = bot_client(Recorder())
+        with mock.patch.object(supabase_client.httpx, "AsyncClient",
+                               lambda *a, **kw: real(*a, **{**kw, "transport": httpx.MockTransport(handler)})):
+            self.assertFalse(run(c.set_activity_google_place_id(activity_id="a1", place_id="P")))
+        self.assertEqual(seen[0], {"id": "eq.a1", "google_place_id": "is.null", "content_origin": "is.null",
+                                   "status": "eq.approved", "select": "id"})
 
 
 class D_E_NoMapsUriPersisted(unittest.TestCase):

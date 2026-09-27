@@ -19,6 +19,7 @@ const { extractJsonLd, extractMapLinks, extractAddressTexts, contentText, conten
 const { wordOverlapScore, haversineKm } = require('./matching');
 const { nominatim } = require('./nominatimClient');
 const { reverseAddress } = require('./reverse');
+const { isGoogleOriginActivity, isGoogleOriginLocation, pickReusableLocation, LOCATION_ORIGIN_SELECT } = require('../lib/googlePlacesPolicy');
 
 const STAGES = ['existing', 'source_page', 'detail_page', 'venue_site', 'place_lookup', 'place_lookup_inferred'];
 const EVIDENCE_STAGES = STAGES.filter((s) => s !== 'existing');
@@ -142,13 +143,15 @@ async function stageExisting(client, s, counters) {
     if (venue && labelAgreesWithVenue(s.location_name, venue.name_he)) { const co = await coordsForVenue(client, venue, s.city, counters); out.push({ location_name: s.location_name || venue.name_he, address: co?.address || venue.address || null, city: normalizeCityName(venue.city || s.city), lat: co?.lat ?? null, lng: co?.lng ?? null, venue_id: venue.id, method: 'existing_source_venue', confidence: co ? co.confidence : 'LOW', evidence: { source_venue: venue.name_he, coords: co?.how || 'none', geocode: co?.geocode }, venue }); }
   }
   if (!out.length && s.location_name && s.source_id) {
-    const { data } = await client.from('activities').select('id, name, venue_id, locations!inner(name, address, city, lat, lng, address_confidence)').eq('source_id', s.source_id).eq('status', 'approved').ilike('locations.name', s.location_name).not('locations.lat', 'is', null).limit(3);
-    const prior = (data || []).find((a) => a.locations.address_confidence !== 'LOW' && (!s.city || cityAgrees(a.locations.city, s.city)));
+    const { data } = await client.from('activities').select('id, name, venue_id, source_url, content_origin, locations!inner(name, address, city, lat, lng, address_confidence, content_origin)').eq('source_id', s.source_id).eq('status', 'approved').ilike('locations.name', s.location_name).not('locations.lat', 'is', null).limit(3);
+    // Google Places release policy: a Google-origin prior row / location never lends its (Places) coordinates or address
+    const prior = (data || []).find((a) => !isGoogleOriginActivity(a) && !isGoogleOriginLocation(a.locations) && a.locations.address_confidence !== 'LOW' && (!s.city || cityAgrees(a.locations.city, s.city)));
     if (prior) out.push({ location_name: prior.locations.name, address: prior.locations.address || null, city: normalizeCityName(prior.locations.city), lat: prior.locations.lat, lng: prior.locations.lng, venue_id: prior.venue_id || null, method: 'prior_activity', confidence: prior.locations.address ? 'HIGH' : 'MEDIUM', evidence: { prior_activity_id: prior.id, prior_name: prior.name } });
   }
   if (!out.length && s.location_name) {
-    const { data } = await client.from('locations').select('id, name, address, city, lat, lng, venue_id, address_confidence').ilike('name', s.location_name).not('lat', 'is', null).limit(5);
-    const loc = (data || []).find((l) => l.address_confidence !== 'LOW' && (!s.city || cityAgrees(l.city, s.city)));
+    const { data } = await client.from('locations').select(`id, name, address, city, lat, lng, venue_id, address_confidence, ${LOCATION_ORIGIN_SELECT}`).ilike('name', s.location_name).not('lat', 'is', null).limit(5);
+    // a Google-origin location (marker, or used by a Google-origin activity) is never adopted on a name match
+    const loc = pickReusableLocation((data || []).filter((l) => l.address_confidence !== 'LOW' && (!s.city || cityAgrees(l.city, s.city))));
     if (loc) out.push({ location_name: loc.name, address: loc.address || null, city: normalizeCityName(loc.city || s.city), lat: loc.lat, lng: loc.lng, venue_id: loc.venue_id || null, method: 'existing_location', confidence: loc.address ? 'HIGH' : 'MEDIUM', evidence: { location_id: loc.id } });
   }
   return out[0] || null;

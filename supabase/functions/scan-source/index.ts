@@ -64,6 +64,7 @@ import {
 } from '../_shared/matching.ts';
 import { generatePlaygroundDisplayName } from '../_shared/playgroundNaming.ts';
 import { normalizeCityName } from '../_shared/cityNaming.ts';
+import { pickReusableLocation, LOCATION_ORIGIN_SELECT } from '../_shared/googlePlacesPolicy.ts';
 import { classifyPlaceholderGroup } from '../_shared/placeholderGroup.ts';
 import { resolveVenue } from '../_shared/venues.ts';
 import {
@@ -119,11 +120,15 @@ async function autoApproveNewActivity(
   const fromDetail = candidate.address_source === 'monster:detail';
   const addressProv = candAddress ? { address_source: fromDetail ? 'monster:detail' : 'monster:extracted', address_confidence: fromDetail ? 'HIGH' : 'MEDIUM' } : venueRow?.address ? { address_source: 'monster:venue', address_confidence: 'HIGH' } : {};
   // an existing location row is matched by venue, else by name WITHIN THE SAME CITY (a global name
-  // match bound "ספריית העיר" to another city's row - Cleaner audit 2026-09-14)
+  // match bound "ספריית העיר" to another city's row - Cleaner audit 2026-09-14). Google Places release policy: a
+  // Google-origin location (content_origin marker, or used by a Google-origin activity) is never adopted - its
+  // coordinates / address are Places content (_shared/googlePlacesPolicy.ts pickReusableLocation).
+  const LOC_SELECT = `id, city, region, lat, lng, address, ${LOCATION_ORIGIN_SELECT}`;
   const locQuery = venueId
-    ? client.from('locations').select('id, city, region, lat, lng, address').eq('venue_id', venueId)
-    : client.from('locations').select('id, city, region, lat, lng, address').ilike('name', locationName).eq('city', candidate.city as string);
-  const { data: existingLoc } = await locQuery.limit(1).maybeSingle();
+    ? client.from('locations').select(LOC_SELECT).eq('venue_id', venueId)
+    : client.from('locations').select(LOC_SELECT).ilike('name', locationName).eq('city', candidate.city as string);
+  const { data: locMatches } = await locQuery.limit(10);
+  const existingLoc = pickReusableLocation((locMatches ?? []) as Record<string, unknown>[]);
   if (existingLoc) {
     locationId = (existingLoc as { id: string }).id;
     const fillIn: Record<string, unknown> = {};

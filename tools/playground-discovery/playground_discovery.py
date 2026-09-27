@@ -23,11 +23,14 @@ See README section in the chat report for exact run commands. Quick reference:
     python playground_discovery.py --resume
     python playground_discovery.py --import-supabase
 
-GOOGLE PLACES RELEASE POLICY (2026-09-27, google_policy.py): --import-supabase (and every other apply path that reuses
-run_import_supabase / push_review_rows_to_incoming: settlement_gap_fill.py, import_discovered.py,
-backfill_city_and_ramat_amir.py) is REFUSED - every row it would write (location, activity, incoming row) is
-Google-origin content. It is refused before any Places call. Discovery, --dry-run and the local CSV / JSONL / report
-files are unchanged. There is no override flag.
+GOOGLE PLACES RELEASE POLICY (2026-09-27, google_policy.py): FROZEN. Every mode of this script calls Places AND
+persists the answers: --import-supabase writes Google-origin locations / activities / incoming rows, and plain discovery
+and --dry-run write raw_discovery_*.jsonl, checkpoint.json and the CSVs (displayName, formattedAddress, coordinates,
+googleMapsUri - Places content kept on disk past any caching allowance). So every mode is REFUSED (exit 2) before the
+Places key is read. The same holds for every apply path that reuses run_import_supabase / push_review_rows_to_incoming
+(settlement_gap_fill.py incl. its --dry-run, import_discovered.py, backfill_city_and_ramat_amir.py).
+import_discovered.py --dry-run stays: it only reads the existing checkpoint, with 0 Places calls and 0 writes.
+There is no override flag or environment switch.
 """
 import argparse
 import asyncio
@@ -281,7 +284,7 @@ def refuse_google_apply(tool: str) -> None:
 
 
 def exit_on_policy_refusal(exc: GooglePlacesPersistenceDisabled) -> None:
-    logger.error("REFUSED - %s. Nothing was written. Run with --dry-run for the discovery report (CSV only).", exc)
+    logger.error("REFUSED - %s. No Places request was made and nothing was written.", exc)
     sys.exit(2)
 
 
@@ -385,8 +388,10 @@ async def push_review_rows_to_incoming(review_rows: list[dict]) -> int:
 
 async def main_async() -> None:
     args = parse_args()
-    if args.import_supabase and not args.dry_run:
-        refuse_google_apply("playground_discovery.py --import-supabase")  # before any Places call
+    # every mode calls Places and persists its answers (Supabase, or the local JSONL / checkpoint / CSVs) - refused
+    # before the Places key, while the release policy is off
+    refuse_google_apply("playground_discovery.py --import-supabase" if args.import_supabase and not args.dry_run
+                        else "playground_discovery.py discovery (local Places JSONL / checkpoint / CSV files)")
     api_key = load_api_key()
     bounds = {"min_lat": args.min_lat, "max_lat": args.max_lat, "min_lon": args.min_lon, "max_lon": args.max_lon}
 

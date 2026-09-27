@@ -3,14 +3,20 @@ Places image automation (Monster job places_photos) - enrich_images.py + google_
 supabase_client cohort query. No network: Supabase is an in-memory PostgREST fake that interprets exactly the
 filters the client sends (an unknown filter fails the test), Google Places is an httpx.MockTransport.
 
+FROZEN 2026-09-27: while GOOGLE_PLACES_CONTENT_PERSISTENCE is False the job refuses --apply / --dry-run
+(PolicyFreezeTests). The behaviour tests below exercise the job logic for the day the policy is re-opened by a code
+change: run() patches the module constant to True for exactly that call - there is no runtime override to patch.
+
 Run with:  py -m unittest test_enrich_images -v
 """
+import asyncio
 import contextlib
 import io
 import json
 import re
 import unittest
 from datetime import datetime, timedelta, timezone
+from unittest import mock
 from urllib.parse import parse_qsl, urlsplit
 
 import httpx
@@ -256,7 +262,8 @@ async def run(db: FakeSupabase, places: FakePlaces, *argv, now=NOW, sleeps=None)
         built.append(c)
         return c
 
-    code, summary = await ei.run_job(args, store=store, places_factory=factory, now=now, photo_proxy_base=PROXY)
+    with mock.patch.object(ei, "GOOGLE_PLACES_CONTENT_PERSISTENCE", True):  # the re-opened policy (see module doc)
+        code, summary = await ei.run_job(args, store=store, places_factory=factory, now=now, photo_proxy_base=PROXY)
     summary["_clients_built"] = len(built)
     return code, summary
 
@@ -866,7 +873,7 @@ class CliTests(unittest.TestCase):
     def test_modes_and_defaults(self):
         a = ei.parse_args([])
         self.assertEqual((a.mode, a.limit, a.daily_max_calls, a.max_concurrency, a.requests_per_second),
-                         ("apply", 50, 300, 2, 2.0))
+                         ("list", 50, 300, 2, 2.0), "no mode = list-only (0 Places calls, 0 writes)")
         self.assertEqual(ei.parse_args(["--list-only"]).mode, "list")
         self.assertEqual(ei.parse_args(["--dry-run"]).mode, "dry")
         self.assertEqual(ei.parse_args(["--apply", "--limit=1"]).limit, 1)
@@ -894,6 +901,57 @@ class CliTests(unittest.TestCase):
         a = ei.parse_args("--apply --limit=50 --max-concurrency=2 --requests-per-second=2 --daily-max-calls=300".split())
         self.assertEqual((a.mode, a.limit, a.max_concurrency, a.requests_per_second, a.daily_max_calls),
                          ("apply", 50, 2, 2.0, 300))
+
+
+class PolicyFreezeTests(unittest.IsolatedAsyncioTestCase):
+    """GOOGLE_PLACES_CONTENT_PERSISTENCE = False: every mode that would call Places or persist a Places photo reference
+    fails closed before the Places key, a Places client, any Supabase request or any write."""
+
+    async def test_apply_and_dry_run_refuse_with_zero_requests_and_zero_places_calls(self):
+        self.assertIs(ei.GOOGLE_PLACES_CONTENT_PERSISTENCE, False)
+        for argv in (["--apply", "--limit=5"], ["--dry-run"], ["--apply", "--activity-id", uid(1)]):
+            db, gp = FakeSupabase(), FakePlaces()
+            db.add(1)
+            store = SupabaseBotClient.__new__(SupabaseBotClient)
+            store.url, store.anon_key, store.bot_email, store.bot_password = SUPA, "anon", "x", "x"
+            store._access_token = store._bot_user_id = None
+            store._transport = httpx.MockTransport(db.handler)
+
+            def boom(_budget):
+                raise AssertionError("no Places client while frozen")
+            with self.assertLogs("enrich_images", "ERROR") as logs:
+                code, s = await ei.run_job(make_args(*argv), store=store, places_factory=boom, now=NOW, photo_proxy_base=PROXY)
+            self.assertEqual((code, s["outcome"], s["api_attempts"]), (ei.EXIT_POLICY, "google_places_persistence_disabled", 0), argv)
+            self.assertEqual((db.requests, db.writes, gp.calls), ([], [], []), argv)
+            self.assertTrue(any("REFUSED" in m for m in logs.output))
+
+    async def test_list_only_still_runs_while_frozen(self):
+        db = FakeSupabase()
+        db.add(1)
+        store = SupabaseBotClient.__new__(SupabaseBotClient)
+        store.url, store.anon_key, store.bot_email, store.bot_password = SUPA, "anon", "x", "x"
+        store._access_token = store._bot_user_id = None
+        store._transport = httpx.MockTransport(db.handler)
+        code, s = await ei.run_job(make_args("--list-only"), store=store, places_factory=None, now=NOW, photo_proxy_base=PROXY)
+        self.assertEqual((code, s["candidates"], s["api_attempts"]), (0, 1, 0))
+        self.assertEqual(db.writes, [])
+
+    def test_main_refuses_before_env_key_or_client(self):
+        monster = "--apply --limit=50 --max-concurrency=2 --requests-per-second=2 --daily-max-calls=300".split()
+        for argv in (["--apply"], ["--dry-run"], monster):
+            with mock.patch.object(ei, "load_import_tool_env", side_effect=AssertionError("no env before the gate")), \
+                    mock.patch.object(ei, "load_api_key", side_effect=AssertionError("no Places key before the gate")), \
+                    mock.patch.object(ei, "SupabaseBotClient", side_effect=AssertionError("no Supabase client")), \
+                    mock.patch.object(ei, "GooglePlacesClient", side_effect=AssertionError("no Places client")):
+                with self.assertLogs("enrich_images", "ERROR"):
+                    self.assertEqual(asyncio.run(ei.main(argv)), ei.EXIT_POLICY, argv)
+
+    def test_no_override_flag_or_environment_switch(self):
+        src = open(ei.__file__, encoding="utf-8").read()
+        self.assertNotIn("os.environ.get(\"GOOGLE_PLACES", src)
+        self.assertNotRegex(src, r"add_argument\(\"--(force|override|allow-google|persist)")
+        with self.assertRaises(SystemExit):
+            ei.parse_args(["--force"])
 
 
 if __name__ == "__main__":

@@ -92,6 +92,14 @@ function isGoogleOriginLocation(loc) {
 }
 // the select fragment a location-reuse lookup needs for isGoogleOriginLocation
 const LOCATION_ORIGIN_SELECT = 'content_origin, activities(source_url, content_origin)';
+// Name/venue-based location REUSE (server.js requireVerifiedLocation, scan-source, the Cleaner's locationResolver):
+// the first candidate that is not Google-origin, else null (the caller creates / geocodes its own row). A Google-origin
+// location - orphan or not - is never adopted by an independent activity on a name match: its coordinates / address /
+// city are Places content. Its identity would have to be proven by an explicit, provenance-aware path (the OSM rescue
+// ledger), never by a name or a distance.
+function pickReusableLocation(rows) {
+  return (Array.isArray(rows) ? rows : rows ? [rows] : []).find((l) => l && !isGoogleOriginLocation(l)) || null;
+}
 
 // Places-origin INCOMING candidate: its substantive facts are a Places response - decided by explicit provenance, never
 // by a generic field. Every Places writer (scan-settlement-gaps, playground_discovery.py, the Cleaner settlement
@@ -143,7 +151,7 @@ function assertNotGoogleMapsUrl(url, where) {
 
 module.exports = {
   GOOGLE_PLACES_CONTENT_PERSISTENCE, POLICY_REASON, PLACES_ORIGIN_KEYS, GOOGLE_CONTENT_ORIGIN, LOCATION_ORIGIN_SELECT,
-  isGoogleMapsUrl, isGooglePlaceUrn, isRawGooglePlacesPhotoUrl, hasGoogleContentOrigin, isGoogleOriginActivity, isGoogleOriginLocation,
+  isGoogleMapsUrl, isGooglePlaceUrn, isRawGooglePlacesPhotoUrl, hasGoogleContentOrigin, isGoogleOriginActivity, isGoogleOriginLocation, pickReusableLocation,
   isPlacesOriginCandidate, placesPersistenceReason, cleanerPolicyHold,
   GooglePlacesPersistenceError, assertNotGoogleMapsUrl,
 };

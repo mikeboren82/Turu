@@ -5,19 +5,23 @@
 // point returns the leisure feature that IS the OSM row), normalized name/alias, street, house
 // number, settlement, coordinates, provenance. Outcomes:
 //   SAME_PLACE_HIGH | SAME_PLACE_MEDIUM_NEEDS_MORE_EVIDENCE | DISTINCT_PLACES | INSUFFICIENT_EVIDENCE
-// Only SAME_PLACE_HIGH merges (--apply): keeper = the Google row (place id, street address, photo);
-// the OSM row is ARCHIVED (archive_reason duplicate_of_existing_activity, never deleted), its
-// provenance rows are copied onto the keeper (relation 'seen'), its approved NON-provider images copied when
-// the keeper lacks them (lib/mergeImages.js - a place-photo proxy names the LOSER's place and is never copied; the
-// keeper gets its own proxy from places_photos), its incoming/settlement history re-pointed in the review case's resolution jsonb, and the
-// keeper's null fields (region, address) filled from the loser. No dangling references: the loser
-// keeps its own location row and schedules; only its status changes.
+//
+// KEEPER RULE (Google Places release policy, 2026-09-27 - replaces the 09-14 "keeper = the Google row"):
+// decideTwinOutcome() picks by PROVENANCE (lib/googlePlacesPolicy.js isGoogleOriginActivity = content_origin marker or
+// Maps source_url), never by which query found the row and never by google_place_id:
+//   one independent + one Google-origin, SAME_PLACE_HIGH  -> MERGE, keeper = the INDEPENDENT row; the Google row is
+//                                                            ARCHIVED (duplicate_of_existing_activity, never deleted)
+//   two independent rows, or two Google-origin rows      -> REVIEW (recorded, never merged here)
+//   anything below SAME_PLACE_HIGH                        -> NO-OP (recorded)
+// An independent row is NEVER archived in favour of a Google row. When the loser is Google-origin nothing of it is
+// copied onto the keeper: no region/address fill, no image (Places content). Provenance rows go through
+// mergeActivitySources, which refuses Maps page_urls; the loser keeps its own location row and schedules.
+// The report goes to reports/ (git-ignored: it names rows and their Google-derived labels).
 //   node reconcile-playground-twins.js            dry run (report)
 //   node reconcile-playground-twins.js --apply
 require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
-const { getClient } = require('./supabase');
 const { haversineKm } = require('./cleaner/matching');
 const { nominatim } = require('./cleaner/nominatimClient');
 const { parseAddress, nameSim, existingStreet } = require('./cleaner/settlementResolver');
@@ -25,6 +29,7 @@ const { normalizeCityName } = require('./cityNaming');
 const { archiveActivity, isArchived, describe } = require('./lib/activityArchive');
 const { mergeActivitySources } = require('./lib/activitySourceMerge');
 const { copyLoserImages, IMAGE_COPY_SELECT } = require('./lib/mergeImages');
+const { isGoogleOriginActivity } = require('./lib/googlePlacesPolicy');
 
 const APPLY = process.argv.includes('--apply');
 const LEISURE = new Set(['playground', 'park', 'garden', 'recreation_ground']);
@@ -33,6 +38,21 @@ async function osmAt(lat, lng) {
   const r = await nominatim(`/reverse?format=jsonv2&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1&namedetails=1`);
   if (!r) return null;
   return { category: r.category, type: r.type, name: r.name || null, road: r.address?.road || null, lat: Number(r.lat), lng: Number(r.lon), osm_id: r.osm_id, osm_type: r.osm_type };
+}
+
+// Pure. existingRow = the review case's existing_activity_id row, placeRow = the row found by the case's place id.
+// -> { action: 'merge', keeper, loser, rule } | { action: 'review', reason } | { action: 'noop', reason }
+function decideTwinOutcome({ existingRow, placeRow, verdict }) {
+  if (!verdict || verdict.outcome !== 'SAME_PLACE_HIGH') return { action: 'noop', reason: verdict ? verdict.outcome : 'no_verdict' };
+  const gExisting = isGoogleOriginActivity(existingRow);
+  const gPlace = isGoogleOriginActivity(placeRow);
+  if (gExisting !== gPlace) {
+    return gExisting
+      ? { action: 'merge', keeper: placeRow, loser: existingRow, rule: 'independent_keeper' }
+      : { action: 'merge', keeper: existingRow, loser: placeRow, rule: 'independent_keeper' };
+  }
+  if (!gExisting) return { action: 'review', reason: 'two_independent_rows' };
+  return { action: 'review', reason: 'two_google_origin_rows' };
 }
 
 async function evaluatePair(client, rc, osmRow, googleRow) {
@@ -63,30 +83,36 @@ async function evaluatePair(client, rc, osmRow, googleRow) {
   return { outcome: 'INSUFFICIENT_EVIDENCE', decisive: `${distM} m apart, evidence neither ties nor separates`, signals, ev };
 }
 
-async function mergePair(client, userId, rc, osmRow, googleRow, verdict) {
+async function mergePair(client, userId, rc, keeper, loser, verdict) {
   const now = new Date().toISOString();
-  // keeper = Google row; loser = OSM row. Provenance first (append/upsert), then null-fills, then archive.
-  // non-destructive: never downgrades an existing keeper row sharing a page_url with the loser
-  // (2026-09-22, "Harden activity_sources Merge" - see lib/activitySourceMerge.js for the rules)
-  const { counts: provCounts } = await mergeActivitySources(client, { keeperActivityId: googleRow.id, loserActivityId: osmRow.id });
+  const loserIsGoogle = isGoogleOriginActivity(loser);
+  // Provenance first (append/upsert), then (independent loser only) null-fills + images, then archive.
+  // non-destructive: never downgrades an existing keeper row sharing a page_url with the loser; a Maps page_url is
+  // refused by mergeActivitySources (2026-09-22, "Harden activity_sources Merge" - see lib/activitySourceMerge.js)
+  const { counts: provCounts } = await mergeActivitySources(client, { keeperActivityId: keeper.id, loserActivityId: loser.id });
   const provMoved = provCounts.ADDED + provCounts.PRESERVED_EXISTING;
-  // 2026-09-27: provider/proxy, rejected and pending loser images are never copied; approved ones keep their provenance
-  const img = await copyLoserImages(client, { loserImages: osmRow.activity_images, keeperImages: googleRow.activity_images, keeperId: googleRow.id, uploadedBy: userId, max: 3 });
-  if (img.error) console.log(`  image copy failed for keeper ${googleRow.id}: ${img.error.message}`);
+  // a Google-origin loser gives the independent keeper nothing: its images and its location facts are Places content
+  const img = loserIsGoogle
+    ? { inserted: 0, skipped: (loser.activity_images || []).length, error: null }
+    : await copyLoserImages(client, { loserImages: loser.activity_images, keeperImages: keeper.activity_images, keeperId: keeper.id, uploadedBy: userId, max: 3 });
+  if (img.error) console.log(`  image copy failed for keeper ${keeper.id}: ${img.error.message}`);
   const fills = {};
-  if (!googleRow.locations.region && osmRow.locations.region) fills.region = osmRow.locations.region;
-  if (!googleRow.locations.address && osmRow.locations.address) Object.assign(fills, { address: osmRow.locations.address, address_source: 'cleaner:twin_merge', address_confidence: 'MEDIUM', address_resolved_at: now });
-  if (Object.keys(fills).length) await client.from('locations').update(fills).eq('id', googleRow.location_id);
-  const arch = await archiveActivity(client, { activityId: osmRow.id, expectedStatus: 'approved', archiveReason: 'duplicate_of_existing_activity', keeperActivityId: googleRow.id });
+  if (!loserIsGoogle) {
+    if (!keeper.locations.region && loser.locations.region) fills.region = loser.locations.region;
+    if (!keeper.locations.address && loser.locations.address) Object.assign(fills, { address: loser.locations.address, address_source: 'cleaner:twin_merge', address_confidence: 'MEDIUM', address_resolved_at: now });
+    if (Object.keys(fills).length) await client.from('locations').update(fills).eq('id', keeper.location_id);
+  }
+  const arch = await archiveActivity(client, { activityId: loser.id, expectedStatus: 'approved', archiveReason: 'duplicate_of_existing_activity', keeperActivityId: keeper.id });
   if (!isArchived(arch)) return { merged: false, why: describe(arch) };
-  await client.from('settlement_scan_review_cases').update({ resolution: { ...(rc.resolution || {}), twin: { outcome: verdict.outcome, decisive: verdict.decisive, signals: verdict.signals, keeper: googleRow.id, archived: osmRow.id, provenance_rows_copied: provMoved, images_copied: img.inserted, images_skipped: img.skipped, fills: Object.keys(fills), at: now, rule: 'reconcile-playground-twins v1' } }, updated_at: now }).eq('id', rc.id);
+  await client.from('settlement_scan_review_cases').update({ resolution: { ...(rc.resolution || {}), twin: { outcome: verdict.outcome, decisive: verdict.decisive, signals: verdict.signals, keeper: keeper.id, archived: loser.id, keeper_rule: 'independent_keeper', provenance_rows_copied: provMoved, images_copied: img.inserted, images_skipped: img.skipped, fills: Object.keys(fills), at: now, rule: 'reconcile-playground-twins v2' } }, updated_at: now }).eq('id', rc.id);
   return { merged: true, provMoved, imgs: img.inserted, imagesSkipped: img.skipped, fills: Object.keys(fills) };
 }
 
-(async () => {
+async function main() {
+  const { getClient } = require('./supabase');
   const { client, userId } = await getClient();
   const { data: cases } = await client.from('settlement_scan_review_cases').select('id, google_place_id, existing_activity_id, candidate_name, resolution').eq('status', 'approved_duplicate').eq('resolved_by', 'cleaner').not('existing_activity_id', 'is', null);
-  const sel = `id, name, status, category, google_place_id, location_id, name_source, locations(id, name, address, city, region, lat, lng, address_source), activity_images(${IMAGE_COPY_SELECT}), activity_sources(page_url, relation)`;
+  const sel = `id, name, status, category, google_place_id, source_url, content_origin, location_id, name_source, locations(id, name, address, city, region, lat, lng, address_source), activity_images(${IMAGE_COPY_SELECT}), activity_sources(page_url, relation)`;
   const results = []; const tally = {}; let merged = 0;
   for (const rc of cases || []) {
     if (rc.resolution && rc.resolution.twin) { tally.already_reconciled = (tally.already_reconciled || 0) + 1; continue; }
@@ -95,17 +121,25 @@ async function mergePair(client, userId, rc, osmRow, googleRow, verdict) {
     const googleRow = (gRows || [])[0];
     if (!osmRow || !googleRow || osmRow.status !== 'approved' || googleRow.status !== 'approved' || !osmRow.locations || !googleRow.locations) { tally.skipped_not_a_live_pair = (tally.skipped_not_a_live_pair || 0) + 1; continue; }
     const v = await evaluatePair(client, rc, osmRow, googleRow);
-    tally[v.outcome] = (tally[v.outcome] || 0) + 1;
-    const rec = { review_case: rc.id, osm: { id: osmRow.id, name: osmRow.name, address: osmRow.locations.address }, google: { id: googleRow.id, name: googleRow.name, address: googleRow.locations.address }, ...v };
-    if (APPLY && v.outcome === 'SAME_PLACE_HIGH') { rec.merge = await mergePair(client, userId, rc, osmRow, googleRow, v); if (rec.merge.merged) merged++; }
+    const d = decideTwinOutcome({ existingRow: osmRow, placeRow: googleRow, verdict: v });
+    const key = d.action === 'merge' ? v.outcome : `${v.outcome}/${d.action}${d.reason && d.action === 'review' ? ':' + d.reason : ''}`;
+    tally[key] = (tally[key] || 0) + 1;
+    const rec = { review_case: rc.id, existing: { id: osmRow.id, google_origin: isGoogleOriginActivity(osmRow) }, place_row: { id: googleRow.id, google_origin: isGoogleOriginActivity(googleRow) }, decision: d.action === 'merge' ? { action: 'merge', keeper: d.keeper.id, loser: d.loser.id, rule: d.rule } : d, ...v };
+    if (APPLY && d.action === 'merge') { rec.merge = await mergePair(client, userId, rc, d.keeper, d.loser, v); if (rec.merge.merged) merged++; }
     else if (APPLY) {
-      // non-merge outcomes are recorded too (reasoning is provenance): MEDIUM waits for evidence, DISTINCT/INSUFFICIENT stay separate
-      await client.from('settlement_scan_review_cases').update({ resolution: { ...(rc.resolution || {}), twin: { outcome: v.outcome, decisive: v.decisive, signals: v.signals, osm_row: osmRow.id, google_row: googleRow.id, merged: false, at: new Date().toISOString(), rule: 'reconcile-playground-twins v1' } }, updated_at: new Date().toISOString() }).eq('id', rc.id);
+      // non-merge outcomes are recorded too (reasoning is provenance): REVIEW waits for a human, NO-OP stays separate
+      await client.from('settlement_scan_review_cases').update({ resolution: { ...(rc.resolution || {}), twin: { outcome: v.outcome, decisive: v.decisive, signals: v.signals, existing_row: osmRow.id, place_row: googleRow.id, merged: false, decision: d.action, reason: d.reason, at: new Date().toISOString(), rule: 'reconcile-playground-twins v2' } }, updated_at: new Date().toISOString() }).eq('id', rc.id);
     }
     results.push(rec);
-    console.log(`${v.outcome.padEnd(38)} ${osmRow.name.slice(0, 34).padEnd(34)} | ${googleRow.name.slice(0, 26).padEnd(26)} | ${v.decisive.slice(0, 70)}${rec.merge ? ' | merged' : ''}`);
+    console.log(`${key.padEnd(48)} ${osmRow.id.slice(0, 8)} | ${googleRow.id.slice(0, 8)} | ${v.decisive.slice(0, 70)}${rec.merge ? ' | merged' : ''}`);
   }
-  const file = path.join(__dirname, `playground-twins-${new Date().toISOString().slice(0, 10)}.json`);
+  const dir = path.join(__dirname, 'reports');
+  fs.mkdirSync(dir, { recursive: true });
+  const file = path.join(dir, `playground-twins-${new Date().toISOString().slice(0, 10)}.json`);
   fs.writeFileSync(file, JSON.stringify({ generatedAt: new Date().toISOString(), apply: APPLY, tally, merged, results }, null, 2));
-  console.log(`${APPLY ? 'APPLY' : 'DRY RUN'}: pairs ${(cases || []).length}`, JSON.stringify(tally), 'merged', merged, '->', path.basename(file));
-})().catch((e) => { console.error(e); process.exit(1); });
+  console.log(`${APPLY ? 'APPLY' : 'DRY RUN'}: pairs ${(cases || []).length}`, JSON.stringify(tally), 'merged', merged, '->', path.relative(__dirname, file));
+}
+
+if (require.main === module) main().catch((e) => { console.error(e); process.exit(1); });
+
+module.exports = { decideTwinOutcome, mergePair };
