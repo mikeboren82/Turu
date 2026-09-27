@@ -14,16 +14,10 @@
     "activeChipRemoveA11y": "Remove {{label}}"
   },
   "display": {
-    "a11y": "Display and sort, view: {{view}}, sort: {{sort}}",
-    "viewTitle": "View",
-    "sortTitle": "Sort",
     "list": "List",
     "map": "Map",
-    "recommended": "Recommended",
-    "byDistance": "By distance",
-    "chipMapDistance": "🗺️ Map · Distance",
-    "chipMap": "🗺️ Map",
-    "chipDistance": "📍 Distance"
+    "listA11y": "Switch to list view",
+    "mapA11y": "Switch to map view"
   },
   "freeSearch": {
     "placeholder": "e.g. \"indoor playground near Herzl in Tel Aviv tomorrow morning\"",

@@ -13,16 +13,10 @@
     "activeChipRemoveA11y": "הסר {{label}}"
   },
   "display": {
-    "a11y": "תצוגה ומיון, תצוגת {{view}}, מיון {{sort}}",
-    "viewTitle": "תצוגה",
-    "sortTitle": "מיון",
     "list": "רשימה",
     "map": "מפה",
-    "recommended": "מומלץ",
-    "byDistance": "לפי מרחק",
-    "chipMapDistance": "🗺️ מפה · מרחק",
-    "chipMap": "🗺️ מפה",
-    "chipDistance": "📍 מרחק"
+    "listA11y": "מעבר לתצוגת רשימה",
+    "mapA11y": "מעבר לתצוגת מפה"
   },
   "freeSearch": {
     "placeholder": "למשל: \"משחקייה ליד הרצל בתל אביב מחר בבוקר\"",

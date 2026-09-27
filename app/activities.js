@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
-import { View, Text, ScrollView, FlatList, Pressable, ActivityIndicator, Modal, TextInput } from 'react-native';
+import { View, Text, ScrollView, FlatList, Pressable, ActivityIndicator, Modal, TextInput, useWindowDimensions } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as Location from 'expo-location';
 import Header from '../components/Header';
@@ -22,7 +22,7 @@ import { supabase } from '../lib/supabase';
 import { DEFAULT_FILTERS, CATEGORY_FILTER_OPTIONS } from '../constants/filterSchema';
 import { categorySummary, buildResultsSummarySegments, buildActiveChips, shouldReopenLocationChooser } from '../lib/filterSummaries';
 import { BROWSE_GROUP_OPTIONS, withManualCategorySelection } from '../lib/browseGroups';
-import { rankActivitiesWithSmartRadius, countActiveFilters, normalizeFilters, getOpenNowInfo, haversineKm, locationWithDrivingTime } from '../lib/filterActivities';
+import { rankActivitiesWithSmartRadius, countAdditionalActiveFilters, normalizeFilters, getOpenNowInfo, haversineKm, locationWithDrivingTime } from '../lib/filterActivities';
 import { formatBenefitCardTag } from '../lib/benefits';
 import { buildMatchReasons } from '../lib/matchReasons';
 import { parseSmartSearchQuery, intentToFilters } from '../lib/smartSearch';
@@ -67,16 +67,28 @@ function parseJson(value, fallback) {
 // כפתור "🎯 סינון" - תקציר-ספירה בלבד, לא עוד תיאור-ערכים (עד 2026-09-21 הציג כאן מיקום/קטגוריה
 // כטקסט - "Active Search Constraints Chips" task, req 6 "avoid duplicate UI": מאז שלכל מימד-פילטר
 // פעיל (כולל מיקום/קטגוריה) יש עכשיו צ'יפ עצמאי-להסרה משלו בשורה מעל ה-toolbar (buildActiveChips,
-// lib/filterSummaries.js), חזרה על אותו ערך כאן הייתה מציגה את אותו אילוץ פעמיים - "N" ממשיך
-// להגיע מ-countActiveFilters (אותו מונה בדיוק שמזין את הצ'יפים ואת ה-badge הישן), לא ספירה מקבילה.
+// lib/filterSummaries.js), חזרה על אותו ערך כאן הייתה מציגה את אותו אילוץ פעמיים.
+// countAdditionalActiveFilters, not countActiveFilters (2026-09-27, "Activities Top-Area
+// Simplification" task, section 7): location and category are BOTH already visible live in the
+// interactive smart summary right above this button whenever they're active (buildResultsSummarySegments),
+// so this count must not double-report them - see the full note on countAdditionalActiveFilters
+// (lib/filterActivities.js) for why that is a separate function rather than changing
+// countActiveFilters itself (other callers still need the unmodified 7-dimension count).
 function activitiesFilterSummary(filters) {
-  const total = countActiveFilters(filters);
+  const total = countAdditionalActiveFilters(filters);
   return total > 0 ? t('activities.header.filterSummaryCountOnly', { count: total }) : null;
 }
 
 export default function ActivitiesScreen() {
   const router = useRouter();
   const { t, locale } = useI18n();
+  // Desktop compaction (2026-09-27, "Activities Top-Area Simplification" section 9) - same
+  // useWindowDimensions breakpoint convention already used elsewhere in the app (e.g. Header.js's
+  // logoCompact<360). Only affects THIS screen's own spacing/max-width (contentDesktop/
+  // titleBlockDesktop below) - Header.js/SkyBackground.js themselves are untouched ("do not
+  // redesign the global header").
+  const { width: windowWidth } = useWindowDimensions();
+  const isDesktop = windowWidth >= 800;
   const { homeFilters, homeCoords, openFilters, view, spontaneous, nearMe, homeChildAges } = useLocalSearchParams();
   const [filters, setFilters] = useState(() => normalizeFilters(parseJson(homeFilters, {})));
   const [deviceCoords, setDeviceCoords] = useState(() => parseJson(homeCoords, null));
@@ -141,11 +153,6 @@ export default function ActivitiesScreen() {
     setViewMode(view === 'map' ? 'map' : 'list');
     setSortMode(nearMe === 'true' ? 'distance' : 'recommended');
   }
-  // תצוגה/מיון - Modal קטן נפרד מ-sheetOpen (הפילטרים), אותו recipe בדיוק (Modal transparent
-  // animationType="slide" + backdrop) רק בגודל קטן משמעותית - שני radio-groups בלבד (תצוגה/מיון),
-  // לא accordion שלם. סוגר את sheetOpen כשנפתח (ולהפך, ראו onPress למטה) כדי שלעולם לא יהיו
-  // שני Modal-ים פתוחים יחד.
-  const [displaySheetOpen, setDisplaySheetOpen] = useState(false);
   // The public catalogue comes from the app-wide cache (lib/useActivitiesCatalogue.js) - a repeat
   // visit renders from memory instead of re-downloading ~5,500 rows. It is DATA only: every filter
   // input above/below stays per-screen state, re-seeded from route params exactly as before.
@@ -216,10 +223,10 @@ export default function ActivitiesScreen() {
   const [spontaneousActive, setSpontaneousActive] = useState(false);
   const [spontaneousCoords, setSpontaneousCoords] = useState(null);
   const [showLocationPermissionModal, setShowLocationPermissionModal] = useState(false);
-  // 🔎 חיפוש חופשי קומפקטי - collapsed כברירת מחדל, פותח שדה טקסט קטן שמפעיל את אותו Smart
-  // Search Engine בדיוק כמו עמוד הבית (lib/smartSearch.js, parseSmartSearchQuery/intentToFilters) -
-  // בלי לנווט/לטעון מסך חדש, רק כותב ל-filters הקיים של העמוד הזה (setFilters).
-  const [freeSearchOpen, setFreeSearchOpen] = useState(false);
+  // 🔎 חיפוש חופשי - שדה קבוע-גלוי (Activities Top-Area Simplification, 2026-09-27: הכפתור-
+  // הקטן שפתח/סגר אותו הוסר לגמרי, ראו סעיף 6 בבקשה) שמפעיל את אותו Smart Search Engine בדיוק
+  // כמו עמוד הבית (lib/smartSearch.js, parseSmartSearchQuery/intentToFilters) - בלי לנווט/לטעון
+  // מסך חדש, רק כותב ל-filters הקיים של העמוד הזה (setFilters).
   const [freeSearchText, setFreeSearchText] = useState('');
   const [freeSearchLoading, setFreeSearchLoading] = useState(false);
   const [freeSearchError, setFreeSearchError] = useState('');
@@ -462,7 +469,6 @@ export default function ActivitiesScreen() {
     }
     setFreeSearchText('');
     setFreeSearchClarify(null);
-    setFreeSearchOpen(false);
   };
 
   const handleFreeSearch = async (overrideText) => {
@@ -718,7 +724,10 @@ export default function ActivitiesScreen() {
     return counts;
   }, [filteredActivities.length, filters, activities, deviceCoords, excludedCategories, benefitClubs, excludedCities, searchOriginCoords, excludedRegions]);
 
-  const activeCount = countActiveFilters(filters);
+  // countAdditionalActiveFilters (not countActiveFilters) - same reasoning as activitiesFilterSummary
+  // above: this drives the same button's "active" highlight/accessibility label, so it must agree
+  // with the count actually shown in that button's text.
+  const activeCount = countAdditionalActiveFilters(filters);
   // כפתור "🎯 סינון" - סיכום קומפקטי (activitiesFilterSummary למעלה), לא עוד badge מספרי +
   // שורת-chips נפרדת מתחת. spontaneousActive לא נכלל כאן בכוונה - הוא כבר לא "פילטר" בכלל
   // (עבר להיות trigger מעמוד הבית, ראו handleSpontaneous/useEffect(spontaneous) - סעיף 6
@@ -732,6 +741,39 @@ export default function ActivitiesScreen() {
   // this screen even loads, so there is no route-param-specific handling here. [] when there is no
   // meaningful context (a screen with no filter at all) - the JSX below simply renders nothing then.
   const resultsSummarySegments = useMemo(() => buildResultsSummarySegments(filters), [filters, locale]);
+  // renderSummarySegments - a RENDERING-ONLY transform of resultsSummarySegments (2026-09-27,
+  // "Activities Top-Area Simplification" task, section 10: known web-only orphaned-punctuation issue,
+  // see [[project_ui_integration_2026-09-26]]). react-native-web renders a nested <Text
+  // accessibilityRole="button"> (every 'category'/'location' segment below) as an inline-block
+  // element, so the plain ", " separator segment right before one - an isolated 2-character text
+  // node with nothing else inside it - could not break internally and occasionally wrapped to the
+  // next line as a whole, leaving a stray comma at the very start of line 2. Folding that separator
+  // into the END of the PRECEDING segment's own text (here, at render time only) gives the browser a
+  // normal in-word break opportunity instead of an atomic box glued to a block element, so the comma
+  // now wraps attached to whatever precedes it, never alone. Deliberately done HERE, not inside
+  // buildResultsSummarySegments (lib/filterSummaries.js): that function's contract - each segment is
+  // one clean semantic phrase - is exercised directly by tests/resultsSummary.test.js (exact-text
+  // lookups like byText('באזור נתניה')), and changing it there would mean teaching that pure,
+  // already-tested library function about a react-native-web rendering quirk it has no other reason
+  // to know about. No interaction/semantic change: the same segments are still tapped for the same
+  // pickers, only which on-screen text node physically carries a trailing ", " changes.
+  const renderSummarySegments = useMemo(() => {
+    const out = [];
+    resultsSummarySegments.forEach((seg, i) => {
+      const next = resultsSummarySegments[i + 1];
+      // "pure separator" - a plain-text segment sitting right before an interactive one (e.g. the
+      // ", " between a WHERE phrase and the trailing travel/distance phrase). A real word-carrying
+      // text segment (e.g. "מחר") is never followed directly by an interactive segment without its
+      // OWN separator already between them, so this never merges actual sentence content.
+      const isPureSeparator = seg.kind === 'text' && next && next.kind !== 'text';
+      if (isPureSeparator && out.length > 0) {
+        out[out.length - 1] = { ...out[out.length - 1], text: out[out.length - 1].text + seg.text };
+        return;
+      }
+      out.push(seg);
+    });
+    return out;
+  }, [resultsSummarySegments]);
   // tapping the WHAT/category piece of the sentence opens the SAME category picker as the entry
   // gate's "🌟" row (gateCategoryOpen/QuickPicker below) - no second filter or picker state. Tapping
   // WHERE or the trailing travel/distance piece opens the SAME location picker as the entry gate's
@@ -750,13 +792,12 @@ export default function ActivitiesScreen() {
   // Constraints Chips, 2026-09-21) - see that render block for the rest.
   const searchIntentText = (filters.q || '').trim();
   const clearSearchIntent = () => setField('q', '');
-  // tapping the q chip's BODY (not its ×) reopens the same inline Free Search box already on this
-  // screen, prefilled with the current text, for editing (task req 9) - not a new screen, not a
-  // re-run of the parse yet (the user still has to submit again via handleFreeSearch, exactly like
-  // typing it fresh).
+  // tapping the q chip's BODY (not its ×) prefills the always-visible Free Search field (2026-09-27:
+  // no longer a collapsible box to reopen, see freeSearchText's declaration above) with the current
+  // text, for editing (task req 9) - not a new screen, not a re-run of the parse yet (the user still
+  // has to submit again via handleFreeSearch, exactly like typing it fresh).
   const openFreeSearchForEdit = () => {
     setFreeSearchText(searchIntentText);
-    setFreeSearchOpen(true);
   };
 
   // 🔍📍👶 Active Search Constraints Chips (2026-09-21) - every structured filter dimension gets an
@@ -768,7 +809,16 @@ export default function ActivitiesScreen() {
   // reopens instead of silently leaving the search nationwide-by-omission (req 3). Never falls back
   // to filters.location.mode:'nationwide' - that is a distinct EXPLICIT choice made inside the
   // chooser itself, not something this removal ever sets on its own.
-  const activeChips = useMemo(() => buildActiveChips(filters), [filters, locale]);
+  // .filter(location out) - "Activities Top-Area Simplification" task, section 2 (2026-09-27):
+  // location already appears once, live, inside the interactive smart summary above (resultsSummarySegments'
+  // 'location' segment) - repeating it as its own "📍 המיקום שלי"-style chip here duplicated the exact
+  // same fact on screen twice. buildActiveChips itself is UNCHANGED (still the general-purpose "every
+  // active structured dimension" list, pinned as such by tests/filterSummaries.test.js for any future
+  // caller) - filtered here, at this screen's own render site, not in the shared lib function.
+  // handleRemoveChip's 'location' branch below is intentionally left in place even though a location
+  // chip can no longer trigger it from this screen's UI: it is a small, independently-tested
+  // (shouldReopenLocationChooser) piece of shared removal logic, not screen-specific dead weight.
+  const activeChips = useMemo(() => buildActiveChips(filters).filter((c) => c.key !== 'location'), [filters, locale]);
   const handleRemoveChip = (key) => {
     setField(key, DEFAULT_FILTERS[key]);
     if (key === 'location' && shouldReopenLocationChooser(filters)) setGateLocationOpen(true);
@@ -867,7 +917,7 @@ export default function ActivitiesScreen() {
           ליד הכותרת (בקשת המשתמש: "clean/stable/functional/quiet", בניגוד לכותרות-section
           המשחקיות בעמוד הבית) ובלי טקסט-הזמנה חלופי ("פעילויות שכדאי לגלות") - הספירה תמיד
           מספר, גם ב-Discovery Mode; ה"הזמנה לגלות" כבר מגיעה מהכותרת הראשית עצמה + מהתוכן. */}
-      <View style={styles.titleBlock}>
+      <View style={[styles.titleBlock, isDesktop && styles.titleBlockDesktop]}>
         <View style={styles.titleRow}>
           <Text style={styles.pageTitle} numberOfLines={1}>{t('activities.header.title')}</Text>
           {/* Only once the result set is known - while loading this used to read "0". */}
@@ -882,11 +932,13 @@ export default function ActivitiesScreen() {
             הסטייל למטה), לא כרטיס/רקע כבד ולא עוד שורת-chips - טקסט זורם, עד 2 שורות, שבתוכו שני
             קטעים (WHAT/קטגוריה, WHERE+DISTANCE/מיקום-וטווח-נסיעה) הם עצמם הכפתור-לפתיחת-הבוררן
             המתאים (accent+underline עדין, לא "שורת צ'יפים" - סעיף 3 בבקשה). מוצג רק כשיש הקשר
-            משמעותי לתאר (resultsSummarySegments הוא [] במסך-ברירת-מחדל בלי שום פילטר - ה"כל
-            הפעילויות" הקבוע כבר אומר את זה, לא צריך עוד "מציג כעת פעילויות" ריק). */}
-        {resultsSummarySegments.length ? (
+            משמעותי לתאר (resultsSummarySegments/renderSummarySegments הם [] יחד במסך-ברירת-מחדל
+            בלי שום פילטר - ה"כל הפעילויות" הקבוע כבר אומר את זה, לא צריך עוד "מציג כעת פעילויות"
+            ריק). renderSummarySegments (לא resultsSummarySegments הגולמי) הוא מה שמוצג בפועל -
+            ראו ההערה המלאה ליד הצהרתו למעלה (תיקון-פיסוק, סעיף 10 בבקשה). */}
+        {renderSummarySegments.length ? (
           <Text style={styles.resultsSummaryText} numberOfLines={2}>
-            {resultsSummarySegments.map((seg, i) => (
+            {renderSummarySegments.map((seg, i) => (
               seg.kind === 'text' ? (
                 <Text key={i}>{seg.text}</Text>
               ) : (
@@ -895,9 +947,13 @@ export default function ActivitiesScreen() {
                   onPress={() => openResultsSummarySegment(seg.kind)}
                   style={styles.resultsSummarySegmentInteractive}
                   accessibilityRole="button"
+                  // .replace strips a trailing ", " that renderSummarySegments may have folded onto
+                  // THIS segment's own visible text (see its declaration above) - the spoken value
+                  // must stay the clean constraint value, not carry punctuation from an unrelated
+                  // sentence separator.
                   accessibilityLabel={seg.kind === 'category'
-                    ? t('activities.resultsSummary.editCategoryA11y', { value: seg.text.trim() })
-                    : t('activities.resultsSummary.editLocationA11y', { value: seg.text.trim() })}
+                    ? t('activities.resultsSummary.editCategoryA11y', { value: seg.text.replace(/,\s*$/, '').trim() })
+                    : t('activities.resultsSummary.editLocationA11y', { value: seg.text.replace(/,\s*$/, '').trim() })}
                 >
                   {seg.text}
                 </Text>
@@ -963,14 +1019,51 @@ export default function ActivitiesScreen() {
         </ScrollView>
       ) : null}
 
-      {/* TOOLBAR - שלושה controls בלבד: סינון (תקציר-מצב קומפקט במקום badge+שורת-chips נפרדת
-          מתחת, ראו activitiesFilterSummary למעלה), תצוגה/מיון (מאחד את "📍 לפי מרחק" + "רשימה/
-          מפה" הישנים לכפתור אחד), חיפוש. Filter מקבל flex:1 (הכי הרבה מקום, לתקציר הארוך
-          מבין השלושה) - Search/תצוגה-ומיון בגודל-תוכן בלבד, לא flex:1 שווה כמו קודם. */}
+      {/* 🔎 חיפוש חופשי - שדה אמיתי תמיד-גלוי (Activities Top-Area Simplification, 2026-09-27,
+          סעיף 6: "replace the small action/button with a real visible search field") - לא עוד
+          כפתור-toggle קטן שפותח/סוגר את זה (freeSearchOpen הוסר לגמרי, ראו ההערה ליד freeSearchText
+          למעלה). אותו Smart Search Engine/state בדיוק (handleFreeSearch/applyFreeSearchIntent) -
+          אין כאן מנגנון-חיפוש שני, רק שינוי-נראות. ממוקם מעל שורת סינון/רשימה-מפה (לא מתחתיה כמו
+          קודם) כך שהיררכיית-הבקרות תואמת את היעד: תקציר → חיפוש → סינון+תצוגה. */}
+      <View style={styles.freeSearchBox}>
+        {/* הבהרת-מיקום (2026-09-16, בקשת המשתמש): במקום תיבת-עיר מקומית ("📍 באיזה אזור לחפש?"
+            + CityAutocomplete) נפתח *אותו* LocationQuickPicker כמו "איפה נח לכם?" בעמוד הבית
+            (ראו ה-Modal למטה ליד ה-gate, ו-handleClarifyPickerClose). כאן נשארת רק שורת-ההסבר,
+            שורת-החיפוש עצמה נשארת גלויה מתחתיה. */}
+        {freeSearchClarify ? (
+          <Text style={styles.freeSearchClarifyText}>{t(freeSearchClarify.messageKey)}</Text>
+        ) : null}
+        <View style={styles.freeSearchInputRow}>
+            <TextInput
+              style={styles.freeSearchInput}
+              placeholder={t('activities.freeSearch.placeholder')}
+              placeholderTextColor={colors.textMuted}
+              value={freeSearchText}
+              onChangeText={setFreeSearchText}
+              onSubmitEditing={() => handleFreeSearch()}
+              returnKeyType="search"
+              editable={!freeSearchLoading}
+            />
+            <Pressable
+              style={[styles.freeSearchBtn, (freeSearchLoading || !freeSearchText.trim()) && styles.freeSearchBtnDisabled]}
+              onPress={() => handleFreeSearch()}
+              disabled={freeSearchLoading || !freeSearchText.trim()}
+            >
+              {freeSearchLoading ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.freeSearchBtnText}>{t('common.actions.search')}</Text>}
+            </Pressable>
+        </View>
+        {freeSearchError ? <Text style={styles.freeSearchErrorText}>{t(freeSearchError)}</Text> : null}
+      </View>
+
+      {/* TOOLBAR - שני controls בלבד: סינון (תקציר-מצב קומפקט, ראו activitiesFilterSummary למעלה)
+          ורשימה/מפה (viewToggleGroup, סעיף 5 בבקשה - segmented control תמיד-גלוי, בלי תפריט/Modal).
+          חיפוש עבר לשדה הקבוע מעליו (למעלה) ומיון-ידני הוסר לגמרי (סעיף 4: "do NOT expose a sort
+          selector" - sortMode ממשיך לפעול פנימית, נשלט רק ע"י route param nearMe, ראו ההערה
+          המלאה ליד ה-state שלו למעלה - לא עוד בחירה ידנית/תפריט "מרחק"). Filter מקבל flex:1. */}
       <View style={styles.toolbarRow}>
         <Pressable
           style={[styles.toolbarChip, styles.toolbarChipFlexible, styles.toolbarChipPrimary, activeCount > 0 && styles.toolbarChipPrimaryActive]}
-          onPress={() => { setDisplaySheetOpen(false); setSheetOpen((v) => !v); }}
+          onPress={() => setSheetOpen((v) => !v)}
           accessibilityRole="button"
           accessibilityLabel={activeCount > 0 ? t('activities.header.filterA11yWithCount', { count: activeCount }) : t('activities.header.filterLabel')}
         >
@@ -980,46 +1073,35 @@ export default function ActivitiesScreen() {
           </Text>
         </Pressable>
 
-        {/* "תצוגה/מיון" - מאחד את "📍 לפי מרחק" (toggle בינארי) ואת "רשימה/מפה" (היה בשורת-
-            הכותרת) לכפתור אחד קומפקטי; פותח sheet קטן (displaySheetOpen) עם שני radio-groups
-            (סעיף 9-10 בבקשה) במקום דרישה תמידית לשני controls נפרדים. כברירת מחדל: ⚙️ + המילה
-            "תצוגה" (מפתח viewTitle הקיים, לא מפתח חדש) - לא ⚙️ לבדו, שנקרא כ"הגדרות" מעורפל
-            (בקשת המשתמש: "a user should not have to guess"); בדקנו גם אימוג'י-סליידר (🎚️)
-            במקום ⚙️, אבל הוא עצמו נראה מטושטש/חד-גוני בדפדפן בפועל - הבעיה האמיתית לא הייתה
-            זהות האייקון אלא היעדר מילה לצידו, אז המילה עצמה פותרת את זה בלי לסכן עקביות-רינדור.
-            אותו פורמט אייקון+מילה בדיוק כמו שני האחים שלו (🎯 סינון/🔍 חיפוש), לא עוד היוצא-מן-
-            הכלל היחיד. מציג את המצב הלא-ברירת-מחדל בטקסט כשיש (אותו אימוג'י שכבר קיים ל"מרחק"/
-            "מפה", אותו toolbarChipPrimaryActive שכבר קיים ל-active). סוגר את sheetOpen
-            (הפילטרים) אם פתוח - לעולם לא שני Modal-ים יחד. */}
-        <Pressable
-          style={[styles.toolbarChip, styles.toolbarChipCompact, (sortMode === 'distance' || viewMode === 'map') && styles.toolbarChipPrimaryActive]}
-          onPress={() => { setSheetOpen(false); setDisplaySheetOpen(true); }}
-          accessibilityRole="button"
-          accessibilityLabel={t('activities.display.a11y', {
-            view: t(viewMode === 'map' ? 'activities.display.map' : 'activities.display.list'),
-            sort: t(sortMode === 'distance' ? 'activities.display.byDistance' : 'activities.display.recommended'),
-          })}
-        >
-          <Text
-            style={[styles.toolbarChipText, (sortMode === 'distance' || viewMode === 'map') && styles.toolbarChipTextPrimary]}
-            numberOfLines={1}
+        {/* רשימה/מפה - segmented control עצמאי (סעיף 5 בבקשה): מצב נוכחי מסומן-חזותית תמיד
+            (accentTintLight+accent, אותה מוסכמת-"נבחר" כמו בכל מקום אחר במסך), לחיצה אחת מחליפה
+            מצב, בלי תפריט/Modal (מחליף לגמרי את displaySheetOpen/ה"תצוגה/מיון" הישן שכלל גם
+            בורר-מיון). d.row הופך סדר-קריאה אוטומטית לפי שפה - "רשימה | מפה" ב-RTL. */}
+        <View style={styles.viewToggleGroup} accessibilityRole="tablist">
+          <Pressable
+            style={[styles.viewToggleOption, viewMode === 'list' && styles.viewToggleOptionSelected]}
+            onPress={() => setViewMode('list')}
+            accessibilityRole="button"
+            accessibilityState={{ selected: viewMode === 'list' }}
+            accessibilityLabel={t('activities.display.listA11y')}
           >
-            {viewMode === 'map' && sortMode === 'distance'
-              ? t('activities.display.chipMapDistance')
-              : viewMode === 'map'
-                ? t('activities.display.chipMap')
-                : sortMode === 'distance'
-                  ? t('activities.display.chipDistance')
-                  : `⚙️ ${t('activities.display.viewTitle')}`}
-          </Text>
-        </Pressable>
-
-        {/* 🔎 חיפוש חופשי - גישה מהירה לאותו Smart Search Engine, פותח/סוגר inline מתחת ל-
-            toolbar, בלי ניווט למסך חדש - ראו handleFreeSearch/applyFreeSearchIntent למעלה. */}
-        <Pressable style={[styles.toolbarChip, styles.toolbarChipCompact]} onPress={() => setFreeSearchOpen((v) => !v)} accessibilityRole="button">
-          <Text style={styles.toolbarChipIcon}>🔍</Text>
-          <Text style={styles.toolbarChipText} numberOfLines={1}>{t('common.actions.search')}</Text>
-        </Pressable>
+            <Text style={[styles.viewToggleOptionText, viewMode === 'list' && styles.viewToggleOptionTextSelected]} numberOfLines={1}>
+              {t('activities.display.list')}
+            </Text>
+          </Pressable>
+          <View style={styles.viewToggleDivider} />
+          <Pressable
+            style={[styles.viewToggleOption, viewMode === 'map' && styles.viewToggleOptionSelected]}
+            onPress={() => setViewMode('map')}
+            accessibilityRole="button"
+            accessibilityState={{ selected: viewMode === 'map' }}
+            accessibilityLabel={t('activities.display.mapA11y')}
+          >
+            <Text style={[styles.viewToggleOptionText, viewMode === 'map' && styles.viewToggleOptionTextSelected]} numberOfLines={1}>
+              {t('activities.display.map')}
+            </Text>
+          </Pressable>
+        </View>
       </View>
 
       {/* "⚡ עכשיו" - הטריגר עבר לעמוד הבית (משתמשים מחוברים בלבד, ראו app/index.js), אבל
@@ -1033,38 +1115,6 @@ export default function ActivitiesScreen() {
           <Text style={styles.spontaneousOffLinkText}>{t('activities.spontaneous.offLink')}</Text>
         </Pressable>
       ) : null}
-
-      {freeSearchOpen && (
-        <View style={styles.freeSearchBox}>
-          {/* הבהרת-מיקום (2026-09-16, בקשת המשתמש): במקום תיבת-עיר מקומית ("📍 באיזה אזור לחפש?"
-              + CityAutocomplete) נפתח *אותו* LocationQuickPicker כמו "איפה נח לכם?" בעמוד הבית
-              (ראו ה-Modal למטה ליד ה-gate, ו-handleClarifyPickerClose). כאן נשארת רק שורת-ההסבר,
-              שורת-החיפוש עצמה נשארת גלויה מתחתיה. */}
-          {freeSearchClarify ? (
-            <Text style={styles.freeSearchClarifyText}>{t(freeSearchClarify.messageKey)}</Text>
-          ) : null}
-          <View style={styles.freeSearchInputRow}>
-              <TextInput
-                style={styles.freeSearchInput}
-                placeholder={t('activities.freeSearch.placeholder')}
-                placeholderTextColor={colors.textMuted}
-                value={freeSearchText}
-                onChangeText={setFreeSearchText}
-                onSubmitEditing={() => handleFreeSearch()}
-                returnKeyType="search"
-                editable={!freeSearchLoading}
-              />
-              <Pressable
-                style={[styles.freeSearchBtn, (freeSearchLoading || !freeSearchText.trim()) && styles.freeSearchBtnDisabled]}
-                onPress={() => handleFreeSearch()}
-                disabled={freeSearchLoading || !freeSearchText.trim()}
-              >
-                {freeSearchLoading ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.freeSearchBtnText}>{t('common.actions.search')}</Text>}
-              </Pressable>
-          </View>
-          {freeSearchError ? <Text style={styles.freeSearchErrorText}>{t(freeSearchError)}</Text> : null}
-        </View>
-      )}
 
       {spontaneousError ? <Text style={styles.freeSearchErrorText}>{t(spontaneousError)}</Text> : null}
 
@@ -1232,7 +1282,7 @@ export default function ActivitiesScreen() {
               </Pressable>
             ) : null
           }
-          contentContainerStyle={styles.content}
+          contentContainerStyle={[styles.content, isDesktop && styles.contentDesktop]}
           showsVerticalScrollIndicator={false}
           // כוונון-FlatList (2026-09-20, "Performance Phase 1" audit סעיף 4D) - initialNumToRender
           // מוריד מהערך-הכללי של RN (10) ל-6 כדי לצמצם את עלות-הרינדור הראשוני על מסכים ללא
@@ -1249,7 +1299,7 @@ export default function ActivitiesScreen() {
           removeClippedSubviews
         />
       ) : (
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={[styles.content, isDesktop && styles.contentDesktop]} showsVerticalScrollIndicator={false}>
           {topContent}
           {nonListBody}
         </ScrollView>
@@ -1472,58 +1522,10 @@ export default function ActivitiesScreen() {
         </Pressable>
       </Modal>
 
-      {/* "תצוגה/מיון" - Modal קטן נפרד, אותו recipe בדיוק (transparent+slide+backdrop) כמו
-          הפילטרים למעלה, רק פאנל קטן משמעותית: שני radio-groups בלבד, בלי accordion. שורות
-          מדמות (בערכי-צבע, לא ייבוא) את ה-Chip הלא-מיוצא מ-FiltersSheet.js. */}
-      <Modal visible={displaySheetOpen} transparent animationType="slide" onRequestClose={() => setDisplaySheetOpen(false)}>
-        <Pressable style={styles.filterSheetBackdrop} onPress={() => setDisplaySheetOpen(false)}>
-          <Pressable style={styles.displaySheetContainer} onPress={(e) => e.stopPropagation()}>
-            <View style={styles.filterSheetHandleRow}>
-              <Pressable style={styles.filterSheetCloseBtn} onPress={() => setDisplaySheetOpen(false)} hitSlop={8} accessibilityRole="button" accessibilityLabel={t('common.actions.close')}>
-                <Text style={styles.filterSheetCloseBtnText}>✕</Text>
-              </Pressable>
-            </View>
-            <Text style={styles.displaySheetSectionTitle}>{t('activities.display.viewTitle')}</Text>
-            <View style={styles.displaySheetRow}>
-              <Pressable
-                style={[styles.displaySheetOption, viewMode === 'list' && styles.displaySheetOptionSelected]}
-                onPress={() => { setViewMode('list'); setDisplaySheetOpen(false); }}
-                accessibilityRole="radio"
-                accessibilityState={{ checked: viewMode === 'list' }}
-              >
-                <Text style={[styles.displaySheetOptionText, viewMode === 'list' && styles.displaySheetOptionTextSelected]}>{t('activities.display.list')}</Text>
-              </Pressable>
-              <Pressable
-                style={[styles.displaySheetOption, viewMode === 'map' && styles.displaySheetOptionSelected]}
-                onPress={() => { setViewMode('map'); setDisplaySheetOpen(false); }}
-                accessibilityRole="radio"
-                accessibilityState={{ checked: viewMode === 'map' }}
-              >
-                <Text style={[styles.displaySheetOptionText, viewMode === 'map' && styles.displaySheetOptionTextSelected]}>{t('activities.display.map')}</Text>
-              </Pressable>
-            </View>
-            <Text style={styles.displaySheetSectionTitle}>{t('activities.display.sortTitle')}</Text>
-            <View style={styles.displaySheetRow}>
-              <Pressable
-                style={[styles.displaySheetOption, sortMode === 'recommended' && styles.displaySheetOptionSelected]}
-                onPress={() => { setSortMode('recommended'); setDisplaySheetOpen(false); }}
-                accessibilityRole="radio"
-                accessibilityState={{ checked: sortMode === 'recommended' }}
-              >
-                <Text style={[styles.displaySheetOptionText, sortMode === 'recommended' && styles.displaySheetOptionTextSelected]}>{t('activities.display.recommended')}</Text>
-              </Pressable>
-              <Pressable
-                style={[styles.displaySheetOption, sortMode === 'distance' && styles.displaySheetOptionSelected]}
-                onPress={() => { setSortMode('distance'); setDisplaySheetOpen(false); }}
-                accessibilityRole="radio"
-                accessibilityState={{ checked: sortMode === 'distance' }}
-              >
-                <Text style={[styles.displaySheetOptionText, sortMode === 'distance' && styles.displaySheetOptionTextSelected]}>{t('activities.display.byDistance')}</Text>
-              </Pressable>
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
+      {/* "תצוגה/מיון" (הModal הקטן: רשימה/מפה + מומלץ/מרחק) הוסר לגמרי (Activities Top-Area
+          Simplification, 2026-09-27, סעיפים 4-5): רשימה/מפה עבר ל-viewToggleGroup תמיד-גלוי
+          בתוך ה-toolbar למעלה, ומיון-ידני בין "מומלץ"/"מרחק" (וה-Modal שהציג אותו) הוסר - אין
+          יותר בורר-מיון חשוף למשתמש בכלל (sortMode ממשיך לפעול פנימית, נשלט רק ע"י nearMe). */}
     </View>
   );
 }
@@ -1531,7 +1533,20 @@ export default function ActivitiesScreen() {
 const styles = createStyles((d) => ({
   screen: { flex: 1, backgroundColor: colors.bg },
   content: { padding: spacing.xl, paddingBottom: 40 },
+  // Desktop compaction (2026-09-27, "Activities Top-Area Simplification" section 9, isDesktop
+  // computed from useWindowDimensions in the component - see its declaration near the top) - applied
+  // ON TOP OF `content` (array style, never replaces it) only at >=800px: constrains the whole column
+  // (header+controls+cards all render through this same `content` container, see the JSX) to a
+  // readable width instead of stretching full-bleed across a very wide viewport, so it reads as "one
+  // coherent page" rather than controls/cards floating as a narrow island inside SkyBackground's much
+  // wider blue gradient. SkyBackground itself is untouched (still full-bleed, expected - only the
+  // foreground column centers).
+  contentDesktop: { maxWidth: 720, width: '100%', alignSelf: 'center' },
   titleBlock: { marginTop: 24, marginBottom: 12 },
+  // titleBlockDesktop - the other half of section 9 ("reduce the vertical gap... bring the first
+  // activity substantially higher"): only the large mobile marginTop (tuned for a small phone
+  // status-bar-safe header) shrinks on desktop; marginBottom/everything else is untouched.
+  titleBlockDesktop: { marginTop: 8 },
   pageTitle: { fontFamily: fonts.extraBold, fontSize: 19, color: colors.textPrimary, textAlign: d.textAlign, flexShrink: 0 },
   // כותרת+ספירה בשורה אחת (בקשת המשתמש 2026-09-16 השנייה: "stop using a sentence" עבור מספר
   // התוצאות) - "122" צמוד ל"כל הפעילויות", לא עוד "122 פעילויות נמצאו" בשורה נפרדת. גם
@@ -1574,10 +1589,10 @@ const styles = createStyles((d) => ({
   freeSearchErrorText: { fontFamily: fonts.semiBold, fontSize: 11.5, color: colors.danger, textAlign: 'center', marginTop: 8 },
   refreshFailedText: { fontFamily: fonts.semiBold, fontSize: 11.5, color: colors.textMuted, textAlign: 'center', marginTop: 8 },
 
-  // TOOLBAR - שלושה controls בלבד (סינון/תצוגה+מיון/חיפוש), בלי שורת-chips נפרדת מתחת יותר
-  // (בקשת המשתמש 2026-09-16 השנייה: "the first real Activity card should appear as early as
-  // possible"). Filter מקבל flex:1 (התקציר שלו הכי ארוך, ראו activitiesFilterSummary) - Search/
-  // תצוגה-ומיון בגודל-תוכן בלבד (toolbarChipCompact, לא flex:1 שווה כמו קודם).
+  // TOOLBAR - שני controls בלבד (סינון/רשימה+מפה, 2026-09-27 - חיפוש עבר לשדה קבוע מעל, מיון-ידני
+  // הוסר, ראו ה-JSX) - בלי שורת-chips נפרדת מתחת יותר (בקשת המשתמש 2026-09-16 השנייה: "the first
+  // real Activity card should appear as early as possible"). Filter מקבל flex:1 (התקציר שלו הכי
+  // ארוך, ראו activitiesFilterSummary) - viewToggleGroup בגודל-תוכן בלבד, לא flex:1 שווה.
   toolbarRow: { flexDirection: d.row, gap: 8, marginBottom: 10, zIndex: 15 },
   // קו-הפרדה עדין בין הבקרות לתוצאות: 1px בצבע-הגבול הרגיל של המערכת (colors.border, אותו
   // צבע שכבר משמש למסגרות toolbarChip/gateCard וכו') - בלי מסגרת/רקע/צל/תווית משלו. אין
@@ -1594,10 +1609,24 @@ const styles = createStyles((d) => ({
     borderRadius: radii.pill, paddingVertical: 9, paddingHorizontal: 12, minHeight: 38,
   },
   toolbarChipFlexible: { flex: 1, minWidth: 0 },
-  toolbarChipCompact: { minWidth: 44 },
   toolbarChipPrimary: { borderColor: colors.border, backgroundColor: colors.card },
   toolbarChipPrimaryActive: { borderWidth: 1.5, borderColor: colors.accent, backgroundColor: colors.accentTintLight },
   toolbarChipIcon: { fontSize: 13 },
+  // רשימה/מפה - segmented control (2026-09-27, סעיף 5): פיל אחד עם קו-מפריד פנימי במקום שני
+  // toolbarChip נפרדים, כדי שיקרא ויזואלית כ"שתי מצבים של אותה בקרה" ולא כשני כפתורים עצמאיים -
+  // אותה שפה חזותית (border/card/accentTintLight) כמו כל שאר הבקרות במסך הזה.
+  viewToggleGroup: {
+    flexDirection: d.row, alignItems: 'stretch', borderWidth: 1, borderColor: colors.border,
+    backgroundColor: colors.card, borderRadius: radii.pill, overflow: 'hidden',
+  },
+  viewToggleOption: {
+    flexDirection: d.row, alignItems: 'center', justifyContent: 'center',
+    paddingVertical: 9, paddingHorizontal: 14, minHeight: 38, minWidth: 44,
+  },
+  viewToggleOptionSelected: { backgroundColor: colors.accentTintLight },
+  viewToggleOptionText: { fontFamily: fonts.semiBold, fontSize: 13, color: colors.textSecondary },
+  viewToggleOptionTextSelected: { color: colors.accent, fontFamily: fonts.bold },
+  viewToggleDivider: { width: 1, backgroundColor: colors.border },
   toolbarChipText: { fontFamily: fonts.semiBold, fontSize: 13, color: colors.textSecondary },
   toolbarChipTextPrimary: { fontFamily: fonts.bold, fontSize: 13, color: colors.accent },
 
@@ -1666,24 +1695,6 @@ const styles = createStyles((d) => ({
   toggleOffSmall: { backgroundColor: colors.border, alignItems: d.alignStart },
   toggleDotSmall: { width: 18, height: 18, borderRadius: 9, backgroundColor: '#fff', marginHorizontal: 2 },
   toggleDotOffSmall: {},
-
-  // פאנל "תצוגה/מיון" - אותו filterSheetContainer בדיוק (רקע/פינות-עליונות/padding) רק בלי
-  // maxHeight:'85% (תוכן קצר קבוע, שני radio-groups, אין צורך ב-ScrollView פנימי).
-  displaySheetContainer: {
-    backgroundColor: colors.bg, borderTopLeftRadius: radii.xl, borderTopRightRadius: radii.xl,
-    paddingHorizontal: spacing.xl, paddingTop: 10, paddingBottom: 30,
-  },
-  displaySheetSectionTitle: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.textPrimary, textAlign: d.textAlign, marginBottom: 8, marginTop: 12 },
-  displaySheetRow: { flexDirection: d.row, gap: 8 },
-  // מדמה (בערכי-צבע, לא ייבוא) את ה-Chip הלא-מיוצא מ-components/FiltersSheet.js - זהות חזותית
-  // בלי תלות חוצת-קובץ.
-  displaySheetOption: {
-    flex: 1, alignItems: 'center', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border,
-    borderRadius: radii.pill, paddingVertical: 10,
-  },
-  displaySheetOptionSelected: { backgroundColor: colors.accentTintLight, borderColor: colors.accent },
-  displaySheetOptionText: { fontFamily: fonts.semiBold, fontSize: 13, color: colors.textSecondary },
-  displaySheetOptionTextSelected: { color: colors.accent, fontFamily: fonts.bold },
 
   radiusExpandedBanner: {
     backgroundColor: colors.accentTintLight, borderRadius: radii.md, paddingVertical: 9, paddingHorizontal: 14, marginBottom: 12,

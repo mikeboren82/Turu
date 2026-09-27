@@ -50,7 +50,7 @@ addHook(
 );
 
 const { intentToFilters, needsAreaClarification } = require('../lib/smartSearch.js');
-const { normalizeFilters, applyFilters, countActiveFilters } = require('../lib/filterActivities.js');
+const { normalizeFilters, applyFilters, countActiveFilters, countAdditionalActiveFilters } = require('../lib/filterActivities.js');
 const { DEFAULT_FILTERS } = require('../constants/filterSchema.js');
 
 function intentOf(overrides = {}) {
@@ -243,4 +243,57 @@ test('countActiveFilters does not count q - unchanged, q has its own dedicated c
   const withText = { ...DEFAULT_FILTERS, q: 'סוס' };
   const withoutText = { ...DEFAULT_FILTERS };
   assert.equal(countActiveFilters(withText), countActiveFilters(withoutText), 'q is intentionally not folded into the shared filter count');
+});
+
+// ---- countAdditionalActiveFilters - "Activities Top-Area Simplification" task, section 7 (2026-09-27) ----
+// The Activities screen's compact "🎯 סינון" button must not double-report location or category,
+// because both are already shown live in the interactive smart summary right above it. countActiveFilters
+// itself stays untouched (see the test right above, and tests/browseGroups.test.js's "category dimension
+// still counts once") - this is a second, narrower function built on top of it.
+
+test('countAdditionalActiveFilters: location alone -> 0 (already shown in the smart summary)', () => {
+  const f = { ...DEFAULT_FILTERS, location: { ...DEFAULT_FILTERS.location, mode: 'city', city: 'נתניה' } };
+  assert.equal(countActiveFilters(f), 1, 'sanity check: countActiveFilters itself DOES count location');
+  assert.equal(countAdditionalActiveFilters(f), 0);
+});
+
+test('countAdditionalActiveFilters: category alone -> 0 (already shown in the smart summary)', () => {
+  const f = { ...DEFAULT_FILTERS, category: ['חווה'] };
+  assert.equal(countActiveFilters(f), 1, 'sanity check: countActiveFilters itself DOES count category');
+  assert.equal(countAdditionalActiveFilters(f), 0);
+});
+
+test('countAdditionalActiveFilters: location + category together -> still 0, not 2', () => {
+  const f = {
+    ...DEFAULT_FILTERS,
+    location: { ...DEFAULT_FILTERS.location, mode: 'city', city: 'נתניה' },
+    category: ['חווה'],
+  };
+  assert.equal(countAdditionalActiveFilters(f), 0);
+});
+
+test('countAdditionalActiveFilters: a real remaining filter (age) still counts normally, even alongside location/category', () => {
+  const f = {
+    ...DEFAULT_FILTERS,
+    location: { ...DEFAULT_FILTERS.location, mode: 'city', city: 'נתניה' },
+    category: ['חווה'],
+    age: ['2-3'],
+  };
+  assert.equal(countAdditionalActiveFilters(f), 1, 'only age counts - location/category stay excluded');
+});
+
+test('countAdditionalActiveFilters: multiple real dimensions (age, when, price) all count independently', () => {
+  const f = {
+    ...DEFAULT_FILTERS,
+    location: { ...DEFAULT_FILTERS.location, mode: 'current' },
+    category: ['חווה'],
+    age: ['2-3'],
+    when: { options: ['weekend'], date: null },
+    price: ['free'],
+  };
+  assert.equal(countAdditionalActiveFilters(f), 3, 'age + when + price, still excluding location/category');
+});
+
+test('countAdditionalActiveFilters: no filters at all -> 0', () => {
+  assert.equal(countAdditionalActiveFilters(DEFAULT_FILTERS), 0);
 });
