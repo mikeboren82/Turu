@@ -8,3 +8,10 @@ verify_jwt = true
 
 [functions.extract-activity]
 verify_jwt = true
+
+# Public on purpose: stored image URLs are bare <img src=".../place-photo/<place_id>"> requests with no
+# Authorization header. Protection is enforced inside the function (_shared/placePhoto.ts): place-id validation,
+# approved-activity allow-list, place_photo_serving_enabled kill switch, rate limit.
+# Pinned by tests/supabaseFunctionConfig.test.js.
+[functions.place-photo]
+verify_jwt = false
