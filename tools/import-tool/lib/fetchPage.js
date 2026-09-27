@@ -3,6 +3,7 @@
 // the Israeli hosts whose TLS handshake Node/undici cannot negotiate. Returns {ok, status, html,
 // finalUrl, contentType}; never throws on HTTP errors (only on unexpected runtime failures).
 const { execFileSync } = require('child_process');
+const { isGoogleMapsUrl } = require('./googlePlacesPolicy');
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36';
 
@@ -22,6 +23,9 @@ function curlFetch(url, { timeoutSec = 90 } = {}) {
 }
 
 async function fetchHtml(url, { timeoutMs = 45000 } = {}) {
+  // a Google Maps page is never an ordinary source page (lib/googlePlacesPolicy.js): answered like an unreachable page,
+  // without a request - callers already treat !ok as "no evidence here"
+  if (isGoogleMapsUrl(url)) return { ok: false, status: 0, html: '', finalUrl: url, contentType: null, error: 'google_maps_page_not_a_source', blocked: 'google_maps', via: 'policy' };
   try {
     const res = await fetch(url, { headers: { 'User-Agent': UA, 'Accept': 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.8', 'Accept-Language': 'he-IL,he;q=0.9,en;q=0.5' }, signal: AbortSignal.timeout(timeoutMs), redirect: 'follow' });
     const buf = Buffer.from(await res.arrayBuffer());

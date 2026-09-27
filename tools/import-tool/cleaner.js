@@ -37,6 +37,7 @@ const { isLearnableLabel } = require('./venueLearning');
 const { proposeOutcome, applyOutcome } = require('./cleaner/settlementResolver');
 const { processVerifyLocation, reopenVerifyLocationCases } = require('./cleaner/verifyLocation');
 const { isCopyableSourceImage } = require('./lib/mergeImages');
+const { cleanerPolicyHold } = require('./lib/googlePlacesPolicy');
 const fs = require('fs');
 const path = require('path');
 
@@ -69,6 +70,20 @@ const markFail = (client, c, o) => DRY ? Promise.resolve({ outcome: 'dry:retry',
 const archiveOrDry = (client, c, o) => DRY ? Promise.resolve({ outcome: 'dry:archive', reason: o.reason, note: o.note || null, evidence: o.evidence || null }) : archiveCase(client, c, o);
 const expireOrDry = (client, c, d) => DRY ? Promise.resolve({ outcome: 'dry:archive', reason: 'activity_expired_before_resolution', event_date: d }) : archiveExpired(client, c, d);
 const resolveOrDry = (client, c, r) => DRY ? Promise.resolve({ outcome: 'dry:resolve', ...r }) : resolveCase(client, c, r);
+// Google Places release policy (lib/googlePlacesPolicy.js cleanerPolicyHold): Places-derived work is HELD, never processed -
+// no Places-derived field is written anywhere. The case is released untouched (not archived, not resolved), the reason is
+// visible as last_error, and it is deferred a week so a parked case does not take a batch slot every hour.
+const GOOGLE_POLICY_DEFER_MS = 7 * 24 * 3600e3;
+async function holdForGooglePolicy(client, c, counters, hold) {
+  counters.inspected--;
+  counters.googlePolicyHeld = counters.googlePolicyHeld || {};
+  counters.googlePolicyHeld[hold.subject] = (counters.googlePolicyHeld[hold.subject] || 0) + 1;
+  if (!DRY) {
+    const { error } = await client.from('cleaner_cases').update({ ...RELEASE, last_error: hold.reason + ' (' + hold.subject + ')', next_attempt_at: new Date(Date.now() + GOOGLE_POLICY_DEFER_MS).toISOString(), updated_at: new Date().toISOString() }).eq('id', c.id).eq('status', 'open');
+    if (error) throw error;
+  }
+  return { outcome: 'released:' + hold.reason, subject: hold.subject };
+}
 
 async function processCase(client, c, ctx) {
   const { settings, counters, today } = ctx;
@@ -76,7 +91,11 @@ async function processCase(client, c, ctx) {
   const isNewDebt = (ts) => ts && new Date(ts).getTime() > ctx.newDebtSince;
   try {
     if (c.subject_kind === 'settlement_review') {
-      // legacy settlement-review backlog (0089): one identity decision per review case
+      // legacy settlement-review backlog (0089): one identity decision per review case - every candidate is a Places
+      // response, so under the Google Places release policy the whole source is held (no NEW_VALID publication, no
+      // Places address fill, no Places evidence copied into review cases)
+      const settlementHold = cleanerPolicyHold({ subjectKind: 'settlement_review' });
+      if (settlementHold) return holdForGooglePolicy(client, c, counters, settlementHold);
       const { data: rc } = await client.from('settlement_scan_review_cases').select('*').eq('id', c.subject_id).maybeSingle();
       if (!rc || rc.status !== 'needs_review') { counters.resolvedNoGain++; return resolveOrDry(client, c, { outcome: 'resolved_externally', status: rc?.status }); }
       const p = await proposeOutcome(client, rc, { ...ctx, dry: DRY, allowNetwork: true });
@@ -107,6 +126,8 @@ async function processCase(client, c, ctx) {
     if (c.subject_kind === 'incoming') {
       const row = await loadIncoming(client, c.subject_id);
       if (!row || !['new', 'needs_review', 'failed'].includes(row.status)) { counters.resolvedNoGain++; return resolveOrDry(client, c, { outcome: 'resolved_externally', status: row?.status }); }
+      const incomingHold = cleanerPolicyHold({ subjectKind: 'incoming', incoming: row });
+      if (incomingHold) return holdForGooglePolicy(client, c, counters, incomingHold);
       if (isNewDebt(row.found_at)) counters.newDebtProcessed++;
       const ed = row.extracted_data || {};
       if (ed.schedule_type === 'one_time' && ed.one_time_date && ed.one_time_date < today) { const r = await expireOrDry(client, c, ed.one_time_date); countArchive(counters, r); return r; }
@@ -161,6 +182,11 @@ async function processCase(client, c, ctx) {
     // ---- live activity ----
     const a = await loadActivity(client, c.subject_id);
     if (!a) { counters.resolvedNoGain++; return resolveOrDry(client, c, { outcome: 'resolved_externally' }); }
+    // a Google-origin activity (Maps source_url): its name / coords / address are Places content - nothing is derived from
+    // them (reverse-geocoded address or city, name-based category, a page fetch of the Maps URL). Existing-data cleanup is
+    // a separate task; ordinary activities are unaffected.
+    const activityHold = cleanerPolicyHold({ subjectKind: c.subject_kind, activity: a });
+    if (activityHold) return holdForGooglePolicy(client, c, counters, activityHold);
     if (isNewDebt(a.created_at)) counters.newDebtProcessed++;
     const pageUrl = (a.activity_sources || []).find((s) => s.relation === 'created')?.page_url || a.source_url || null;
     const incomingId = (a.activity_sources || []).find((s) => s.incoming_activity_id)?.incoming_activity_id || null;

@@ -363,8 +363,8 @@ async def run_job(args: argparse.Namespace, *, store, places_factory=None, now: 
                         f"status {fresh['status']}" if fresh["status"] != "approved" else "place id changed")
             return
         try:
-            await store.insert_place_photo_reference(activity_id=row["id"], photo_url=photo_url,
-                                                     google_maps_uri=row.get("source_url"))
+            # image_source_url is never the activity's Maps source_url (Google Places release policy, google_policy.py)
+            await store.insert_place_photo_reference(activity_id=row["id"], photo_url=photo_url)
         except httpx.HTTPStatusError as exc:
             code = exc.response.status_code
             if code == 409:  # a duplicate-equivalent answer: the image is already there

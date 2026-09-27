@@ -17,6 +17,7 @@
 import categoryValues from './categoryValues.json' with { type: 'json' };
 import categorySemantics from './categorySemantics.json' with { type: 'json' };
 import { classifyFetchFailure, type FailureKind } from './sourceHealth.ts';
+import { isGoogleMapsUrl } from './googlePlacesPolicy.ts';
 import { accessGuidanceBlock } from './accessType.ts';
 import { canonicalPageKey } from './discovery.ts';
 import { trustedAges } from './ageEvidence.ts';
@@ -541,6 +542,8 @@ function decodeBody(buf: ArrayBuffer, charset: string): string {
 // source_scan_logs.error_message stayed null and no one could tell WHY a page failed (403 from a
 // WAF blocking cloud traffic, 404 from a wrong link, timeout…) - observed on a real source.
 export async function fetchHtml(url: string, opts: { timeoutMs: number; retries: number; userAgent?: string }): Promise<FetchHtmlResult> {
+  // a Google Maps page is never an ordinary source page (googlePlacesPolicy.ts) - answered without a request
+  if (isGoogleMapsUrl(url)) return { ok: false, fetchError: 'google_maps_page_not_a_source', failureKind: 'unknown' };
   let lastErr: { name: string; message: string } | undefined;
   for (let attempt = 0; attempt <= opts.retries; attempt++) {
     try {

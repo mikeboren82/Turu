@@ -22,6 +22,12 @@ See README section in the chat report for exact run commands. Quick reference:
     python playground_discovery.py
     python playground_discovery.py --resume
     python playground_discovery.py --import-supabase
+
+GOOGLE PLACES RELEASE POLICY (2026-09-27, google_policy.py): --import-supabase (and every other apply path that reuses
+run_import_supabase / push_review_rows_to_incoming: settlement_gap_fill.py, import_discovered.py,
+backfill_city_and_ramat_amir.py) is REFUSED - every row it would write (location, activity, incoming row) is
+Google-origin content. It is refused before any Places call. Discovery, --dry-run and the local CSV / JSONL / report
+files are unchanged. There is no override flag.
 """
 import argparse
 import asyncio
@@ -38,6 +44,7 @@ from dotenv import load_dotenv
 import israel_geo
 import matching
 from google_places import GooglePlacesClient
+from google_policy import GooglePlacesPersistenceDisabled, assert_google_content_persistence_allowed
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger("playground_discovery")
@@ -267,7 +274,19 @@ def _row_extracted_data(row: dict) -> dict:
     }
 
 
+def refuse_google_apply(tool: str) -> None:
+    """Raises GooglePlacesPersistenceDisabled while the Google Places release policy is OFF (google_policy.py): applying
+    Places discovery results would create Google-origin locations / activities / incoming rows."""
+    assert_google_content_persistence_allowed(f"{tool}: writing Google Places discovery results to Supabase is disabled")
+
+
+def exit_on_policy_refusal(exc: GooglePlacesPersistenceDisabled) -> None:
+    logger.error("REFUSED - %s. Nothing was written. Run with --dry-run for the discovery report (CSV only).", exc)
+    sys.exit(2)
+
+
 async def run_import_supabase(master_rows: list[dict], stats: dict) -> None:
+    refuse_google_apply("run_import_supabase")  # before any Supabase request
     from supabase_client import SupabaseBotClient, load_import_tool_env
     load_import_tool_env()
     client = SupabaseBotClient()
@@ -296,8 +315,7 @@ async def run_import_supabase(master_rows: list[dict], stats: dict) -> None:
             try:
                 new_id = await client.insert_new_playground(
                     name=row["name"] or "גן שעשועים", address=row["formatted_address"],
-                    lat=row["latitude"], lon=row["longitude"], place_id=row["google_place_id"],
-                    google_maps_uri=row["google_maps_uri"], created_by=None,
+                    lat=row["latitude"], lon=row["longitude"], place_id=row["google_place_id"], created_by=None,
                 )
                 row["status"] = "IMPORTED"
                 row["imported_activity_id"] = new_id
@@ -346,6 +364,7 @@ async def push_review_rows_to_incoming(review_rows: list[dict]) -> int:
     site-scanning pipeline. Never auto-approved - by definition these rows
     did NOT pass the "legit source + has address" bar master_rows already
     cleared (see run_import_supabase)."""
+    refuse_google_apply("push_review_rows_to_incoming")  # before any Supabase request
     from supabase_client import SupabaseBotClient, load_import_tool_env
     load_import_tool_env()
     client = SupabaseBotClient()
@@ -366,6 +385,8 @@ async def push_review_rows_to_incoming(review_rows: list[dict]) -> int:
 
 async def main_async() -> None:
     args = parse_args()
+    if args.import_supabase and not args.dry_run:
+        refuse_google_apply("playground_discovery.py --import-supabase")  # before any Places call
     api_key = load_api_key()
     bounds = {"min_lat": args.min_lat, "max_lat": args.max_lat, "min_lon": args.min_lon, "max_lon": args.max_lon}
 
@@ -483,6 +504,8 @@ async def main_async() -> None:
 def main():
     try:
         asyncio.run(main_async())
+    except GooglePlacesPersistenceDisabled as exc:
+        exit_on_policy_refusal(exc)
     except KeyboardInterrupt:
         logger.warning("Interrupted - progress up to the last completed grid point is saved in checkpoint.json. Re-run with --resume.")
         sys.exit(1)

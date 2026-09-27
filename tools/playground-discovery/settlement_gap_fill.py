@@ -38,7 +38,7 @@ playground_discovery.py.
 
 Usage:
     py settlement_gap_fill.py --dry-run   # report only, no Supabase writes
-    py settlement_gap_fill.py             # writes new playgrounds to Supabase
+    py settlement_gap_fill.py             # REFUSED (Google Places release policy 2026-09-27, google_policy.py)
 """
 import argparse
 import asyncio
@@ -101,6 +101,8 @@ def parse_args() -> argparse.Namespace:
 
 async def main() -> None:
     args = parse_args()
+    if not args.dry_run:
+        pd.refuse_google_apply("settlement_gap_fill.py")  # Google Places release policy - before any Places call
     api_key = load_api_key()
     load_import_tool_env()
 
@@ -187,4 +189,7 @@ async def main() -> None:
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except pd.GooglePlacesPersistenceDisabled as exc:
+        pd.exit_on_policy_refusal(exc)

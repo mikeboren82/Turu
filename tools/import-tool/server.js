@@ -29,6 +29,7 @@ const { ineligibleForPublicCatalogue } = require('./lib/catalogueEligibility');
 const { assessAccessType, approvalDecision, sanitizeAccessType, ACCESS_LABEL_HE, ACCESS_ISSUE_LABEL } = require('./lib/accessType');
 const { assessGranularity, granularityDecision, GRANULARITY_LABEL_HE, GRANULARITY_ISSUE_LABEL } = require('./lib/granularity');
 const { normalizeIncomingCandidate } = require('./incomingShape');
+const { assertNotGoogleMapsUrl, isGoogleMapsUrl } = require('./lib/googlePlacesPolicy');
 const { repairModelJson, resolveVenue, normalizeVenueAlias } = require('./venueNaming');
 const { withoutGenericAliases } = require('./venueLearning');
 const { ensureVenueByPlaceId, mergeVenuePlaceId, normalizePlaceId, CODES: PLACE_ID_CODES } = require('./lib/venuePlaceId');
@@ -540,6 +541,8 @@ const PAGE_FETCH_TIMEOUT_MS = 15000;
 async function scrapeAndExtract(urlString) {
   const parsedUrl = new URL(urlString);
   if (!['http:', 'https:'].includes(parsedUrl.protocol)) throw new Error('הקישור לא תקין');
+  // a Google Maps page is never an ordinary scrape source (lib/googlePlacesPolicy.js) - refused before any fetch
+  if (isGoogleMapsUrl(parsedUrl.toString())) { const err = new Error('google_maps_page_not_a_source: עמוד Google Maps אינו מקור לסריקה'); err.status = 422; err.code = 'GOOGLE_MAPS_PAGE_NOT_A_SOURCE'; throw err; }
 
   let pageRes;
   try {
@@ -675,6 +678,7 @@ const MISSING_INFO_SCHEMA = {
 };
 
 async function fetchPageTextForExtraction(pageUrl) {
+  if (isGoogleMapsUrl(pageUrl)) return null; // a Google Maps page is never an extraction source (= no page)
   const pageRes = await fetch(pageUrl, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; WabbitImportBot/1.0)' } });
   if (!pageRes.ok) return null;
   const html = await pageRes.text();
@@ -997,6 +1001,11 @@ async function requireVerifiedLocation(client, rawActivity) {
 // activity_sources 'created' row, so "missing from source" detection and the multi-source model
 // (0078) work for admin-approved activities too, not only for scan-source auto-approvals.
 async function saveNewActivity(client, userId, sourceUrl, activity, meta = {}) {
+  // Google Places release policy (lib/googlePlacesPolicy.js): a Maps URL is never stored as a source, provenance or
+  // image-source URL - refused BEFORE any write (publishIncoming already holds Places-origin rows; this is the backstop)
+  assertNotGoogleMapsUrl(sourceUrl, 'activities.source_url');
+  assertNotGoogleMapsUrl(activity && activity.detail_url, 'activity_sources.page_url (detail)');
+  for (const img of (activity && Array.isArray(activity.images) ? activity.images : [])) assertNotGoogleMapsUrl(img && img.url, 'activity_images.image_source_url');
   {
     // Catalogue gate: commitment policy (unchanged) OR a FINAL human private_group verdict. Both are
     // inserted as archived with their own reason - the row exists for dedupe/history, never for users.
@@ -3645,4 +3654,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { app, publishIncoming, classifyPublishError, plannedLocationWrite, PUBLISH_OUTCOME, CLAIM_STALE_MS, applyMergedFields };
+module.exports = { app, publishIncoming, classifyPublishError, plannedLocationWrite, PUBLISH_OUTCOME, CLAIM_STALE_MS, applyMergedFields, saveNewActivity, scrapeAndExtract, fetchPageTextForExtraction };

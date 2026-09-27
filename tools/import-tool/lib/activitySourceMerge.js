@@ -33,6 +33,8 @@
 // concern with its own fill-null rule) - a caller that needs that side effect keeps doing it itself,
 // exactly as scan-source's recordProvenance and server.js's admin endpoints already do.
 
+const { isGoogleMapsUrl, POLICY_REASON } = require('./googlePlacesPolicy');
+
 const OUTCOME = Object.freeze({
   ADDED: 'ADDED',                       // genuinely new (activity_id, page_url) row inserted
   ALREADY_PRESENT: 'ALREADY_PRESENT',   // row existed and the incoming data had nothing to add
@@ -51,6 +53,8 @@ const RELATION_RANK = { created: 1, seen: 0, updated: 0 };
 async function upsertProvenanceSafe(client, activityId, incoming) {
   const { sourceId = null, pageUrl, incomingActivityId = null, relation = 'seen', urlRole = null, firstSeenAt = null, lastSeenAt = null } = incoming;
   if (!pageUrl) return { outcome: OUTCOME.FAILED, pageUrl, error: 'pageUrl is required', changed: [] };
+  // Google Places release policy (lib/googlePlacesPolicy.js): a Google Maps URL is never stored as provenance
+  if (isGoogleMapsUrl(pageUrl)) return { outcome: OUTCOME.FAILED, pageUrl, error: POLICY_REASON + ': a Google Maps URL is not stored as activity_sources.page_url', changed: [] };
 
   let existing, selErr;
   try {

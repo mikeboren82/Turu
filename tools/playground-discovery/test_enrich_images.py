@@ -277,7 +277,10 @@ class CandidateScopingTests(unittest.IsolatedAsyncioTestCase):
         img = imgs[0]
         self.assertEqual(img["url"], f"{PROXY}/PLACE1")
         self.assertEqual(img["image_source_type"], "PROVIDER")
-        self.assertEqual(img["image_source_url"], a["source_url"])
+        # Google Places release policy (2026-09-27): never the activity's Maps source_url; the proxy URL's embedded place
+        # id is the only provenance kept
+        self.assertIsNone(img["image_source_url"])
+        self.assertNotIn("maps.google", json.dumps(img))
         self.assertIs(img["needs_rights_review"], False)
         self.assertEqual(img["uploaded_by"], BOT)
         self.assertNotIn("googleusercontent", json.dumps(img))

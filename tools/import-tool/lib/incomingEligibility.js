@@ -10,6 +10,8 @@
 //                                  admin area / the city, or the Cleaner's evidence is below MEDIUM (lib/locationEvidence.js)
 //   outside_service_area terminal  resolved coordinates fall outside TURU's service area
 //   exact_duplicate      terminal  google_place_id / event fingerprint already live (what /approve 409s on)
+//   google_places_persistence_disabled  terminal  a Places-origin candidate (lib/googlePlacesPolicy.js) - never published
+//                                  while the release policy is OFF; the row is kept as is (not rejected / archived)
 // Read-only: never writes, never changes review status. Safe to call repeatedly.
 const { evaluatePublishPolicy, decide } = require('./publishPolicy');
 const { withCardEvidence } = require('./temporalShape');
@@ -17,6 +19,7 @@ const { israelToday } = require('./intakePolicy');
 const { normalizeIncomingCandidate } = require('../incomingShape');
 const { computeEventFingerprint } = require('../eventFingerprint');
 const { storedLocationHolds } = require('./locationEvidence');
+const { placesPersistenceReason } = require('./googlePlacesPolicy');
 
 const ROW_COLUMNS = 'id, source_id, match_type, status, validation_issues, deferred_until, extracted_data, existing_activity_id, page_url, raw_source_snapshot';
 
@@ -85,7 +88,9 @@ async function evaluateIncomingRow(client, idOrRow, { trustOverride = null, toda
       if (data) duplicate = { activityId: data.id, by: 'event_fingerprint' };
     }
   }
-  const reasons = [...core.reasons, ...rowFactReasons(c, { serviceArea, duplicate })];
+  // any match_type: an 'update' would write the same Places content onto the existing activity
+  const googlePolicy = placesPersistenceReason(row.extracted_data, row.page_url);
+  const reasons = [...core.reasons, ...rowFactReasons(c, { serviceArea, duplicate }), ...(googlePolicy ? [googlePolicy] : [])];
   return { id, found: true, ...decide(reasons), reasons, row, source, policy: { ...policy, today, trustOverride } };
 }
 

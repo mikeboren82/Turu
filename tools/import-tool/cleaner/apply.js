@@ -24,6 +24,7 @@ const { upsertProvenanceSafe } = require('../lib/activitySourceMerge');
 const { evaluateIncomingRow } = require('../lib/incomingEligibility');
 const { verifiedFieldUpdate, OUTCOME: WRITE_OUTCOME } = require('../lib/verifiedWrite');
 const { occurrenceKnown } = require('../lib/intakePolicy');
+const { placesPersistenceReason } = require('../lib/googlePlacesPolicy');
 
 const SOFT = new Set(['מחיר']);
 const OPEN_INCOMING = ['new', 'needs_review', 'failed'];
@@ -77,6 +78,10 @@ async function patchIncomingLocation(client, row, loc) {
 // trustedOverride: the Cleaner itself vetted the candidate (settlement_review HIGH decisions) - it satisfies
 // the SOURCE-trust gate only; relevance, content safety, access, granularity, dates and dedup all still apply
 async function handBackIncoming(client, row, { settings, userId, cache, today, counters, trustedOverride = false }) {
+  // Google Places release policy (lib/googlePlacesPolicy.js): a Places-origin row is never matched, merged, enriched
+  // from or published - no write at all (not even the duplicate link: that would store its Maps page_url as provenance)
+  const googlePolicy = placesPersistenceReason(row.extracted_data, row.page_url);
+  if (googlePolicy) return { outcome: 'awaiting_policy', decision: 'INELIGIBLE', why: googlePolicy.code, reasons: [googlePolicy.code], via: 'google_places_policy' };
   const c = row.extracted_data || {};
   const candidate = { name: c.name, city: c.city, location_name: c.location_name || null, entity_type: c.entity_type || null, schedule_type: c.schedule_type || null, category: c.category || null, address: c.address || c.formatted_address || null, pageUrl: row.page_url, venue_id: c.venue_id || null, lat: c.lat ?? null, lng: c.lng ?? null, one_time_date: c.one_time_date || null, recurring_days: c.recurring_days || [], event_fingerprint: c.event_fingerprint || computeEventFingerprint({ name: c.name, venueId: c.venue_id || null, city: c.city, scheduleType: c.schedule_type, oneTimeDate: c.one_time_date, recurringDays: c.recurring_days, startTime: c.start_time }),
     // Repertoire Phase 1 (2026-09-22): read by isStandingProgrammeMatch's field-conflict guard only

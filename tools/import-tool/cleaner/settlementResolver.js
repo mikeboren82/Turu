@@ -19,6 +19,7 @@ const { haversineKm } = require('./matching');
 const { nominatim } = require('./nominatimClient');
 const { splitFormattedAddress } = require('../incomingShape');
 const { handBackIncoming } = require('./apply');
+const { GOOGLE_PLACES_CONTENT_PERSISTENCE, POLICY_REASON } = require('../lib/googlePlacesPolicy');
 
 const PLAYGROUND_WORDS = ['playground', 'גן שעשועים', 'גני שעשועים', 'מתקני משחקים', 'משחקייה', 'גן משחקים', 'מגרש משחקים', 'שעשועים'];
 const PARK_WORDS = ['park', 'פארק', 'גן ציבורי', 'גן לאומי', 'חורשה', 'טיילת'];
@@ -205,11 +206,12 @@ async function applyOutcome(client, rc, p, ctx) {
     const note = `THE CLEANER: כפילות (${p.confidence}) של ${p.match.name} - ${p.decisive}`;
     const ok = await recordDecision(client, rc, ctx, { status: 'approved_duplicate', decision: 'approved_duplicate', note, evidence: base });
     if (!ok) return { applied: false, why: 'decided by admin meanwhile' };
-    // reusable canonical knowledge, fill-null only: the verified place id and a street address
+    // reusable canonical knowledge, fill-null only: the verified place id (allowed under the Google Places release
+    // policy - an id on an existing row) and, only while Places content may be persisted, a street address
     const { data: g } = await client.from('activities').update({ google_place_id: rc.google_place_id }).eq('id', p.match.id).is('google_place_id', null).select('id');
     if (g && g.length) gain.push('placeIdsAdded');
     const c = p.evidence.candidate;
-    if (c && c.address && /\d/.test(c.address.split(',')[0] || '')) {
+    if (GOOGLE_PLACES_CONTENT_PERSISTENCE && c && c.address && /\d/.test(c.address.split(',')[0] || '')) {
       const { data: a } = await client.from('activities').select('location_id').eq('id', p.match.id).maybeSingle();
       if (a?.location_id) { const { data: l } = await client.from('locations').update({ address: c.address.split(',')[0].trim(), address_source: 'cleaner:settlement_candidate', address_confidence: 'MEDIUM', address_resolved_at: new Date().toISOString() }).eq('id', a.location_id).is('address', null).select('id'); if (l && l.length) gain.push('streetAddressesAdded'); }
     }
@@ -220,6 +222,9 @@ async function applyOutcome(client, rc, p, ctx) {
     return { applied: ok, why: ok ? null : 'decided by admin meanwhile' };
   }
   if (p.outcome === 'NEW_VALID') {
+    // a Places candidate never becomes a new activity under the Google Places release policy: nothing is written
+    // (no incoming row, no decision) - the review case stays needs_review
+    if (!GOOGLE_PLACES_CONTENT_PERSISTENCE) return { applied: false, why: POLICY_REASON };
     // canonical path: incoming row (Places shape) -> matcher -> /approve (google_place_id + fingerprint guards)
     const c = p.evidence.candidate;
     const { street, city } = splitFormattedAddress(c.address);

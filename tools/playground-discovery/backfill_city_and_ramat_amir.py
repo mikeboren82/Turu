@@ -82,6 +82,9 @@ async def add_ramat_amir(places: GooglePlacesClient, supabase: SupabaseBotClient
 
 
 async def main() -> None:
+    # Google Places release policy (google_policy.py): both steps write Google-origin content (a city parsed from a
+    # Places formattedAddress, a Places playground) - refused before any request
+    pd.refuse_google_apply("backfill_city_and_ramat_amir.py")
     load_import_tool_env()
     supabase = SupabaseBotClient()
     updated = await backfill_city(supabase)
@@ -92,4 +95,7 @@ async def main() -> None:
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except pd.GooglePlacesPersistenceDisabled as exc:
+        pd.exit_on_policy_refusal(exc)

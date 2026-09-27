@@ -19,6 +19,7 @@ const { getClient } = require('./supabase');
 const { generatePlaygroundDisplayName, isGenericPlaygroundName } = require('./playgroundNaming');
 const { normalizeCityName } = require('./cityNaming');
 const { verifiedConditionalUpdate, isSuccess, isNoopOk, describe } = require('./lib/verifiedWrite');
+const { isGoogleOriginActivity } = require('./lib/googlePlacesPolicy');
 
 const BATCH_LIMIT = Number(process.argv.find((a) => a.startsWith('--limit='))?.split('=')[1]) || 250;
 
@@ -111,10 +112,12 @@ async function main() {
   while (true) {
     const { data, error } = await client
       .from('activities')
-      .select('id, name, category, name_source, location_id, location:locations(id, name, address, city, lat, lng)')
+      .select('id, name, category, name_source, location_id, source_url, location:locations(id, name, address, city, lat, lng)')
       .range(from, from + 999);
     if (error) throw error;
-    all = all.concat(data);
+    // Google Places release policy (lib/googlePlacesPolicy.js): a Google-origin activity's coordinates / name are Places
+    // content - an address geocoded from them would be a new Google-derived value, so those rows are never candidates
+    all = all.concat(data.filter((a) => !isGoogleOriginActivity(a)));
     if (data.length < 1000) break;
     from += 1000;
   }

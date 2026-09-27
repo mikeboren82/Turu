@@ -41,10 +41,13 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 import { classifyPlace, resolvePlaceCategory, matchAgainstExisting, extractCityFromAddress, fetchAllPaginatedResults, findSameStreetReviewMatch, checkExactPlaceIdDuplicate, nextReviewCaseState, type ExistingForMatch } from '../_shared/placesDiscovery.ts';
 import { generatePlaygroundDisplayName, isGenericPlaygroundName } from '../_shared/playgroundNaming.ts';
 import { normalizeCityName } from '../_shared/cityNaming.ts';
+import { settlementScanGate } from '../_shared/googlePlacesPolicy.ts';
 
 const PLACES_BASE_URL = 'https://places.googleapis.com/v1';
 const IDS_ONLY_FIELD_MASK = 'places.id';
-const DISCOVERY_FIELD_MASK = 'places.id,places.displayName,places.formattedAddress,places.location,places.types,places.primaryType,places.googleMapsUri';
+// googleMapsUri is no longer requested (2026-09-27, Google Places release policy): TURU stores the place_id only and a Maps
+// link is derived from it at runtime - so every `p.googleMapsUri ?? null` below is null and no Maps URI is ever persisted
+const DISCOVERY_FIELD_MASK = 'places.id,places.displayName,places.formattedAddress,places.location,places.types,places.primaryType';
 // גבולות ישראל הרחבים - זהים בדיוק ל-DEFAULT_ISRAEL_BOUNDS (tools/playground-discovery/israel_geo.py) -
 // לא שכפול-בטעות, שני runtimes (Python CLI מקומי מול Deno Edge Function) לא יכולים לחלוק קובץ אחד.
 const ISRAEL_BOUNDS = { minLat: 29.45, maxLat: 33.35, minLon: 34.20, maxLon: 35.95 };
@@ -271,7 +274,12 @@ Deno.serve(async (req: Request) => {
   const settings: Record<string, unknown> = {};
   for (const row of settingsRows || []) settings[(row as { key: string }).key] = (row as { value: unknown }).value;
 
-  if (settings.settlement_scan_enabled === false) return jsonResponse({ skipped: 'disabled' });
+  // HARD release gate (2026-09-27, _shared/googlePlacesPolicy.ts): every write below is Google Places content (locations /
+  // activities / images / incoming rows / candidates / review cases from a Places response), so while the Google Places
+  // persistence policy is OFF this function does nothing - no Places call, no write, the cursor does not move - even
+  // when the operational settlement_scan_enabled toggle is re-enabled by accident. Only a code change + deploy reopens it.
+  const gate = settlementScanGate(settings);
+  if (!gate.run) return jsonResponse({ skipped: gate.skipped });
 
   const batchSize = Number(settings.settlement_scan_batch_size ?? 40);
   const dailyProBudget = Number(settings.settlement_scan_daily_pro_budget ?? 8);

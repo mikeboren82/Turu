@@ -27,6 +27,8 @@ from urllib.parse import unquote
 
 import httpx
 
+from google_policy import assert_google_content_persistence_allowed, is_places_origin_candidate, GooglePlacesPersistenceDisabled
+
 IMPORT_TOOL_ENV_PATH = Path(__file__).resolve().parent.parent / "import-tool" / ".env"
 
 
@@ -433,13 +435,15 @@ class SupabaseBotClient:
             )
             resp.raise_for_status()
 
-    async def insert_place_photo_reference(self, *, activity_id: str, photo_url: str, google_maps_uri: str | None) -> None:
+    async def insert_place_photo_reference(self, *, activity_id: str, photo_url: str) -> None:
         """Adds an activity_images row pointing at the ToS-compliant proxy URL
         (supabase/functions/place-photo) - never a raw Google-hosted photo URL,
         see fetch_activities_needing_images docstring. image_source_type
-        'PROVIDER' + image_source_url (supabase/0047) records where this came
-        from without implying rights review is needed - Google's own listing
-        photos, not scraped from a third-party site."""
+        'PROVIDER' records where this came from without implying rights review is
+        needed - Google's own listing photos, not scraped from a third-party site.
+        image_source_url stays NULL (Google Places release policy 2026-09-27,
+        google_policy.py): it used to copy the activity's googleMapsUri; the proxy
+        URL's embedded place id is the only provenance kept."""
         async with self._http() as client:
             token = await self._ensure_session(client)
             headers = {
@@ -453,14 +457,14 @@ class SupabaseBotClient:
                     "url": photo_url,
                     "uploaded_by": self._bot_user_id,
                     "image_source_type": "PROVIDER",
-                    "image_source_url": google_maps_uri,
+                    "image_source_url": None,
                     "needs_rights_review": False,
                 },
             )
             resp.raise_for_status()
 
     async def insert_new_playground(self, *, name: str, address: str | None, lat: float, lon: float,
-                                     place_id: str, google_maps_uri: str | None, created_by: str | None = None) -> str:
+                                     place_id: str, created_by: str | None = None) -> str:
         """Creates ONE new location + activity row, mirroring the exact shape
         saveNewActivity (server.js) already writes for scraped content - same
         status='approved'/source='scraped' convention, not a new workflow.
@@ -471,7 +475,11 @@ class SupabaseBotClient:
         so a null/other value 403s (found in practice: 123/123 discovery imports failed
         silently-ish this way before this fix, same root cause as the activity_images
         uploaded_by RLS bug fixed earlier - "who is actually making this request" has
-        to be the authenticated bot, not whatever the caller happens to pass)."""
+        to be the authenticated bot, not whatever the caller happens to pass).
+
+        Google Places release policy (2026-09-27, google_policy.py): every value this writes (displayName, formattedAddress,
+        its city, Places coordinates) is Google-origin content, so it refuses before any request while the policy is OFF."""
+        assert_google_content_persistence_allowed("insert_new_playground would create a Google-origin location + activity")
         async with httpx.AsyncClient(timeout=30.0) as client:
             token = await self._ensure_session(client)
             headers = {
@@ -515,7 +523,7 @@ class SupabaseBotClient:
                     "booking_requirement": "none",
                     "status": "approved",
                     "source": "scraped",
-                    "source_url": google_maps_uri,
+                    "source_url": None,  # never the googleMapsUri - a Maps link is derived from the place id at runtime
                     "google_place_id": place_id,
                     "created_by": self._bot_user_id,
                     # שם מגיע ישירות מ-Google Places (displayName) - שם אמיתי, לא fallback
@@ -544,7 +552,12 @@ class SupabaseBotClient:
         deliberately does NOT auto-approve.
         source_id/scan_log_id are left null (this candidate came from Google Places, not a
         registered `sources` row) - the column is nullable (on delete set null) precisely
-        for provenance outside that system."""
+        for provenance outside that system.
+
+        Google Places release policy (2026-09-27, google_policy.py): a Places-origin candidate (every current caller) is
+        refused before any request - its extracted_data / page_url are Places content."""
+        if is_places_origin_candidate(extracted_data, page_url or "https://www.google.com/maps"):
+            raise GooglePlacesPersistenceDisabled("insert_incoming_activity would store a Google Places candidate")
         async with httpx.AsyncClient(timeout=30.0) as client:
             token = await self._ensure_session(client)
             headers = {

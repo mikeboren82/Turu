@@ -28,6 +28,7 @@
 //                so the loser's uploader cannot be carried over; the original row (on the archived loser) keeps it
 //   created_at   the copy's own creation instant (column default)
 
+const { isGoogleMapsUrl, isRawGooglePlacesPhotoUrl } = require('./googlePlacesPolicy');
 const PLACE_PHOTO_PROXY_RE = /\/functions\/v1\/place-photo\/([^/?#]+)/;
 
 const COPY_COLUMNS = ['url', 'status', 'image_source_type', 'image_source_url', 'needs_rights_review', 'image_kind', 'image_page_url', 'retrieved_at'];
@@ -48,8 +49,11 @@ function proxyPlaceId(url) {
   try { return decodeURIComponent(m[1]); } catch { return m[1]; }
 }
 
+// Google Places release policy (lib/googlePlacesPolicy.js): a row whose provenance is Google (a Maps image_source_url,
+// a raw Places photo url) is provider content too - never copied, so a merge never creates a new Google-origin row
 function isProviderImage(img) {
-  return !!img && (img.image_source_type === 'PROVIDER' || isPlacePhotoProxyUrl(img.url));
+  return !!img && (img.image_source_type === 'PROVIDER' || isPlacePhotoProxyUrl(img.url)
+    || isGoogleMapsUrl(img.image_source_url) || isGoogleMapsUrl(img.url) || isRawGooglePlacesPhotoUrl(img.url));
 }
 
 function classifyImage(img) {

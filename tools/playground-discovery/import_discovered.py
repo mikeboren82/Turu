@@ -11,7 +11,7 @@ loads the checkpoint as-is and imports exactly what's already there - zero API c
 
 Usage:
     py import_discovered.py --dry-run   (report only, no Supabase writes)
-    py import_discovered.py             (writes new playgrounds to Supabase)
+    py import_discovered.py             (REFUSED - Google Places release policy 2026-09-27, google_policy.py)
 """
 import argparse
 import asyncio
@@ -32,6 +32,8 @@ def parse_args() -> argparse.Namespace:
 
 async def main() -> None:
     args = parse_args()
+    if not args.dry_run:
+        pd.refuse_google_apply("import_discovered.py")  # Google Places release policy
     state = pd.load_checkpoint()
     places_by_id = {
         pid: matching.DiscoveredPlace(
@@ -62,4 +64,7 @@ async def main() -> None:
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except pd.GooglePlacesPersistenceDisabled as exc:
+        pd.exit_on_policy_refusal(exc)

@@ -15,6 +15,7 @@ const { isLearnableLabel, createVenueWithAlias, inferVenueType } = require('../v
 const { resolveLocation, coordsForVenue, cityAgrees } = require('./locationResolver');
 const { haversineKm } = require('./matching');
 const { all } = require('./discover');
+const { cleanerPolicyHold } = require('../lib/googlePlacesPolicy');
 
 const CLUSTER_ISSUES = ['missing_location', 'incomplete_address', 'missing_venue', 'unverified_location', 'missing_coordinates'];
 const MEDIUM_INDEPENDENT_MIN = 3;
@@ -28,7 +29,7 @@ async function loadMembers(client) {
   const actIds = cases.filter((c) => c.subject_kind === 'activity').map((c) => c.subject_id);
   const inc = new Map(); const act = new Map();
   for (let i = 0; i < incIds.length; i += 150) {
-    const { data } = await client.from('incoming_activities').select('id, page_url, source_id, name:extracted_data->>name, location_name:extracted_data->>location_name, city:extracted_data->>city, organizer_name:extracted_data->>organizer_name').in('id', incIds.slice(i, i + 150));
+    const { data } = await client.from('incoming_activities').select('id, page_url, source_id, name:extracted_data->>name, location_name:extracted_data->>location_name, city:extracted_data->>city, organizer_name:extracted_data->>organizer_name, formatted_address:extracted_data->>formatted_address, lon:extracted_data->>lon, place_kind:extracted_data->>place_kind').in('id', incIds.slice(i, i + 150));
     for (const r of data || []) inc.set(r.id, r);
   }
   for (let i = 0; i < actIds.length; i += 150) {
@@ -37,8 +38,10 @@ async function loadMembers(client) {
   }
   const members = [];
   for (const c of cases) {
-    if (c.subject_kind === 'incoming') { const r = inc.get(c.subject_id); if (!r) continue; members.push({ case: c, subject: { kind: 'incoming', name: r.name, location_name: r.location_name, city: r.city, organizer_name: r.organizer_name, page_url: r.page_url, source_id: r.source_id, venue_id: null } }); }
-    else { const r = act.get(c.subject_id); if (!r) continue; members.push({ case: c, subject: { kind: 'activity', name: r.name, location_name: r.locations?.name || null, city: r.locations?.city || null, organizer_name: r.organizer_name, page_url: r.source_url, source_id: r.source_id, venue_id: r.venue_id || null, lat: r.locations?.lat ?? null, lng: r.locations?.lng ?? null, address: r.locations?.address || null } }); }
+    // Google Places release policy: Places-derived subjects are never venue evidence (their label is Places content) -
+    // processCase holds those cases itself (lib/googlePlacesPolicy.js cleanerPolicyHold)
+    if (c.subject_kind === 'incoming') { const r = inc.get(c.subject_id); if (!r) continue; const ed = Object.fromEntries(['formatted_address', 'lon', 'place_kind'].filter((k) => r[k] != null).map((k) => [k, r[k]])); if (cleanerPolicyHold({ subjectKind: 'incoming', incoming: { extracted_data: ed, page_url: r.page_url } })) continue; members.push({ case: c, subject: { kind: 'incoming', name: r.name, location_name: r.location_name, city: r.city, organizer_name: r.organizer_name, page_url: r.page_url, source_id: r.source_id, venue_id: null } }); }
+    else { const r = act.get(c.subject_id); if (!r) continue; if (cleanerPolicyHold({ subjectKind: 'activity', activity: r })) continue; members.push({ case: c, subject: { kind: 'activity', name: r.name, location_name: r.locations?.name || null, city: r.locations?.city || null, organizer_name: r.organizer_name, page_url: r.source_url, source_id: r.source_id, venue_id: r.venue_id || null, lat: r.locations?.lat ?? null, lng: r.locations?.lng ?? null, address: r.locations?.address || null } }); }
   }
   return members;
 }
