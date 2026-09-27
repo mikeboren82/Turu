@@ -5,7 +5,8 @@
 //   REVIEW  same spot, different names                      -> listed only (another tenant of one site)
 // Merge (reversible, never deletes): keeper = the richer record (images, venue link, provenance, source,
 // age); the loser is archived 'duplicate_of_existing_activity'; its provenance rows are copied onto the keeper
-// as 'seen', its images are copied when the keeper has none, the keeper's NULL fields are filled from it
+// as 'seen', its approved non-provider images are copied when the keeper has none (lib/mergeImages.js: status and
+// provenance exactly as on the loser - never forced to approved; a place-photo proxy is never copied), the keeper's NULL fields are filled from it
 // (description / ages / price / official_url / venue) - never overwritten; open Cleaner cases of the loser
 // are closed. Dry run by default:   node audit-place-duplicates.js [--apply]
 require('dotenv').config();
@@ -17,13 +18,14 @@ const { samePlace } = require('./lib/placeIdentity');
 const { archiveActivity, isArchived, describe } = require('./lib/activityArchive');
 const { verifiedConditionalUpdate, isSuccess, describe: describeWrite } = require('./lib/verifiedWrite');
 const { mergeActivitySources, upsertProvenanceSafe } = require('./lib/activitySourceMerge');
+const { copyLoserImages, IMAGE_COPY_SELECT } = require('./lib/mergeImages');
 
 const APPLY = process.argv.includes('--apply');
 const richness = (a) => (a.activity_images || []).length * 3 + (a.venue_id ? 3 : 0) + (a.source_id ? 2 : 0) + (a.activity_sources || []).length + (a.description ? 1 : 0) + (a.official_url ? 1 : 0);
 
 (async () => {
   const { client, userId } = await getClient();
-  const acts = await all(client, 'activities', 'id, name, category, description, min_age, max_age, price_type, price_amount, official_url, venue_id, source_id, source_url, created_at, locations!inner(city, lat, lng, address), activity_schedules(schedule_type, day_of_week, start_time), activity_images(id, url, image_source_url, image_source_type, needs_rights_review, image_kind, image_page_url), activity_sources(source_id, page_url, url_role)', (q) => q.eq('status', 'approved').neq('category', 'גן שעשועים').not('locations.lat', 'is', null));
+  const acts = await all(client, 'activities', `id, name, category, description, min_age, max_age, price_type, price_amount, official_url, venue_id, source_id, source_url, created_at, locations!inner(city, lat, lng, address), activity_schedules(schedule_type, day_of_week, start_time), activity_images(${IMAGE_COPY_SELECT}), activity_sources(source_id, page_url, url_role)`, (q) => q.eq('status', 'approved').neq('category', 'גן שעשועים').not('locations.lat', 'is', null));
   const flat = acts.map((a) => ({ ...a, city: a.locations.city, lat: a.locations.lat, lng: a.locations.lng }));
   // grid buckets (~110 m) so the pair search is not quadratic
   const grid = new Map(); const cell = (v) => Math.floor(Number(v) / 0.001);
@@ -51,7 +53,12 @@ const richness = (a) => (a.activity_images || []).length * 3 + (a.venue_id ? 3 :
     // (2026-09-22, "Harden activity_sources Merge" - see lib/activitySourceMerge.js for the rules)
     await mergeActivitySources(client, { keeperActivityId: keeper.id, loserActivityId: loser.id });
     if (loser.source_url) await upsertProvenanceSafe(client, keeper.id, { sourceId: loser.source_id || null, pageUrl: loser.source_url, relation: 'seen', lastSeenAt: now });
-    if (!(keeper.activity_images || []).length) for (const i of loser.activity_images || []) await client.from('activity_images').insert({ activity_id: keeper.id, url: i.url, uploaded_by: userId || null, status: 'approved', image_source_url: i.image_source_url, image_source_type: i.image_source_type, needs_rights_review: i.needs_rights_review, image_kind: i.image_kind, image_page_url: i.image_page_url });
+    if (!(keeper.activity_images || []).length) {
+      // 2026-09-27: no longer inserts status 'approved' for every loser image (that promoted rejected/pending rows)
+      const img = await copyLoserImages(client, { loserImages: loser.activity_images, keeperImages: keeper.activity_images, keeperId: keeper.id, uploadedBy: userId || null });
+      if (img.error) console.log(`  image copy failed for keeper ${keeper.id}: ${img.error.message}`);
+      Object.assign(plan[plan.length - 1], { images_copied: img.inserted, images_skipped: img.skipped });
+    }
     // אימות-כתיבה (2026-09-21): שני מילויי ה-NULL-בלבד האלה כבר שמרו על התנאי (.is(col, null)) אבל
     // לא בדקו שורות-מושפעות - 0 שורות שקטות (RLS/מירוץ) היו עוברות בלי עקבות.
     for (const col of ['description', 'min_age', 'max_age', 'official_url', 'venue_id']) {

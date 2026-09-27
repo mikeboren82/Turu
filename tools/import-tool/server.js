@@ -42,6 +42,7 @@ const { canonicalRegion, regionForWrite } = require('./lib/regions');
 // best-effort future duplicate-candidate detection (2026-09-21 activation) - see the module header
 // for why this can never fail the ingestion it runs after.
 const { detectFutureDuplicates, isMaterialIdentityChange } = require('./lib/futureDuplicateDetection');
+const { planRequestedMergeImages, IMAGE_COPY_SELECT } = require('./lib/mergeImages');
 
 // Supabase/PostgREST מגביל תגובת select ל-1000 שורות כברירת מחדל בשקט (בלי שגיאה!) - באג
 // שנתקלנו בו שוב ושוב במקומות נפרדים בקובץ הזה (activities/contributors/duplicates/geocode-
@@ -1314,19 +1315,27 @@ async function applyMergedFields(client, userId, { existingActivityId, mergedFie
     if (updErr) throw updErr;
   }
 
+  // תמונות (2026-09-27, lib/mergeImages.js): imageUrlsToAdd מגיע מהלקוח, שקיבל אותו מה-LLM (suggest-merge) - לא סומכים
+  // עליו. כתובת place-photo proxy נדחית תמיד; כשיש loser (deleteActivityId) כל כתובת חייבת להיות שורת activity_images
+  // אמיתית של ה-loser, ורק שורה approved שאינה PROVIDER מועתקת - עם הסטטוס והפרובננס שלה בדיוק.
+  let imagesRefused = [];
   if (Array.isArray(imageUrlsToAdd) && imageUrlsToAdd.length > 0) {
     const { data: existingImages, error: imgSelErr } = await client
       .from('activity_images')
       .select('url')
       .eq('activity_id', existingActivityId);
     if (imgSelErr) throw imgSelErr;
-    const existingUrls = new Set((existingImages || []).map((i) => i.url));
-    const rows = imageUrlsToAdd
-      .filter((u) => typeof u === 'string' && u.trim() && !existingUrls.has(u))
-      .slice(0, 3)
-      .map((u) => ({ activity_id: existingActivityId, url: u, uploaded_by: userId }));
-    if (rows.length) {
-      const { error: imgInsErr } = await client.from('activity_images').insert(rows);
+    let loserImages = null;
+    if (deleteActivityId) {
+      const { data, error: loserSelErr } = await client.from('activity_images').select(IMAGE_COPY_SELECT).eq('activity_id', deleteActivityId);
+      if (loserSelErr) throw loserSelErr;
+      loserImages = data || [];
+    }
+    const plan = planRequestedMergeImages({ requestedUrls: imageUrlsToAdd, loserImages, keeperImages: existingImages, keeperId: existingActivityId, uploadedBy: userId, max: 3 });
+    imagesRefused = plan.refused;
+    if (plan.refused.length) console.log(`merge ${existingActivityId}: image urls refused`, JSON.stringify(plan.refused));
+    if (plan.rows.length) {
+      const { error: imgInsErr } = await client.from('activity_images').insert(plan.rows);
       if (imgInsErr) throw imgInsErr;
     }
   }
@@ -1339,6 +1348,7 @@ async function applyMergedFields(client, userId, { existingActivityId, mergedFie
     const { error: delErr } = await client.from('activities').delete().eq('id', deleteActivityId);
     if (delErr) throw delErr;
   }
+  return { imagesRefused };
 }
 
 app.post('/api/merge', async (req, res) => {
@@ -1348,8 +1358,8 @@ app.post('/api/merge', async (req, res) => {
   }
   try {
     const { client, userId } = await getClient();
-    await applyMergedFields(client, userId, { existingActivityId, mergedFields, imageUrlsToAdd, deleteActivityId });
-    res.json({ ok: true });
+    const { imagesRefused } = await applyMergedFields(client, userId, { existingActivityId, mergedFields, imageUrlsToAdd, deleteActivityId });
+    res.json({ ok: true, imagesRefused });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message || 'שגיאה בשילוב' });
@@ -3635,4 +3645,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { app, publishIncoming, classifyPublishError, plannedLocationWrite, PUBLISH_OUTCOME, CLAIM_STALE_MS };
+module.exports = { app, publishIncoming, classifyPublishError, plannedLocationWrite, PUBLISH_OUTCOME, CLAIM_STALE_MS, applyMergedFields };

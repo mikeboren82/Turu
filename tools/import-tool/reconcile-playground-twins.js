@@ -7,8 +7,9 @@
 //   SAME_PLACE_HIGH | SAME_PLACE_MEDIUM_NEEDS_MORE_EVIDENCE | DISTINCT_PLACES | INSUFFICIENT_EVIDENCE
 // Only SAME_PLACE_HIGH merges (--apply): keeper = the Google row (place id, street address, photo);
 // the OSM row is ARCHIVED (archive_reason duplicate_of_existing_activity, never deleted), its
-// provenance rows are copied onto the keeper (relation 'seen'), images copied when the keeper lacks
-// them, its incoming/settlement history re-pointed in the review case's resolution jsonb, and the
+// provenance rows are copied onto the keeper (relation 'seen'), its approved NON-provider images copied when
+// the keeper lacks them (lib/mergeImages.js - a place-photo proxy names the LOSER's place and is never copied; the
+// keeper gets its own proxy from places_photos), its incoming/settlement history re-pointed in the review case's resolution jsonb, and the
 // keeper's null fields (region, address) filled from the loser. No dangling references: the loser
 // keeps its own location row and schedules; only its status changes.
 //   node reconcile-playground-twins.js            dry run (report)
@@ -23,6 +24,7 @@ const { parseAddress, nameSim, existingStreet } = require('./cleaner/settlementR
 const { normalizeCityName } = require('./cityNaming');
 const { archiveActivity, isArchived, describe } = require('./lib/activityArchive');
 const { mergeActivitySources } = require('./lib/activitySourceMerge');
+const { copyLoserImages, IMAGE_COPY_SELECT } = require('./lib/mergeImages');
 
 const APPLY = process.argv.includes('--apply');
 const LEISURE = new Set(['playground', 'park', 'garden', 'recreation_ground']);
@@ -68,23 +70,23 @@ async function mergePair(client, userId, rc, osmRow, googleRow, verdict) {
   // (2026-09-22, "Harden activity_sources Merge" - see lib/activitySourceMerge.js for the rules)
   const { counts: provCounts } = await mergeActivitySources(client, { keeperActivityId: googleRow.id, loserActivityId: osmRow.id });
   const provMoved = provCounts.ADDED + provCounts.PRESERVED_EXISTING;
-  const keeperUrls = new Set((googleRow.activity_images || []).map((i) => i.url));
-  const imgs = (osmRow.activity_images || []).filter((i) => !keeperUrls.has(i.url)).slice(0, 3).map((i) => ({ activity_id: googleRow.id, url: i.url, uploaded_by: userId, image_source_type: i.image_source_type || null, image_kind: i.image_kind || null }));
-  if (imgs.length) await client.from('activity_images').insert(imgs);
+  // 2026-09-27: provider/proxy, rejected and pending loser images are never copied; approved ones keep their provenance
+  const img = await copyLoserImages(client, { loserImages: osmRow.activity_images, keeperImages: googleRow.activity_images, keeperId: googleRow.id, uploadedBy: userId, max: 3 });
+  if (img.error) console.log(`  image copy failed for keeper ${googleRow.id}: ${img.error.message}`);
   const fills = {};
   if (!googleRow.locations.region && osmRow.locations.region) fills.region = osmRow.locations.region;
   if (!googleRow.locations.address && osmRow.locations.address) Object.assign(fills, { address: osmRow.locations.address, address_source: 'cleaner:twin_merge', address_confidence: 'MEDIUM', address_resolved_at: now });
   if (Object.keys(fills).length) await client.from('locations').update(fills).eq('id', googleRow.location_id);
   const arch = await archiveActivity(client, { activityId: osmRow.id, expectedStatus: 'approved', archiveReason: 'duplicate_of_existing_activity', keeperActivityId: googleRow.id });
   if (!isArchived(arch)) return { merged: false, why: describe(arch) };
-  await client.from('settlement_scan_review_cases').update({ resolution: { ...(rc.resolution || {}), twin: { outcome: verdict.outcome, decisive: verdict.decisive, signals: verdict.signals, keeper: googleRow.id, archived: osmRow.id, provenance_rows_copied: provMoved, images_copied: imgs.length, fills: Object.keys(fills), at: now, rule: 'reconcile-playground-twins v1' } }, updated_at: now }).eq('id', rc.id);
-  return { merged: true, provMoved, imgs: imgs.length, fills: Object.keys(fills) };
+  await client.from('settlement_scan_review_cases').update({ resolution: { ...(rc.resolution || {}), twin: { outcome: verdict.outcome, decisive: verdict.decisive, signals: verdict.signals, keeper: googleRow.id, archived: osmRow.id, provenance_rows_copied: provMoved, images_copied: img.inserted, images_skipped: img.skipped, fills: Object.keys(fills), at: now, rule: 'reconcile-playground-twins v1' } }, updated_at: now }).eq('id', rc.id);
+  return { merged: true, provMoved, imgs: img.inserted, imagesSkipped: img.skipped, fills: Object.keys(fills) };
 }
 
 (async () => {
   const { client, userId } = await getClient();
   const { data: cases } = await client.from('settlement_scan_review_cases').select('id, google_place_id, existing_activity_id, candidate_name, resolution').eq('status', 'approved_duplicate').eq('resolved_by', 'cleaner').not('existing_activity_id', 'is', null);
-  const sel = 'id, name, status, category, google_place_id, location_id, name_source, locations(id, name, address, city, region, lat, lng, address_source), activity_images(url, image_source_type, image_kind), activity_sources(page_url, relation)';
+  const sel = `id, name, status, category, google_place_id, location_id, name_source, locations(id, name, address, city, region, lat, lng, address_source), activity_images(${IMAGE_COPY_SELECT}), activity_sources(page_url, relation)`;
   const results = []; const tally = {}; let merged = 0;
   for (const rc of cases || []) {
     if (rc.resolution && rc.resolution.twin) { tally.already_reconciled = (tally.already_reconciled || 0) + 1; continue; }

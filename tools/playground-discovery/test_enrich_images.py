@@ -17,21 +17,23 @@ import httpx
 
 import enrich_images as ei
 from google_places import CallBudget, GooglePlacesClient
-from supabase_client import SupabaseBotClient, is_trusted_image
+from supabase_client import SupabaseBotClient, image_state, is_trusted_image
 
-# the exact PostgREST trust predicate the client must send (restated here, not imported: the fake is an oracle)
-TRUST_OR = ('(url.like."*/functions/v1/place-photo/_*",'
-            'and(status.eq.approved,image_source_type.eq.ORIGINAL_SOURCE,needs_rights_review.not.is.true))')
+# the exact PostgREST trust predicate the client must send (restated here, not imported: the fake is an oracle).
+# 2026-09-27: server side it is rule B only - PostgREST cannot compare a proxy URL's embedded place id with the parent
+# row's google_place_id, so the same-place proxy rule (A) is the job's own client-side check.
+TRUST_OR = ('(and(status.eq.approved,image_source_type.eq.ORIGINAL_SOURCE,needs_rights_review.not.is.true,'
+            'url.not.like."*/functions/v1/place-photo/_*"))')
 PROXY_MARK = "/functions/v1/place-photo/"
 
 
 def fake_trusted(img: dict) -> bool:
-    """SQL semantics of TRUST_OR: url LIKE '%/functions/v1/place-photo/_%' OR (approved AND ORIGINAL_SOURCE AND
-    needs_rights_review IS NOT TRUE)."""
+    """SQL semantics of TRUST_OR: approved AND ORIGINAL_SOURCE AND needs_rights_review IS NOT TRUE AND url NOT LIKE
+    '%/functions/v1/place-photo/_%'."""
     url = img.get("url") or ""
     k = url.find(PROXY_MARK)
     if k >= 0 and len(url) > k + len(PROXY_MARK):
-        return True
+        return False
     return (img.get("status") == "approved" and img.get("image_source_type") == "ORIGINAL_SOURCE"
             and img.get("needs_rights_review") is not True)
 
@@ -607,7 +609,7 @@ class TrustworthyImageTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(s["candidates"], 1 if expected else 0, image)
         img = {"url": image.get("url", "https://x/y.jpg"), "status": image.get("status", "approved"),
                "image_source_type": image.get("source_type"), "needs_rights_review": image.get("rights", False)}
-        self.assertEqual(is_trusted_image(img), not expected, "client predicate == server predicate")
+        self.assertEqual(is_trusted_image(img, a["google_place_id"]), not expected, "job predicate == cohort outcome")
 
     async def test_A_pending_external_image_only_is_a_candidate(self):
         await self.assertCandidate(True, status="pending", source_type="EXTERNAL_SOURCE", rights=True)
@@ -727,11 +729,22 @@ class TrustworthyImageTests(unittest.IsolatedAsyncioTestCase):
         for n in range(1, 131):
             a = db.add(n, created=NOW - timedelta(days=200) + timedelta(hours=n))
             if n <= 105:
-                db.add_image(a, url=f"{PROXY}/PLACE{n}", source_type="PROVIDER")
+                db.add_image(a, source_type="ORIGINAL_SOURCE", rights=False)
         code, s = await run(db, gp, "--apply", "--limit=50")
         self.assertEqual(sorted(gp.calls), sorted(f"PLACE{n}" for n in range(106, 131)),
-                         "no proxy-bearing row processed; a full first page of rejects did not end the walk")
-        self.assertEqual(s["server_mismatch"], 105)
+                         "no trusted row processed; a full first page of rejects did not end the walk")
+        self.assertEqual((s["server_mismatch"], s["same_place_proxy"]), (105, 0))
+
+    async def test_same_place_proxies_are_dropped_by_the_job_and_paging_continues(self):
+        # the server cannot drop them (URL vs parent place id), so they arrive; a full page of them never ends the walk
+        db, gp = FakeSupabase(), FakePlaces()
+        for n in range(1, 131):
+            a = db.add(n, created=NOW - timedelta(days=200) + timedelta(hours=n))
+            if n <= 105:
+                db.add_image(a, url=f"{PROXY}/PLACE{n}", source_type="PROVIDER")
+        code, s = await run(db, gp, "--apply", "--limit=50")
+        self.assertEqual(sorted(gp.calls), sorted(f"PLACE{n}" for n in range(106, 131)))
+        self.assertEqual((s["server_mismatch"], s["same_place_proxy"]), (0, 105), "an expected drop, not a mismatch")
 
     async def test_list_only_reports_each_candidates_existing_images(self):
         db = FakeSupabase()
@@ -743,6 +756,107 @@ class TrustworthyImageTests(unittest.IsolatedAsyncioTestCase):
         out = buf.getvalue()
         self.assertIn("images=[pending/EXTERNAL_SOURCE/rr=true]", out)
         self.assertIn("images=none", out)
+
+
+class ProxyIdentityTests(unittest.IsolatedAsyncioTestCase):
+    """2026-09-27: a proxy is trustworthy only for the place it embeds. URL identity is authoritative - a proxy copied
+    from another activity (production ee34196d: keeper גן בולטימור אשקלון holding HaShayetet Playground's proxy) or a
+    PROVIDER label on a wrong-id URL never blocks the job, whatever its status; a same-place proxy blocks at any status."""
+
+    async def candidates(self, db):
+        code, s = await run(db, FakePlaces(), "--list-only")
+        self.assertEqual((code, s["api_attempts"], db.writes), (0, 0, []))
+        return s["candidates"]
+
+    async def one(self, **image):
+        db = FakeSupabase()
+        a = db.add(1)  # google_place_id PLACE1
+        db.add_image(a, **image)
+        return await self.candidates(db), is_trusted_image(
+            {"url": image.get("url"), "status": image.get("status", "approved"), "image_source_type": image.get("source_type"),
+             "needs_rights_review": image.get("rights", False)}, "PLACE1")
+
+    async def test_A_correct_id_proxy_is_trusted_not_a_candidate(self):
+        self.assertEqual(await self.one(url=f"{PROXY}/PLACE1", source_type="PROVIDER"), (0, True))
+        self.assertEqual(await self.one(url=f"{PROXY}/PLACE1?maxwidth=1200", source_type="PROVIDER"), (0, True))
+
+    async def test_B_wrong_id_proxy_is_untrusted_a_candidate(self):
+        self.assertEqual(await self.one(url=f"{PROXY}/PLACE999"), (1, False))
+
+    async def test_C_wrong_id_provider_row_is_a_candidate(self):
+        self.assertEqual(await self.one(url=f"{PROXY}/PLACE999", source_type="PROVIDER"), (1, False))
+        # URL identity beats any label - even ORIGINAL_SOURCE on a wrong-id proxy URL
+        self.assertEqual(await self.one(url=f"{PROXY}/PLACE999", source_type="ORIGINAL_SOURCE"), (1, False))
+
+    async def test_D_proxy_shaped_null_source_type_with_correct_id_is_trusted(self):
+        self.assertEqual(await self.one(url=f"{PROXY}/PLACE1", source_type=None), (0, True))
+        self.assertEqual(await self.one(url="https://other-host.test/functions/v1/place-photo/PLACE1"), (0, True))
+
+    async def test_E_rejected_correct_id_proxy_still_blocks(self):
+        self.assertEqual(await self.one(url=f"{PROXY}/PLACE1", source_type="PROVIDER", status="rejected"), (0, True))
+        self.assertEqual(await self.one(url=f"{PROXY}/PLACE1", source_type="PROVIDER", status="pending"), (0, True))
+
+    async def test_F_rejected_wrong_id_proxy_does_not_block(self):
+        for status in ("rejected", "pending", "approved"):
+            self.assertEqual(await self.one(url=f"{PROXY}/PLACE999", source_type="PROVIDER", status=status), (1, False), status)
+
+    async def test_no_place_id_means_no_proxy_is_trusted(self):
+        self.assertFalse(is_trusted_image({"url": f"{PROXY}/PLACE1", "status": "approved"}, None))
+
+    def test_G_race_state_uses_the_identical_rule(self):
+        row = lambda url: {"id": uid(1), "status": "approved", "google_place_id": "PLACE1",
+                           "activity_images": [{"url": url, "status": "rejected", "image_source_type": "PROVIDER"}]}
+        self.assertTrue(image_state(row(f"{PROXY}/PLACE1"))["has_trusted_image"])
+        self.assertFalse(image_state(row(f"{PROXY}/PLACE999"))["has_trusted_image"])
+
+    async def test_G_race_wrong_id_proxy_appearing_is_not_a_race_correct_id_is(self):
+        db, gp = FakeSupabase(), FakePlaces()
+        a = db.add(1)
+        gp.on_call = lambda place: db.add_image(a, id="raced-wrong", url=f"{PROXY}/PLACE999", source_type="PROVIDER")
+        code, s = await run(db, gp, "--apply")
+        self.assertEqual((s["raced"], s["added"]), (0, 1), "the current activity's correct proxy is still inserted")
+        self.assertEqual(sorted(i["url"] for i in proxies(db, a["id"])), [f"{PROXY}/PLACE1", f"{PROXY}/PLACE999"])
+
+        db, gp = FakeSupabase(), FakePlaces()
+        a = db.add(1); db.add_image(a, url=f"{PROXY}/PLACE999", source_type="PROVIDER")  # the Baltimore shape
+        gp.on_call = lambda place: db.add_image(a, id="raced-right", url=f"{PROXY}/PLACE1", source_type="PROVIDER", status="rejected")
+        code, s = await run(db, gp, "--apply")
+        self.assertEqual((s["raced"], s["added"]), (1, 0), "a correct-id proxy (any status) appearing is a race")
+        self.assertEqual([w for w in db.writes if w[1] == "activity_images"], [])
+
+    async def test_H_wrong_id_keeper_gets_its_proxy_once_and_the_wrong_row_is_never_touched(self):
+        db, gp = FakeSupabase(), FakePlaces()
+        a = db.add(1)
+        wrong = db.add_image(a, id="ee34196d", url=f"{PROXY}/PLACE999", source_type="PROVIDER", image_source_url=None)
+        before = json.loads(json.dumps(wrong))
+        code, s = await run(db, gp, "--apply")
+        self.assertEqual((code, s["added"], gp.calls), (0, 1, ["PLACE1"]))
+        new = [i for i in db.images_of(a["id"]) if i["id"] != "ee34196d"]
+        self.assertEqual([(i["url"], i["image_source_type"]) for i in new], [(f"{PROXY}/PLACE1", "PROVIDER")])
+        self.assertEqual(next(i for i in db.images if i["id"] == "ee34196d"), before, "wrong row not modified/deleted")
+        gp.calls.clear(); n = len(db.images)
+        for later in (timedelta(hours=1), timedelta(days=40)):
+            code, s = await run(db, gp, "--apply", now=NOW + later)
+            self.assertEqual((s["candidates"], s["added"], len(db.images) - n, gp.calls, s["same_place_proxy"]),
+                             (0, 0, 0, [], 1), later)
+
+    async def test_prune_keeps_the_ledger_entry_of_a_wrong_id_proxy_activity(self):
+        db, gp = FakeSupabase(), FakePlaces()
+        a = db.add(1); db.add_image(a, url=f"{PROXY}/PLACE999", source_type="PROVIDER")
+        db.settings[ei.LEDGER_KEY] = {"version": 1, "entries": {a["id"]: {
+            "place_id": "PLACE1", "status": "no_photo", "attempt_count": 1, "last_checked_at": ts(NOW),
+            "next_check_at": ts(NOW + timedelta(days=10))}}}
+        db.add(2)
+        await run(db, gp, "--apply")
+        self.assertIn(a["id"], ledger(db), "a wrong-id proxy is not trustworthy - the backoff survives")
+
+    async def test_list_only_marks_a_wrong_place_proxy(self):
+        db = FakeSupabase()
+        a = db.add(1); db.add_image(a, url=f"{PROXY}/PLACE999", source_type="PROVIDER")
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            self.assertEqual(await self.candidates(db), 1)
+        self.assertIn("images=[approved/PROVIDER/rr=false/proxy_other_place]", buf.getvalue())
 
 
 class CliTests(unittest.TestCase):

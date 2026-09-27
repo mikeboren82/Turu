@@ -14,15 +14,19 @@ Only ever INSERTs new activity_images rows - never touches an existing one.
 Places image automation (2026-09-26): this is also the Monster job `places_photos`
 (tools/import-tool/lib/monsterJobs.js - hourly, before the Cleaner, gated by
 automation_settings.places_photos_enabled). Every run, scheduled or by hand:
-  - selects SERVER-SIDE: status approved, google_place_id set, no TRUSTWORTHY image (a place-photo proxy row of
-    any status, or an approved ORIGINAL_SOURCE image not under rights review - pending / rejected / external /
-    unknown / null-provenance images never block one proxy and are never touched), created more than 10 minutes ago (the scan-settlement-gaps inline insert wins), oldest first
-    (created_at, id); --limit is applied to that ordered cohort, never to an unordered list
+  - selects: status approved, google_place_id set, no TRUSTWORTHY image (a place-photo proxy row of any status whose
+    embedded place id IS the activity's current google_place_id, or an approved ORIGINAL_SOURCE image not under rights
+    review - pending / rejected / external / unknown / null-provenance images and proxies embedding ANOTHER place id
+    never block one proxy and are never touched), created more than 10 minutes ago (the scan-settlement-gaps inline
+    insert wins), oldest first (created_at, id); --limit is applied to that ordered cohort, never to an unordered list.
+    Server-side for everything but the same-place proxy check, which PostgREST cannot express (supabase_client
+    TRUSTED_IMAGE_OR) - the job drops those rows itself (summary same_place_proxy)
   - skips a place the ledger says is not due: automation_settings.places_photo_checks holds only
     non-success outcomes per activity (no_photo -> 30 days, invalid 400/404 -> 90 days, error ->
     6h * 2^(n-1) capped at 7 days, parked 30 days after 6 failures); an entry recorded for a different
     google_place_id is ignored; a success removes the entry (activity_images is the source of truth)
-  - re-checks the activity right before inserting (raced: a trustworthy image appeared, or it is no longer approved)
+  - re-checks the activity right before inserting (raced: a trustworthy image appeared - same identity rule, so a
+    wrong-place proxy appearing is not a race - or it is no longer approved, or its place id changed)
   - stops on 401/403 (exit 2, configuration - nothing recorded per row) and on persistent 429 (exit 3,
     circuit breaker - the remaining rows stay untouched); counts every Places attempt against
     --daily-max-calls (UTC day, stored in the same ledger)
@@ -50,7 +54,7 @@ from google_places import (
     CallBudget, GooglePlacesClient, PlacesApiError, PlacesAuthError, PlacesCallBudgetExhausted,
     PlacesInvalidPlace, PlacesRateLimited,
 )
-from supabase_client import SupabaseBotClient, is_place_photo_proxy, load_import_tool_env
+from supabase_client import SupabaseBotClient, load_import_tool_env, proxy_place_id
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger("enrich_images")
@@ -190,16 +194,20 @@ async def select_cohort(store, ledger: dict, *, now: datetime, limit: int, activ
     """Walk the server-ordered cohort (keyset pages) and take the first `limit` rows the ledger lets through.
     want_total keeps walking to count the whole eligible cohort (list-only report)."""
     created_before = iso(now - GRACE)
-    due, not_due, rejected, total = [], [], [], 0
+    due, not_due, rejected, total, satisfied = [], [], [], 0, 0
     after = None
     for _ in range(MAX_PAGES):
         page = await store.fetch_places_photo_candidates_page(
             created_before=created_before, created_after=created_after, activity_ids=activity_ids,
             after=after, limit=PAGE_SIZE)
         for row in page:
-            # belt and braces: the server already filtered; never use a row that says otherwise (paging stays on
-            # the raw page, so a dropped row never ends the walk early)
+            # the job's own filter: a proxy for THIS place (rule A - the server cannot compare the URL with the row's
+            # place id) is an expected drop; anything else here means the server ignored a filter (belt and braces).
+            # Paging stays on the raw page, so a dropped row never ends the walk early.
             why = SupabaseBotClient.candidate_rejection(row)
+            if why == SupabaseBotClient.SAME_PLACE_PROXY:
+                satisfied += 1
+                continue
             if why:
                 rejected.append((row, why))
                 logger.warning("server returned a non-candidate %s (%s) - skipped", row.get("id"), why)
@@ -213,15 +221,17 @@ async def select_cohort(store, ledger: dict, *, now: datetime, limit: int, activ
             break
         after = (page[-1]["created_at"], page[-1]["id"])
     return {"due": due, "not_due": not_due, "rejected": rejected, "total_scanned": total,
-            "created_before": created_before}
+            "same_place_proxy": satisfied, "created_before": created_before}
 
 
 def image_summary(row: dict) -> str:
-    """List-report view of the (untrusted) images a candidate already carries: status/source_type/rights[/proxy]."""
+    """List-report view of the (untrusted) images a candidate already carries:
+    status/source_type/rights[/proxy_other_place] (a candidate never carries a same-place proxy)."""
     tags = []
     for img in row.get("images") or []:
         tag = f"{img.get('status')}/{img.get('image_source_type') or 'null'}/rr={str(img.get('needs_rights_review')).lower()}"
-        tags.append(tag + ("/proxy" if is_place_photo_proxy(img.get("url")) else ""))
+        embedded = proxy_place_id(img.get("url"))
+        tags.append(tag + ("" if embedded is None else "/proxy" if embedded == row.get("google_place_id") else "/proxy_other_place"))
     return "images=[" + ",".join(sorted(tags)) + "]" if tags else "images=none"
 
 
@@ -248,7 +258,8 @@ async def run_job(args: argparse.Namespace, *, store, places_factory=None, now: 
                                  created_after=args.created_after, want_total=(mode == "list"))
     candidates = cohort["due"]
     summary = {"mode": mode, "candidates": len(candidates), "scanned": cohort["total_scanned"],
-               "skipped_not_due": len(cohort["not_due"]), "server_mismatch": len(cohort["rejected"]), "added": 0, "no_photo": 0, "invalid": 0, "errors": 0,
+               "skipped_not_due": len(cohort["not_due"]), "same_place_proxy": cohort["same_place_proxy"],
+               "server_mismatch": len(cohort["rejected"]), "added": 0, "no_photo": 0, "invalid": 0, "errors": 0,
                "raced": 0, "untouched": 0, "api_attempts": 0, "outcome": "ok"}
     logger.info("cohort: approved + google_place_id + no trustworthy image + created < %s%s%s | scanned %d, ledger-not-due %d, "
                 "due taken %d (limit %d)", cohort["created_before"],

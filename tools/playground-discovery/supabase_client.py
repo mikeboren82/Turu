@@ -23,23 +23,31 @@ a real review queue a human can act on, not a CSV nobody in the app sees.
 import os
 import re
 from pathlib import Path
+from urllib.parse import unquote
 
 import httpx
 
 IMPORT_TOOL_ENV_PATH = Path(__file__).resolve().parent.parent / "import-tool" / ".env"
 
 
-# ---- Places image automation: what counts as a TRUSTWORTHY image (2026-09-26) --------------------------------
+# ---- Places image automation: what counts as a TRUSTWORTHY image (2026-09-26, identity rule 2026-09-27) --------
 # Only these block the places_photos job (candidate selection, pre-insert race re-check, ledger pruning):
-#   A. a sanctioned place-photo proxy row - detected by URL path, host-agnostic, whatever its status or legacy
-#      metadata (a rejected proxy is an admin decision the job must not undo; a second proxy is a duplicate)
-#   B. an approved ORIGINAL_SOURCE image whose rights are not under review
+#   A. a place-photo proxy row FOR THIS ACTIVITY'S PLACE - the URL's embedded place id (.../place-photo/<id>) equals
+#      the activity's current google_place_id - whatever its status or legacy metadata (a rejected same-place proxy is
+#      an admin decision the job must not undo; a second same-place proxy is a duplicate). URL identity is
+#      authoritative: a proxy embedding ANOTHER place id (copied across a merge - production row ee34196d) or a
+#      PROVIDER label on a wrong-id URL never blocks, whatever its status; the job adds the correct proxy beside it
+#      and never modifies or deletes the wrong row.
+#   B. an approved ORIGINAL_SOURCE non-proxy image whose rights are not under review
 # Everything else - pending, rejected, EXTERNAL_SOURCE, UNKNOWN, null provenance, needs_rights_review=true,
-# a non-proxy PROVIDER url - never blocks one proxy insert (and is never changed by the job).
-# The PostgREST predicate below and is_trusted_image() are the same rule; the job evaluates both.
-PLACE_PHOTO_PROXY_RE = re.compile(r"/functions/v1/place-photo/.")
-TRUSTED_IMAGE_OR = ('(url.like."*/functions/v1/place-photo/_*",'
-                    'and(status.eq.approved,image_source_type.eq.ORIGINAL_SOURCE,needs_rights_review.not.is.true))')
+# a non-proxy PROVIDER url, a wrong-place proxy - never blocks one proxy insert (and is never changed by the job).
+# Server side (TRUSTED_IMAGE_OR) PostgREST can only express B: an embedded filter cannot compare a URL with the parent
+# row's google_place_id. So the server anti-join removes B rows and the job removes A rows itself with
+# is_trusted_image(img, place_id) - the same function the race re-check and the ledger prune use. Paging is on raw
+# pages, so rows the job drops never end the walk early.
+PLACE_PHOTO_PROXY_RE = re.compile(r"/functions/v1/place-photo/([^/?#]+)")
+TRUSTED_IMAGE_OR = ('(and(status.eq.approved,image_source_type.eq.ORIGINAL_SOURCE,needs_rights_review.not.is.true,'
+                    'url.not.like."*/functions/v1/place-photo/_*"))')
 IMAGE_META = "id,url,status,image_source_type,needs_rights_review"
 
 
@@ -47,18 +55,29 @@ def is_place_photo_proxy(url) -> bool:
     return isinstance(url, str) and bool(PLACE_PHOTO_PROXY_RE.search(url))
 
 
-def is_trusted_image(img: dict) -> bool:
-    if is_place_photo_proxy(img.get("url")):
-        return True
+def proxy_place_id(url) -> str | None:
+    """The place id a proxy URL embeds (last path segment after place-photo/), or None for a non-proxy URL."""
+    if not isinstance(url, str):
+        return None
+    m = PLACE_PHOTO_PROXY_RE.search(url)
+    return unquote(m.group(1)) if m else None
+
+
+def is_trusted_image(img: dict, place_id: str | None) -> bool:
+    embedded = proxy_place_id(img.get("url"))
+    if embedded is not None:
+        return bool(place_id) and embedded == place_id
     return (img.get("status") == "approved" and img.get("image_source_type") == "ORIGINAL_SOURCE"
             and img.get("needs_rights_review") is not True)
 
 
 def image_state(row: dict) -> dict:
-    """Race-guard / prune view of one activity row selected with activity_images(IMAGE_META)."""
+    """Race-guard / prune view of one activity row selected with activity_images(IMAGE_META). Trust is judged
+    against the row's CURRENT google_place_id."""
     images = row.get("activity_images") or []
-    return {"id": row["id"], "status": row.get("status"), "google_place_id": row.get("google_place_id"),
-            "has_trusted_image": any(is_trusted_image(i) for i in images), "image_count": len(images)}
+    pid = row.get("google_place_id")
+    return {"id": row["id"], "status": row.get("status"), "google_place_id": pid,
+            "has_trusted_image": any(is_trusted_image(i, pid) for i in images), "image_count": len(images)}
 
 # Python port of tools/import-tool/playgroundNaming.js's GENERIC_NAME_PATTERNS/
 # TECHNICAL_VALUE_PATTERNS (also ported separately to supabase/functions/_shared/
@@ -288,8 +307,9 @@ class SupabaseBotClient:
 
     # ---- Places image automation (2026-09-26, enrich_images.py / Monster job places_photos) ----------------
     # The scheduled cohort is selected SERVER-SIDE: approved only (never archived / pending / rejected), a
-    # google_place_id, no TRUSTWORTHY image (anti-join on the `trusted` embed filtered by TRUSTED_IMAGE_OR - the
-    # bot is a trusted uploader, so images_read shows it pending/rejected images of approved rows too), created
+    # google_place_id, no approved rights-clear ORIGINAL_SOURCE image (anti-join on the `trusted` embed filtered by
+    # TRUSTED_IMAGE_OR - the bot is a trusted uploader, so images_read shows it pending/rejected images of approved
+    # rows too; a same-place proxy is dropped by the job itself, see TRUSTED_IMAGE_OR above), created
     # before the grace instant, oldest first (created_at, id) with keyset paging and a server-side limit. The
     # unfiltered `images` embed carries the minimal metadata for the job's own re-evaluation and the list report.
     CANDIDATE_SELECT = (f"id,name,google_place_id,source_url,status,created_at,"
@@ -328,14 +348,22 @@ class SupabaseBotClient:
             resp.raise_for_status()
             return resp.json()
 
+    # candidate_rejection() reason for the one rule the server cannot express (A: a same-place proxy) - an expected
+    # client-side drop, not a server mismatch
+    SAME_PLACE_PROXY = "same_place_proxy"
+
     @staticmethod
     def candidate_rejection(row: dict) -> str | None:
         """None = a valid candidate; otherwise why a row the server returned must not be used."""
         if row.get("status") != "approved":
             return "not_approved"
-        if not row.get("google_place_id"):
+        pid = row.get("google_place_id")
+        if not pid:
             return "no_place_id"
-        if row.get("trusted") or any(is_trusted_image(i) for i in row.get("images") or []):
+        images = row.get("images") or []
+        if any(proxy_place_id(i.get("url")) == pid for i in images):
+            return SupabaseBotClient.SAME_PLACE_PROXY
+        if row.get("trusted") or any(is_trusted_image(i, pid) for i in images):
             return "trusted_image"
         return None
 

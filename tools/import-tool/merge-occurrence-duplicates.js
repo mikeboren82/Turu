@@ -12,8 +12,8 @@
 //   DISTINCT    members disagree on time / venue on closer inspection
 //   INSUFFICIENT no venue and no location name, or no source
 // Merge (reversible, never deletes): keeper = earliest created; losers' schedule rows move to the keeper
-// (unique on date+time), provenance is upserted onto the keeper, images / official_url / event_key are
-// copied when the keeper lacks them, incoming rows (created + existing) are re-pointed, cleaner cases of
+// (unique on date+time), provenance is upserted onto the keeper, images (approved non-provider only, status and
+// provenance preserved - lib/mergeImages.js) / official_url / event_key are copied when the keeper lacks them, incoming rows (created + existing) are re-pointed, cleaner cases of
 // losers are archived, losers are archived with archive_reason 'duplicate_of_existing_activity'. The
 // keeper's event_fingerprint is untouched (legacy first-occurrence key; event_key is the identity).
 //   node merge-occurrence-duplicates.js [--verify-online[=N]] [--apply] [--json=<file>]
@@ -25,6 +25,7 @@ const { isGenericTitle } = require('./lib/eventIdentity');
 const { archiveActivity, isArchived, describe } = require('./lib/activityArchive');
 const { verifiedConditionalUpdate, isSuccess, describe: describeWrite } = require('./lib/verifiedWrite');
 const { mergeActivitySources } = require('./lib/activitySourceMerge');
+const { copyLoserImages, IMAGE_COPY_SELECT } = require('./lib/mergeImages');
 const { fetchHtml } = require('./lib/fetchPage');
 const { extractOccurrences, pageText, containsScore } = require('./lib/pageExtract');
 
@@ -40,7 +41,7 @@ const t5 = (t) => (t ? String(t).slice(0, 5) : '');
 
 (async () => {
   const { client, userId } = await getClient();
-  const acts = await all(client, 'activities', 'id, name, status, source_id, venue_id, created_at, event_key, event_key_kind, official_url, location:locations(name, city), activity_schedules(id, schedule_type, one_time_date, start_time, end_time, external_id, booking_url), activity_images(id, url), activity_sources(page_url, url_role)',
+  const acts = await all(client, 'activities', `id, name, status, source_id, venue_id, created_at, event_key, event_key_kind, official_url, location:locations(name, city), activity_schedules(id, schedule_type, one_time_date, start_time, end_time, external_id, booking_url), activity_images(${IMAGE_COPY_SELECT}), activity_sources(page_url, url_role)`,
     (q) => q.eq('status', 'approved').order('created_at', { ascending: true }));
   const groups = new Map();
   for (const a of acts) {
@@ -117,7 +118,7 @@ const t5 = (t) => (t ? String(t).slice(0, 5) : '');
   if (args.json) fs.writeFileSync(String(args.json), JSON.stringify({ generatedAt: new Date().toISOString(), counts, groups: classified.map((c) => ({ cls: c.cls, why: c.why, keeper: c.keeper.id, name: c.keeper.name, losers: c.losers.map((l) => l.id), dates: c.dates })) }, null, 2));
   if (!APPLY) return;
 
-  let archived = 0, schedMoved = 0, provMoved = 0, imgMoved = 0, incRepointed = 0;
+  let archived = 0, schedMoved = 0, provMoved = 0, imgMoved = 0, imgProviderSkipped = 0, incRepointed = 0;
   for (const c of classified.filter((x) => x.cls === 'HIGH')) {
     const keeper = c.keeper;
     const have = new Set((keeper.activity_schedules || []).map((r) => `${r.one_time_date}|${t5(r.start_time)}`));
@@ -131,9 +132,10 @@ const t5 = (t) => (t ? String(t).slice(0, 5) : '');
       // (2026-09-22, "Harden activity_sources Merge" - see lib/activitySourceMerge.js for the rules)
       const { counts: provCounts } = await mergeActivitySources(client, { keeperActivityId: keeper.id, loserActivityId: loser.id });
       provMoved += provCounts.ADDED + provCounts.PRESERVED_EXISTING;
-      const keeperUrls = new Set((keeper.activity_images || []).map((i) => i.url));
-      const newImgs = (loser.activity_images || []).filter((i) => !keeperUrls.has(i.url)).slice(0, 3).map((i) => ({ activity_id: keeper.id, url: i.url, uploaded_by: userId }));
-      if (newImgs.length) { const { error } = await client.from('activity_images').insert(newImgs); if (!error) imgMoved += newImgs.length; }
+      // 2026-09-27: provider/proxy, rejected and pending images never copied; approved ones keep status + provenance
+      const img = await copyLoserImages(client, { loserImages: loser.activity_images, keeperImages: keeper.activity_images, keeperId: keeper.id, uploadedBy: userId, max: 3 });
+      imgMoved += img.inserted; imgProviderSkipped += img.skipped.provider;
+      if (img.inserted) keeper.activity_images = [...(keeper.activity_images || []), ...img.rows]; // the next loser sees them
       const patch = {}; if (!keeper.official_url && loser.official_url) patch.official_url = loser.official_url; if (!keeper.event_key && loser.event_key) { patch.event_key = loser.event_key; patch.event_key_kind = loser.event_key_kind; }
       if (Object.keys(patch).length) {
         // אימות-כתיבה (2026-09-21): קודם לא נבדק error כלל - 0 שורות שקטות על ה-keeper לא היו
@@ -155,5 +157,5 @@ const t5 = (t) => (t ? String(t).slice(0, 5) : '');
       archived++;
     }
   }
-  console.log(`done: archived ${archived}, occurrence rows moved ${schedMoved}, provenance rows moved ${provMoved}, images copied ${imgMoved}, incoming rows re-pointed ${incRepointed}`);
+  console.log(`done: archived ${archived}, occurrence rows moved ${schedMoved}, provenance rows moved ${provMoved}, images copied ${imgMoved} (provider/proxy skipped ${imgProviderSkipped}), incoming rows re-pointed ${incRepointed}`);
 })().catch((e) => { console.error(e); process.exit(1); });

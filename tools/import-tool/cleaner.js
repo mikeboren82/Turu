@@ -36,6 +36,7 @@ const { wordOverlapScore } = require('./cleaner/matching');
 const { isLearnableLabel } = require('./venueLearning');
 const { proposeOutcome, applyOutcome } = require('./cleaner/settlementResolver');
 const { processVerifyLocation, reopenVerifyLocationCases } = require('./cleaner/verifyLocation');
+const { isCopyableSourceImage } = require('./lib/mergeImages');
 const fs = require('fs');
 const path = require('path');
 
@@ -317,8 +318,11 @@ async function processCase(client, c, ctx) {
       return r;
     }
     if (c.issue === 'missing_image' || c.issue === 'broken_image') {
-      const { data: series } = await client.from('activities').select('id, name, activity_images(url)').eq('status', 'approved').neq('id', a.id).ilike('name', a.name.slice(0, 40) + '%').limit(5);
-      const seriesUrls = (series || []).filter((s) => wordOverlapScore(s.name, a.name) >= 0.7).flatMap((s) => (s.activity_images || []).map((i) => i.url));
+      // a sibling's image is a candidate for THIS activity only when it could be copied across activities at all
+      // (lib/mergeImages.js, 2026-09-27): never a place-photo proxy / PROVIDER row (it names the sibling's place),
+      // never a rejected or pending one (applyImageToActivity inserts status 'approved')
+      const { data: series } = await client.from('activities').select('id, name, activity_images(url, status, image_source_type)').eq('status', 'approved').neq('id', a.id).ilike('name', a.name.slice(0, 40) + '%').limit(5);
+      const seriesUrls = (series || []).filter((s) => wordOverlapScore(s.name, a.name) >= 0.7).flatMap((s) => (s.activity_images || []).filter(isCopyableSourceImage).map((i) => i.url));
       const subject = { name: a.name, page_url: pageUrl, venue_id: a.venue_id, existing_urls: (a.activity_images || []).map((i) => i.url), incoming_images: ed.images || ed.image_urls || [], series_urls: seriesUrls };
       const r = await resolveImage(client, subject, { allowGeneric: false, cache: ctx.cache });
       if (r.found) {
