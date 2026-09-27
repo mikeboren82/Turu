@@ -72,6 +72,9 @@ tools/import-tool/**/discovery-candidates-*.json
 tools/import-tool/**/reprobe-sources-*.json
 tools/import-tool/**/monster-cohort-*.json
 tools/import-tool/**/monster-cycle-*.json
+# Google legacy scrub 2026-09-27: forensic reports that carry Google Places-derived names / addresses / coordinates
+tools/import-tool/**/location-consistency-*.json
+tools/import-tool/**/playground-twins-*.json
 tools/import-tool/reports/*.json
 tools/import-tool/reports/*-dry-run-*.md
 # generated google-origin backfill SQL (row ids + source-url hashes) - private, like the reports above
