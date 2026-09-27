@@ -106,6 +106,24 @@ test('a location constraint actually excludes, so "no constraint" is a meaningfu
   );
 });
 
+// --- Activities ordinary-search hotfix (2026-09-27): scenarios A/C from the production bug report,
+// exercised directly against intentToFilters (what app/activities.js#applyFreeSearchIntent calls
+// once handleFreeSearch's now-removed over-broad clarify gate stops intercepting it first) ------
+test('[ordinary search, no screen location] plain keyword -> nationwide filters, not a clarification request', () => {
+  // Scenario A/B: no selected location, ordinary text ("ספארי" has no geography of its own either).
+  const filters = intentToFilters(intentNoGeo('ספארי'), { children: [] });
+  assert.equal(filters.location.mode, null, 'nationwide - no picker, no exclusion');
+});
+
+test('[ordinary search, existing screen location] plain keyword still does not inherit the ambient filter', () => {
+  // Scenario C: an existing selected location must not silently become a hard constraint on an
+  // unrelated free-text search (Phase A isolation, 836e4c5) - it only applies when chosen FOR this
+  // search via explicitLocation, exactly as already covered above for the Quick-Choice case.
+  const filters = intentToFilters(intentNoGeo('ספארי'), { children: [] });
+  assert.notEqual(filters.location.mode, 'city');
+  assert.equal(filters.location.mode, null);
+});
+
 // --- explicit geographic intent still filters --------------------------------------------------
 test('Free Search "לונה פארק בנתניה" DOES create a city constraint', () => {
   const filters = intentToFilters(intentWithCity('לונה פארק בנתניה', 'נתניה'), { children: [] });

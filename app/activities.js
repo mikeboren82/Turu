@@ -230,8 +230,15 @@ export default function ActivitiesScreen() {
   const [freeSearchText, setFreeSearchText] = useState('');
   const [freeSearchLoading, setFreeSearchLoading] = useState(false);
   const [freeSearchError, setFreeSearchError] = useState('');
-  // { message, pendingIntent, mode:'plain'|'street' } - כל עוד לא null, LocationQuickPicker (למטה, ליד
+  // { message, pendingIntent, mode:'street' } - כל עוד לא null, LocationQuickPicker (למטה, ליד
   // ה-gate) פתוח; הבחירה נסגרת דרך handleClarifyPickerClose. אין יותר תיבת-עיר מקומית.
+  // 'street' הוא היחיד שנותר (2026-09-27, "Ordinary Search Misrouting" hotfix) - מוצג רק כשהשרת
+  // עצמו ביקש הבהרה (data.needsClarification, רחוב בלי עיר לגאוקד). מצב 'plain' (חיפוש חופשי בלי
+  // שום רמז גאוגרפי, בלי סינון-מיקום קיים) הוסר: הוא סתר את החלטת-המוצר מ-836e4c5 (2026-09-21,
+  // "Free Search with no geographic intent is nationwide") - היה פותח את הפיקר במקום ליפול ל-
+  // applyFreeSearchIntent שכבר מטפל נכון בהיעדר-מיקום (intentLocationToFilters מחזיר
+  // DEFAULT_FILTERS.location, בלי סינון). כל עוד הגייט הישן היה מאחורי כפתור-toggle קטן ומכובה-
+  // כברירת-מחדל, כמעט אף אחד לא נתקל בו; b8770e6 הפך את השדה לגלוי-קבוע וחשף אותו כתקלת-ייצור.
   const [freeSearchClarify, setFreeSearchClarify] = useState(null);
 
   // 🚗 Smart Radius Expansion - נקודת-הייחוס למצב 'city' דורשת שליפה מ-DB (טבלת settlements,
@@ -484,12 +491,9 @@ export default function ActivitiesScreen() {
         setFreeSearchClarify({ messageKey: 'activities.freeSearch.clarifyCity', pendingIntent: data.intent, mode: 'street' });
         return;
       }
-      const loc = data.intent.location;
-      const hasAnyLocation = !!(loc.city || loc.region || loc.street || loc.coords);
-      if (!hasAnyLocation && !filters.location?.mode) {
-        setFreeSearchClarify({ messageKey: 'activities.freeSearch.clarifyArea', pendingIntent: data.intent, mode: 'plain' });
-        return;
-      }
+      // אין כאן שער "בלי מיקום בטקסט -> תבהירו אזור" (הוסר, ראו ההערה ליד freeSearchClarify
+      // למעלה): applyFreeSearchIntent/intentToFilters כבר מיישמים את החלטת-המוצר "בלי כוונה
+      // גאוגרפית = בכל הארץ" בעצמם - אין צורך (ואסור) ליירט את זה כאן לפני שהם בכלל רצים.
       applyFreeSearchIntent(data.intent);
     } catch {
       setFreeSearchError('activities.freeSearch.errorRephrase');
@@ -500,13 +504,12 @@ export default function ActivitiesScreen() {
 
   // סגירת LocationQuickPicker של ההבהרה (CTA "הציגו לי פעילויות" או לחיצה על הרקע). onChange של
   // הפיקר כבר כתב את הבחירה ל-filters.location בזמן-אמת (אותו חיווט כמו ה-gate), אז כאן רק
-  // ממשיכים את החיפוש שהמשתמש הקליד:
-  //  - 'plain' (לא הוזכר מיקום בטקסט): applyFreeSearchIntent עם ה-intent המקורי - intentToFilters
-  //    מקבל explicitLocation=הבחירה בפיקר (Phase A 2026-09-21) - רק בחירה מפורשת עבור החיפוש
-  //    הזה, לא מיקום סביבתי של המסך, ובלי להמציא עיר.
-  //  - 'street' (רחוב בלי עיר, הפונקציה ביקשה "באיזו עיר?"): אם נבחרה עיר בפיקר - סבב-הבהרה לשרת
-  //    עם cityOverride (גאוקודינג של רחוב+עיר, בדיוק כמו קודם); אם נבחר משהו אחר (אזור/GPS/בכל
-  //    הארץ) - אין עיר לגאוקד, מחפשים לפי המיקום שנבחר ומוותרים על הרחוב (לא מנחשים עיר).
+  // ממשיכים את החיפוש שהמשתמש הקליד. clarify.mode הוא תמיד 'street' כאן (רחוב בלי עיר, הפונקציה
+  // ביקשה "באיזו עיר?", ראו ההערה ליד freeSearchClarify למעלה):
+  //  - נבחרה עיר בפיקר - סבב-הבהרה לשרת עם cityOverride (גאוקודינג של רחוב+עיר, בדיוק כמו קודם).
+  //  - נבחר משהו אחר (אזור/GPS/בכל הארץ) - אין עיר לגאוקד, מחפשים לפי המיקום שנבחר ומוותרים על
+  //    הרחוב (לא מנחשים עיר). applyFreeSearchIntent מקבל explicitLocation=הבחירה בפיקר (Phase A
+  //    2026-09-21) - רק בחירה מפורשת עבור החיפוש הזה, לא מיקום סביבתי של המסך.
   //  - נסגר בלי לבחור כלום: מבטלים את ההבהרה, הטקסט שהוקלד נשאר בשדה.
   const handleClarifyPickerClose = async () => {
     const clarify = freeSearchClarify;
@@ -1473,8 +1476,9 @@ export default function ActivitiesScreen() {
         onClose={() => setGateLocationOpen(false)}
         deviceCoords={deviceCoords}
       />
-      {/* הבהרת-מיקום של החיפוש החופשי ("📍 באיזה אזור לחפש?" / "באיזו עיר?") - אותו רכיב בדיוק כמו
-          "איפה נח לכם?" בעמוד הבית, במקום תיבת-עיר מקומית (ראו handleClarifyPickerClose). */}
+      {/* הבהרת-מיקום של החיפוש החופשי ("באיזו עיר?" - רחוב בלי עיר בלבד, ראו ההערה ליד
+          freeSearchClarify למעלה) - אותו רכיב בדיוק כמו "איפה נח לכם?" בעמוד הבית, במקום תיבת-עיר
+          מקומית (ראו handleClarifyPickerClose). */}
       <LocationQuickPicker
         visible={!!freeSearchClarify}
         value={filters.location}
