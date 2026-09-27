@@ -98,14 +98,54 @@ test('discovery: a registry row is INACTIVE, below the trust bar, carries OSM pr
   assert.ok(!('notes' in r), 'public.sources has no notes column (first pilot cycle failed all 20 inserts on it)');
 });
 
-test('code line: a checkout that is not at the main commit refuses to run jobs; main (dirty or detached) runs; no git -> unknown but allowed', () => {
+test('code line: jobs run ONLY on branch main at main\'s commit; any other branch (even at main\'s commit) or a stale main refuses; no git -> unknown but allowed', () => {
   const { codeLineStatus } = require('../lib/codeLine');
-  assert.equal(codeLineStatus({ available: true, head: 'aaa', mainHead: 'bbb', branch: 'continuous-monster', dirty: 0 }).ok, false);
-  assert.equal(codeLineStatus({ available: true, head: 'aaa', mainHead: 'bbb', branch: 'continuous-monster', dirty: 0 }).code, 'stale_code_line');
-  assert.equal(codeLineStatus({ available: true, head: 'aaa', mainHead: 'aaa', branch: 'main', dirty: 71 }).ok, true, 'a dirty main tree runs (reported, never blocking)');
-  assert.equal(codeLineStatus({ available: true, head: 'aaa', mainHead: 'aaa', branch: 'HEAD', dirty: 0 }).ok, true, 'a detached checkout AT the main commit runs');
-  assert.equal(codeLineStatus({ available: false }).code, 'unknown');
-  assert.equal(codeLineStatus({ available: true, head: 'aaa', mainHead: null, branch: 'x', dirty: 0 }).code, 'unknown');
+  // A. main branch at main's commit -> accepted (a dirty tree is reported, never blocking)
+  assert.deepEqual([codeLineStatus({ available: true, head: 'aaa1111', mainHead: 'aaa1111', branch: 'main', dirty: 0 }).ok, codeLineStatus({ available: true, head: 'aaa1111', mainHead: 'aaa1111', branch: 'main', dirty: 0 }).code], [true, 'main']);
+  const dirty = codeLineStatus({ available: true, head: 'aaa1111', mainHead: 'aaa1111', branch: 'main', dirty: 1 });
+  assert.equal(dirty.ok, true, 'a dirty main tree runs'); assert.ok(dirty.message.includes('1 modified tracked file(s)'), 'dirt still reported');
+  // B. the 2026-09-27 bug: a feature branch whose HEAD IS main's commit -> refused
+  const b = codeLineStatus({ available: true, head: 'aaa1111', mainHead: 'aaa1111', branch: 'feature/foo', dirty: 0 });
+  assert.deepEqual([b.ok, b.code], [false, 'not_main_branch']); assert.ok(b.message.includes('feature/foo') && b.message.includes('same commit as main'));
+  assert.equal(codeLineStatus({ available: true, head: 'aaa1111', mainHead: 'aaa1111', branch: 'HEAD', dirty: 0 }).ok, false, 'a detached HEAD at main\'s commit is not the main branch');
+  // C. main branch but HEAD is not main's commit -> refused
+  const c = codeLineStatus({ available: true, head: 'aaa1111', mainHead: 'bbb2222', branch: 'main', dirty: 0 });
+  assert.deepEqual([c.ok, c.code], [false, 'stale_code_line']);
+  assert.equal(codeLineStatus({ available: true, head: 'aaa1111', mainHead: null, branch: 'main', dirty: 0 }).ok, false, 'main ref unresolved -> never accepted');
+  // D. feature branch at a stale commit -> refused
+  const d = codeLineStatus({ available: true, head: 'aaa1111', mainHead: 'bbb2222', branch: 'feature/foo', dirty: 0 });
+  assert.deepEqual([d.ok, d.code], [false, 'not_main_branch']);
+  assert.equal(codeLineStatus({ available: true, head: 'aaa1111', mainHead: null, branch: 'x', dirty: 0 }).ok, false);
+  // not a git checkout: unchanged (unknown, allowed, reported)
+  assert.deepEqual([codeLineStatus({ available: false }).ok, codeLineStatus({ available: false }).code], [true, 'unknown']);
+});
+
+test('code line: the real git probe refuses a feature branch at main\'s commit and accepts main (temporary fixture repo)', (t) => {
+  const { probeCodeLine, codeLineStatus } = require('../lib/codeLine');
+  const { execFileSync } = require('child_process');
+  const fs = require('fs'); const os = require('os');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'turu-codeline-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const git = (...a) => execFileSync('git', ['-C', dir, '-c', 'user.name=t', '-c', 'user.email=t@t', '-c', 'commit.gpgsign=false', ...a], { stdio: 'ignore' });
+  git('init', '-q', '-b', 'main'); fs.writeFileSync(path.join(dir, 'a.txt'), '1'); git('add', 'a.txt'); git('commit', '-q', '-m', 'one');
+  const onMain = probeCodeLine(dir);
+  assert.equal(onMain.branch, 'main'); assert.equal(codeLineStatus(onMain).ok, true, 'A: main at main');
+  git('checkout', '-q', '-b', 'feature/foo');
+  const feat = probeCodeLine(dir);
+  assert.equal(feat.head, feat.mainHead, 'feature/foo sits exactly at main'); assert.equal(codeLineStatus(feat).code, 'not_main_branch', 'B: same commit, wrong branch');
+  fs.writeFileSync(path.join(dir, 'a.txt'), '2'); git('commit', '-q', '-am', 'two');
+  assert.equal(codeLineStatus(probeCodeLine(dir)).code, 'not_main_branch', 'D: wrong branch, other commit');
+  git('checkout', '-q', 'main');
+  // C: branch main, but the expected code line (here: the newer feature/foo commit) is not HEAD
+  assert.equal(codeLineStatus(probeCodeLine(dir, 'feature/foo')).code, 'stale_code_line', 'C: main branch, HEAD is not the expected commit');
+  assert.equal(codeLineStatus(probeCodeLine(dir)).ok, true, 'A again: main at main');
+});
+
+test('code line guard leaves the places_photos gate unchanged (E): gated off by default and for --job, on only when exactly true', () => {
+  const now = new Date('2026-09-27T10:00:00Z');
+  assert.ok(!selectJobs({ state: {}, now, gates: {} }).some((x) => x.id === 'places_photos'));
+  assert.deepEqual(selectJobs({ state: {}, now, only: 'places_photos', gates: {} }), []);
+  assert.deepEqual(selectJobs({ state: {}, now, only: 'places_photos', gates: { places_photos_enabled: true } }).map((x) => x.id), ['places_photos']);
 });
 
 // Places image automation (2026-09-26): one Python job, gated OFF until rollout, before the Cleaner
