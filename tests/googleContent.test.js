@@ -305,3 +305,49 @@ test('every client query that feeds isGoogleOriginActivity selects content_origi
   }
   assert.match(read('app/my-things.js'), /const NESTED_ACTIVITY_FIELDS = `[^`]*\bsource_url, content_origin\b/);
 });
+
+// ---- detail screen: a stored Google Maps URL is never a public source / ticket link ----
+
+const { publicSourceUrl } = require('../lib/googleContent');
+const priced = { price_type: 'range', price_amount: null, category: 'x', entity_type: 'מקום_קבוע', activity_schedules: [], activity_images: [] };
+
+test('publicSourceUrl: Maps / place-URN / Google-origin -> null; an independent source is kept', () => {
+  assert.equal(publicSourceUrl({ sourceUrl: 'https://maps.google.com/?cid=1766991893191266' }), null);
+  assert.equal(publicSourceUrl({ source_url: 'https://www.google.com/maps/place/x' }), null);
+  assert.equal(publicSourceUrl({ source_url: 'urn:google-place:ChIJ1' }), null);
+  assert.equal(publicSourceUrl({ contentOrigin: 'google_places_legacy', sourceUrl: 'https://www.openstreetmap.org/way/9' }), null, 're-sourced Google-origin row');
+  assert.equal(publicSourceUrl({ sourceUrl: 'https://www.raanana.muni.il/events/1', google_place_id: 'ChIJ1' }), 'https://www.raanana.muni.il/events/1');
+  assert.equal(publicSourceUrl({ sourceUrl: '  ' }), null);
+  assert.equal(publicSourceUrl(null), null);
+});
+
+test('mapActivityRow: a Google-origin row gets no source link, no action URL and no ticket button from its Maps URL', () => {
+  for (const extra of [{ source_url: 'https://maps.google.com/?cid=1' }, { source_url: null, content_origin: 'google_places_legacy' }]) {
+    const m = mapActivityRow({ id: 'g', name: 'x', ...priced, ...extra });
+    assert.equal(m.publicSourceUrl, null);
+    assert.equal(m.actionUrl, null);
+    assert.equal(m.requiresTicket, false);
+  }
+});
+
+test('mapActivityRow: independent rows keep the action ladder (official > detail > public source) and the ticket button', () => {
+  const muni = mapActivityRow({ id: 'm', name: 'x', ...priced, source_url: 'https://www.raanana.muni.il/e/1', google_place_id: 'ChIJ1' });
+  assert.equal(muni.publicSourceUrl, 'https://www.raanana.muni.il/e/1');
+  assert.equal(muni.actionUrl, 'https://www.raanana.muni.il/e/1');
+  assert.equal(muni.requiresTicket, true);
+  const official = mapActivityRow({ id: 'o', name: 'x', ...priced, source_url: 'https://www.raanana.muni.il/e/1', official_url: 'https://tickets.example/1', detail_url: 'https://www.raanana.muni.il/e/1/d' });
+  assert.equal(official.actionUrl, 'https://tickets.example/1');
+  // an official ticket URL on a Google-origin row is not a Maps URL and stays usable as the action link
+  assert.equal(mapActivityRow({ id: 'g', name: 'x', ...priced, source_url: 'https://maps.google.com/?cid=1', official_url: 'https://tickets.example/2' }).actionUrl, 'https://tickets.example/2');
+});
+
+test('app/activity/[id].js: the source link and the ticket button never open the raw stored sourceUrl', () => {
+  const src = read('app/activity/[id].js');
+  assert.doesNotMatch(src, /openExternal\(activity\.sourceUrl\)/);
+  assert.doesNotMatch(src, /activity\.actionUrl \|\| activity\.sourceUrl/);
+  assert.match(src, /activity\.requiresTicket && activity\.actionUrl \? \(/);
+  assert.match(src, /openExternal\(activity\.publicSourceUrl\)/);
+  // place navigation stays coordinate-based; no Maps link is built from a stored value or a place id
+  const nav = read('lib/openNavigation.js');
+  assert.doesNotMatch(nav, /sourceUrl|source_url|place_id|googlePlaceId/);
+});

@@ -838,8 +838,9 @@ export default function ActivityScreen() {
             </View>
           ) : null}
 
-          {activity.requiresTicket && (activity.actionUrl || activity.sourceUrl) ? (
-            <Pressable onPress={() => openExternal(activity.actionUrl || activity.sourceUrl)} style={styles.ticketBtnWrap}>
+          {/* actionUrl never falls back to a stored Google Maps URL (lib/googleContent.js#publicSourceUrl) */}
+          {activity.requiresTicket && activity.actionUrl ? (
+            <Pressable onPress={() => openExternal(activity.actionUrl)} style={styles.ticketBtnWrap}>
               <LinearGradient colors={['#ffbb4d', '#ff8a3d']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.ticketBtn}>
                 <Text style={styles.ticketBtnText}>{t('activity.detail.buyTickets')}</Text>
               </LinearGradient>
@@ -878,8 +879,9 @@ export default function ActivityScreen() {
               <Pressable onPress={() => openExternal(activity.officialUrl)} hitSlop={6}>
                 <Text style={styles.sourceLink}>{t('activity.detail.officialSite')}</Text>
               </Pressable>
-            ) : activity.sourceUrl && !activity.sourceUrl.includes('openstreetmap.org') ? (
-              <Pressable onPress={() => openExternal(activity.sourceUrl)} hitSlop={6}>
+            ) : activity.publicSourceUrl && !activity.publicSourceUrl.includes('openstreetmap.org') ? (
+              // never the stored Google Maps listing of a Google-origin row (lib/googleContent.js#publicSourceUrl)
+              <Pressable onPress={() => openExternal(activity.publicSourceUrl)} hitSlop={6}>
                 <Text style={styles.sourceLink}>{t('activity.detail.sourceLink')}</Text>
               </Pressable>
             ) : null}
