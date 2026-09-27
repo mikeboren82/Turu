@@ -256,3 +256,52 @@ test('i18n: notShownOverlay exists in he and en and carries no compliance/legal 
     assert.doesNotMatch(text, /google|licen|legal|polic|terms|גוגל|רישיון|משפט|מדיניות/i, loc);
   }
 });
+
+// ---- permanent Google-origin marker (supabase/0115, 2026-09-27) ----
+
+const casesTable = JSON.parse(read('supabase/functions/_shared/googlePlacesPolicy.cases.json'));
+const { isGooglePlaceUrn, GOOGLE_CONTENT_ORIGIN } = require('../lib/googleContent');
+
+test('client twin: isGoogleOriginActivity / isGooglePlaceUrn / isGoogleMapsUrl agree with the shared server case table', () => {
+  assert.equal(GOOGLE_CONTENT_ORIGIN, 'google_places_legacy');
+  for (const [row, want] of casesTable.googleOriginActivities) assert.equal(isGoogleOriginActivity(row), want, JSON.stringify(row));
+  for (const [value, want] of casesTable.googlePlaceUrns) assert.equal(isGooglePlaceUrn(value), want, String(value));
+  for (const [url, want] of casesTable.mapsUrls) assert.equal(isGoogleMapsUrl(url), want, String(url));
+});
+
+const markedScrubbedRow = {
+  id: 'g1', name: 'x', category: 'גן שעשועים', entity_type: 'מקום_קבוע', source_url: null, content_origin: 'google_places_legacy',
+  google_place_id: 'ChIJ1', location: { lat: 32.1, lng: 34.8 }, activity_images: [], activity_schedules: [],
+};
+
+test('A: marker + scrubbed source_url -> still Google-origin through mapActivityRow, and still unpinned', () => {
+  const m = mapActivityRow(markedScrubbedRow);
+  assert.equal(m.contentOrigin, 'google_places_legacy');
+  assert.equal(m.sourceUrl, null);
+  assert.equal(isGoogleOriginActivity(m), true);
+  assert.deepEqual(activitiesForNonGoogleMap([m]), []);
+});
+
+test('B/C: independent rows with a google_place_id stay independent (municipal, OSM) and keep their pin', () => {
+  const muni = mapActivityRow({ ...markedScrubbedRow, id: 'm1', content_origin: null, source_url: 'https://www.raanana.muni.il/parks/1' });
+  const osm = mapActivityRow({ ...markedScrubbedRow, id: 'o1', content_origin: null, source_url: 'https://www.openstreetmap.org/way/1', google_place_id: 'ChIJosm' });
+  assert.equal(muni.contentOrigin, null);
+  assert.equal(isGoogleOriginActivity(muni), false);
+  assert.equal(isGoogleOriginActivity(osm), false);
+  assert.deepEqual(activitiesForNonGoogleMap([muni, osm]).map((a) => a.id), ['m1', 'o1']);
+});
+
+test('D/E: an unmarked Maps row (migration window) and a marked re-sourced row are both Google-origin', () => {
+  assert.equal(isGoogleOriginActivity(mapActivityRow({ ...markedScrubbedRow, content_origin: null, source_url: 'https://maps.google.com/?cid=1' })), true);
+  assert.equal(isGoogleOriginActivity(mapActivityRow({ ...markedScrubbedRow, source_url: 'https://www.openstreetmap.org/way/9' })), true);
+});
+
+test('every client query that feeds isGoogleOriginActivity selects content_origin next to source_url', () => {
+  const lib = read('lib/activities.js');
+  for (const name of ['DETAIL_SELECT_QUERY', 'LIST_SELECT_QUERY']) {
+    const q = lib.match(new RegExp(`const ${name} = \`([^\`]*)\`;`));
+    assert.ok(q, name);
+    assert.match(q[1], /\bsource_url, content_origin\b/, name);
+  }
+  assert.match(read('app/my-things.js'), /const NESTED_ACTIVITY_FIELDS = `[^`]*\bsource_url, content_origin\b/);
+});

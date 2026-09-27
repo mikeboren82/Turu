@@ -1,5 +1,5 @@
 {
-  "_doc": "Google Places persistence policy (2026-09-27) - ONE case table for the three twins: tools/import-tool/lib/googlePlacesPolicy.js, supabase/functions/_shared/googlePlacesPolicy.ts, tools/playground-discovery/google_policy.py. mapsUrls: [url, isGoogleMapsUrl]. placesOrigin: [extracted_data, page_url, isPlacesOriginCandidate] - true only by explicit provenance (Maps page_url, google_maps_uri, or the formatted_address + place_kind pair); generic coordinates / a lone formatted_address or place_kind / google_place_id (OSM, municipal GIS, ArcGIS, GovMap, project maps, official pages) are false.",
+  "_doc": "Google Places persistence policy (2026-09-27) - ONE case table for the three twins: tools/import-tool/lib/googlePlacesPolicy.js, supabase/functions/_shared/googlePlacesPolicy.ts, tools/playground-discovery/google_policy.py. mapsUrls: [url, isGoogleMapsUrl]. placesOrigin: [extracted_data, page_url, isPlacesOriginCandidate] - true only by explicit provenance (Maps page_url, google_maps_uri, or the formatted_address + place_kind pair); generic coordinates / a lone formatted_address or place_kind / google_place_id (OSM, municipal GIS, ArcGIS, GovMap, project maps, official pages) are false. googlePlaceUrns: [value, isGooglePlaceUrn]. googleOriginActivities / googleOriginLocations: [row, isGoogleOriginActivity / isGoogleOriginLocation] - the permanent content_origin marker (supabase/0115) OR, during the migration window, a Maps source_url / urn:google-place URN; never google_place_id, coordinates or a name.",
   "persistence": false,
   "policyReason": "google_places_persistence_disabled",
   "mapsUrls": [
@@ -49,7 +49,50 @@
     [{"name": "הצגה", "location_name": "היכל התרבות", "city": "רעננה", "lat": 32.1, "lng": 34.8, "schedule_type": "one_time"}, "https://www.raanana.muni.il/events/1", false],
     [{"name": "הצגה", "location_name": "היכל התרבות", "address": "אחוזה 1, רעננה", "city": "רעננה", "latitude": 32.1, "longitude": 34.8, "lat": 32.1, "lon": 34.8}, "https://www.raanana.muni.il/events/3", false],
     [{"name": "חוג", "city": "רעננה", "google_place_id": "ChIJindependent"}, "https://www.raanana.muni.il/events/2", false],
+    [{"name": "x", "google_place_id": "ChIJ1"}, "urn:google-place:ChIJ1", true],
+    [{}, "urn:google-place-cid-removed:00000000-0000-4000-8000-000000000001", true],
+    [{"name": "x"}, "urn:isbn:0451450523", false],
     [{}, "https://example.org/page", false],
     [null, null, false]
+  ],
+  "googlePlaceUrns": [
+    ["urn:google-place:ChIJN1t_tDeuEmsRUsoyG83frY4", true],
+    ["URN:GOOGLE-PLACE:ChIJ1", true],
+    ["urn:google-place-cid-removed:00000000-0000-4000-8000-000000000001", true],
+    ["urn:google-place:", false],
+    ["urn:google-places:ChIJ1", false],
+    ["https://maps.google.com/?cid=1", false],
+    ["x urn:google-place:ChIJ1", false],
+    ["", false],
+    [null, false]
+  ],
+  "googleOriginActivities": [
+    [{"_case": "A marker + scrubbed source_url", "content_origin": "google_places_legacy", "source_url": null, "google_place_id": "ChIJ1"}, true],
+    [{"_case": "A marker, no place id", "content_origin": "google_places_legacy", "source_url": null, "google_place_id": null}, true],
+    [{"_case": "A client shape", "contentOrigin": "google_places_legacy", "sourceUrl": null}, true],
+    [{"_case": "B independent municipal row + place id", "content_origin": null, "source_url": "https://www.raanana.muni.il/parks/1", "google_place_id": "ChIJindependent"}, false],
+    [{"_case": "B independent row, place id only", "content_origin": null, "source_url": null, "google_place_id": "ChIJindependent"}, false],
+    [{"_case": "C independent OSM row + place id", "content_origin": null, "source_url": "https://www.openstreetmap.org/way/123", "google_place_id": "ChIJosm"}, false],
+    [{"_case": "D legacy Maps source_url, not yet marked", "content_origin": null, "source_url": "https://maps.google.com/?cid=4412345678901234567", "google_place_id": "ChIJ1"}, true],
+    [{"_case": "D legacy bare Maps source_url", "source_url": "https://www.google.com/maps"}, true],
+    [{"_case": "D client shape", "sourceUrl": "https://maps.google.com/?cid=1"}, true],
+    [{"_case": "E re-sourced Google-origin row keeps its history", "content_origin": "google_places_legacy", "source_url": "https://www.openstreetmap.org/way/9", "google_place_id": "ChIJ1"}, true],
+    [{"_case": "place URN as source", "source_url": "urn:google-place:ChIJ1"}, true],
+    [{"_case": "an unknown marker value is not the marker", "content_origin": "osm", "source_url": "https://www.openstreetmap.org/way/9"}, false],
+    [{"_case": "the marker match is exact", "content_origin": "GOOGLE_PLACES_LEGACY", "source_url": null}, false],
+    [{"_case": "coordinates, category and a Places-looking name never count", "name": "גן שעשועים הדקל", "lat": 32.1, "lng": 34.8, "google_place_id": "ChIJ1", "category": "גן שעשועים"}, false],
+    [{}, false],
+    [null, false]
+  ],
+  "googleOriginLocations": [
+    [{"_case": "marked orphan", "content_origin": "google_places_legacy", "activities": []}, true],
+    [{"_case": "marked, embed not selected", "content_origin": "google_places_legacy"}, true],
+    [{"_case": "unmarked, used by a Maps-sourced activity (before the backfill)", "content_origin": null, "activities": [{"source_url": "https://maps.google.com/?cid=1", "content_origin": null}]}, true],
+    [{"_case": "unmarked, used by a marked activity", "activities": [{"source_url": null, "content_origin": "google_places_legacy"}]}, true],
+    [{"_case": "shared with a municipal activity", "activities": [{"source_url": "https://www.raanana.muni.il/e/1", "content_origin": null}, {"source_url": "https://maps.google.com/?cid=2", "content_origin": null}]}, true],
+    [{"_case": "independent OSM location with a Places-looking name", "name": "גן שעשועים הדקל", "content_origin": null, "activities": [{"source_url": "https://www.openstreetmap.org/way/1", "content_origin": null, "google_place_id": "ChIJosm"}]}, false],
+    [{"_case": "unmarked orphan - only the marker proves origin", "content_origin": null, "activities": []}, false],
+    [{}, false],
+    [null, false]
   ]
 }

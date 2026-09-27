@@ -4,6 +4,7 @@
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import {
   GOOGLE_PLACES_CONTENT_PERSISTENCE, POLICY_REASON, isGoogleMapsUrl, isPlacesOriginCandidate, settlementScanGate,
+  GOOGLE_CONTENT_ORIGIN, isGooglePlaceUrn, isGoogleOriginActivity, isGoogleOriginLocation,
 } from "./googlePlacesPolicy.ts";
 import { fetchHtml } from "./extraction.ts";
 
@@ -14,6 +15,13 @@ Deno.test("twin parity: constant, reason and every shared case", () => {
   assertEquals(POLICY_REASON, table.policyReason);
   for (const [url, want] of table.mapsUrls) assertEquals(isGoogleMapsUrl(url), want, String(url));
   for (const [ed, pageUrl, want] of table.placesOrigin) assertEquals(isPlacesOriginCandidate(ed, pageUrl), want, JSON.stringify([ed, pageUrl]));
+});
+
+Deno.test("twin parity: permanent content_origin marker (0115), place URN, Google-origin activity / location", () => {
+  assertEquals(GOOGLE_CONTENT_ORIGIN, "google_places_legacy");
+  for (const [v, want] of table.googlePlaceUrns) assertEquals(isGooglePlaceUrn(v), want, String(v));
+  for (const [row, want] of table.googleOriginActivities) assertEquals(isGoogleOriginActivity(row), want, JSON.stringify(row));
+  for (const [loc, want] of table.googleOriginLocations) assertEquals(isGoogleOriginLocation(loc), want, JSON.stringify(loc));
 });
 
 Deno.test("scan-settlement-gaps gate: operational setting ON + persistence policy OFF -> skipped, no run", () => {

@@ -17,6 +17,8 @@
 // NOTE: this is placesDiscovery.ts's normalizeForMatch (Unicode letter/number classes, punctuation
 // becomes a SPACE), NOT matching.ts's (which strips punctuation to nothing). The two differ on
 // "מדבריום - פארק החיות": here the hyphen becomes a token boundary. Ported verbatim.
+const { isGoogleMapsUrl, isGooglePlaceUrn } = require('./googlePlacesPolicy');
+
 const COMPARISON_ONLY_STOPWORDS = new Set(['park', 'פארק', 'גן', 'ציבורי']);
 function normalizeForMatch(s) {
   if (!s) return '';
@@ -65,8 +67,11 @@ function nameContainment(a, b, localityTokens = EMPTY_SET) {
   return true;
 }
 
+// A Google Maps listing / place URN is not a PUBLISHER (Google Places release policy, googlePlacesPolicy.js): two Google-origin
+// rows are not "same_publisher", and a Maps row does not make an "independent source agreeing". It also keeps the signal
+// the same after the Maps source_url scrub (null source_url -> no publisher).
 function registrableDomain(url) {
-  if (!url) return null;
+  if (!url || isGoogleMapsUrl(url) || isGooglePlaceUrn(url)) return null;
   try {
     const host = new URL(url).hostname.toLowerCase().replace(/^www\./, '');
     return host || null;

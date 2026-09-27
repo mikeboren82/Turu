@@ -54,7 +54,7 @@ async function loadIncoming(client, id) {
   return data;
 }
 async function loadActivity(client, id) {
-  const { data } = await client.from('activities').select('id, name, name_source, category, venue_id, source_id, source_url, location_id, placeholder_group, organizer_name, created_at, locations(id, name, address, city, lat, lng, region, venue_id, address_source, address_confidence), activity_images(url), activity_schedules(schedule_type, one_time_date, day_of_week, start_time, end_time), activity_sources(page_url, incoming_activity_id, relation)').eq('id', id).maybeSingle();
+  const { data } = await client.from('activities').select('id, name, name_source, category, venue_id, source_id, source_url, content_origin, location_id, placeholder_group, organizer_name, created_at, locations(id, name, address, city, lat, lng, region, venue_id, address_source, address_confidence), activity_images(url), activity_schedules(schedule_type, one_time_date, day_of_week, start_time, end_time), activity_sources(page_url, incoming_activity_id, relation)').eq('id', id).maybeSingle();
   return data;
 }
 

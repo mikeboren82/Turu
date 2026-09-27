@@ -112,7 +112,7 @@ async function main() {
   while (true) {
     const { data, error } = await client
       .from('activities')
-      .select('id, name, category, name_source, location_id, source_url, location:locations(id, name, address, city, lat, lng)')
+      .select('id, name, category, name_source, location_id, source_url, content_origin, location:locations(id, name, address, city, lat, lng)')
       .range(from, from + 999);
     if (error) throw error;
     // Google Places release policy (lib/googlePlacesPolicy.js): a Google-origin activity's coordinates / name are Places

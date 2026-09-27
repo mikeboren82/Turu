@@ -87,6 +87,26 @@ class PolicyTwinTests(unittest.TestCase):
         for ed, page_url, want in CASES["placesOrigin"]:
             self.assertEqual(google_policy.is_places_origin_candidate(ed, page_url), want, (ed, page_url))
 
+    def test_shared_case_table_permanent_marker(self):
+        """0115 content_origin marker, place URN, Google-origin activity / location - same table as Node/Deno/client."""
+        self.assertEqual(google_policy.GOOGLE_CONTENT_ORIGIN, "google_places_legacy")
+        for value, want in CASES["googlePlaceUrns"]:
+            self.assertEqual(google_policy.is_google_place_urn(value), want, value)
+        for row, want in CASES["googleOriginActivities"]:
+            self.assertEqual(google_policy.is_google_origin_activity(row), want, row)
+        for loc, want in CASES["googleOriginLocations"]:
+            self.assertEqual(google_policy.is_google_origin_location(loc), want, loc)
+
+    def test_phases_A_B_C_give_the_same_answer(self):
+        """Before the backfill (Maps URL), after it (marker + URL), after the scrub (marker only)."""
+        independent = [{"id": "m", "source_url": "https://www.raanana.muni.il/p/1", "google_place_id": "ChIJm"},
+                       {"id": "o", "source_url": "https://www.openstreetmap.org/way/1", "google_place_id": "ChIJo"}]
+        phase_a = [{"id": "g", "source_url": MAPS, "google_place_id": "ChIJg"}, *independent]
+        phase_b = [{**phase_a[0], "content_origin": "google_places_legacy"}, *independent]
+        phase_c = [{**phase_b[0], "source_url": None}, *independent]
+        for rows in (phase_a, phase_b, phase_c):
+            self.assertEqual([r["id"] for r in rows if google_policy.is_google_origin_activity(r)], ["g"])
+
     def test_no_override_switch(self):
         src = (THIS_DIR / "google_policy.py").read_text(encoding="utf-8")
         self.assertNotIn("os.environ", src)

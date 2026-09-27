@@ -118,6 +118,12 @@
       "a": { "name": "פינגווינלנד", "lat": 32.3, "lon": 34.9, "sourceUrl": "https://penguinland.example/", "entityType": "מקום_קבוע" },
       "b": { "name": "ביקור במתחם פינגווינלנד המדהים", "lat": 32.3, "lon": 34.9, "sourceUrl": "https://aggregator.example/", "entityType": "מקום_קבוע" },
       "expect": { "isCandidate": true, "relationship": "POSSIBLE_DUPLICATE", "identityKinds": ["offering_name_identity", "independent_sources_agree"] }
+    },
+    {
+      "id": "google_maps_listing_is_not_an_independent_publisher",
+      "a": { "name": "פארק הדקלים הגדול", "lat": 32.18, "lon": 34.87, "sourceUrl": "https://maps.google.com/?cid=4412345678901234567", "entityType": "מקום_קבוע" },
+      "b": { "name": "גינת הדקלים", "lat": 32.18, "lon": 34.87, "sourceUrl": "https://www.openstreetmap.org/way/77", "entityType": "מקום_קבוע" },
+      "expect": { "isCandidate": false, "relationship": "SAME_PLACE_DIFFERENT_RECORD", "identityKinds": [] }
     }
   ]
 }

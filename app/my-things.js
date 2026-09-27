@@ -40,10 +40,10 @@ const SORT_OPTIONS = [
   { id: 'name', labelKey: 'saved.sort.name' },
 ];
 
-// source_url: the saved-items map must be able to leave Google-origin rows unpinned
-// (lib/googleContent.js#activitiesForNonGoogleMap). Without it, mapActivityRow's sourceUrl is null
-// and every row would look non-Google.
-const NESTED_ACTIVITY_FIELDS = `id, name, category, entity_type, placeholder_group, min_age, max_age, status, source_url,
+// source_url + content_origin: the saved-items map must be able to leave Google-origin rows unpinned
+// (lib/googleContent.js#activitiesForNonGoogleMap). Without them, mapActivityRow's sourceUrl /
+// contentOrigin are null and every row would look non-Google (content_origin: after the source_url scrub).
+const NESTED_ACTIVITY_FIELDS = `id, name, category, entity_type, placeholder_group, min_age, max_age, status, source_url, content_origin,
   location:locations(id, name, city, region, address, lat, lng),
   activity_images(url)`;
 

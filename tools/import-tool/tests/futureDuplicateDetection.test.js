@@ -123,7 +123,7 @@ test('CROSS-SOURCE: independent publishers agreeing on a place are detected as a
   const L = { lat: 31.9, lng: 34.8, address: 'הדקל 5', city: 'עיר X' };
   const { activities, locations } = (() => {
     const rows = [
-      { id: 'p1', locId: 'l1', name: 'פארק הפיראטים', status: 'approved', entity_type: PLACE_ENTITY_TYPE, venue_id: null, source_url: 'https://maps.google.com/x', ...L },
+      { id: 'p1', locId: 'l1', name: 'פארק הפיראטים', status: 'approved', entity_type: PLACE_ENTITY_TYPE, venue_id: null, source_url: 'https://www.openstreetmap.org/way/77', ...L },
       { id: 'p2', locId: 'l2', name: 'פארק הפיראטים', status: 'approved', entity_type: PLACE_ENTITY_TYPE, venue_id: null, source_url: 'https://visit.example.muni.il/y', ...L },
     ];
     return {

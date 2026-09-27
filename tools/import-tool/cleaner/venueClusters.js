@@ -33,7 +33,7 @@ async function loadMembers(client) {
     for (const r of data || []) inc.set(r.id, r);
   }
   for (let i = 0; i < actIds.length; i += 150) {
-    const { data } = await client.from('activities').select('id, name, venue_id, source_id, source_url, organizer_name, locations(name, city, address, lat, lng, address_confidence)').in('id', actIds.slice(i, i + 150));
+    const { data } = await client.from('activities').select('id, name, venue_id, source_id, source_url, content_origin, organizer_name, locations(name, city, address, lat, lng, address_confidence)').in('id', actIds.slice(i, i + 150));
     for (const r of data || []) act.set(r.id, r);
   }
   const members = [];

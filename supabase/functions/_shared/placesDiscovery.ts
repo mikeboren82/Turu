@@ -6,6 +6,7 @@
 
 import { normalizeCityName } from './cityNaming.ts';
 import { GENRE_WORDS } from './matching.ts';
+import { isGoogleMapsUrl, isGooglePlaceUrn } from './googlePlacesPolicy.ts';
 
 const PLAYGROUND_KEYWORDS = ['playground', 'גן שעשועים', 'גני שעשועים', 'מתקני משחקים', 'משחקייה'];
 const PARK_KEYWORDS = ['park', 'פארק', 'גן ציבורי', 'גן לאומי'];
@@ -633,8 +634,9 @@ function nameContainment(a: string | null | undefined, b: string | null | undefi
   return true;
 }
 
+// a Google Maps listing / place URN is not a publisher - same rule as tools/import-tool/lib/duplicateSignal.js
 function registrableDomain(url: string | null | undefined): string | null {
-  if (!url) return null;
+  if (!url || isGoogleMapsUrl(url) || isGooglePlaceUrn(url)) return null;
   try {
     const host = new URL(url).hostname.toLowerCase().replace(/^www\./, '');
     return host || null;

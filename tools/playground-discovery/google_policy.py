@@ -21,7 +21,7 @@ _GOOGLE_DOMAIN = r"google\.(?:com|com\.[a-z]{2}|co\.[a-z]{2}|[a-z]{2})"
 _MAPS_HOST_RE = re.compile(rf"maps\.{_GOOGLE_DOMAIN}")
 _GOOGLE_HOST_RE = re.compile(rf"(?:www\.)?{_GOOGLE_DOMAIN}")
 
-# Places-origin incoming by explicit provenance: a Maps page_url, a google_maps_uri, or the Places-writer PAIR
+# Places-origin incoming by explicit provenance: a Maps page_url (or place URN), a google_maps_uri, or the Places-writer PAIR
 # formatted_address + place_kind. A generic key alone (lat/lon/lng, a lone formatted_address or place_kind,
 # google_place_id) never counts - independent OSM / GIS / municipal rows carry those.
 PLACES_EXPLICIT_KEYS = ("google_maps_uri",)
@@ -63,8 +63,47 @@ def is_google_maps_url(url) -> bool:
     return False
 
 
+# PERMANENT GOOGLE-ORIGIN MARKER (supabase/0115): activities/locations.content_origin = 'google_places_legacy' -
+# historical, sticky (DB trigger), set only by the frozen backfill; never inferred from google_place_id, coordinates,
+# title, category, proximity or the current source_url. Rule + rationale: the Node twin.
+GOOGLE_CONTENT_ORIGIN = "google_places_legacy"
+_GOOGLE_PLACE_URN_RE = re.compile(r"urn:google-place(?:-cid-removed)?:\S+", re.IGNORECASE)
+
+
+def is_google_place_urn(url) -> bool:
+    """Side-table replacement for a Maps page_url (scrub phases P10/P11)."""
+    return isinstance(url, str) and bool(_GOOGLE_PLACE_URN_RE.fullmatch(url.strip()))
+
+
+def _get(row: dict, snake: str, camel: str):
+    value = row.get(snake)
+    return row.get(camel) if value is None else value
+
+
+def has_google_content_origin(row) -> bool:
+    return isinstance(row, dict) and _get(row, "content_origin", "contentOrigin") == GOOGLE_CONTENT_ORIGIN
+
+
+def is_google_origin_activity(row) -> bool:
+    """The permanent marker OR (migration window) a Maps source_url / place URN - never google_place_id."""
+    if not isinstance(row, dict):
+        return False
+    source_url = _get(row, "source_url", "sourceUrl")
+    return has_google_content_origin(row) or is_google_maps_url(source_url) or is_google_place_urn(source_url)
+
+
+def is_google_origin_location(loc) -> bool:
+    """Its own marker, OR (before the location backfill) an embedded Google-origin activity; an orphan only by its marker."""
+    if not isinstance(loc, dict):
+        return False
+    if has_google_content_origin(loc):
+        return True
+    acts = loc.get("activities")
+    return isinstance(acts, list) and any(is_google_origin_activity(a) for a in acts)
+
+
 def is_places_origin_candidate(extracted_data, page_url=None) -> bool:
-    if is_google_maps_url(page_url):
+    if is_google_maps_url(page_url) or is_google_place_urn(page_url):
         return True
     if not isinstance(extracted_data, dict):
         return False

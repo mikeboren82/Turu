@@ -54,11 +54,44 @@ function isRawGooglePlacesPhotoUrl(url) {
   return false;
 }
 
-// Google-origin ACTIVITY: its stored source_url is a Google Maps URL (the 2026-09-27 inventory marker). Never keyed on
-// google_place_id - 215 independent OSM/other rows only received a place id later.
-function isGoogleOriginActivity(row) {
-  return !!row && isGoogleMapsUrl(row.source_url ?? row.sourceUrl ?? null);
+// PERMANENT GOOGLE-ORIGIN MARKER (supabase/0115, 2026-09-27). activities.content_origin / locations.content_origin =
+// 'google_places_legacy' says "this row was CREATED from Google Places-derived catalogue facts". It is historical and
+// sticky (a DB trigger refuses to clear or change it): re-sourcing, merging or scrubbing the row's fields never removes
+// it, so the row stays visible to every guard after its Maps source_url is nulled. It is set only by the frozen
+// backfill (google-origin-backfill.js) - no writer sets it, and it is never inferred from google_place_id, coordinates,
+// title, category, proximity or the current source_url.
+const GOOGLE_CONTENT_ORIGIN = 'google_places_legacy';
+// Side-table replacement for a Maps page_url (activity_sources / incoming_activities, scrub phases P10/P11): the URN
+// keeps the storable place id and the origin, without the Maps link.
+const GOOGLE_PLACE_URN_RE = /^urn:google-place(?:-cid-removed)?:\S+$/i;
+function isGooglePlaceUrn(url) {
+  return typeof url === 'string' && GOOGLE_PLACE_URN_RE.test(url.trim());
 }
+
+function hasGoogleContentOrigin(row) {
+  return !!row && (row.content_origin ?? row.contentOrigin ?? null) === GOOGLE_CONTENT_ORIGIN;
+}
+
+// Google-origin ACTIVITY = the permanent marker, OR (migration window, until every legacy row is marked and the scrub
+// has run) a Google Maps source_url / Google place URN. Never keyed on google_place_id - 216 independent OSM/other rows
+// only received a place id later. The same answer before the backfill (Maps URL), after it (both) and after the
+// source_url scrub (marker).
+function isGoogleOriginActivity(row) {
+  if (!row) return false;
+  const sourceUrl = row.source_url ?? row.sourceUrl ?? null;
+  return hasGoogleContentOrigin(row) || isGoogleMapsUrl(sourceUrl) || isGooglePlaceUrn(sourceUrl);
+}
+
+// Google-origin LOCATION: its own marker, OR (before the location backfill) any embedded activity using it is
+// Google-origin - `locations(..., content_origin, activities(source_url, content_origin))`. An orphan location (no
+// activity) is only recognisable by its marker. Proximity or a matching name never counts.
+function isGoogleOriginLocation(loc) {
+  if (!loc) return false;
+  if (hasGoogleContentOrigin(loc)) return true;
+  return Array.isArray(loc.activities) && loc.activities.some(isGoogleOriginActivity);
+}
+// the select fragment a location-reuse lookup needs for isGoogleOriginLocation
+const LOCATION_ORIGIN_SELECT = 'content_origin, activities(source_url, content_origin)';
 
 // Places-origin INCOMING candidate: its substantive facts are a Places response - decided by explicit provenance, never
 // by a generic field. Every Places writer (scan-settlement-gaps, playground_discovery.py, the Cleaner settlement
@@ -71,7 +104,7 @@ const PLACES_EXPLICIT_KEYS = ['google_maps_uri'];
 const PLACES_SIGNATURE_KEYS = ['formatted_address', 'place_kind'];
 const PLACES_ORIGIN_KEYS = [...PLACES_EXPLICIT_KEYS, ...PLACES_SIGNATURE_KEYS]; // every key the rule reads
 function isPlacesOriginCandidate(extractedData, pageUrl = null) {
-  if (isGoogleMapsUrl(pageUrl)) return true;
+  if (isGoogleMapsUrl(pageUrl) || isGooglePlaceUrn(pageUrl)) return true;
   const ed = extractedData;
   if (!ed || typeof ed !== 'object') return false;
   return PLACES_EXPLICIT_KEYS.some((k) => ed[k] !== undefined) || PLACES_SIGNATURE_KEYS.every((k) => ed[k] !== undefined);
@@ -87,7 +120,7 @@ function placesPersistenceReason(extractedData, pageUrl = null) {
 
 // The Cleaner's hold rule (pure): which case subjects are Places-derived work it must not process while the policy is
 // OFF. A settlement_review case is by construction a Places candidate; an incoming row by its shape; a live activity
-// by its Maps source_url. -> null (process normally) | { reason, subject }
+// by isGoogleOriginActivity (marker or Maps source_url). -> null (process normally) | { reason, subject }
 function cleanerPolicyHold({ subjectKind, incoming = null, activity = null } = {}) {
   if (GOOGLE_PLACES_CONTENT_PERSISTENCE) return null;
   if (subjectKind === 'settlement_review') return { reason: POLICY_REASON, subject: 'settlement_scan_candidate' };
@@ -109,7 +142,8 @@ function assertNotGoogleMapsUrl(url, where) {
 }
 
 module.exports = {
-  GOOGLE_PLACES_CONTENT_PERSISTENCE, POLICY_REASON, PLACES_ORIGIN_KEYS,
-  isGoogleMapsUrl, isRawGooglePlacesPhotoUrl, isGoogleOriginActivity, isPlacesOriginCandidate, placesPersistenceReason, cleanerPolicyHold,
+  GOOGLE_PLACES_CONTENT_PERSISTENCE, POLICY_REASON, PLACES_ORIGIN_KEYS, GOOGLE_CONTENT_ORIGIN, LOCATION_ORIGIN_SELECT,
+  isGoogleMapsUrl, isGooglePlaceUrn, isRawGooglePlacesPhotoUrl, hasGoogleContentOrigin, isGoogleOriginActivity, isGoogleOriginLocation,
+  isPlacesOriginCandidate, placesPersistenceReason, cleanerPolicyHold,
   GooglePlacesPersistenceError, assertNotGoogleMapsUrl,
 };
