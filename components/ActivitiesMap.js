@@ -6,6 +6,7 @@ import { useRouter } from 'expo-router';
 import { colors, fonts, radii } from '../constants/theme';
 import { ChevronLeftIcon } from './icons';
 import { placeholderImageFor, placeholderBgColorFor } from '../lib/placeholderImages';
+import { activitiesForNonGoogleMap, publicImageUrl } from '../lib/googleContent';
 import { useI18n, createStyles } from '../lib/i18n';
 import { categoryLabel } from '../lib/i18n/format';
 
@@ -37,14 +38,19 @@ export default function ActivitiesMap({ activities, deviceCoords }) {
   const { t, dir } = useI18n();
   const [selectedId, setSelectedId] = useState(null);
 
+  // Pins: rows that have coordinates, minus Google-origin rows (lib/googleContent.js). This is the
+  // same rule as ActivitiesMap.web.js. The list and its result count are unaffected. selected is
+  // derived from the pinned set, so a row that was filtered out can never stay selected.
   const withCoords = useMemo(() => activities.filter((a) => a.lat != null && a.lng != null), [activities]);
-  const region = useMemo(() => regionFor(withCoords, deviceCoords), [withCoords, deviceCoords]);
-  const selected = withCoords.find((a) => a.id === selectedId) || null;
+  const pinned = useMemo(() => activitiesForNonGoogleMap(withCoords), [withCoords]);
+  const region = useMemo(() => regionFor(pinned, deviceCoords), [pinned, deviceCoords]);
+  const selected = pinned.find((a) => a.id === selectedId) || null;
+  const selectedImageUrl = selected ? publicImageUrl(selected.imageUrl) : null;
 
   return (
     <View style={styles.wrap}>
       <MapView style={styles.map} initialRegion={region} onPress={() => setSelectedId(null)}>
-        {withCoords.map((a) => (
+        {pinned.map((a) => (
           <Marker
             key={a.id}
             coordinate={{ latitude: a.lat, longitude: a.lng }}
@@ -54,16 +60,16 @@ export default function ActivitiesMap({ activities, deviceCoords }) {
         ))}
       </MapView>
 
-      {withCoords.length === 0 ? (
+      {pinned.length === 0 ? (
         <View style={styles.emptyOverlay}>
-          <Text style={styles.emptyText}>{t('activities.map.emptyOverlay')}</Text>
+          <Text style={styles.emptyText}>{t(withCoords.length === 0 ? 'activities.map.emptyOverlay' : 'activities.map.notShownOverlay')}</Text>
         </View>
       ) : null}
 
       {selected ? (
         <Pressable style={styles.previewCard} onPress={() => router.push(`/activity/${selected.id}`)}>
-          {selected.imageUrl ? (
-            <Image source={{ uri: selected.imageUrl }} style={styles.previewImage} />
+          {selectedImageUrl ? (
+            <Image source={{ uri: selectedImageUrl }} style={styles.previewImage} />
           ) : placeholderImageFor(selected.placeholderGroup, selected.id, selected.category) ? (
             <Image
               source={placeholderImageFor(selected.placeholderGroup, selected.id, selected.category)}

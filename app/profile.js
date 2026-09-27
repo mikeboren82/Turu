@@ -26,6 +26,7 @@ import {
 import { formatChildAge } from '../lib/children';
 import { fetchAllPersonalNotes, savePersonalNote, fetchHiddenActivities, toggleHidden } from '../lib/interactions';
 import { placeholderImageFor, placeholderBgColorFor } from '../lib/placeholderImages';
+import { firstPublicImageUrl } from '../lib/googleContent';
 import { relativeDate } from '../lib/formatDate';
 import { requestAccountDeletion } from '../lib/legal';
 import { useI18n, createStyles, t as translate, LOCALES, SUPPORTED_LOCALES } from '../lib/i18n';
@@ -937,7 +938,8 @@ export default function ProfileScreen() {
             </View>
           ) : (() => {
             const note = notes[0];
-            const thumb = note.activity.activity_images?.[0]?.url;
+            // Raw row, not mapActivityRow: apply the same public image rule (no Google Places photos).
+            const thumb = firstPublicImageUrl(note.activity.activity_images);
             const cityLabel = placeName(note.activity.location?.city) || note.activity.location?.name || '';
             return (
               <View style={styles.noteCard}>

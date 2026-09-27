@@ -16,6 +16,7 @@ import { useRouter } from 'expo-router';
 import { colors, fonts, radii } from '../constants/theme';
 import { ChevronLeftIcon } from './icons';
 import { placeholderImageFor, placeholderBgColorFor } from '../lib/placeholderImages';
+import { activitiesForNonGoogleMap, publicImageUrl } from '../lib/googleContent';
 import { useI18n, createStyles } from '../lib/i18n';
 import { categoryLabel } from '../lib/i18n/format';
 
@@ -91,10 +92,13 @@ function FitOnMount({ groups, deviceCoords }) {
 // תוכן בדיוק כמו previewCard במפה הנייטיבית (לא עיצוב מקביל).
 function SingleActivityPreview({ activity, onOpen }) {
   const { t, dir } = useI18n();
+  // A Google Places photo is never shown on this non-Google map (lib/googleContent.js); the
+  // placeholder below takes its place.
+  const imageUrl = publicImageUrl(activity.imageUrl);
   return (
     <Pressable style={styles.previewCard} onPress={onOpen}>
-      {activity.imageUrl ? (
-        <Image source={{ uri: activity.imageUrl }} style={styles.previewImage} />
+      {imageUrl ? (
+        <Image source={{ uri: imageUrl }} style={styles.previewImage} />
       ) : placeholderImageFor(activity.placeholderGroup, activity.id, activity.category) ? (
         <Image
           source={placeholderImageFor(activity.placeholderGroup, activity.id, activity.category)}
@@ -137,8 +141,12 @@ export default function ActivitiesMap({ activities, deviceCoords }) {
   const { t } = useI18n();
   const [selectedKey, setSelectedKey] = useState(null);
 
+  // Pins: rows that have coordinates, minus Google-origin rows. Places content must not appear on a
+  // Leaflet/OSM map (lib/googleContent.js). An independent row that merely carries a google_place_id
+  // keeps its pin. The list and its result count are unaffected.
   const withCoords = useMemo(() => activities.filter((a) => a.lat != null && a.lng != null), [activities]);
-  const groups = useMemo(() => groupByCoord(withCoords), [withCoords]);
+  const pinned = useMemo(() => activitiesForNonGoogleMap(withCoords), [withCoords]);
+  const groups = useMemo(() => groupByCoord(pinned), [pinned]);
   // חישוב חד-פעמי (לא useMemo תלוי-activities בכוונה, ראו FitOnMount) - רק כדי לתת ל-MapContainer
   // center/zoom התחלתיים תקינים (חובה ב-react-leaflet) לפני ש-FitOnMount מתקן אותם ב-mount.
   const initialCenter = groups[0] ? [groups[0].lat, groups[0].lng] : (deviceCoords ? [deviceCoords.latitude, deviceCoords.longitude] : ISRAEL_CENTER);
@@ -200,9 +208,12 @@ export default function ActivitiesMap({ activities, deviceCoords }) {
 
       {/* תוצאות קיימות, אבל אף אחת מהן עם מיקום ידוע - אותו טקסט/עיצוב בדיוק כמו המפה הנייטיבית
           (activities.map.emptyOverlay), לא הודעה מקבילה חדשה. */}
-      {withCoords.length === 0 ? (
+      {/* No eligible pins. If none of the rows has a location, keep the existing text. If rows do
+          have a location but none can be pinned here, say only that they can't be shown on the map
+          and that the list has them. */}
+      {pinned.length === 0 ? (
         <View style={styles.emptyOverlay} pointerEvents="none">
-          <Text style={styles.emptyText}>{t('activities.map.emptyOverlay')}</Text>
+          <Text style={styles.emptyText}>{t(withCoords.length === 0 ? 'activities.map.emptyOverlay' : 'activities.map.notShownOverlay')}</Text>
         </View>
       ) : null}
     </View>

@@ -151,6 +151,7 @@
   },
   "map": {
     "emptyOverlay": "The selected activities have no known location to show on the map",
+    "notShownOverlay": "These activities can't be shown on the map - you'll find them in the list",
     "multipleAt_one": "1 activity at this spot",
     "multipleAt_other": "{{count}} activities at this spot"
   }

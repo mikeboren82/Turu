@@ -12,6 +12,7 @@ import { CATEGORY_OPTIONS, REGION_OPTIONS, AGE_OPTIONS } from '../constants/filt
 import { supabase } from '../lib/supabase';
 import { mapActivityRow } from '../lib/activities';
 import { placeholderImageFor, placeholderBgColorFor } from '../lib/placeholderImages';
+import { firstPublicImageUrl } from '../lib/googleContent';
 import { relativeDate } from '../lib/formatDate';
 import { openNavigationTo } from '../lib/openNavigation';
 import { useI18n, createStyles, t as translate } from '../lib/i18n';
@@ -39,7 +40,10 @@ const SORT_OPTIONS = [
   { id: 'name', labelKey: 'saved.sort.name' },
 ];
 
-const NESTED_ACTIVITY_FIELDS = `id, name, category, entity_type, placeholder_group, min_age, max_age, status,
+// source_url: the saved-items map must be able to leave Google-origin rows unpinned
+// (lib/googleContent.js#activitiesForNonGoogleMap). Without it, mapActivityRow's sourceUrl is null
+// and every row would look non-Google.
+const NESTED_ACTIVITY_FIELDS = `id, name, category, entity_type, placeholder_group, min_age, max_age, status, source_url,
   location:locations(id, name, city, region, address, lat, lng),
   activity_images(url)`;
 
@@ -382,7 +386,8 @@ export default function MyThingsScreen() {
                 </View>
               ) : (
                 sortedNotes.map((note) => {
-                  const thumb = note.activity.activity_images?.[0]?.url;
+                  // Raw row, not mapActivityRow: apply the same public image rule (no Google Places photos).
+                  const thumb = firstPublicImageUrl(note.activity.activity_images);
                   const cityLabel = placeName(note.activity.location?.city) || note.activity.location?.name || '';
                   return (
                     <View key={note.activity_id} style={styles.noteCard}>
@@ -518,7 +523,7 @@ export default function MyThingsScreen() {
                   const unavailable = a.status !== 'approved';
                   const cityLabel = a.location?.city || a.location?.name || '';
                   const cityDisplay = placeName(a.location?.city) || a.location?.name || '';
-                  const thumb = a.activity_images?.[0]?.url;
+                  const thumb = firstPublicImageUrl(a.activity_images);
                   const note = notesByActivity.get(a.id);
                   const dateLabel = formatTargetDate(rec, formatDate);
                   const isPastDue = rec.target_date && new Date(rec.target_date) < new Date(new Date().toDateString()) && !rec.inVisited;

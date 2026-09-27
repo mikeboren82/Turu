@@ -2,6 +2,7 @@ import { View, Text, Image, Pressable } from 'react-native';
 import { colors, fonts, radii } from '../constants/theme';
 import { useI18n, createStyles } from '../lib/i18n';
 import { placeholderImageFor, PLACEHOLDER_IMAGES } from '../lib/placeholderImages';
+import { publicImageUrl } from '../lib/googleContent';
 
 // PHASE 1 EXTRACTION (2026-09-19, "safe presentational extraction" - ראו הביקורת הארכיטקטונית) -
 // הועבר byte-for-byte מ-app/index.js: משפחת-הכרטיסים "המטושטשים" שהקרוסלה מציגה כש-
@@ -18,7 +19,10 @@ import { placeholderImageFor, PLACEHOLDER_IMAGES } from '../lib/placeholderImage
 // שהפעילויות האמיתיות נטענות (recActivities עדיין ב-recLoading) - אין רגע של skeleton.
 const PREVIEW_FALLBACK_IMAGES = Object.values(PLACEHOLDER_IMAGES).flat();
 function sourceForLockedCard(activity, index) {
-  if (activity?.imageUrl) return { uri: activity.imageUrl };
+  // publicImageUrl: a Google Places photo never shows here, even when this card receives an object
+  // that bypassed mapActivityRow. It falls through to the placeholder instead (lib/googleContent.js).
+  const imageUrl = publicImageUrl(activity?.imageUrl);
+  if (imageUrl) return { uri: imageUrl };
   const ph = activity?.placeholderGroup ? placeholderImageFor(activity.placeholderGroup, activity?.id ?? index, activity?.category) : null;
   if (ph) return ph;
   return PREVIEW_FALLBACK_IMAGES[index % PREVIEW_FALLBACK_IMAGES.length];
