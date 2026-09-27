@@ -135,6 +135,38 @@ test('B: an ordinary page-extracted incoming row still publishes normally (with 
   }
 });
 
+// ---- classifier: explicit provenance only - a generic coordinate / address / place-id key is never a Google fingerprint ----
+test('classifier: Places-origin only by Maps page_url, google_maps_uri or formatted_address + place_kind; independent coordinate rows are never held', async () => {
+  const origin = policy.isPlacesOriginCandidate;
+  // A real Places-shaped incoming (all three writers) / B Google Maps page_url
+  for (const row of Object.values(PLACES_SHAPES)) assert.equal(origin(row.extracted_data, row.page_url), true);
+  assert.equal(origin({ ...PLACES_SHAPES.scan_settlement_gaps.extracted_data }, null), true, 'the Places key pair holds even without a page_url');
+  assert.equal(origin({ name: 'x', city: 'רעננה', lat: 32.1, lng: 34.8 }, 'https://www.google.com/maps/place/x'), true);
+  const independent = {
+    C_osm_with_place_id: [{ name: 'גן שעשועים', lat: 32.18, lon: 34.87, osm_type: 'node', osm_id: 7, google_place_id: 'ChIJosm' }, 'https://www.openstreetmap.org/node/7'],
+    D_municipal_gis_lat_lon: [{ name: 'גינה ציבורית', city: 'תל אביב-יפו', lat: 32.08, lon: 34.78, latitude: 32.08, longitude: 34.78 }, 'https://gisn.tel-aviv.gov.il/arcgis/rest/services/x/MapServer/0/query'],
+    E_arcgis_geometry: [{ name: 'מתקן משחקים', geometry: { x: 34.78, y: 32.08, spatialReference: { wkid: 4326 } }, lat: 32.08, lon: 34.78 }, 'https://services.arcgis.com/abc/arcgis/rest/services/P/FeatureServer/0'],
+    F_official_page_coords: [pageCandidate({ lon: 34.77, latitude: 32.01, longitude: 34.77 }), 'https://www.holon.muni.il/events/1'],
+    G_place_id_alone: [{ google_place_id: 'ChIJ1' }, null],
+    lone_formatted_address: [{ name: 'x', formatted_address: 'הדקל 5, רעננה' }, 'https://www.raanana.muni.il/x'],
+    lone_place_kind: [{ name: 'x', place_kind: 'playground', lat: 32.1, lon: 34.8 }, 'https://www.playground-maker.co.il/projects-map'],
+  };
+  for (const [label, [ed, pageUrl]] of Object.entries(independent)) {
+    assert.equal(origin(ed, pageUrl), false, label);
+    assert.equal(policy.placesPersistenceReason(ed, pageUrl), null, label);
+    assert.equal(policy.cleanerPolicyHold({ subjectKind: 'incoming', incoming: { extracted_data: ed, page_url: pageUrl } }), null, label);
+  }
+  // end to end: an ordinary page row that happens to carry `lon` is not held by the release policy
+  const db = fakeDb(world({ extracted_data: pageCandidate({ lon: 34.77 }) }));
+  const r = await publishIncoming(db.client, 'bot', 'inc-1', { mode: 'auto' });
+  assert.ok(!(r.body.blockers || []).includes(REASON), JSON.stringify(r.body).slice(0, 300));
+  assert.equal(r.outcome, PUBLISH_OUTCOME.PUBLISHED, JSON.stringify(r.body).slice(0, 300));
+  // the Cleaner venue-cluster loader reads exactly the keys the rule reads (no drift back to `lon`)
+  const vc = fs.readFileSync(path.join(__dirname, '../cleaner/venueClusters.js'), 'utf8');
+  assert.ok(!/extracted_data->>lon\b|'lon'/.test(vc));
+  assert.deepEqual([...policy.PLACES_ORIGIN_KEYS].sort(), ['formatted_address', 'google_maps_uri', 'place_kind']);
+});
+
 // ---- C + D: independent activity + Google reconciliation -> place id only ----
 test('C/D: reconciliation stores the place id on the independent row and nothing else (name / address / coords / source kept)', async () => {
   const osm = { id: 'act-osm', name: 'גן שעשועים – הדקל, רעננה', status: 'approved', category: 'גן שעשועים', google_place_id: null, location_id: 'loc-osm', source_url: 'https://www.openstreetmap.org/node/7' };

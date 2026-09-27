@@ -1,5 +1,5 @@
 {
-  "_doc": "Google Places persistence policy (2026-09-27) - ONE case table for the three twins: tools/import-tool/lib/googlePlacesPolicy.js, supabase/functions/_shared/googlePlacesPolicy.ts, tools/playground-discovery/google_policy.py. mapsUrls: [url, isGoogleMapsUrl]. placesOrigin: [extracted_data, page_url, isPlacesOriginCandidate].",
+  "_doc": "Google Places persistence policy (2026-09-27) - ONE case table for the three twins: tools/import-tool/lib/googlePlacesPolicy.js, supabase/functions/_shared/googlePlacesPolicy.ts, tools/playground-discovery/google_policy.py. mapsUrls: [url, isGoogleMapsUrl]. placesOrigin: [extracted_data, page_url, isPlacesOriginCandidate] - true only by explicit provenance (Maps page_url, google_maps_uri, or the formatted_address + place_kind pair); generic coordinates / a lone formatted_address or place_kind / google_place_id (OSM, municipal GIS, ArcGIS, GovMap, project maps, official pages) are false.",
   "persistence": false,
   "policyReason": "google_places_persistence_disabled",
   "mapsUrls": [
@@ -32,11 +32,22 @@
   "placesOrigin": [
     [{"name": "גן שעשועים הדקל", "formatted_address": "הדקל 5, רעננה", "lat": 32.1, "lon": 34.8, "google_place_id": "ChIJ1", "place_kind": "PLAYGROUND"}, "https://maps.google.com/?cid=1", true],
     [{"name": "x", "formatted_address": null, "lat": 32.1, "lon": 34.8, "google_place_id": "ChIJ1", "google_maps_uri": null, "place_kind": "PARK", "types": ["park"]}, null, true],
-    [{"name": "x", "formatted_address": "רחוב 1, עיר"}, null, true],
-    [{"name": "x", "lat": 32.1, "lon": 34.8}, null, true],
+    [{"name": "x", "formatted_address": "הדקל 5, רעננה", "place_kind": "PLAYGROUND"}, null, true],
+    [{"name": "גן שעשועים הדקל", "formatted_address": "הדקל 5, רעננה", "lat": 32.18, "lon": 34.87, "google_place_id": "ChIJ1", "city": "רעננה"}, "https://www.google.com/maps", true],
     [{"name": "x", "google_maps_uri": "https://maps.google.com/?cid=9"}, null, true],
     [{"name": "הצגה", "location_name": "היכל התרבות", "city": "רעננה", "lat": 32.1, "lng": 34.8}, "https://www.google.com/maps", true],
+    [{"name": "x", "lat": 32.1, "lon": 34.8}, null, false],
+    [{"name": "x", "formatted_address": "רחוב 1, עיר"}, null, false],
+    [{"name": "x", "place_kind": "playground"}, null, false],
+    [{"google_place_id": "ChIJ1"}, null, false],
+    [{"name": "גן שעשועים", "lat": 32.18, "lon": 34.87, "osm_type": "node", "osm_id": 123, "google_place_id": "ChIJosm"}, "https://www.openstreetmap.org/node/123", false],
+    [{"name": "גן שעשועים", "lat": 32.18, "lng": 34.87, "google_place_id": "ChIJosm", "city": "רעננה"}, null, false],
+    [{"name": "גינה ציבורית", "city": "תל אביב-יפו", "lat": 32.08, "lon": 34.78, "latitude": 32.08, "longitude": 34.78, "address": "רחוב הירקון 5"}, "https://gisn.tel-aviv.gov.il/arcgis/rest/services/IView2/MapServer/0/query", false],
+    [{"name": "מתקן משחקים", "geometry": {"x": 34.78, "y": 32.08, "spatialReference": {"wkid": 4326}}, "attributes": {"lat": 32.08, "lon": 34.78}, "lat": 32.08, "lon": 34.78}, "https://services.arcgis.com/abc/arcgis/rest/services/Playgrounds/FeatureServer/0", false],
+    [{"name": "גן שעשועים", "x": 180000, "y": 665000, "lat": 32.08, "lon": 34.78}, "https://www.govmap.gov.il/?c=180000,665000", false],
+    [{"name": "פרויקט גן שעשועים", "lat": 32.08, "lon": 34.78, "city": "חולון"}, "https://www.playground-maker.co.il/projects-map", false],
     [{"name": "הצגה", "location_name": "היכל התרבות", "city": "רעננה", "lat": 32.1, "lng": 34.8, "schedule_type": "one_time"}, "https://www.raanana.muni.il/events/1", false],
+    [{"name": "הצגה", "location_name": "היכל התרבות", "address": "אחוזה 1, רעננה", "city": "רעננה", "latitude": 32.1, "longitude": 34.8, "lat": 32.1, "lon": 34.8}, "https://www.raanana.muni.il/events/3", false],
     [{"name": "חוג", "city": "רעננה", "google_place_id": "ChIJindependent"}, "https://www.raanana.muni.il/events/2", false],
     [{}, "https://example.org/page", false],
     [null, null, false]

@@ -21,7 +21,11 @@ _GOOGLE_DOMAIN = r"google\.(?:com|com\.[a-z]{2}|co\.[a-z]{2}|[a-z]{2})"
 _MAPS_HOST_RE = re.compile(rf"maps\.{_GOOGLE_DOMAIN}")
 _GOOGLE_HOST_RE = re.compile(rf"(?:www\.)?{_GOOGLE_DOMAIN}")
 
-PLACES_ORIGIN_KEYS = ("formatted_address", "lon", "place_kind", "google_maps_uri")
+# Places-origin incoming by explicit provenance: a Maps page_url, a google_maps_uri, or the Places-writer PAIR
+# formatted_address + place_kind. A generic key alone (lat/lon/lng, a lone formatted_address or place_kind,
+# google_place_id) never counts - independent OSM / GIS / municipal rows carry those.
+PLACES_EXPLICIT_KEYS = ("google_maps_uri",)
+PLACES_SIGNATURE_KEYS = ("formatted_address", "place_kind")
 
 
 class GooglePlacesPersistenceDisabled(RuntimeError):
@@ -64,7 +68,8 @@ def is_places_origin_candidate(extracted_data, page_url=None) -> bool:
         return True
     if not isinstance(extracted_data, dict):
         return False
-    return any(k in extracted_data for k in PLACES_ORIGIN_KEYS)
+    return (any(k in extracted_data for k in PLACES_EXPLICIT_KEYS)
+            or all(k in extracted_data for k in PLACES_SIGNATURE_KEYS))
 
 
 def assert_google_content_persistence_allowed(what: str) -> None:

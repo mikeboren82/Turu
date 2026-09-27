@@ -60,16 +60,21 @@ function isGoogleOriginActivity(row) {
   return !!row && isGoogleMapsUrl(row.source_url ?? row.sourceUrl ?? null);
 }
 
-// Places-origin INCOMING candidate: its substantive facts are a Places response. Every Places writer (scan-settlement-
-// gaps, playground_discovery.py, the Cleaner settlement NEW_VALID path) stores formatted_address / lon / place_kind /
-// google_maps_uri and a Maps page_url; the page-extraction shape never uses these keys. A google_place_id alone never
-// makes a row Places-origin.
-const PLACES_ORIGIN_KEYS = ['formatted_address', 'lon', 'place_kind', 'google_maps_uri'];
+// Places-origin INCOMING candidate: its substantive facts are a Places response - decided by explicit provenance, never
+// by a generic field. Every Places writer (scan-settlement-gaps, playground_discovery.py, the Cleaner settlement
+// NEW_VALID path) stores a Google Maps page_url (defaulting to https://www.google.com/maps): that is the rule. The key
+// backstop is only a Google-named key (google_maps_uri) or the Places-writer PAIR formatted_address + place_kind.
+// Never on its own: lat / lon / lng / latitude / longitude / geometry (OSM, Nominatim, ArcGIS, GovMap and municipal GIS
+// all emit them), a lone formatted_address or place_kind, or a google_place_id (independent rows legitimately get one).
+// Production replay 2026-09-27: 694 classified rows, every one by its Maps page_url; `lon` was never the only signal.
+const PLACES_EXPLICIT_KEYS = ['google_maps_uri'];
+const PLACES_SIGNATURE_KEYS = ['formatted_address', 'place_kind'];
+const PLACES_ORIGIN_KEYS = [...PLACES_EXPLICIT_KEYS, ...PLACES_SIGNATURE_KEYS]; // every key the rule reads
 function isPlacesOriginCandidate(extractedData, pageUrl = null) {
   if (isGoogleMapsUrl(pageUrl)) return true;
   const ed = extractedData;
   if (!ed || typeof ed !== 'object') return false;
-  return PLACES_ORIGIN_KEYS.some((k) => ed[k] !== undefined);
+  return PLACES_EXPLICIT_KEYS.some((k) => ed[k] !== undefined) || PLACES_SIGNATURE_KEYS.every((k) => ed[k] !== undefined);
 }
 
 // the publish-policy reason (lib/incomingEligibility.js): terminal and not human-overridable while the policy is OFF.

@@ -34,12 +34,16 @@ export function isGoogleMapsUrl(url: unknown): boolean {
   return false;
 }
 
-export const PLACES_ORIGIN_KEYS = ['formatted_address', 'lon', 'place_kind', 'google_maps_uri'];
+// Places-origin incoming by explicit provenance: a Maps page_url, a google_maps_uri, or the Places-writer PAIR
+// formatted_address + place_kind. A generic key alone (lat/lon/lng, a lone formatted_address or place_kind,
+// google_place_id) never counts - independent OSM / GIS / municipal rows carry those.
+export const PLACES_EXPLICIT_KEYS = ['google_maps_uri'];
+export const PLACES_SIGNATURE_KEYS = ['formatted_address', 'place_kind'];
 export function isPlacesOriginCandidate(extractedData: unknown, pageUrl: unknown = null): boolean {
   if (isGoogleMapsUrl(pageUrl)) return true;
   if (!extractedData || typeof extractedData !== 'object') return false;
   const ed = extractedData as Record<string, unknown>;
-  return PLACES_ORIGIN_KEYS.some((k) => ed[k] !== undefined);
+  return PLACES_EXPLICIT_KEYS.some((k) => ed[k] !== undefined) || PLACES_SIGNATURE_KEYS.every((k) => ed[k] !== undefined);
 }
 
 // scan-settlement-gaps' single run decision. The release policy is checked FIRST and independently of the operational
